@@ -83,6 +83,13 @@ T_KEYS = ["tests/test_one_key_per_service.py"]
 T_BAR = ["tests/test_the_bar_holds_its_width.py"]
 T_WORD = ["tests/test_the_word_is_typesetting.py"]
 
+# The landing page. `T_SITE` is the CONTENT test only — not the one that asks
+# whether index.html has been rebuilt, which every mutation here would trip
+# for the same uninteresting reason and which would make the whole set say
+# nothing. See `tests/test_the_website_is_built.py` for why they are apart.
+SITE = "site/build.py"
+T_SITE = ["tests/test_the_website.py"]
+
 MUTANTS = [
     # ---- the file that goes out
     ("manual-label-drops-the-number", MAN,
@@ -1348,7 +1355,52 @@ MUTANTS = [
     ("word-the-noun-comes-back", TR,
      "  sentence. Typeset it as a typesetter would DRAW it — bare.",
      "  sentence. Letter it as a letterer would DRAW it — bare.", T_WORD),
+
+    # ---- the landing page
+    ("site-a-missing-picture-ships-as-a-broken-image", SITE,
+     "    if have(name):\n        return f'<img src=\"assets/{name}\" alt=\"{alt}\" loading=\"lazy\">'",
+     "    if True:\n        return f'<img src=\"assets/{name}\" alt=\"{alt}\" loading=\"lazy\">'",
+     T_SITE),
+    ("site-a-hole-does-not-say-which-file-it-wants", SITE,
+     "            f'<span class=\"sn\">{name}</span>'",
+     "            f'<span class=\"sn\">picture</span>'", T_SITE),
+    ("site-a-hole-does-not-say-what-to-photograph", SITE,
+     "            f'<span class=\"sw\">{want or alt}</span></div>')",
+     "            f'</div>')", T_SITE),
+    ("site-nobody-is-told-what-is-still-wanted", SITE,
+     "    WANTED.append((name, want or alt))\n",
+     "", T_SITE),
+    ("site-the-page-still-sells-a-service-that-is-gone", SITE,
+     "<b>Claude, Google AI Studio or OpenRouter</b> —",
+     "<b>Claude, Gemini, OpenAI or OpenRouter</b> —", T_SITE),
+    ("site-manhwa-is-numbered-like-manga", SITE,
+     '        "dir": "Left to right",\n'
+     '        "line": "Webtoon strips get cut into pages before anything else runs.",',
+     '        "dir": "Right to left",\n'
+     '        "line": "Webtoon strips get cut into pages before anything else runs.",',
+     T_SITE),
+    ("site-a-format-admits-nothing", SITE,
+     '        "rough": [\n'
+     '            ("The local Korean reader is an extra install",',
+     '        "rough": [] and [\n'
+     '            ("The local Korean reader is an extra install",', T_SITE),
+    ("site-the-reveal-hides-the-page-with-no-javascript", SITE,
+     ".nojs .rise{{opacity:1;transform:none}}",
+     "/* .nojs .rise */", T_SITE),
+    ("site-an-anchor-lands-under-the-header", SITE,
+     "[id]{{scroll-margin-top:84px}}",
+     "[id]{{scroll-margin-top:0}}", T_SITE),
+    ("site-the-tabs-cannot-be-moved-through-by-keyboard", SITE,
+     "      var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;",
+     "      var n = -1;", T_SITE),
+    ("site-nobody-built-it", SITE,
+     '<span class="built">Built by <b>LMB Technology</b></span>',
+     '<span class="built"></span>', T_SITE),
+    ("site-the-webtoon-answer-goes-back-to-do-it-yourself", SITE,
+     '"A chapter uploaded as identical tiles is re-cut into pages near 2,400px "',
+     '"Long webtoon strips are the weak spot. "', T_SITE),
 ]
+
 
 
 

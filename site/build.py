@@ -7,6 +7,12 @@ opens from a file:// URL with nothing beside it.
 
 No icon set. Every picture on this page is a real screenshot of the editor or
 a real page it produced — lee: *"d ont use teh icons you love to use so much"*.
+
+**A picture that is not here yet leaves a labelled hole rather than a broken
+image.** `slot()` looks for the file; if it is missing it draws a dashed box
+naming the filename it wants and describing the shot. Drop the file into
+`assets/`, run this again, and the hole becomes the picture with nothing else
+to change. lee: *"leave spots for screenshot and picture ill give yu later"*.
 """
 import base64
 import os
@@ -18,45 +24,208 @@ A = os.path.join(HERE, "assets")
 MARK = open(f"{A}/mark.svg").read()
 MARK_INNER = MARK.split(">", 1)[1].rsplit("</svg>", 1)[0]
 
+# Everything the page asks for that is not in `assets/` yet, collected as the
+# page is built and printed at the end — so "what still needs a screenshot" is
+# an answer the build gives you rather than a list somebody keeps by hand.
+WANTED = []
+
 
 def mark(size):
     return (f'<svg class="mk" viewBox="0 0 64 64" width="{size}" height="{size}" '
             f'aria-hidden="true">{MARK_INNER}</svg>')
 
 
-def shot(src, alt, cap=None, cls=""):
-    c = f'<figcaption>{cap}</figcaption>' if cap else ""
-    return (f'<figure class="shot {cls}">'
-            f'<img src="assets/{src}" alt="{alt}" loading="lazy">{c}</figure>')
+def have(name):
+    return os.path.exists(os.path.join(A, name))
 
+
+def slot(name, alt, want="", ratio="16 / 9"):
+    """The picture, or a labelled hole the shape the picture will be.
+
+    The hole carries the FILENAME, because that is the one thing you need to
+    know to fill it, and a description of the shot, because six weeks later
+    the filename is not enough.
+    """
+    if have(name):
+        return f'<img src="assets/{name}" alt="{alt}" loading="lazy">'
+    WANTED.append((name, want or alt))
+    return (f'<div class="slot" style="aspect-ratio:{ratio}">'
+            f'<span class="sn">{name}</span>'
+            f'<span class="sw">{want or alt}</span></div>')
+
+
+def shot(name, alt, cap=None, want="", ratio="16 / 9", cls=""):
+    c = f"<figcaption>{cap}</figcaption>" if cap else ""
+    return (f'<figure class="shot {cls}">{slot(name, alt, want, ratio)}{c}'
+            f"</figure>")
+
+
+# --------------------------------------------------------------- the content
 
 STEPS = [
-    ("1", "Find text", "Every block of writing on the page, boxed. "
-     "comic-text-detector runs on your machine — no upload, no cost."),
-    ("2", "Read text", "The Japanese, Korean or Chinese out of each box. "
-     "Whole page in one request, or the page cut up for the small print."),
-    ("3", "Translate", "Every box on the page in one go, with the synopsis, "
-     "the character sheet and the glossary in front of it — so honorifics and "
-     "names stay the same on page 39 as on page 1."),
-    ("4", "Proofread", "A second pass that reads the page as a page: pronouns "
-     "with no owner, a name one letter off the sheet, a line that does not "
-     "answer the one before it. It writes a report you can read."),
-    ("5", "Clean", "The Japanese comes off. Flat fill, tone copy, or the "
-     "AI cleaner for the hard bits. Every bubble tells you which it used."),
-    ("6", "Typeset", "The English goes in. Line breaks first, then size — "
-     "never a hyphen, never a cut sentence, never a word split."),
-    ("7", "Export", "The finished pages. Or the cleaned plates. Or a sheet "
-     "with every box numbered, for someone else to typeset."),
+    ("Translation", [
+        ("1", "Find text", "Every block of writing on the page, boxed. "
+         "comic-text-detector runs on your machine — no upload, no cost."),
+        ("2", "Read text", "The Japanese, Korean or Chinese out of each box. "
+         "Whole page in one request, or the page cut up for the small print."),
+        ("3", "Translate", "Every box on the page in one go, with the "
+         "synopsis, the character sheet and the glossary in front of it — so "
+         "honorifics and names stay the same on page 39 as on page 1."),
+        ("4", "Proofread", "A second pass that reads the page as a page: "
+         "pronouns with no owner, a name one letter off the sheet, a line that "
+         "does not answer the one before it. It writes a report you can read."),
+    ]),
+    ("Image", [
+        ("5", "Clean", "The Japanese comes off. Flat fill, tone copy, or the "
+         "AI cleaner for the hard bits. Every bubble tells you which it used."),
+        ("6", "Typeset", "The English goes in. Line breaks first, then size — "
+         "never a hyphen, never a cut sentence, never a word split."),
+    ]),
+    ("Out", [
+        ("7", "Export", "The finished pages. Or the cleaned plates. Or a "
+         "sheet with every box numbered, for someone else to typeset."),
+    ]),
+]
+
+# The three formats, and what is really true of each. Written against the code
+# rather than against the ambition: `translate.MEDIA`, `ocr.LANG_ENGINE`,
+# `order.reading_order`, `strip.py`. The rough edges are on the page on
+# purpose — somebody who finds them out on their own chapter is somebody who
+# stops trusting the parts that ARE good.
+FORMATS = [
+    {
+        "id": "manga",
+        "tab": "Manga",
+        "lang": "Japanese",
+        "dir": "Right to left",
+        "line": "The format the rest of it was built around.",
+        "img": "fmt-manga.jpg",
+        "want": "A Japanese page in the editor with the numbered boxes on, "
+                "showing the right-to-left order",
+        "good": [
+            ("Reading order runs right to left, panel by panel",
+             "Boxes are ordered inside their panel first, and the cut is found "
+             "by measuring the gutter — including slanted ones, which is most "
+             "of an action page. Drag a row and the whole chapter renumbers."),
+            ("Read locally by manga-ocr, no key and no upload",
+             "It installs with the app and it is the strongest reader there is "
+             "for Japanese comic typesetting. Or point Read text at a vision "
+             "model instead — that works for all three formats."),
+            ("Honorifics survive, or come off — your call",
+             "-san, -sama, -kun, -chan, -senpai. And the chapter audit catches "
+             "one welded onto a name where it should not be."),
+            ("Two spellings of a name never become two people",
+             "The name check folds Japanese romanisation — Glow and Glou, "
+             "ou and oh and oo, l and r — so a drift on page 12 is caught "
+             "against page 1."),
+            ("Sound effects are set as words, not as kana",
+             "However the original ink ran down the page, the English goes in "
+             "as one horizontal word — the way a typesetter would draw it."),
+        ],
+        "rough": [
+            ("Vertical Japanese in a narrow column is where the fitter works "
+             "hardest",
+             "It is handled — free text gets its own fit, and a block is "
+             "allowed to run past its box rather than shrink below the "
+             "legible minimum — but it is the case that produces the most "
+             "corrections."),
+        ],
+    },
+    {
+        "id": "manhwa",
+        "tab": "Manhwa",
+        "lang": "Korean",
+        "dir": "Left to right",
+        "line": "Webtoon strips get cut into pages before anything else runs.",
+        "img": "fmt-manhwa.jpg",
+        "want": "A Korean webtoon chapter after the strip was re-cut — the "
+                "page list down the side showing the new pages",
+        "good": [
+            ("A strip uploaded as tiles is re-cut into pages, on upload",
+             "Six or more images of identical width and identical height is a "
+             "sliced strip, and it is re-cut at the gutters into pages near "
+             "2,400px. This exists for webtoons and has no manga equivalent."),
+            ("Cut at a gutter, or told you where it could not be",
+             "The cut goes to the gutter NEAREST the target, not the first one "
+             "past it. Where there is no gutter inside 6,000px it cuts at the "
+             "quietest row and reports that page as forced."),
+            ("Your tiles are kept, never deleted",
+             "They move into a folder beside the chapter. And nothing is re-cut "
+             "on a chapter you have already started work on."),
+            ("Speech levels reach the model",
+             "해요체, 해체 and 합쇼체, and 오빠 / 언니 / 선배 — the register "
+             "notes go into the prompt with the page, so politeness is not "
+             "flattened into one English voice."),
+            ("Left to right, and it is a setting",
+             "Direction follows the format by default and you can override it "
+             "per chapter."),
+        ],
+        "rough": [
+            ("The local Korean reader is an extra install",
+             "Korean and Chinese are read locally by easyocr, which does not "
+             "come with the app: <code>pip install easyocr</code>. Or point "
+             "Read text at a vision model and skip it entirely — that path "
+             "needs nothing installed."),
+            ("The reading prompt still carries Japanese instructions",
+             "Rules about furigana and small kana are sent with a Korean page "
+             "too. Harmless in practice, and honestly just not written yet."),
+            ("The name and honorific audit knows Japanese suffixes only",
+             "-ssi, -nim and 오빠 are handled by the translator and NOT by the "
+             "check that runs afterwards, so a drift in a romanised Korean "
+             "name is not caught for you."),
+            ("Export is one file per page",
+             "Nothing stitches the strip back into one long image. You get the "
+             "pages the re-cut made."),
+        ],
+    },
+    {
+        "id": "manhua",
+        "tab": "Manhua",
+        "lang": "Chinese",
+        "dir": "Left to right",
+        "line": "Simplified out of the box; traditional through a vision model.",
+        "img": "fmt-manhua.jpg",
+        "want": "A Chinese page mid-chapter, ideally one with a dense "
+                "caption box, in the Translation view",
+        "good": [
+            ("Simplified Chinese read locally, traditional through a model",
+             "The local reader is set to simplified. A vision model reads "
+             "either, and needs nothing installed."),
+            ("Register carried by word choice, not by a suffix",
+             "哥, 姐, 前辈 and the classical phrasing that marks a formal "
+             "voice go into the prompt as notes about Chinese specifically."),
+            ("The same strip handling as manhwa",
+             "A tiled upload is re-cut into pages at the gutters, tiles kept, "
+             "forced cuts reported."),
+            ("Left to right, and it is a setting",
+             "Same as manhwa: the format sets it, you can override it."),
+        ],
+        "rough": [
+            ("The local Chinese reader is an extra install",
+             "Same easyocr as Korean — <code>pip install easyocr</code>, or "
+             "use a vision model."),
+            ("The reading prompt still carries Japanese instructions",
+             "Same as manhwa. It works; it is not written for hanzi."),
+            ("The name audit knows Japanese suffixes only",
+             "-ge and -jie are translated properly and are not checked "
+             "afterwards."),
+        ],
+    },
 ]
 
 TABS = [
-    ("File", "Open a chapter, add pages, reorder them. One screen, one job."),
-    ("Workspace", "The page. Boxes on the left of the split, typesetting on the "
-     "right, every tool down the rail. This is where the work happens."),
+    ("File", "Open a chapter, add pages, reorder them. One screen, one job.",
+     "ui-pages.jpg", "The File tab with a chapter open and its pages listed"),
+    ("Workspace", "The page. Boxes on the left of the split, typesetting on "
+     "the right, every tool down the rail. This is where the work happens.",
+     "ui-translation-real.jpg", "The workspace on a real page"),
     ("Results", "The proofread report and the chapter audit — what the second "
-     "pass found, page by page, with the Japanese beside it."),
+     "pass found, page by page, with the original beside it.",
+     "ui-results-real.jpg",
+     "The Results tab showing the proofread report on your own chapter"),
     ("Settings", "Fonts, box types, languages, models, cleaning. Per chapter, "
-     "and remembered."),
+     "and remembered.", "ui-settings-fonts-real.jpg",
+     "Settings ▸ Fonts &amp; typesetting"),
 ]
 
 RULES = [
@@ -79,32 +248,32 @@ RULES = [
      "the translation list, not counted as text to translate. Uploading a new "
      "translation does not sweep it away."),
     ("Nothing is uploaded that you did not send.",
-     "Finding text and cleaning run locally. Reading and translating go to "
-     "whichever model you point them at — including one on your own machine."),
+     "Finding text, cleaning and typesetting run locally. Reading and "
+     "translating go to whichever model you point them at — including one on "
+     "your own machine."),
 ]
 
 CONTROL = [
     ("Every line, on the page",
-     "The text list is the translation: one row per piece of Japanese, what it "
-     "says and what it will say, and how sure the reader was. Open a row and "
-     "the Japanese and the English are both fields \u2014 retype either. Change "
-     "what kind of box it is, split it in two, or link it to the bubble it "
-     "carries on into.",
-     "ui-row-real.jpg"),
+     "The text list is the translation: one row per piece of source text, what "
+     "it says and what it will say, and how sure the reader was. Open a row "
+     "and both are fields — retype either. Change what kind of box it is, "
+     "split it in two, or link it to the bubble it carries on into.",
+     "ui-row-real.jpg", "An open text row with both languages showing"),
     ("Every block, letter by letter",
      "Font, size, rotation, curve, line gap, letter gap, caps. Text colour, "
      "outline colour, both as gradients. Shadow, outer glow, inner glow. Per "
      "block — not per page, not per chapter.",
-     "ui-typesetting.jpg"),
+     "ui-typesetting.jpg", "The typesetting rail with one block selected"),
     ("Every bubble, cleaned your way",
      "The page says which route cleaned each bubble — filled flat, tone "
      "copied, locally, by the AI — so you can see what it did before you trust "
      "it. Or drop in your own cleaned plate and skip the step.",
-     "ui-clean.jpg"),
+     "ui-clean-real.jpg", "The cleaning panel showing the route per bubble"),
 ]
 
 COMPARE = [
-    ("Detection, OCR and translation", "by hand, box by box",
+    ("Detection, reading and translation", "by hand, box by box",
      "one pass, whole chapter", "one pass, whole chapter"),
     ("Where the English goes", "you place every block",
      "you place every block", "fitted, then you correct it"),
@@ -117,8 +286,10 @@ COMPARE = [
      "you remember", "carried into every request"),
     ("Runs the model you choose, or none at all", "no model",
      "fixed", "per step, including local"),
-    ("Translate it entirely by hand", "yes", "no", "yes — a labelled file "
-     "out, filled in, back"),
+    ("Translate it entirely by hand", "yes", "no",
+     "yes — a labelled file out, filled in, back"),
+    ("Webtoon strips cut into pages", "you cut them", "rarely",
+     "on upload, at the gutters"),
     ("Your own cleaned pages", "they are yours", "rarely", "drop them in"),
 ]
 
@@ -133,10 +304,17 @@ FAQ = [
      "machine. Reading and translating send the page — or just the text — to "
      "the model you chose. Point them at something running on your own "
      "computer and nothing leaves at all."),
-    ("Manhwa and manhua?",
-     "Korean and Chinese are supported end to end, and reading direction is a "
-     "setting. Long webtoon strips are the weak spot: the detector sees the "
-     "whole page at one size, so very tall images need cutting up first."),
+    ("What about long webtoon strips?",
+     "A chapter uploaded as identical tiles is re-cut into pages near 2,400px "
+     "on upload, at the gutters, and your tiles are kept. It is done because "
+     "the detector sees a whole page at one size, so on a 10,000px strip the "
+     "text arrives too small to find. A single genuinely enormous image that "
+     "was never tiled is still the weak spot — cut it up first."),
+    ("Which languages can it translate into?",
+     "English, Spanish, Portuguese and French. The prompt is warned that "
+     "Spanish and Portuguese run about a fifth longer than English and French "
+     "about a quarter, because that is the difference between a balloon that "
+     "fits and one that does not."),
     ("Can I use it without any AI?",
      "Yes. Turn on manual translation and the three model steps go quiet. "
      "Download a labelled text file with every box numbered, fill it in, "
@@ -148,23 +326,91 @@ FAQ = [
 ]
 
 
+# ------------------------------------------------------------------ the page
+
 def build():
-    steps = "".join(
-        f'<div class="step"><b>{n}</b><h4>{t}</h4><p>{d}</p></div>'
-        for n, t, d in STEPS)
-    tabs = "".join(f'<div class="tab"><h4>{t}</h4><p>{d}</p></div>'
-                   for t, d in TABS)
-    rules = "".join(f'<div class="rule"><h4>{t}</h4><p>{d}</p></div>'
+    groups = "".join(
+        f'<div class="grp"><p class="gname">{name}</p><div class="gsteps">'
+        + "".join(
+            f'<article class="step" data-step="{n}"><b>{n}</b>'
+            f"<h4>{t}</h4><p>{d}</p></article>" for n, t, d in items)
+        + "</div></div>"
+        for name, items in STEPS)
+
+    fmt_tabs = "".join(
+        f'<button class="tb" role="tab" aria-selected="{str(i == 0).lower()}" '
+        f'aria-controls="f-{f["id"]}" id="t-{f["id"]}">{f["tab"]}'
+        f'<span>{f["lang"]}</span></button>'
+        for i, f in enumerate(FORMATS))
+
+    # Left: what the format is, then what works. Right: the picture, then the
+    # honest list. Stacking them this way keeps the two columns near the same
+    # height whichever tab is open — the rough list is always the shorter one,
+    # and a picture above it is what makes that look deliberate.
+    fmt_panels = "".join(
+        f'<section class="pan" role="tabpanel" id="f-{f["id"]}" '
+        f'aria-labelledby="t-{f["id"]}"{"" if i == 0 else " hidden"}>'
+        f'<div class="two pantop">'
+        f'<div><h3>{f["tab"]} <span class="mut">· {f["lang"]}</span></h3>'
+        f'<p class="panlead">{f["line"]}</p>'
+        f'<p class="chips"><span class="chip">{f["lang"]}</span>'
+        f'<span class="chip">{f["dir"]}</span></p>'
+        f'<p class="sub good">What it does well</p><dl>'
+        + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in f["good"])
+        + "</dl></div>"
+        f'<div><figure class="shot pan-img" style="margin-bottom:26px">'
+        f'{slot(f["img"], f["tab"] + " in the editor", f["want"], "16 / 10")}'
+        f"</figure>"
+        f'<div class="roughbox"><p class="sub rough">Where it is rough</p><dl>'
+        + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in f["rough"])
+        + "</dl></div></div></div></section>"
+        for i, f in enumerate(FORMATS))
+
+    screens = "".join(
+        f'<button class="tb" role="tab" aria-selected="{str(i == 0).lower()}" '
+        f'aria-controls="s-{i}" id="st-{i}">{t}</button>'
+        for i, (t, d, img, want) in enumerate(TABS))
+    screen_panels = "".join(
+        f'<section class="pan" role="tabpanel" id="s-{i}" '
+        f'aria-labelledby="st-{i}"{"" if i == 0 else " hidden"}>'
+        f'<div class="two tight"><div><h3>{t}</h3><p class="mut">{d}</p></div>'
+        f'<figure class="shot">{slot(img, t + " tab", want)}</figure></div>'
+        "</section>"
+        for i, (t, d, img, want) in enumerate(TABS))
+
+    rules = "".join(f'<article class="rule"><h4>{t}</h4><p>{d}</p></article>'
                     for t, d in RULES)
     control = "".join(
-        f'<div class="ctl"><div class="ctltx"><h3>{t}</h3><p>{d}</p></div>'
-        f'<img src="assets/{img}" alt="{t}" loading="lazy"></div>'
-        for t, d, img in CONTROL)
+        f'<div class="ctl rise"><div class="ctltx"><h3>{t}</h3><p>{d}</p></div>'
+        f'<figure class="shot">{slot(img, t, want, "4 / 3")}</figure></div>'
+        for t, d, img, want in CONTROL)
     rows = "".join(
-        f'<tr><th>{a}</th><td>{b}</td><td>{c}</td><td class="me">{d}</td></tr>'
+        f"<tr><th>{a}</th><td>{b}</td><td>{c}</td><td class=\"me\">{d}</td></tr>"
         for a, b, c, d in COMPARE)
-    faq = "".join(f'<details><summary>{q}</summary><p>{a}</p></details>'
+    faq = "".join(f"<details><summary>{q}</summary><p>{a}</p></details>"
                   for q, a in FAQ)
+
+    # The before/after handle. Both halves have to exist for it to mean
+    # anything, so when either is missing the whole thing becomes one labelled
+    # hole rather than a slider with a hole on one side of it.
+    if have("ba-before.jpg") and have("ba-after.jpg"):
+        ba = ('<div class="ba" id="ba">'
+              '<img class="ba-a" src="assets/ba-before.jpg" alt="The raw page">'
+              '<div class="ba-b"><img src="assets/ba-after.jpg" '
+              'alt="The same page, cleaned and typeset in English"></div>'
+              '<div class="ba-h" aria-hidden="true"><i></i></div>'
+              '<input type="range" min="0" max="100" value="52" step="0.1" '
+              'aria-label="Reveal the typeset page"></div>')
+    else:
+        WANTED.append(("ba-before.jpg / ba-after.jpg",
+                       "ONE page, twice: the raw scan and the finished export, "
+                       "same size, same crop. This is the most important "
+                       "picture on the site."))
+        ba = ('<div class="slot tall" style="aspect-ratio:3 / 2">'
+              '<span class="sn">ba-before.jpg + ba-after.jpg</span>'
+              '<span class="sw">One page, twice — the raw scan and the '
+              'finished export, same size and same crop. Drop both in and '
+              'this becomes a slider you drag.</span></div>')
 
     return f"""<!doctype html>
 <html lang="en">
@@ -178,31 +424,60 @@ def build():
 <style>
 @font-face{{font-family:AntonLocal;src:url(assets/anton.ttf) format('truetype');
  font-display:swap}}
-:root{{--bg:#0d0f14;--panel:#141821;--panel2:#1a1f29;--line:#252c38;
- --fg:#eceef3;--dim:#8b93a4;--accent:#ffc400;--accent2:#ff9d00;--ok:#4ade80}}
+
+/* ---------------------------------------------------------------- tokens */
+:root{{
+ --bg:#0b0d12; --bg2:#0f131a; --panel:#141922; --panel2:#1a2029;
+ --line:#232b38; --line2:#2f3947;
+ --fg:#eef1f6; --dim:#98a2b5; --dim2:#6f7a8d;
+ --accent:#ffc400; --accent2:#ff9d00; --ok:#7fd39b; --warn:#ffb35c;
+ --r:14px; --rs:10px;
+ --w:1180px;
+ --sec:clamp(64px,8vw,104px);
+}}
 *{{box-sizing:border-box}}
 html{{scroll-behavior:smooth}}
+@media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}
 body{{margin:0;background:var(--bg);color:var(--fg);
- font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
  -webkit-font-smoothing:antialiased}}
 img{{max-width:100%;display:block}}
 a{{color:var(--accent)}}
-.wrap{{max-width:1120px;margin:0 auto;padding:0 24px}}
-h1,h2,h3,h4,.brand b,.brand i{{font-family:AntonLocal,Impact,"Arial Narrow Bold",sans-serif;
- font-weight:400;letter-spacing:.01em;line-height:1.06}}
-h2{{font-size:clamp(30px,4.4vw,46px);margin:0 0 10px}}
-h3{{font-size:22px;margin:0 0 6px}}
-h4{{font-size:19px;margin:0 0 5px}}
+code{{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+ background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+ padding:1px 5px;color:var(--fg)}}
+.wrap{{max-width:var(--w);margin:0 auto;padding:0 24px}}
+h1,h2,h3,h4,.brand b,.brand i,.step b,.stat b{{
+ font-family:AntonLocal,Impact,"Arial Narrow Bold",sans-serif;
+ font-weight:400;letter-spacing:.005em;line-height:1.05}}
+h2{{font-size:clamp(29px,4.1vw,44px);margin:0 0 12px}}
+h3{{font-size:21px;margin:0 0 7px}}
+h4{{font-size:18px;margin:0 0 5px}}
 p{{margin:0 0 14px}}
-.lead{{color:var(--dim);font-size:18px;max-width:62ch}}
-section{{padding:76px 0;border-top:1px solid var(--line)}}
-.kicker{{font-size:12px;letter-spacing:.2em;text-transform:uppercase;
- color:var(--accent);margin:0 0 12px;font-weight:600}}
+.lead{{color:var(--dim);font-size:18px;max-width:64ch}}
+.mut{{color:var(--dim)}}
+section.band{{padding:var(--sec) 0;border-top:1px solid var(--line)}}
+/* Every anchored section has to clear the sticky header, or following a nav
+   link lands with the heading tucked underneath it. */
+[id]{{scroll-margin-top:84px}}
+.kicker{{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+ color:var(--accent);margin:0 0 12px;font-weight:700}}
 
-/* header */
-header{{position:sticky;top:0;z-index:50;background:rgba(13,15,20,.86);
- backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}}
-.hd{{display:flex;align-items:center;gap:26px;height:62px}}
+/* ------------------------------------------------------ appear on scroll */
+.rise{{opacity:0;transform:translateY(16px);
+ transition:opacity .5s ease,transform .5s ease}}
+.rise.in{{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){{
+ .rise{{opacity:1;transform:none;transition:none}}
+}}
+/* Nothing may be hidden for a reader with JS off — the observer never runs,
+   so the starting state has to be the visible one for them. */
+.nojs .rise{{opacity:1;transform:none}}
+
+/* ---------------------------------------------------------------- header */
+header{{position:sticky;top:0;z-index:60;background:rgba(11,13,18,.82);
+ backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}}
+.hd{{display:flex;align-items:center;gap:26px;height:64px}}
 .brand{{display:flex;align-items:flex-end;gap:9px;text-decoration:none;color:inherit}}
 .brand svg{{display:block}}
 /* MangaTCT is one word. `gap` on a flex row falls between EVERY child, so the
@@ -212,93 +487,191 @@ header{{position:sticky;top:0;z-index:50;background:rgba(13,15,20,.86);
 .brand b{{font-size:25px;line-height:.82}}
 .brand i{{font-size:25px;line-height:.82;color:var(--accent);font-style:normal}}
 .hd nav{{margin-left:auto;display:flex;gap:22px;font-size:14px}}
-.hd nav a{{color:var(--dim);text-decoration:none}}
-.hd nav a:hover{{color:var(--fg)}}
+.hd nav a{{color:var(--dim);text-decoration:none;padding:6px 0;
+ border-bottom:2px solid transparent}}
+.hd nav a:hover{{color:var(--fg);border-bottom-color:var(--accent)}}
 .btn{{display:inline-block;background:var(--accent);color:#141821;
- padding:11px 20px;border-radius:8px;font-weight:700;text-decoration:none;
- font-size:15px;border:1px solid var(--accent)}}
-.btn:hover{{background:#ffd851}}
-.btn.ghost{{background:transparent;color:var(--fg);border-color:var(--line)}}
+ padding:11px 20px;border-radius:9px;font-weight:700;text-decoration:none;
+ font-size:15px;border:1px solid var(--accent);transition:transform .12s ease,
+ background .12s ease}}
+.btn:hover{{background:#ffd851;transform:translateY(-1px)}}
+.btn.ghost{{background:transparent;color:var(--fg);border-color:var(--line2)}}
 .btn.ghost:hover{{background:var(--panel2)}}
 
-/* hero */
-.hero{{padding:78px 0 10px;border:0}}
-.hero h1{{font-size:clamp(40px,5.6vw,72px);margin:0 0 16px;max-width:19ch}}
-.hero h1 em{{color:var(--accent);font-style:normal}}
-.hero .lead{{font-size:20px;max-width:58ch}}
-.cta{{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0 8px;align-items:center}}
-.note{{color:var(--dim);font-size:13px}}
-.heroshot{{margin-top:44px;border:1px solid var(--line);border-radius:14px;
- overflow:hidden;background:var(--panel);box-shadow:0 30px 90px rgba(0,0,0,.55)}}
-.bandmark{{display:flex;gap:34px;flex-wrap:wrap;color:var(--dim);font-size:14px;
- margin-top:22px}}
-.bandmark b{{color:var(--fg);font-family:AntonLocal,sans-serif;font-size:17px;
- letter-spacing:.02em}}
+/* ------------------------------------------------------------------ hero */
+.hero{{padding:clamp(56px,7vw,92px) 0 0;position:relative;overflow:hidden}}
+.hero:before{{content:"";position:absolute;inset:-30% 30% 55% -10%;
+ background:radial-gradient(closest-side,rgba(255,196,0,.13),transparent 70%);
+ pointer-events:none}}
+.hero .wrap{{position:relative}}
+.hero h1{{font-size:clamp(38px,5.2vw,66px);margin:0 0 18px;max-width:24ch}}
+.hero h1 em{{font-style:normal;
+ background:linear-gradient(96deg,var(--accent),var(--accent2));
+ -webkit-background-clip:text;background-clip:text;color:transparent}}
+.hero .lead{{font-size:19.5px;max-width:60ch}}
+.cta{{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0 10px;align-items:center}}
+.note{{color:var(--dim2);font-size:13.5px}}
+.heroshot{{margin-top:44px;border:1px solid var(--line);border-radius:var(--r);
+ overflow:hidden;background:var(--panel);box-shadow:0 34px 90px rgba(0,0,0,.6)}}
+.stats{{display:flex;gap:40px;flex-wrap:wrap;margin:26px 0 0}}
+.stat b{{display:block;font-size:30px;color:var(--fg);line-height:1}}
+.stat span{{color:var(--dim);font-size:14px}}
 
-/* generic blocks */
+/* -------------------------------------------------------- picture holes */
+.slot{{width:100%;border:1.5px dashed var(--line2);border-radius:var(--r);
+ background:repeating-linear-gradient(135deg,var(--panel) 0 12px,
+  var(--bg2) 12px 24px);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:8px;text-align:center;padding:26px;color:var(--dim2)}}
+.slot .sn{{font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;
+ color:var(--accent);letter-spacing:.02em}}
+.slot .sw{{font-size:13.5px;max-width:46ch;color:var(--dim)}}
+
+/* ----------------------------------------------------------- before/after */
+.ba{{position:relative;border:1px solid var(--line);border-radius:var(--r);
+ overflow:hidden;background:var(--panel);touch-action:none;
+ box-shadow:0 30px 80px rgba(0,0,0,.5)}}
+.ba img{{width:100%;display:block}}
+.ba-b{{position:absolute;inset:0;width:var(--x,52%);overflow:hidden}}
+.ba-b img{{position:absolute;top:0;left:0;height:100%;width:auto;
+ max-width:none}}
+.ba-h{{position:absolute;top:0;bottom:0;left:var(--x,52%);width:2px;
+ background:var(--accent);transform:translateX(-1px);pointer-events:none}}
+.ba-h i{{position:absolute;top:50%;left:50%;width:44px;height:44px;
+ margin:-22px 0 0 -22px;border-radius:50%;background:var(--accent);
+ box-shadow:0 4px 18px rgba(0,0,0,.5)}}
+.ba input[type=range]{{position:absolute;inset:0;width:100%;height:100%;
+ opacity:0;cursor:ew-resize;margin:0}}
+.balabels{{display:flex;justify-content:space-between;color:var(--dim2);
+ font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;margin-top:10px}}
+
+/* -------------------------------------------------------------- the walk */
+.walk{{display:grid;grid-template-columns:230px 1fr;gap:46px;align-items:start}}
+/* A grid track's default `min-width:auto` is as wide as its widest child, so
+   the scrolling rail below was making the whole page scroll sideways instead
+   of scrolling itself. */
+.walk>*{{min-width:0}}
+.walk .rail{{position:sticky;top:96px}}
+.walk .rail ol{{list-style:none;margin:0;padding:0}}
+.walk .rail li{{display:flex;gap:11px;align-items:baseline;padding:7px 0;
+ color:var(--dim2);font-size:14.5px;border-left:2px solid var(--line);
+ padding-left:14px;transition:color .2s ease,border-color .2s ease}}
+.walk .rail li.on{{color:var(--fg);border-left-color:var(--accent)}}
+.walk .rail li em{{font-style:normal;color:var(--dim2);font-size:12px;
+ min-width:12px}}
+.walk .rail li.on em{{color:var(--accent)}}
+.grp{{margin-bottom:34px}}
+.gname{{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+ color:var(--dim2);margin:0 0 12px;font-weight:700}}
+.gsteps{{display:grid;gap:14px;grid-template-columns:repeat(2,1fr)}}
+.step{{background:var(--panel);border:1px solid var(--line);
+ border-radius:var(--r);padding:18px 20px;position:relative;
+ transition:border-color .2s ease,transform .2s ease}}
+.step:hover{{border-color:var(--line2);transform:translateY(-2px)}}
+.step b{{position:absolute;top:13px;right:16px;font-size:32px;color:#1e2531}}
+.step p{{color:var(--dim);font-size:14.5px;margin:0}}
+
+/* --------------------------------------------------------------- tabs */
+.tabs{{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 26px}}
+.tb{{appearance:none;background:var(--panel);color:var(--dim);
+ border:1px solid var(--line);border-radius:999px;padding:9px 18px;
+ font:inherit;font-size:15px;font-weight:600;cursor:pointer;
+ display:flex;align-items:baseline;gap:8px;
+ transition:color .15s ease,border-color .15s ease,background .15s ease}}
+.tb span{{font-size:12px;font-weight:400;color:var(--dim2)}}
+.tb:hover{{color:var(--fg);border-color:var(--line2)}}
+.tb[aria-selected=true]{{color:#141821;background:var(--accent);
+ border-color:var(--accent)}}
+.tb[aria-selected=true] span{{color:#4a3d00}}
+.pan[hidden]{{display:none}}
+.pan-img img{{max-height:330px;object-fit:cover;object-position:top}}
+.pantop{{align-items:start}}
+.pantop .chips{{margin-bottom:34px}}
+.pantop .sub{{margin-top:0}}
+.panlead{{color:var(--dim);font-size:17px;margin:0 0 12px}}
+.chips{{display:flex;gap:8px;flex-wrap:wrap;margin:0}}
+.chip{{border:1px solid var(--line2);border-radius:999px;padding:4px 12px;
+ font-size:12.5px;color:var(--dim)}}
+.two{{display:grid;grid-template-columns:1fr 1fr;gap:36px}}
+.two.tight{{grid-template-columns:1fr 1.15fr;align-items:center}}
+.sub{{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;
+ font-weight:700;margin:0 0 16px}}
+.sub.good{{color:var(--ok)}}
+.sub.rough{{color:var(--warn)}}
+/* The rough column is usually shorter than the good one, and a short bare
+   column reads as a mistake. Boxing it makes the asymmetry look like what it
+   is — a deliberately shorter list — and it is the part worth reading twice. */
+.roughbox{{background:var(--panel);border:1px solid var(--line);
+ border-left:3px solid var(--warn);border-radius:var(--r);padding:22px 24px 6px;
+ align-self:start}}
+.roughbox dd:last-of-type{{margin-bottom:16px}}
+dl{{margin:0}}
+dt{{font-weight:650;margin:0 0 4px}}
+dd{{margin:0 0 18px;color:var(--dim);font-size:14.5px}}
+
+/* -------------------------------------------------------------- blocks */
 .grid{{display:grid;gap:18px}}
 .g3{{grid-template-columns:repeat(3,1fr)}}
 .g2{{grid-template-columns:repeat(2,1fr)}}
-.card{{background:var(--panel);border:1px solid var(--line);border-radius:12px;
- padding:20px}}
-.step{{background:var(--panel);border:1px solid var(--line);border-radius:12px;
- padding:18px 20px;position:relative}}
-.step b{{position:absolute;top:14px;right:16px;font-family:AntonLocal,sans-serif;
- font-size:34px;color:#20262f}}
-.step p{{color:var(--dim);font-size:14.5px;margin:0}}
-.tab p{{color:var(--dim);font-size:14.5px;margin:0}}
+.card{{background:var(--panel);border:1px solid var(--line);
+ border-radius:var(--r);padding:20px}}
+.rule{{background:var(--panel);border:1px solid var(--line);
+ border-radius:var(--r);padding:18px 20px}}
 .rule h4{{color:var(--accent)}}
 .rule p{{color:var(--dim);font-size:14.5px;margin:0}}
 figure.shot{{margin:0}}
-figure.shot img{{border:1px solid var(--line);border-radius:12px;background:var(--panel)}}
-figcaption{{color:var(--dim);font-size:13px;margin-top:9px}}
-
-/* control rows */
-.ctl{{display:grid;grid-template-columns:1fr 380px;gap:34px;align-items:center;
- padding:26px 0;border-top:1px solid var(--line)}}
-.ctl:first-child{{border-top:0}}
-.ctl img{{border:1px solid var(--line);border-radius:12px;max-height:420px;
- object-fit:cover;object-position:top}}
+figure.shot img{{border:1px solid var(--line);border-radius:var(--r);
+ background:var(--panel)}}
+figcaption{{color:var(--dim);font-size:13px;margin-top:9px;max-width:70ch}}
+.ctl{{display:grid;grid-template-columns:1fr 400px;gap:36px;align-items:center;
+ padding:30px 0;border-top:1px solid var(--line)}}
+.ctl:first-child{{border-top:0;padding-top:0}}
 .ctl p{{color:var(--dim);margin:0}}
-
-/* clips */
 .clips{{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}}
-.clip{{background:var(--panel);border:1px solid var(--line);border-radius:12px;
- padding:14px}}
-.clip img{{border-radius:8px;width:100%}}
+.clip{{background:var(--panel);border:1px solid var(--line);
+ border-radius:var(--r);padding:14px}}
+.clip img,.clip .slot{{border-radius:var(--rs);width:100%}}
 .clip h4{{margin:12px 0 4px;font-size:17px}}
 .clip p{{color:var(--dim);font-size:14px;margin:0}}
 
-/* table */
-table{{width:100%;border-collapse:collapse;font-size:14.5px}}
+/* -------------------------------------------------------------- table */
+.tblwrap{{overflow-x:auto}}
+table{{width:100%;border-collapse:collapse;font-size:14.5px;min-width:640px}}
 th,td{{text-align:left;padding:13px 14px;border-top:1px solid var(--line);
  vertical-align:top}}
-thead th{{color:var(--dim);font-size:12px;letter-spacing:.14em;
- text-transform:uppercase;border-top:0;font-weight:600;font-family:inherit}}
-tbody th{{font-weight:600;color:var(--fg);width:34%;font-family:inherit}}
+thead th{{color:var(--dim);font-size:11.5px;letter-spacing:.16em;
+ text-transform:uppercase;border-top:0;font-weight:700;font-family:inherit}}
+tbody th{{font-weight:650;color:var(--fg);width:32%;font-family:inherit}}
 td{{color:var(--dim)}}
 td.me{{color:var(--fg)}}
 thead th.me{{color:var(--accent)}}
-
-/* credits */
-.credits{{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}}
-.credits .card b{{display:block;font-family:AntonLocal,sans-serif;font-size:26px;
- margin-bottom:4px}}
-.credits .card p{{color:var(--dim);font-size:14.5px;margin:0}}
+tbody tr:hover td,tbody tr:hover th{{background:var(--bg2)}}
 
 details{{border-top:1px solid var(--line);padding:16px 0}}
-summary{{cursor:pointer;font-weight:600;font-size:17px}}
-details p{{color:var(--dim);margin:10px 0 0;max-width:76ch}}
+summary{{cursor:pointer;font-weight:650;font-size:17px;list-style:none}}
+summary::-webkit-details-marker{{display:none}}
+summary:before{{content:"+";color:var(--accent);margin-right:11px;
+ font-weight:700;display:inline-block;width:12px}}
+details[open] summary:before{{content:"\\2013"}}
+details p{{color:var(--dim);margin:10px 0 0 23px;max-width:78ch}}
 
-footer{{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--dim);
- font-size:14px}}
-.foot{{display:flex;gap:20px;flex-wrap:wrap;align-items:center}}
+footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
+ font-size:14px;background:var(--bg2)}}
+.foot{{display:flex;gap:22px;flex-wrap:wrap;align-items:center}}
 .foot .brand b,.foot .brand i{{font-size:20px}}
+.built{{margin-left:auto;color:var(--dim2)}}
+.built b{{color:var(--fg);font-weight:650}}
 .todo{{background:#241f08;border:1px dashed #6b5a12;color:#e8d48a;
  padding:2px 7px;border-radius:5px;font-size:12px}}
-@media(max-width:900px){{
- .g3,.g2,.clips,.credits{{grid-template-columns:1fr}}
- .ctl{{grid-template-columns:1fr}}
+
+@media(max-width:980px){{
+ .walk{{grid-template-columns:1fr;gap:24px}}
+ .walk .rail{{position:static}}
+ .walk .rail ol{{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}}
+ .walk .rail li{{border-left:0;border-bottom:2px solid var(--line);
+  padding:6px 10px 8px;white-space:nowrap}}
+ .walk .rail li.on{{border-bottom-color:var(--accent)}}
+ .pantop,.two,.two.tight,.ctl,.g3,.g2,.clips,.gsteps{{grid-template-columns:1fr}}
  .hd nav{{display:none}}
 }}
 </style>
@@ -307,17 +680,17 @@ footer{{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--dim);
   <a class="brand" href="#top">{mark(28)}<span class="wm"><b>Manga</b><i>TCT</i></span></a>
   <nav>
     <a href="#how">How it works</a>
+    <a href="#formats">Manga · manhwa · manhua</a>
     <a href="#control">Control</a>
-    <a href="#rules">Rules</a>
     <a href="#compare">Compare</a>
     <a href="#credits">Credits</a>
     <a href="pricing.html">Pricing</a>
-    <a href="account.html">Account</a>
   </nav>
   <a class="btn" href="signin.html">Sign in</a>
 </div></header>
 
 <a id="top"></a>
+
 <section class="hero"><div class="wrap">
   <p class="kicker">Manga · manhwa · manhua</p>
   <h1>Translate, clean and typeset a chapter <em>without giving up the page</em></h1>
@@ -331,188 +704,293 @@ footer{{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--dim);
   </div>
   <p class="note">Free credits on signup, no card. Finding text, cleaning and
   typesetting run on your own machine and cost nothing.</p>
-  <div class="heroshot"><img src="assets/ui-hero-real.jpg"
-    alt="The MangaTCT workspace: a 23-page chapter typeset in English, with
-         the seven steps across the top and the cleaning panel on the right"></div>
-  <div class="bandmark">
-    <span><b>23</b> pages a chapter, in one pass</span>
-    <span><b>7</b> steps, run in any order</span>
-    <span><b>0</b> hyphens, ever</span>
+  <div class="heroshot">{slot('ui-hero-real.jpg',
+    'The MangaTCT workspace: a chapter typeset in English, with the seven '
+    'steps across the top and the cleaning panel on the right',
+    'The workspace on a finished chapter, the whole window', '16 / 10')}</div>
+  <div class="stats">
+    <span class="stat"><b>3</b><span>formats, end to end</span></span>
+    <span class="stat"><b>7</b><span>steps, run in any order</span></span>
+    <span class="stat"><b>4</b><span>languages out</span></span>
+    <span class="stat"><b>0</b><span>hyphens, ever</span></span>
   </div>
 </div></section>
 
-<section id="how"><div class="wrap">
-  <p class="kicker">What it does</p>
-  <h2>A raw page in. A typeset page out.</h2>
-  <p class="lead">Every picture below is a real page this chapter went through
-  — the same file, at three points in the pipeline. Nothing here is a mock-up.</p>
-  <div style="margin:30px 0">{shot('triptych.jpg',
-    'A manga page shown three times: raw with Japanese, cleaned with empty '
-    'balloons, and typeset in English')}</div>
-  <div class="clips">
-    <div class="clip"><img src="assets/clip-pipeline.gif" alt="The three stages
-      cycling: raw, cleaned, typeset" loading="lazy">
+<section class="band" id="how"><div class="wrap">
+  <p class="kicker">Drag it</p>
+  <h2 class="rise">A raw page in. A typeset page out.</h2>
+  <p class="lead rise">One file, both ends of the pipeline. Pull the handle
+  across.</p>
+  <div class="rise" style="margin:30px 0 0">{ba}</div>
+  <div class="balabels"><span>Raw</span><span>Typeset</span></div>
+  <div class="clips rise" style="margin-top:36px">
+    <div class="clip">{slot('clip-pipeline.gif',
+      'The three stages cycling: raw, cleaned, typeset',
+      'A short loop of one page going raw to cleaned to typeset')}
       <h4>The three stages</h4>
-      <p>Find and read, clean, letter. Each stage is a step you can run, undo
+      <p>Find and read, clean, typeset. Each stage is a step you can run, undo
       and run again on one page or the whole chapter.</p></div>
-    <div class="clip"><img src="assets/clip-fit.gif" alt="One balloon typeset
-      with four different lengths of English at four different sizes" loading="lazy">
+    <div class="clip">{slot('clip-fit.gif',
+      'One balloon typeset with four different lengths of English',
+      'A loop of one balloon fitted with four lengths of English')}
       <h4>The fitter, working</h4>
       <p>Same balloon, four lengths of English. It changes the breaks and the
       size — 34pt down to 16pt — and never the words.</p></div>
-    <div class="clip"><img src="assets/clip-font.gif" alt="The same balloon
-      typeset in four different fonts" loading="lazy">
+    <div class="clip">{slot('clip-font.gif',
+      'The same balloon typeset in four different fonts',
+      'A loop of one balloon in four different faces')}
       <h4>One block, four faces</h4>
       <p>A font is a decision about a block, not about a chapter. Change it on
       one bubble and nothing else moves.</p></div>
   </div>
 </div></section>
 
-<section><div class="wrap">
-  <p class="kicker">The steps</p>
-  <h2>Seven of them, in three groups.</h2>
-  <p class="lead">Translation, image, export. The bar says where the chapter is
-  — a count on every button and a fill under it. It does not decide what you
+<section class="band"><div class="wrap">
+  <p class="kicker">The pipeline</p>
+  <h2 class="rise">Seven steps, in three groups.</h2>
+  <p class="lead rise" style="margin-bottom:38px">The bar says where the chapter
+  is — a count on every button and a fill under it. It does not decide what you
   are allowed to press: run any step, in any order, on any pages you like.</p>
-  <div style="margin:28px 0">{shot('ui-steps-real.jpg',
-    'The seven-step bar on a finished chapter: Find text, Read text, '
-    'Translate, Proofread, Clean and Typeset all reading 23 of 23',
-    'A real chapter, six steps done, twenty-three pages each.')}</div>
-  <div class="grid g3" style="margin-top:22px">{steps}</div>
-  <div class="grid g2" style="margin-top:30px;align-items:start">
-    {shot('ui-export-real.jpg',
-      'The export dialog, with the three things it can write',
-      'Export writes what you ask for: the finished pages, the cleaned plates '
-      'with the Japanese gone and no English on them, or the original art with '
-      'every box drawn and numbered for someone else to typeset.')}
-    {shot('ui-toolbox-real.jpg',
-      'The tool rail, with a slot opened to show the tools inside it',
-      'The tool rail is Photoshop-shaped: a slot per job, and the rest of the '
-      'tools in it one right-click away.')}
+  <div class="walk">
+    <div class="rail"><ol id="rail">
+      {"".join(f'<li data-for="{n}"><em>{n}</em>{t}</li>'
+               for _g, items in STEPS for n, t, _d in items)}
+    </ol></div>
+    <div>{groups}</div>
   </div>
+  <div class="rise" style="margin-top:40px">{shot('ui-steps-real.jpg',
+    'The seven-step bar on a finished chapter',
+    'A real chapter, six steps done, twenty-three pages each.',
+    'The step bar with every step reading 23 of 23', '21 / 4')}</div>
 </div></section>
 
-<section><div class="wrap">
+<section class="band" id="formats"><div class="wrap">
+  <p class="kicker">Three formats</p>
+  <h2 class="rise">Manga, manhwa and manhua — what changes between them.</h2>
+  <p class="lead rise" style="margin-bottom:30px">All three are supported end
+  to end. They are not the same job, though, and a tool that pretends they are
+  is a tool that hands you a Korean chapter numbered backwards. Here is what
+  actually differs — including the parts that are still rough.</p>
+  <div class="tabs rise" role="tablist" id="fmttabs">{fmt_tabs}</div>
+  <div class="rise" id="fmtpanels">{fmt_panels}</div>
+  <p class="note" style="margin-top:30px">Everything AFTER the words is the
+  same for all three: cleaning, fitting, typesetting, the effects and the
+  export do not know which format they are working on, and that is deliberate.
+  Out comes English, Spanish, Portuguese or French.</p>
+</div></section>
+
+<section class="band"><div class="wrap">
   <p class="kicker">The screens</p>
-  <h2>Four tabs, and only one of them is ever in your way.</h2>
-  <div class="grid g2" style="margin-top:26px">
-    <div>{"".join(f'<div class="card tab" style="margin-bottom:14px"><h4>{t}</h4><p>{d}</p></div>' for t, d in TABS)}</div>
-    <div>{shot('ui-translation-real.jpg',
-      'The Translation view: numbered boxes over the raw page, and every line '
-      'of it listed down the right with the Japanese under the English')}</div>
-  </div>
+  <h2 class="rise">Four tabs, and only one of them is ever in your way.</h2>
+  <div class="tabs rise" role="tablist" id="scrtabs" style="margin-top:24px">{screens}</div>
+  <div class="rise">{screen_panels}</div>
 </div></section>
 
-<section id="control"><div class="wrap">
+<section class="band" id="control"><div class="wrap">
   <p class="kicker">Editorial control</p>
-  <h2>The machine does the typing. You do the editing.</h2>
-  <p class="lead">This is the part most tools skip. Everything the pipeline
+  <h2 class="rise">The machine does the typing. You do the editing.</h2>
+  <p class="lead rise">This is the part most tools skip. Everything the pipeline
   decided is a value you can see and change, on the page, without leaving the
   editor and without starting again.</p>
-  <div style="margin-top:26px">{control}</div>
-  <div style="margin-top:34px">{shot('ui-typesetting-full.jpg',
+  <div style="margin-top:30px">{control}</div>
+  <div class="rise" style="margin-top:38px">{shot('ui-typesetting-full.jpg',
     'The whole workspace with one block selected and the typesetting panel open',
-    'One block picked, and every control that applies to it.')}</div>
+    'One block picked, and every control that applies to it.',
+    'The workspace with a block selected and the typesetting rail open')}</div>
 </div></section>
 
-<section id="rules"><div class="wrap">
+<section class="band" id="rules"><div class="wrap">
   <p class="kicker">What it will not do</p>
-  <h2>Six rules it will not break to make your life easier.</h2>
-  <p class="lead">A tool that quietly edits your translation to make it fit is
-  not saving you work — it is hiding work you now have to find.</p>
-  <div class="grid g3" style="margin-top:26px">{rules}</div>
-  <div class="grid g2" style="margin-top:30px">
+  <h2 class="rise">Six rules it will not break to make your life easier.</h2>
+  <p class="lead rise">A tool that quietly edits your translation to make it fit
+  is not saving you work — it is hiding work you now have to find.</p>
+  <div class="grid g3 rise" style="margin-top:28px">{rules}</div>
+  <div class="grid g2 rise" style="margin-top:30px">
     {shot('cmp-substitutes.jpg',
-      'The same page typeset twice: with glyph substitution off, the music '
-      'note is kept and the box is flagged; with it on, the note is removed',
+      'The same page typeset twice, with glyph substitution off and on',
       'Your font, and only your font. Left: the switch off — the character '
       'your face cannot draw is KEPT and the box is flagged by name. Right: '
-      'the switch on, if you want it.')}
+      'the switch on, if you want it.',
+      'One page typeset twice: substitution off, then on', '4 / 3')}
     {shot('cmp-spill.jpg',
-      'Outside text and a sound effect typeset at 8pt inside their box, and '
-      'again at 12pt spilling out of it',
+      'A sound effect typeset inside its box, and again spilling out of it',
       'Outside text and sound effects sit on artwork, not on paper. Rather '
       'than shrink under the legible minimum they are set at it and allowed '
-      'to run past the box — the way a typesetter would.')}
+      'to run past the box — the way a typesetter would.',
+      'The same effect at the minimum size, boxed and spilling', '4 / 3')}
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section class="band"><div class="wrap">
   <p class="kicker">The models</p>
-  <h2>Bring your own AI. Or none.</h2>
-  <div class="grid g2" style="margin-top:26px;align-items:center">
+  <h2 class="rise">Bring your own AI. Or none.</h2>
+  <div class="two tight rise" style="margin-top:28px">
     <div>
-      <p>Reading, translating and proofreading each take their own provider and
+      <p>Reading, translating and proofreading each take their own service and
       their own model, so you can put a cheap fast one on the reading and a
-      careful one on the words. Claude, Gemini, OpenAI, OpenRouter, or something
-      running on your own machine.</p>
-      <p>No key? Download the exact request the translator would have sent,
-      paste it into whatever you already pay for, and drop the answer back in.</p>
+      careful one on the words. <b>Claude, Google AI Studio or OpenRouter</b> —
+      one key per service, not one per step — or a model running on your own
+      machine.</p>
+      <p>The menu only ever offers models this app can PRICE and your key can
+      actually REACH, crossed together. A model you cannot run never appears in
+      it, and neither does one nobody has priced.</p>
       <p><b>Or do it entirely by hand.</b> Turn on manual translation and the
       three model steps go quiet. You get a labelled text file with every box
-      numbered the way the box sheet numbers it, the Japanese beside each one
+      numbered the way the box sheet numbers it, the original beside each one
       and room to type underneath. Fill in as much as you like, upload it back,
       and whatever is in it wins.</p>
     </div>
-    {shot('ui-settings-models.jpg', 'Per-step model settings')}
+    <figure class="shot">{slot('ui-settings-models-real.jpg',
+      'Per-step model settings',
+      'Settings ▸ the model for each step, with the three services and the '
+      'API keys block', '4 / 3')}</figure>
   </div>
-  <div style="margin-top:26px">{shot('ui-settings-fonts-real.jpg',
+  <div class="rise" style="margin-top:30px">{shot('ui-settings-fonts-real.jpg',
     'Settings: fonts and typesetting, with a face per box type',
     'Fonts you upload stay with YOU, not with the chapter — the next project '
     'already has them. Every box type gets its own face, and you can add your '
-    'own types: caption box, thought bubble, burst, whisper, aside, sign.')}</div>
+    'own types: caption box, thought bubble, burst, whisper, aside, sign.',
+    'Settings ▸ Fonts and typesetting')}</div>
 </div></section>
 
-<section id="compare"><div class="wrap">
+<section class="band" id="compare"><div class="wrap">
   <p class="kicker">Compared</p>
-  <h2>Against the two ways people do this now.</h2>
-  <p class="lead">Doing it by hand gives you total control and costs you a day
-  a chapter. A one-click translator gives you a chapter in a minute and no way
-  to fix what it got wrong. This sits in the middle on purpose.</p>
-  <table style="margin-top:26px">
+  <h2 class="rise">Against the two ways people do this now.</h2>
+  <p class="lead rise">Doing it by hand gives you total control and costs you a
+  day a chapter. A one-click translator gives you a chapter in a minute and no
+  way to fix what it got wrong. This sits in the middle on purpose.</p>
+  <div class="tblwrap rise" style="margin-top:28px"><table>
     <thead><tr><th></th><th>By hand in Photoshop</th>
       <th>One-click auto-translate</th><th class="me">MangaTCT</th></tr></thead>
     <tbody>{rows}</tbody>
-  </table>
+  </table></div>
   <p class="note" style="margin-top:14px">The middle column describes the
   general class of one-click page translators, not any single product.</p>
 </div></section>
 
-<section id="credits"><div class="wrap">
+<section class="band" id="credits"><div class="wrap">
   <p class="kicker">Credits</p>
-  <h2>Free to try. Then you pay for what you actually run.</h2>
-  <p class="lead">Make an account and it comes with credits — enough to take a
-  chapter through end to end before you decide anything. After that you top up,
-  and only the steps that call a model cost anything.</p>
-  <div class="credits" style="margin-top:26px">
-    <div class="card"><b>Free credits</b>
-      <p>On signup. No card. Run a real chapter, not a demo page.</p></div>
-    <div class="card"><b>Pay as you go</b>
-      <p>Credits are spent by the steps that call a model — reading,
-      translating, proofreading, and AI cleaning if you turn it on.</p></div>
-    <div class="card"><b>Free forever, if you want</b>
-      <p>Point the steps at your own key or your own local model and it costs
-      you nothing here. Finding text, cleaning and typesetting never cost
-      credits.</p></div>
+  <h2 class="rise">Free to try. Then you pay for what you actually run.</h2>
+  <p class="lead rise">Make an account and it comes with credits — enough to
+  take a chapter through end to end before you decide anything. After that you
+  top up, and only the steps that call a model cost anything.</p>
+  <div class="grid g3 rise" style="margin-top:28px">
+    <div class="card"><h4>Free credits</h4>
+      <p class="mut">On signup. No card. Run a real chapter, not a demo
+      page.</p></div>
+    <div class="card"><h4>Pay as you go</h4>
+      <p class="mut">Credits are spent by the steps that call a model —
+      reading, translating, proofreading, and AI cleaning if you turn it
+      on.</p></div>
+    <div class="card"><h4>Free forever, if you want</h4>
+      <p class="mut">Point the steps at your own key or your own local model
+      and it costs you nothing here. Finding text, cleaning and typesetting
+      never cost credits.</p></div>
   </div>
-  <div class="cta" style="margin-top:26px">
+  <div class="cta" style="margin-top:28px">
     <a class="btn" href="#" data-fill="signup">Create an account</a>
     <a class="btn ghost" href="#" data-fill="contact">Talk to us</a>
     <span class="todo">both links need a URL</span>
   </div>
 </div></section>
 
-<section><div class="wrap">
+<section class="band"><div class="wrap">
   <p class="kicker">Questions</p>
-  <h2>The ones worth answering.</h2>
-  <div style="margin-top:20px">{faq}</div>
+  <h2 class="rise">The ones worth answering.</h2>
+  <div class="rise" style="margin-top:22px">{faq}</div>
 </div></section>
 
 <footer><div class="wrap foot">
   <a class="brand" href="#top">{mark(22)}<span class="wm"><b>Manga</b><i>TCT</i></span></a>
   <span>Translate · clean · typeset.</span>
-  <span style="margin-left:auto"><span class="todo">footer links go here</span></span>
+  <span class="todo">footer links go here</span>
+  <span class="built">Built by <b>LMB Technology</b></span>
 </div></footer>
+
+<script>
+/* Everything below is an ENHANCEMENT. With JS off the page is the whole page:
+   every tab panel is reachable, nothing is hidden, and the slider is simply a
+   picture. That is why the reveal class starts visible and is hidden by the
+   script rather than by the stylesheet. */
+document.documentElement.classList.remove('nojs');
+(function(){{
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- appear on scroll */
+  if (!reduce && 'IntersectionObserver' in window) {{
+    var io = new IntersectionObserver(function(es){{
+      es.forEach(function(e){{
+        if (e.isIntersecting) {{ e.target.classList.add('in'); io.unobserve(e.target); }}
+      }});
+    }}, {{rootMargin: '0px 0px -8% 0px', threshold: 0.05}});
+    document.querySelectorAll('.rise').forEach(function(el){{ io.observe(el); }});
+  }} else {{
+    document.querySelectorAll('.rise').forEach(function(el){{ el.classList.add('in'); }});
+  }}
+
+  /* ---- tabs. One handler, both tab strips: they behave identically and a
+     second copy of this is a second place for them to stop doing so. */
+  function wire(stripId){{
+    var strip = document.getElementById(stripId);
+    if (!strip) return;
+    var tabs = [].slice.call(strip.querySelectorAll('[role=tab]'));
+    function show(t){{
+      tabs.forEach(function(o){{
+        var on = o === t;
+        o.setAttribute('aria-selected', on ? 'true' : 'false');
+        var p = document.getElementById(o.getAttribute('aria-controls'));
+        if (p) p.hidden = !on;
+      }});
+    }}
+    strip.addEventListener('click', function(e){{
+      var t = e.target.closest('[role=tab]');
+      if (t) show(t);
+    }});
+    strip.addEventListener('keydown', function(e){{
+      var i = tabs.indexOf(document.activeElement);
+      if (i < 0) return;
+      var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;
+      if (n < 0 || n >= tabs.length) return;
+      e.preventDefault(); tabs[n].focus(); show(tabs[n]);
+    }});
+  }}
+  wire('fmttabs'); wire('scrtabs');
+
+  /* ---- the step rail follows the step you are looking at */
+  var rail = document.getElementById('rail');
+  if (rail && 'IntersectionObserver' in window) {{
+    var lis = {{}};
+    rail.querySelectorAll('li').forEach(function(li){{ lis[li.dataset.for] = li; }});
+    var seen = {{}};
+    var so = new IntersectionObserver(function(es){{
+      es.forEach(function(e){{ seen[e.target.dataset.step] = e.isIntersecting; }});
+      var first = Object.keys(lis).filter(function(k){{ return seen[k]; }})[0];
+      Object.keys(lis).forEach(function(k){{
+        lis[k].classList.toggle('on', k === first);
+      }});
+    }}, {{rootMargin: '-45% 0px -45% 0px'}});
+    document.querySelectorAll('.step').forEach(function(s){{ so.observe(s); }});
+  }}
+
+  /* ---- before / after. The range input IS the control — it is stretched
+     over the picture at zero opacity — so dragging, tapping and the arrow
+     keys all work without a line of pointer code, and a screen reader gets a
+     slider rather than a div. */
+  var ba = document.getElementById('ba');
+  if (ba) {{
+    var r = ba.querySelector('input[type=range]');
+    var b = ba.querySelector('.ba-b img');
+    function put(){{
+      ba.style.setProperty('--x', r.value + '%');
+      if (b) b.style.width = ba.clientWidth + 'px';
+    }}
+    r.addEventListener('input', put);
+    addEventListener('resize', put);
+    addEventListener('load', put);
+    put();
+  }}
+}})();
+</script>
 </html>
 """
 
@@ -526,11 +1004,22 @@ def standalone(html):
     html = html.replace("url(assets/anton.ttf) format('truetype')",
                         f"url({data(f'{A}/anton.ttf', 'font/ttf')}) format('truetype')")
     for f in sorted(os.listdir(A)):
-        if f.endswith((".jpg", ".gif", ".svg")):
-            mime = {"jpg": "image/jpeg", "gif": "image/gif",
+        if f.endswith((".jpg", ".png", ".gif", ".svg")):
+            mime = {"jpg": "image/jpeg", "png": "image/png", "gif": "image/gif",
                     "svg": "image/svg+xml"}[f.rsplit(".", 1)[1]]
             html = html.replace(f"assets/{f}", data(f"{A}/{f}", mime))
     return html
+
+
+def missing(html):
+    """Every `assets/…` the page asks for that is not there.
+
+    Asked of the finished HTML rather than of the build, because a picture can
+    also be named in a hand-written attribute — and a broken image is the one
+    fault a visitor sees before they read a word.
+    """
+    want = sorted(set(re.findall(r"assets/([A-Za-z0-9_.\-]+)", html)))
+    return [f for f in want if not have(f)]
 
 
 if __name__ == "__main__":
@@ -545,3 +1034,13 @@ if __name__ == "__main__":
     print("standalone",
           round(os.path.getsize(f"{HERE}/mangatct-site-standalone.html") / 1e6, 2),
           "MB")
+    broken = missing(html)
+    if broken:
+        print("\nBROKEN image references (should be none):")
+        for f in broken:
+            print("  ", f)
+    if WANTED:
+        print(f"\n{len(WANTED)} picture(s) still wanted — each is a labelled "
+              "hole on the page:")
+        for name, want in WANTED:
+            print(f"  {name}\n      {want}")
