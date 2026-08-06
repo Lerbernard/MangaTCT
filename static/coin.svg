@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="TCT Coin">
+  <!-- The TCT Coin. The face is the app's own mark — the same path as
+       favicon.svg and tools/make_icon.py, struck into the metal rather than
+       laid on top of it, which is what a coin does and what keeps the mark
+       readable at the 15px the top bar draws it at.
+
+       One file, no bitmaps: it is drawn at 15px in the top bar and at 44px in
+       the wallet panel, and a coin that is soft at either size looks like a
+       placeholder. -->
+  <defs>
+    <linearGradient id="cface" x1="0" y1="0" x2=".25" y2="1">
+      <stop offset="0" stop-color="#ffd75e"/>
+      <stop offset=".5" stop-color="#ffc400"/>
+      <stop offset="1" stop-color="#e08900"/>
+    </linearGradient>
+    <linearGradient id="crim" x1="0" y1="0" x2=".3" y2="1">
+      <stop offset="0" stop-color="#fff0b0"/>
+      <stop offset="1" stop-color="#c87b00"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="url(#crim)"/>
+  <circle cx="32" cy="32" r="27" fill="url(#cface)"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#a86400" stroke-opacity=".55" stroke-width="1.4"/>
+  <!-- The mark, struck: the shadow half a unit down and the face over it. -->
+  <g transform="translate(12.16 10.3) scale(.62)">
+    <path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"
+          fill="#fff3c4" fill-opacity=".55" transform="translate(0 1.1)"/>
+    <path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"
+          fill="#7a4a00"/>
+  </g>
+</svg>

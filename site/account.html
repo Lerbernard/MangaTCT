@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Your account — MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css">
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a href="pricing.html">Pricing</a>
+    <a href="account.html">Account</a>
+    <a href="#" id="out">Sign out</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Your account</h1>
+  <p class="lede" id="who"></p>
+
+  <!-- The balance first. It is the thing somebody opens this page to see, and
+       after a payment it is the thing they are anxious about. -->
+  <div class="card row spread" id="purse">
+    <div class="row">
+      <span class="dim">Loading…</span>
+    </div>
+  </div>
+
+  <h2>Profile</h2>
+  <div class="card">
+    <div class="row" style="align-items:flex-start;gap:20px;flex-wrap:wrap">
+      <div>
+        <div id="picNow"></div>
+      </div>
+      <div style="flex:1;min-width:260px">
+        <label for="name">Username</label>
+        <input id="name" autocomplete="off" spellcheck="false"
+               maxlength="20" placeholder="pick a name">
+        <p class="hint" id="nameHint">Letters, numbers, dot, dash and
+          underscore. Everyone's is different.</p>
+        <button id="saveName" class="pri" style="margin-top:12px">Save name</button>
+      </div>
+    </div>
+
+    <label style="margin-top:22px">Picture</label>
+    <div class="picks" id="picks"></div>
+    <p class="hint">Pick one — it saves as you press it.</p>
+  </div>
+
+  <h2>Coins in and out</h2>
+  <div class="card" id="ledger"><p class="dim" style="margin:0">Loading…</p></div>
+
+  <p class="foot"><a href="pricing.html">Buy more coins</a> ·
+    <span class="dim">Signed in as</span> <span id="mail" class="dim"></span></p>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import {
+  call, $, toast, saysWhat, whoAmI, needSignIn, COIN, esc, ICONS, iconSvg,
+  auth, signOut, watchMe, db, doc, setDoc, collection, query, orderBy, limit,
+  getDocs,
+} from './app.js';
+
+let uid = '', mine = null;
+
+/* ------------------------------------------------------------------- purse */
+
+function drawPurse(d) {
+  $('purse').innerHTML = `
+    <div class="row">${COIN}<span class="big">${Number(d.coins || 0)}</span>
+      <span class="dim">coins</span></div>
+    <div class="row">
+      <a class="btn pri" href="pricing.html">Buy coins</a>
+    </div>`;
+}
+
+/* ----------------------------------------------------------------- profile */
+
+function drawPic(id) {
+  $('picNow').innerHTML = iconSvg(id || ICONS[0], 96);
+  for (const b of $('picks').children) b.className = b.dataset.p === id ? 'on' : '';
+}
+
+async function setPic(id) {
+  drawPic(id);
+  try {
+    // Written straight to Firestore, not through a function. The rules let a
+    // person write these two fields on their own document and nothing else —
+    // a picture is not money, and routing it through a callable would only be
+    // a slower way to reach the same rule.
+    await setDoc(doc(db, 'users', uid), { photo: id }, { merge: true });
+  } catch (e) { toast(saysWhat(e), true); }
+}
+
+async function saveName() {
+  const want = $('name').value.trim();
+  if (!want) return;
+  $('saveName').disabled = true;
+  try {
+    const { data } = await call('claimUsername')({ username: want });
+    $('name').value = data.username;
+    $('nameHint').className = 'hint good';
+    $('nameHint').textContent = 'Saved.';
+    $('who').textContent = 'Hello, ' + data.username + '.';
+  } catch (e) {
+    $('nameHint').className = 'hint bad';
+    $('nameHint').textContent = saysWhat(e);
+  }
+  $('saveName').disabled = false;
+}
+
+/* Says "taken" while somebody types, so the answer does not arrive only after
+   they have committed to a name. Debounced — a call per keystroke is a call
+   per keystroke. */
+let tap;
+function typing() {
+  clearTimeout(tap);
+  const want = $('name').value.trim();
+  if (!want || want === (mine && mine.username)) {
+    $('nameHint').className = 'hint';
+    $('nameHint').textContent = 'Letters, numbers, dot, dash and underscore.';
+    return;
+  }
+  tap = setTimeout(async () => {
+    try {
+      const { data } = await call('usernameFree')({ username: want });
+      $('nameHint').className = 'hint ' + (data.free ? 'good' : 'bad');
+      $('nameHint').textContent = data.free ? 'That one is free.'
+        : (data.why || 'Not that one.');
+    } catch { /* the Save button will say it properly */ }
+  }, 400);
+}
+
+/* ------------------------------------------------------------------ ledger */
+
+const WORDS = { spend: 'Spent', refund: 'Refunded', credit: 'Added' };
+
+async function drawLedger() {
+  let rows = [];
+  try {
+    const q = query(collection(db, 'users', uid, 'ledger'),
+                    orderBy('at', 'desc'), limit(50));
+    rows = (await getDocs(q)).docs.map((d) => d.data());
+  } catch (e) {
+    $('ledger').innerHTML = `<p class="dim" style="margin:0">${
+      esc(saysWhat(e))}</p>`;
+    return;
+  }
+  if (!rows.length) {
+    $('ledger').innerHTML = '<p class="dim" style="margin:0">Nothing yet.</p>';
+    return;
+  }
+  $('ledger').innerHTML = `<table>
+    <tr><th>When</th><th>What</th><th class="n">Coins</th></tr>
+    ${rows.map((r) => {
+      const plus = r.kind !== 'spend';
+      const when = r.at && r.at.toDate ? r.at.toDate().toLocaleString(undefined,
+        { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+      return `<tr><td class="dim">${esc(when)}</td>
+        <td>${esc(WORDS[r.kind] || r.kind)} — ${esc(r.what || '')}${
+          r.page ? ` <span class="dim">${esc(r.page)}</span>` : ''}</td>
+        <td class="n${plus ? ' plus' : ''}">${plus ? '+' : '−'}${
+          Number(r.coins || 0)}</td></tr>`;
+    }).join('')}</table>`;
+}
+
+/* -------------------------------------------------------------------- boot */
+
+(async () => {
+  const u = await whoAmI();
+  if (needSignIn(u)) return;
+  uid = u.uid;
+  $('mail').textContent = u.email || '';
+  $('out').onclick = async (e) => {
+    e.preventDefault();
+    await signOut(auth);
+    location.href = 'signin.html';
+  };
+
+  $('picks').innerHTML = ICONS.map((id) =>
+    `<button data-p="${esc(id)}" title="${esc(id)}">${iconSvg(id, 40)}</button>`
+  ).join('');
+  for (const b of $('picks').children) b.onclick = () => setPic(b.dataset.p);
+
+  $('saveName').onclick = saveName;
+  $('name').oninput = typing;
+  $('name').onkeydown = (e) => { if (e.key === 'Enter') saveName(); };
+
+  watchMe(uid, (d) => {
+    if (!d) return;
+    mine = d;
+    drawPurse(d);
+    if (document.activeElement !== $('name')) $('name').value = d.username || '';
+    $('who').textContent = d.username ? 'Hello, ' + d.username + '.'
+      : 'Pick a username below — it is how anyone else sees you.';
+    drawPic(d.photo || ICONS[0]);
+  });
+
+  drawLedger();
+
+  // Straight back from Stripe. The webhook may not have landed yet; the
+  // balance is watched, so it will simply appear.
+  if (new URLSearchParams(location.search).get('paid')) {
+    toast('Payment taken — your coins will land in a moment.');
+    setTimeout(drawLedger, 4000);
+  }
+})();
+</script>

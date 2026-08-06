@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Sign in — MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css">
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav><a href="pricing.html">Pricing</a></nav>
+</header>
+
+<main class="narrow">
+  <h1 id="title">Sign in</h1>
+  <p class="lede" id="lede">Your coins live on your account, so the editor
+    picks them up wherever you are signed in.</p>
+
+  <div class="card">
+    <div class="tabs">
+      <button id="tabIn" class="on" onclick="setMode('in')">Sign in</button>
+      <button id="tabUp" onclick="setMode('up')">Create an account</button>
+    </div>
+
+    <form id="form" onsubmit="return false">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required>
+
+      <label for="pass">Password</label>
+      <input id="pass" type="password" autocomplete="current-password" required>
+
+      <!-- Only on sign-up. A username is chosen once and has to be unique, so
+           it is asked for here rather than left as a thing to do later that
+           nobody does. -->
+      <div id="nameRow" style="display:none">
+        <label for="user">Username</label>
+        <input id="user" autocomplete="username" spellcheck="false"
+               placeholder="what people will see">
+        <p class="hint" id="nameHint">Letters, numbers, dot, dash, underscore.
+          Three to twenty.</p>
+      </div>
+
+      <button class="pri wide" id="go" onclick="go()">Sign in</button>
+    </form>
+
+    <div class="sep">or</div>
+    <button class="wide" onclick="google()">Continue with Google</button>
+
+    <p class="hint" style="margin-top:14px">
+      <a href="#" onclick="forgot();return false">Forgotten your password?</a>
+    </p>
+  </div>
+
+  <p class="foot">No account is needed to run the editor on a model of your
+    own. Coins are only for the hosted ones.</p>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import {
+  auth, call, $, toast, saysWhat, whoAmI,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup,
+} from './app.js';
+
+/* Where to go after signing in. Checked rather than trusted: `next` comes out
+   of the address bar, and a link like `signin.html?next=https://evil.example`
+   would otherwise send somebody who has just typed a password to a page
+   somebody else wrote. Only a page of this site, and never a protocol. */
+function safeNext(raw){
+  const want = String(raw || '');
+  if (!want || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(want) || want.startsWith('//'))
+    return 'account.html';
+  return want.replace(/^\/+/, '');
+}
+const next = safeNext(new URLSearchParams(location.search).get('next'));
+let mode = 'in';
+
+window.setMode = (m) => {
+  mode = m;
+  $('tabIn').classList.toggle('on', m === 'in');
+  $('tabUp').classList.toggle('on', m === 'up');
+  $('nameRow').style.display = m === 'up' ? '' : 'none';
+  $('go').textContent = m === 'up' ? 'Create the account' : 'Sign in';
+  $('title').textContent = m === 'up' ? 'Create an account' : 'Sign in';
+  $('pass').autocomplete = m === 'up' ? 'new-password' : 'current-password';
+};
+
+/* Availability, as you type. Asked of the server, because "is this name taken"
+   is not a question the browser can answer — and asked on a timer, because it
+   is one request per keystroke otherwise. */
+let ask;
+$('user').addEventListener('input', () => {
+  clearTimeout(ask);
+  const h = $('nameHint');
+  h.className = 'hint';
+  h.textContent = 'Checking…';
+  ask = setTimeout(async () => {
+    const v = $('user').value.trim();
+    if (!v) { h.textContent = 'Letters, numbers, dot, dash, underscore.'; return; }
+    try {
+      const { data } = await call('usernameFree')({ username: v });
+      h.className = 'hint ' + (data.free ? 'good' : 'bad');
+      h.textContent = data.free ? `${v} is free.` : (data.why || 'taken');
+    } catch (e) { h.className = 'hint'; h.textContent = ''; }
+  }, 400);
+});
+
+window.go = async () => {
+  const email = $('email').value.trim(), pass = $('pass').value;
+  $('go').disabled = true;
+  try {
+    if (mode === 'up') {
+      const want = $('user').value.trim();
+      if (!want) throw { message: 'Choose a username.' };
+      // The account is made FIRST and the name claimed second: claiming needs
+      // a signed-in caller, because the name is written against a uid.
+      await createUserWithEmailAndPassword(auth, email, pass);
+      await call('claimUsername')({ username: want });
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+    location.href = next;
+  } catch (e) {
+    const why = saysWhat(e);
+    if (why) toast(why, true);
+    $('go').disabled = false;
+  }
+};
+
+window.google = async () => {
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    // Google gives an email, not a username. The account page asks for one and
+    // will not let it be skipped.
+    location.href = 'account.html?name=1';
+  } catch (e) { const w = saysWhat(e); if (w) toast(w, true); }
+};
+
+window.forgot = async () => {
+  const email = $('email').value.trim();
+  if (!email) return toast('Type your email first, then press this.', true);
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast('Sent. Check your email.');
+  } catch (e) { toast(saysWhat(e), true); }
+};
+
+// Already signed in? Then this page is a dead end.
+whoAmI().then((u) => { if (u) location.href = next; });
+if (new URLSearchParams(location.search).get('new')) setMode('up');
+</script>

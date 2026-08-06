@@ -1,0 +1,17 @@
+[project]
+name = "mangatl"
+version = "0.2.0"
+description = "Manga translation pipeline: detect, OCR, translate, inpaint, typeset"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "opencv-python-headless>=4.8", "pillow>=10.0"]
+
+[project.optional-dependencies]
+full = ["anthropic>=0.40", "manga-ocr>=0.1.11"]
+yolo = ["ultralytics>=8.2"]
+
+[project.scripts]
+mangatl = "mangatl.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

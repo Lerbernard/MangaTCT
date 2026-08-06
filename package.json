@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "jsdom": "^30.0.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
+    "firebase-tools": "^15.25.1",
+    "vitest": "^4.1.10"
+  },
+  "scripts": {
+    "test:money": "vitest run tests/functions",
+    "test:rules": "firebase emulators:exec --only firestore --project mangatctproject \"npx vitest run tests/rules\"",
+    "test:js": "npm run test:money && npm run test:rules"
+  }
+}

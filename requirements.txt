@@ -1,0 +1,22 @@
+# core — everything except OCR and translation runs on these alone
+numpy>=1.24
+# contrib build: brings cv2.xphoto, whose patch-based inpainting rebuilds
+# screentone and hatching for the heal tool instead of smearing it
+opencv-contrib-python-headless>=4.8
+pillow>=10.0
+
+# translation
+anthropic>=0.40
+
+# OCR — Japanese (downloads ~450MB model on first use)
+manga-ocr>=0.1.11
+
+# OCR — Korean and Chinese, for manhwa and manhua
+# easyocr>=1.7
+
+# optional: trained detector
+# ultralytics>=8.2
+
+# dev
+pytest>=8.0
+fonttools>=4.40

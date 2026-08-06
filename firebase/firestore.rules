@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// MangaTCT — what the customer's own machine is allowed to touch.
+//
+// The editor runs on the person's computer. Everything it can reach, they can
+// reach: with a browser console and their own ID token they can send whatever
+// request the rules permit. So the rule that matters is not "the app writes
+// the balance carefully", it is **nothing a client holds may write a balance
+// at all**. Coins move in Cloud Functions and nowhere else; the Admin SDK
+// bypasses these rules, which is exactly why they can be this strict.
+//
+// Read is a different question. A person may read their own everything — it
+// is theirs, and hiding it would only mean the editor could not show it.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function mine(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // The fields a person may change about themselves. Everything else on
+    // their own document — coins, plan, username, the Stripe customer id — is
+    // written by a function or not at all. lee asked for *"basic account
+    // custmization like cnging username or picture icon etc"*: the picture and
+    // the display name are here, and the USERNAME is not, because a username
+    // has to be unique and uniqueness cannot be checked by the thing being
+    // checked. That one goes through `claimUsername`.
+    function onlyChanging(fields) {
+      return request.resource.data.diff(resource.data)
+                    .affectedKeys().hasOnly(fields);
+    }
+
+    match /users/{uid} {
+      allow get, list: if mine(uid);
+
+      // Not created here either. A person signing up gets their document from
+      // the auth trigger, with a balance of zero — a client that could create
+      // its own user document could create it with a million coins in it.
+      allow create: if false;
+      allow delete: if false;
+
+      allow update: if mine(uid)
+        && onlyChanging(['displayName', 'photo'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.photo is string
+        && request.resource.data.photo.size() <= 300;
+
+      // The receipt. Written by the functions that move the money, read by
+      // the person whose money it was.
+      match /ledger/{entry} {
+        allow read: if mine(uid);
+        allow write: if false;
+      }
+    }
+
+    // The uniqueness index. One document per taken name, and the document ID
+    // IS the name — so "is it taken" is a document read and "take it" is a
+    // create that fails if it exists. That is what makes it atomic: two people
+    // claiming the same name at the same moment are two creates of one ID, and
+    // exactly one of them loses.
+    //
+    // Readable, because a sign-up form has to be able to say "that one is
+    // gone" before the button is pressed, and a name being taken is public the
+    // moment anybody uses it. `list` is NOT allowed: availability is a
+    // question about one name, not a licence to download every name there is.
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // Prices, tiers and pack sizes. Everybody reads, nobody writes.
+    match /config/{doc} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Anything not named above. A rule file that ends without this is one
+    // forgotten `match` away from being open.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

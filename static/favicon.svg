@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient>
+  <pattern id="atone" width="4" height="4" patternUnits="userSpaceOnUse">
+    <circle cx="1" cy="1" r=".95" fill="#0f1218" opacity=".45"/>
+    <circle cx="3" cy="3" r=".95" fill="#0f1218" opacity=".45"/>
+  </pattern>
+  <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
+</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg>

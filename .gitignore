@@ -1,0 +1,23 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# output
+out/
+proj_*/
+*.egg-info/
+
+# big things that do not belong in history
+node_modules/
+_to_delete/
+.firebase/
+*.tgz
+*.zip
+*.pt
+*.onnx
+models/
+firestore-debug.log

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Pricing — MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css">
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a href="pricing.html">Pricing</a>
+    <a id="acct" href="account.html">Account</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Coins</h1>
+  <p class="lede">Every AI step is priced on what it really costs to run, per
+    text box on the page. A hundred coins is a dollar, your coins never expire,
+    and you can spend them on any model.</p>
+
+  <div id="balance"></div>
+
+  <h2>Coin packs</h2>
+  <p class="lede">Buy what you need, when you need it. No subscription, no
+    monthly minimum, and nothing expires — the coins sit on your account until
+    you spend them.</p>
+  <div class="grid" id="packs"></div>
+
+  <h2>What that buys</h2>
+  <div class="card">
+    <p class="dim" style="margin-top:0">A 23-page chapter with 217 text boxes —
+      read, translated, proofread and cleaned:</p>
+    <table>
+      <tr><th>Model</th><th class="n">Coins a chapter</th><th class="n">Chapters per 1,000</th></tr>
+      <tr><td>Gemini 2.5 Flash-Lite</td><td class="n">28</td><td class="n">35</td></tr>
+      <tr><td>Gemini 3.5 Flash-Lite</td><td class="n">60</td><td class="n">16</td></tr>
+      <tr><td>Claude Haiku 4.5</td><td class="n">102</td><td class="n">9</td></tr>
+      <tr><td>Gemini 3.6 Flash</td><td class="n">166</td><td class="n">6</td></tr>
+      <tr><td>Claude Sonnet 5</td><td class="n">268</td><td class="n">3</td></tr>
+      <tr><td>Claude Opus 5</td><td class="n">434</td><td class="n">2</td></tr>
+    </table>
+    <p class="hint">You pick the model for each step, so reading a page on a
+      cheap one and checking it on a good one is the usual answer. A model you
+      run on your own machine costs no coins at all.</p>
+  </div>
+
+  <p class="foot">Card, Apple&nbsp;Pay, Google&nbsp;Pay, Link and local methods,
+    through Stripe. We never see your card.</p>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { call, $, toast, saysWhat, whoAmI, COIN, esc } from './app.js';
+
+const money = (n) => '$' + (Number(n) % 1 ? Number(n).toFixed(2) : n);
+let signedIn = false;
+
+function draw(packs) {
+  // The third one is raised. A price list with nothing chosen makes the
+  // reader start the choosing from scratch, and the second-largest is the one
+  // most people should be looking at.
+  const pick = Math.min(2, packs.length - 1);
+  $('packs').innerHTML = packs.map((q, i) => `
+    <div class="card tier${i === pick ? ' pick' : ''}">
+      ${i === pick ? '<span class="tag">most people</span>' : ''}
+      <div class="give" style="font-size:19px">${COIN}
+        <b>${q.coins.toLocaleString()}</b> coins</div>
+      <div class="price">${money(q.usd)}</div>
+      <p class="blurb">${(q.coins / q.usd).toFixed(0)} coins to the dollar.
+        They never expire.</p>
+      <button class="${i === pick ? 'pri ' : ''}wide" data-buy="${esc(q.id)}">
+        Buy</button>
+    </div>`).join('');
+
+  for (const b of document.querySelectorAll('[data-buy]'))
+    b.onclick = () => buy(b.dataset.buy, b);
+}
+
+async function buy(what, btn) {
+  if (!signedIn) {
+    // Sign in first, and come back HERE — bouncing somebody to an account page
+    // after they pressed a price is losing them the thing they were doing.
+    location.href = 'signin.html?next=' +
+      encodeURIComponent('pricing.html?buy=' + what);
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const { data } = await call('checkout')({ buy: what });
+    location.href = data.url;
+  } catch (e) { toast(saysWhat(e), true); btn.disabled = false; }
+}
+
+(async () => {
+  const u = await whoAmI();
+  signedIn = !!u;
+  $('acct').textContent = u ? 'Account' : 'Sign in';
+  $('acct').href = u ? 'account.html' : 'signin.html';
+
+  let packs;
+  if (u) {
+    const { data } = await call('me')();
+    packs = data.packs;
+    $('balance').innerHTML = `<div class="card row spread">
+      <div class="row">${COIN}<span class="big">${data.coins}</span>
+        <span class="dim">coins on your account</span></div>
+      <a class="btn" href="account.html">Your account</a></div>`;
+  } else {
+    // The prices are public — a price list that needs an account to read is a
+    // price list nobody reads. `config/prices` is world-readable by the rules.
+    const { FIREBASE } = await import('./config.js');
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${
+      FIREBASE.projectId}/databases/(default)/documents/config/prices`);
+    const j = await r.json().catch(() => ({}));
+    const val = (f) => (((j.fields || {})[f] || {}).arrayValue || {}).values || [];
+    const obj = (v) => Object.fromEntries(Object.entries(v.mapValue.fields)
+      .map(([k, x]) => [k, x.stringValue ?? Number(x.integerValue ?? x.doubleValue)]));
+    packs = val('packs').map(obj);
+  }
+  if (!packs || !packs.length) {
+    $('packs').innerHTML = '<p class="dim">Prices are not published yet — sign '
+      + 'in to see them, or write <code>config/prices</code> in Firestore.</p>';
+    return;
+  }
+  draw(packs);
+
+  // Came back from signing in with something already chosen.
+  const want = new URLSearchParams(location.search).get('buy');
+  if (want && signedIn) {
+    const b = document.querySelector(`[data-buy="${CSS.escape(want)}"]`);
+    if (b) b.click();
+  }
+})();
+</script>

@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>MangaTCT</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/editor.css">
+
+<!-- The TCT Coin, defined ONCE and used wherever a coin belongs: the count
+     in the top bar, and the price beside each choice on a scoped run. Drawn
+     rather than pasted, because a coin that is a plain gold dot in one place
+     and the real thing in another reads as two currencies.
+     lee: *"also make the coin look like the oher coins"*.
+
+     A <symbol> and not a copied <svg>: the gradients have ids, and four
+     copies of an id in one document is four elements fighting over which
+     definition wins. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="cface" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffd75e"/><stop offset=".5" stop-color="#ffc400"/>
+    <stop offset="1" stop-color="#e08900"/></linearGradient>
+  <linearGradient id="crim" x1="0" y1="0" x2=".3" y2="1">
+    <stop offset="0" stop-color="#fff0b0"/><stop offset="1" stop-color="#c87b00"/></linearGradient>
+  <symbol id="tctcoin" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="31" fill="url(#crim)"/>
+    <circle cx="32" cy="32" r="27" fill="url(#cface)"/>
+    <circle cx="32" cy="32" r="27" fill="none" stroke="#a86400" stroke-opacity=".55" stroke-width="1.4"/>
+    <g transform="translate(12.16 10.3) scale(.62)">
+      <path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="#fff3c4" fill-opacity=".55" transform="translate(0 1.1)"/>
+      <path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="#7a4a00"/>
+    </g>
+  </symbol>
+</defs></svg>
+
+<div id="top">
+  <div class="side">
+    <a class="brand" href="/" title="MangaTCT"><svg viewBox="0 0 64 64" width="19" height="19" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient>
+  <pattern id="atone" width="4" height="4" patternUnits="userSpaceOnUse">
+    <circle cx="1" cy="1" r=".95" fill="#0f1218" opacity=".45"/>
+    <circle cx="3" cy="3" r=".95" fill="#0f1218" opacity=".45"/>
+  </pattern>
+  <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
+</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+    <span id="tabs">
+      <!-- A tab like the others, not a button beside them. It opens a whole
+           screen, exactly as Workspace, Results and Settings do, and only one
+           of the four is ever showing.
+           lee: *"new project shoud be a tab like teh otheer and only one shoud
+           be accesabe at a time"*.
+
+           It is called File now, and it is a screen with a section rail down
+           the side like Settings has — New project is the only section on it
+           today, and the rail is what makes room for the next one.
+           lee: *"rename the forst button to file and wheni clcik it a tab with
+           multiple section shoud show rigt now new project shoud be the only
+           one"*. -->
+      <button id="tabNew" class="tab addpages-top" onclick="setTab('new',1)">File</button>
+      <!-- "Edit" named the tab AND the view button in the right-hand corner.
+           Workspace is the room; Image/Translation is what you are looking
+           at in it. lee: *"the second tab shoud be named workspace ro other good
+           name for it"*. -->
+      <button id="tabEdit" class="tab on" onclick="setTab('edit',1)">Workspace</button>
+      <button id="tabRes" class="tab" onclick="setTab('results',1)">Results</button>
+      <button id="tabSet" class="tab" onclick="setTab('settings',1)">Settings</button>
+    </span>
+  </div>
+  <!-- TCT Coins. In the top bar on its OWN, not inside #pageTools or
+       #resultTools: those two swap with the tab you are on, and what is left
+       to spend is true on every tab. lee: *"also add a coin count in the ui at
+       the top"*.
+
+       Clicking it opens the purse — what each step would cost this chapter,
+       what the last runs came to, and the way to put more in. -->
+  <div class="side coinwrap">
+    <button id="coinBtn" onclick="toggleWallet(event)"
+            title="TCT Coins — click for what things cost">
+      <svg class="coinface" width="15" height="15" aria-hidden="true"><use
+            href="#tctcoin"/></svg>
+      <b id="coinN">&mdash;</b></button>
+    <div id="walletPop"></div>
+  </div>
+  <!-- What you can do with a finished chapter. In the top bar rather than
+       above the pages: it is the same three buttons whatever you have
+       scrolled to, and on a long chapter they were off the top of the screen.
+       lee: *"add this to the top bar in the result page to the right and flipe
+       the order"* — so it reads outwards from the one you press last. -->
+  <div class="side right" id="resultTools" style="display:none">
+    <button onclick="newChapter()">Start a new project</button>
+    <button onclick="exportSettings()">Download story context</button>
+    <button class="pri" onclick="downloadZip()">Download all as .zip</button>
+  </div>
+  <!-- Zoom, snap, hide boxes and Original/Edit are all about a page on the
+       canvas. On Results or either settings page there is no canvas, so they
+       are controls for something that is not there.
+       lee: *"thsi sjoud only be visible on the edit page"*. -->
+  <div class="side right" id="pageTools">
+    <!-- The zoom READOUT, and nothing else. The hand, the two zoom tools and
+         the text button were up here as well as in the toolbox down the left,
+         which is the same tool twice — lee: *"the hand tool and text tool is
+         sttill duplicated up too"*. What is left is a number with a minus and
+         a plus, which is not a tool: there is nothing to arm. -->
+    <span class="zoomer">
+      <button class="zb" id="zoutBtn" onclick="zoomStep(-5)"
+              title="Zoom out">&minus;</button>
+      <button class="zb" id="zlabel" onclick="fitPage()" title="Click to fit the page in the window">100%</button>
+      <button class="zb" id="zinBtn" onclick="zoomStep(5)"
+              title="Zoom in">+</button>
+    </span>
+    <label class="swx" title="Hide the outlines"
+           style="margin-left:10px">
+      <input type="checkbox" id="hideboxes" onchange="drawBoxes()"><i></i><span>Hide boxes</span></label>
+    <!-- These two belong to the Translation view and appear with it. They sit
+         BEFORE the pill, and the reason is arithmetic: this group is laid out
+         from the right edge, so anything that appears to the RIGHT of the two
+         buttons shoves them along. Switching views moved the very button you
+         had just pressed out from under the pointer.
+         lee: *"wheni clcik the translation button two button show up to the
+         right of the 2 tabs button just make them she up to the left of the 2
+         tab buttons so that the 2 tab buttons dont move"*. -->
+    <label id="sbsWrap" class="swx" style="margin-right:10px;display:none"
+           title="Side by side">
+      <input type="checkbox" id="sbs" onchange="toggleSideBySide(this.checked)"><i></i><span>Side by side</span></label>
+    <label id="showTextWrap" class="swx" title="Hide the text">
+      <input type="checkbox" id="showText" checked onchange="onShowText()">
+      <i></i><span>Translated text</span></label>
+    <!-- "Original" and "Edit" — the second of which had the same name as the
+         tab it sat under, so the bar read Edit ▸ Edit. Both say what you are
+         looking at now: the artwork with the translation typeset on it, and
+         the artwork as it came. lee: *"rename teh last two boxes to something
+         better"*, then *"rename the to translation tab and image tab"*, and
+         *"cha teh names of teh 2 tabs aroung so the image tabs shoud be named
+         translation"* — so Translation is the one on the left, and each
+         button opens what its name says. -->
+    <span class="views">
+      <button id="vOriginal" class="vw on" onclick="setView('original')">Translation</button>
+      <button id="vTypeset"  class="vw"    onclick="setView('typeset')">Image</button>
+    </span>
+  </div>
+</div>
+
+<div id="work">
+  <div class="side" id="steps"></div>
+  <div class="side right">
+    <div id="job" class="idle">
+      <div class="jobcol">
+        <div id="jobtxt" onclick="showJobMessage()">Ready</div>
+        <div class="barrow"><div id="bar"><div id="fill"></div></div></div>
+      </div>
+      <button id="cancelJob" onclick="cancelJob()" title="Stop the current action"
+              style="display:none">Cancel</button>
+      <!-- The queue: a clock and a count. 0 means nothing is waiting. Clicking
+           it opens the line, where an action can be moved or dropped. -->
+      <div id="queuewrap">
+        <button id="queueBtn" onclick="toggleQueue(event)"
+                title="Actions waiting their turn">
+          <span class="qclock" aria-hidden="true"></span>
+          <b id="queueN">0</b></button>
+        <div id="queuePop"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scopedlg" class="modal">
+  <div class="sheet" style="max-width:380px">
+    <h2 id="scpTitle"></h2>
+    <div class="row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:12px">
+      <button class="pri" id="scpAll" onclick="runScoped(false)"></button>
+      <button id="scpOne" onclick="runScoped(true)">This page only</button>
+      <button id="scpTpl" style="display:none" onclick="downloadTranslateRequest()">
+        Download the AI request (.json)</button>
+      <button id="scpTplIn" style="display:none" onclick="openTplReply()">
+        Add the AI's reply…</button>
+      <button id="scpTxtOut" style="display:none" onclick="downloadTranslationsJson()">
+        Export translated text (.json)</button>
+      <button id="scpPfOut" style="display:none" onclick="downloadProofreadReport()">
+        Download the proofread report (.md)</button>
+      <button onclick="$('scopedlg').classList.remove('on')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="tpldlg" class="modal">
+  <div class="sheet" style="max-width:460px">
+    <h2>Add the AI's reply</h2>
+    <textarea id="tplPaste" rows="9" spellcheck="false"
+      style="width:100%;margin-top:10px;font-family:ui-monospace,monospace;font-size:11px"
+      placeholder='{"regions":[{"id":0,"translation":"…","compact":"…"}]}'></textarea>
+    <div class="row" style="margin-top:10px;justify-content:space-between">
+      <button onclick="$('tplFile').click()">Upload a .json file…</button>
+      <span class="row" style="gap:8px">
+        <button onclick="$('tpldlg').classList.remove('on')">Cancel</button>
+        <button class="pri" onclick="applyTranslateResponse()">Apply</button>
+      </span>
+    </div>
+    <input id="tplFile" type="file" accept=".json,application/json"
+           style="display:none" onchange="tplFromFile(this.files[0]);this.value=''">
+  </div>
+</div>
+
+<div id="ask" class="modal">
+  <div class="sheet" style="max-width:400px">
+    <h2 id="askTitle"></h2>
+    <p class="muted" id="askBody" style="margin:6px 0 0"></p>
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      <button onclick="askClose(false)">Cancel</button>
+      <button class="pri" id="askOk" onclick="askClose(true)">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="expdlg" class="modal">
+  <div class="sheet">
+    <h2>Export the translated pages</h2>
+    <p class="muted" style="margin:4px 0 0" id="expBlurb">The finished pages are
+      written as PNGs into a folder of their own.</p>
+
+    <label>What to write</label>
+    <select id="expMode" onchange="expModeChanged()">
+      <option value="full">Finished pages — cleaned art, English typeset on</option>
+      <option value="clean">Cleaned pages only — Japanese erased, no English</option>
+      <option value="boxes">Boxes drawn on — the original art, marked up for checking</option>
+    </select>
+
+    <label>Which pages</label>
+    <select id="expScope">
+      <option value="all">Every page</option>
+      <option value="one">Only this page</option>
+    </select>
+
+    <label>Save into</label>
+    <div class="row">
+      <input id="expDir" placeholder="choose a folder" style="flex:1">
+      <button id="expBrowse" onclick="browseDir()">Browse…</button>
+    </div>
+
+    <label>Folder name to create there</label>
+    <input id="expName" placeholder="folder name">
+    <p class="help" id="expPath" style="margin:7px 0 0"></p>
+
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      <button onclick="$('expdlg').classList.remove('on')">Cancel</button>
+      <button class="pri" onclick="doExport()">Export</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="sheet">
+    <h2>What should I look for?</h2>
+    <label class="opt"><input type="checkbox" id="kBubble" checked>
+      <span><b>Speech and narration bubbles</b><br>
+      <i>Dialogue inside an outline, and the narration boxes that carry the
+      story between them. This is the reliable one.</i></span></label>
+    <label class="opt"><input type="checkbox" id="kFree">
+      <span><b>Text outside bubbles</b><br>
+      <i>Unboxed dialogue and asides lying loose on the artwork. Conservative —
+      it would rather miss some than cover the page in wrong boxes.</i></span></label>
+    <label class="opt"><input type="checkbox" id="kSfx">
+      <span><b>Sound effects</b><br>
+      <i>Found the same way, but marked as SFX so they are typeset with the
+      SFX font and left out of the cleaning pass.</i></span></label>
+    <p id="ctdNote" class="muted" style="display:none;margin:8px 0 0">
+      This finder reads the whole page in one go and says what kind each block
+      is, so the boxes above are a filter rather than a search: everything is
+      found, and only the kinds you tick are kept.</p>
+    <div class="row" style="margin-top:14px">
+      <button class="pri" onclick="runDetect(false)">Find on every page</button>
+      <button onclick="runDetect(true)">This page only</button>
+      <button onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- The File screen. A rail of sections down the side, exactly as Settings
+     has, with the whole of the old New project screen as the first of them.
+     lee: *"wheni clcik it a tab with multiple section shoud show rigt now new
+     project shoud be the only one"* — so the rail is here with one entry in
+     it, and the next thing that belongs under File is a button and a section,
+     not a rebuild. -->
+<div id="picker">
+ <div class="filecard">
+  <nav id="fileNav">
+    <div class="setnav-title">File</div>
+    <button class="setnav-btn on" data-sec="new"
+            onclick="setFileTab('new')">New project</button>
+    <!-- Saving and opening a chapter belong beside starting one, not three
+         screens away under Settings. lee: *"also add a save project save as
+         and a load project and move into te files tab too"*, and then
+         *"these shoud be button onthe side bar"* — so they are the rail
+         itself rather than a row inside a screen you have to reach first.
+         Each one shows the section as it runs, because that is where it says
+         what it did and where it put it. -->
+    <button class="setnav-btn" data-sec="save"
+            onclick="setFileTab('save')">Project file</button>
+    <div class="setnav-title" style="margin-top:16px">This chapter</div>
+    <button class="setnav-btn" onclick="saveProject()">Save project</button>
+    <button class="setnav-btn" onclick="saveProjectAs()">Save as&hellip;</button>
+    <button class="setnav-btn" onclick="openProject()">Open project&hellip;</button>
+    <!-- Settings had a "Save / move project" screen holding these two. It is
+         gone: everything a FILE does is under File now, and one of the two was
+         already here. lee: *"move the import to the file tab and remove this
+         tab and make it soa import story context"*. -->
+    <div class="setnav-title" style="margin-top:16px">This series</div>
+    <button class="setnav-btn"
+            onclick="exportSettings()">Download story context</button>
+    <button class="setnav-btn"
+            onclick="$('impSet').click()">Import story context&hellip;</button>
+  </nav>
+  <div id="fileBody">
+   <section class="set-section on" data-sec="new">
+  <div class="pk">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <h2 id="pkTitle" style="margin:0">Open a chapter</h2>
+    </div>
+    <div class="pksteps">
+      <span class="pkdot on" data-step="1">1 &middot; Pages</span>
+      <span class="pkdot" data-step="2">2 &middot; Story context</span>
+    </div>
+
+    <div class="pkstep on" data-step="1">
+
+    <div class="row" style="gap:12px;margin-top:14px">
+      <div style="flex:1">
+        <label style="margin-top:0">What is this?</label>
+        <select id="pkMedium" onchange="mediumChosen('pk')">
+          <option value="manga">Manga</option>
+          <option value="manhwa">Manhwa</option>
+          <option value="manhua">Manhua</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label style="margin-top:0"
+               title="Source language">
+               Written in</label>
+        <select id="pkSource">
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="zh">Chinese</option>
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="pt">Portuguese</option>
+          <option value="fr">French</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label style="margin-top:0">Reading direction</label>
+        <select id="pkDirection" onchange="mediumHint()">
+          <option value="rtl">Right to left</option>
+          <option value="ltr">Left to right</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label style="margin-top:0">Translate into</label>
+        <select id="pkTarget">
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="pt">Portuguese</option>
+          <option value="fr">French</option>
+        </select>
+      </div>
+    </div>
+    <p id="pkHint" class="help" style="margin:7px 0 0"></p>
+
+    <div class="drop" id="drop">
+      <p><strong>Drop a folder or images here</strong></p>
+      <p class="muted">or</p>
+      <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap">
+        <button class="pri" onclick="$('fdir').click()">Add pages from a folder…</button>
+        <button onclick="$('ffile').click()">Add pages…</button>
+      </div>
+      <input id="fdir" type="file" webkitdirectory directory multiple
+             style="display:none" onchange="stageFiles(this.files);this.value=''">
+      <input id="ffile" type="file" accept="image/*" multiple
+             style="display:none" onchange="stageFiles(this.files);this.value=''">
+    </div>
+
+    <div id="staged" style="display:none">
+      <div class="row" style="justify-content:space-between;margin-top:14px">
+        <strong id="stagedCount"></strong>
+        <button class="danger" onclick="clearStaged()">Clear all</button>
+      </div>
+      <div id="stagedList"></div>
+      <p class="muted" id="stagedNote" style="margin:8px 0 0"></p>
+    </div>
+
+    <p id="pkmsg" class="muted" style="margin-top:12px"></p>
+    <div class="row pkfoot">
+      <button id="pkClose" style="display:none" onclick="showPicker(false)">Close</button>
+      <span style="flex:1"></span>
+      <button class="pri" id="loadBtn" onclick="pkNext()">Next</button>
+    </div>
+    </div><!-- /step 1 -->
+
+    <div class="pkstep" data-step="2">
+      <div class="drop" id="dropJson">
+        <p><strong>Drop a story context here</strong></p>
+        <p class="muted">a <b>.tct</b> from the last chapter — or the older
+          <b>.json</b>, which still opens</p>
+        <button class="pri" onclick="$('impSetPk').click()">Choose a story context…</button>
+      </div>
+      <input id="impSetPk" type="file" accept=".tct,.json,application/json"
+             style="display:none" onchange="importSettings(this)">
+      <p id="pkJsonMsg" class="help" style="margin-top:10px"></p>
+      <div class="row pkfoot">
+        <button onclick="pkStep(1)">Back</button>
+        <button id="pkClose2" style="display:none" onclick="showPicker(false)">Close</button>
+        <span style="flex:1"></span>
+        <button onclick="pkFinish()">Skip</button>
+        <button class="pri" id="pkDoneBtn" disabled
+                title="Add a settings file, or press Skip"
+                onclick="pkFinish()">Done</button>
+      </div>
+    </div><!-- /step 2 -->
+  </div><!-- /.pk -->
+   </section>
+
+   <section class="set-section" data-sec="save">
+    <div class="pk">
+     <h2 style="margin:0">Save / open project</h2>
+     <p class="muted" style="margin:8px 0 0">A <b>.tctp</b> is the whole
+       chapter in one file: the pages, every box, the Japanese and the English,
+       the layouts, your paint and hand-cleaned plates, the custom box types
+       and the faces it typesets in. Open one anywhere and it is exactly as you
+       left it.</p>
+     <p class="muted" style="margin:4px 0 0">It carries your settings too, and
+       that includes any API keys saved in this project — treat the file the
+       way you would treat the keys.</p>
+
+     <p class="muted" style="margin:10px 0 0">The <b>story context</b> beneath
+       it is the other file: a <b>.tct</b> holding the synopsis, the
+       characters, the places and terms and how this series is set — the part
+       that carries into chapter two.</p>
+     <input id="tctpFile" type="file" accept=".tctp"
+            style="display:none" onchange="uploadProject(this)">
+     <!-- A story context exported before the rename is a .json and still
+          opens: it is the same file under a name that says what is in it. -->
+     <input id="impSet" type="file" accept=".tct,.json,application/json"
+            style="display:none" onchange="importSettings(this)">
+     <p id="tctpMsg" class="muted" style="margin:10px 0 0"></p>
+     <p id="tctpWhere" class="muted" style="margin:4px 0 0"></p>
+    </div>
+   </section>
+  </div><!-- /#fileBody -->
+ </div><!-- /.filecard -->
+</div>
+
+<!-- Kept outside #pages: that list is re-rendered constantly, and destroying
+     an input while its file dialog is open makes the browser cancel it. -->
+<input id="faddm" type="file" accept="image/*" multiple style="display:none"
+       onchange="addMorePages(this.files);this.value=''">
+
+<div id="main">
+  <div id="pages"></div>
+  <!-- The reference pane sits on the LEFT — read the original, edit on the
+       right, like a translator's desk. -->
+  <div id="refWrap" title="Original">
+    <div id="refStage"><img id="refImg" draggable="false"></div>
+  </div>
+  <!-- The toolbox. One place that is always there, so what is armed is
+       always on screen and reaching for another tool is one press.
+       lee: *"make a side bar lke this for all the tool and make tool folder
+       for them like photoshop where you can right clcik to slected similiar
+       tool from a small windown"*. See js/toolbar.js. -->
+  <div id="toolbox"></div>
+  <div id="canvasWrap">
+    <div id="stage">
+      <img id="img" draggable="false">
+      <div id="rubber"></div>
+      <div id="overlay"></div>
+      <div id="modehint"></div>
+    </div>
+    <div id="results"></div>
+  </div>
+  <div id="side">
+    <!-- 1, 2 and 3 are the three main types; the rest of the bar is whatever
+         sub-types this project has. Built from the tables rather than typed
+         out, so it cannot say something the menus do not.
+         lee: *"upadte teh bar with the type of boxes"*. -->
+    <div class="legend" id="legend"></div>
+    <div id="inspector"></div>
+    <h3 id="listHead">Text on this page</h3>
+    <div id="pageNote" class="card" style="display:none;border-left:3px solid #ff8f1f;
+      margin-bottom:8px;font-size:12px;line-height:1.45"></div>
+    <div id="list"></div>
+    <details id="histpanel">
+      <summary>History — this session</summary>
+      <div id="histList"></div>
+    </details>
+    <p class="muted" style="margin-top:12px">
+      <kbd>Del</kbd> remove · <kbd>S</kbd> mark as SFX · <kbd>L</kbd> link to
+      another bubble · <kbd>←</kbd><kbd>→</kbd> pages
+    </p>
+  </div><!-- /#side -->
+
+  <div id="settingsPage" style="display:none">
+   <div class="setcard">
+    <nav id="setNav">
+      <!-- One Settings page with two groups, not two pages with two navs.
+           lee: *"merege the setting into one and have it be into 2 section one
+           setting and teh other manga setting or somthing more newtral that
+           donrt have teh word manga in it"*. "Story" — the app does manhwa and
+           manhua too, and none of this is about manga in particular. -->
+      <div class="setnav-title" >Story</div>
+      <button class="setnav-btn on" data-sec="synopsis" onclick="setSettingsTab('synopsis')">Synopsis</button>
+      <button class="setnav-btn" data-sec="characters" onclick="setSettingsTab('characters')">Characters</button>
+      <button class="setnav-btn" data-sec="terms" onclick="setSettingsTab('terms')">Places, terms &amp; other</button>
+      <div class="setnav-title" style="margin-top:16px">Settings</div>
+      <button class="setnav-btn" data-sec="fonts" onclick="setSettingsTab('fonts')">Fonts &amp; typesetting</button>
+      <button class="setnav-btn" data-sec="language" onclick="setSettingsTab('language')">Language &amp; direction</button>
+      <button class="setnav-btn" data-sec="detection" onclick="setSettingsTab('detection')">Detection &amp; OCR</button>
+      <button class="setnav-btn" data-sec="translation" onclick="setSettingsTab('translation')">Translation engine</button>
+      <button class="setnav-btn" data-sec="cleaning" onclick="setSettingsTab('cleaning')">Page cleaning</button>
+    </nav>
+    <div class="setmain">
+    <div id="setBody">
+      <section class="set-section" data-sec="fonts">
+        <h2 class="set-h">Fonts &amp; typesetting</h2>
+      <!-- The face for every kind of box is chosen in ONE place: the Box
+           types list below, on the row for the type it belongs to. There were
+           three rows up here for the three main types and a fourth picker per
+           sub-type down there, which is the same question asked in two
+           sections. lee: *"merge the fonts selctor with the bubble insatd of
+           saying this sis default it shiud have the font selctor there"*.
+           `#font` is still the project default every other row falls back to,
+           and it lives on the Bubble text row. -->
+      <select id="font" class="fontsel" data-headless="1" style="display:none"
+              onchange="saveSettings()"></select>
+      <select id="font_freefloat" class="fontsel" data-headless="1"
+              style="display:none" onchange="saveSettings()"></select>
+      <select id="font_sfx" class="fontsel" data-headless="1"
+              style="display:none" onchange="saveSettings()"></select>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1"><label>Min pt</label>
+          <input id="minf" type="number" value="12" onchange="saveSettings()"></div>
+        <div style="flex:1"><label>Max pt</label>
+          <input id="maxf" type="number" value="34" onchange="saveSettings()"></div>
+      </div>
+      <!-- The project-wide ALL CAPS switch is gone from view. Capitals are a
+           decision about a BLOCK — one shout in capitals on a page that is
+           not — and that switch is in the typesetting panel where the block is.
+           lee: *"remove teh all caps in teh seeting"*. The input stays,
+           hidden, because `saveSettings` reads it and a project that had it on
+           must keep it on. -->
+      <input id="upper" type="checkbox" style="display:none"
+             onchange="saveSettings()">
+
+      <!-- The face you picked is the face the words are set in. With this
+           off — which is how a project starts — the typesetter will not swap
+           a character for one the font happens to have (ō for o, a curly
+           quote for a straight one) and will not hand a line to another
+           family because the chosen face has no lowercase. A font that is
+           short of a glyph says so on the box instead.
+           lee: *"Fonts should only us that font no substitute, hve a use
+           subtitute button in the setting that if turned n will allow teh
+           typeseeter to use subtitute symeboxes"*. -->
+      <label class="swx" style="margin-top:12px" title="Substitute glyphs">
+        <input type="checkbox" id="substitutes" onchange="saveSettings()">
+        <i></i><span>Let the typesetter substitute glyphs</span></label>
+
+      <h3 style="margin-top:14px">Your fonts</h3>
+      <div class="row" style="margin-top:6px;align-items:center">
+        <button class="pri" onclick="document.getElementById('fontUp').click()">Add fonts…</button>
+        <input id="fontUp" type="file" accept=".ttf,.otf" multiple
+               style="display:none" onchange="uploadFonts(this)">
+        <span id="fontUpMsg" class="help"></span>
+      </div>
+      <div id="upFontList"></div>
+
+      <h3 style="margin-top:14px">Box types</h3>
+      <div id="ckList"></div>
+      <div id="ckAddRow">
+        <div class="row" style="margin-top:6px">
+          <select id="ckFamily" style="flex:0 0 34%"
+                  onchange="onCkFamily()"></select>
+          <input id="ckName" placeholder="Name" style="flex:1">
+          <select id="ckFont" class="fontsel" style="flex:1"></select>
+          <button class="pri" onclick="addCustomKind()">Add</button>
+        </div>
+        <div id="ckSwatches" class="swatchrow"></div>
+      </div>
+      <p id="ckLimit" class="help" style="display:none;margin:6px 0 0"></p>
+      </section>
+
+      <section class="set-section" data-sec="language">
+        <h2 class="set-h">Language &amp; direction</h2>
+      <label>Source material</label>
+      <select id="medium" onchange="mediumChosen('set')">
+        <option value="manga">Manga</option>
+        <option value="manhwa">Manhwa</option>
+        <option value="manhua">Manhua</option>
+      </select>
+
+      <label style="display:flex;gap:6px;align-items:center;text-transform:none;margin-top:12px">
+        <input id="restitch_strips" type="checkbox" style="width:auto" onchange="saveSettings()">
+        <span>Re-cut webtoon strips when a chapter is loaded</span></label>
+      <p class="muted" style="margin:4px 0 0">A webtoon is drawn as one long
+        strip and served as tiles cut every so many pixels — through balloons,
+        through faces, through the middle of the typesetting. When a chapter
+        arrives looking like that it is joined back up and cut again in the
+        gaps between panels. Turn this off to keep the tiles exactly as they
+        came.</p>
+
+      <div class="row" style="gap:10px;margin-top:8px">
+        <div style="flex:1">
+          <label>Page height</label>
+          <input id="strip_target" type="number" min="600" step="100"
+                 onchange="saveSettings()"></div>
+        <div style="flex:1">
+          <label>Never taller than</label>
+          <input id="strip_max" type="number" min="1000" step="100"
+                 onchange="saveSettings()"></div>
+      </div>
+      <p class="muted" style="margin:4px 0 10px">Pages come out near the first
+        number, cut at the nearest gap. Where there is no gap before the second
+        one the page is cut at the quietest row there is, and you are told
+        which pages those were.</p>
+
+      <label>Reading direction</label>
+      <select id="direction" onchange="saveSettings()">
+        <option value="rtl">Right to left</option>
+        <option value="ltr">Left to right</option>
+      </select>
+
+      <label title="Source language">
+        Written in</label>
+      <select id="source" onchange="saveSettings()">
+        <option value="ja">Japanese</option>
+        <option value="ko">Korean</option>
+        <option value="zh">Chinese</option>
+        <option value="en">English</option>
+        <option value="es">Spanish</option>
+        <option value="pt">Portuguese</option>
+        <option value="fr">French</option>
+      </select>
+
+      <label>Translate into</label>
+      <select id="target" onchange="saveSettings()">
+        <option value="en">English</option>
+        <option value="es">Spanish</option>
+        <option value="pt">Portuguese</option>
+        <option value="fr">French</option>
+      </select>
+      </section>
+
+      <section class="set-section" data-sec="detection">
+        <h2 class="set-h">Detection &amp; OCR</h2>
+        <label>Text reader (OCR)</label>
+
+        <label>Reading detail</label>
+        <select id="ocr_detail" onchange="saveSettings()">
+          <option value="page">Whole page at once — 1 request per page</option>
+          <option value="auto">Cut the page up — up to 4 requests per page</option>
+          <option value="high">Finest — up to 9 requests per page</option>
+        </select>
+
+        <label>Text detector</label>
+        <select id="detector" onchange="$('yolocfg').style.display='block';$('ctdcfg').style.display='block';saveSettings()">
+          <option value="comictext">comic-text-detector (text blocks, one .onnx)</option>
+        </select>
+
+        <div id="yolocfg" style="display:none">
+          <label>Model path (.pt for Trained model, .onnx for comic-text-detector)</label>
+          <input id="weights" placeholder="comic-speech-bubble-detector.pt  /  comictextdetector.pt.onnx"
+                 onchange="saveSettings()">
+          <div id="ctdcfg" style="display:none">
+            <label style="display:flex;gap:6px;align-items:center;text-transform:none;margin-top:6px">
+              <input id="auto_kind" type="checkbox" style="width:auto" onchange="saveSettings()">
+              <span>Label box types (bubble / outside text / narration)</span></label>
+          </div>
+          <label>Text model path (optional — finds text outside bubbles)</label>
+          <input id="text_weights" placeholder="models/comic-text-segmenter-yolov8m.pt"
+                 onchange="saveSettings()">
+        </div>
+
+      </section>
+
+      <section class="set-section" data-sec="translation">
+        <h2 class="set-h">Translation engine</h2>
+
+        <!-- Translating it yourself. lee: *"Add a manual translation mode
+             that allows download a txt template with the boxes labeled and
+             uploading that withhteh trasnalation Or just typing it in the
+             text tab   the manual tranlat button should grey out the read
+             text translate and profread"*.
+
+             This is a MODE, not a lock: the three steps go grey because
+             nothing is going to call a model, not because something has to
+             happen first. Turning it off gives them straight back. -->
+        <label class="swx" title="Manual translation">
+          <input type="checkbox" id="manual_translate" onchange="saveSettings()">
+          <i></i><span>I'll translate it myself</span></label>
+        <div class="row" id="manrow" style="margin-top:8px;display:none">
+          <button class="pri" onclick="downloadManualTemplate('txt')">Template (TXT)</button>
+          <button onclick="downloadManualTemplate('json')">JSON</button>
+          <button onclick="document.getElementById('manUp').click()">Upload filled in…</button>
+          <input id="manUp" type="file" accept=".txt,.json,.md"
+                 style="display:none" onchange="uploadManualTranslation(this)">
+        </div>
+
+        <!-- A "Claude model" menu stood here and a "Translation engine" menu
+             stood below the three boxes, and between them they answered the
+             same question these boxes answer. Two places to set one thing is
+             two places for them to disagree, and the coin price could only
+             ever quote one of the two.
+             lee: *"remove teh recomened tab and the translation engine and
+             the coins shou look at what ai is in each of teh step to use to
+             bill"*.
+
+             A project set up on the old pair is not lost: `migrate_engine`
+             copies its engine onto whichever of the three steps had none. -->
+        <label style="margin-top:14px">API KEYS</label>
+        <p class="sethint">One key per service, not one per step. A key is a
+          fact about the provider — the same Google key that reads the page
+          translates it — and three boxes meant typing it twice and never
+          being sure which of the two a run would use.</p>
+        <div class="stepai">
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <label style="flex:1 1 130px;margin:0;align-self:center">Claude API</label>
+            <input id="key_anthropic" type="password" placeholder="sk-ant-…"
+                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <label style="flex:1 1 130px;margin:0;align-self:center">Google AI Studio</label>
+            <input id="key_gemini" type="password" placeholder="AIza…"
+                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <label style="flex:1 1 130px;margin:0;align-self:center">OpenRouter</label>
+            <input id="key_openrouter" type="password" placeholder="sk-or-…"
+                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
+          </div>
+        </div>
+
+        <label style="margin-top:14px">THE MODEL FOR EACH STEP</label>
+        <p class="sethint">Each step calls its own model, and each one is
+          priced on what that model really costs — so reading every page on a
+          cheap model and checking it once on a good one is the difference
+          between a chapter costing thirty coins and three hundred. The menus
+          list what this app can price; anything else is charged at the
+          highest rate and says so.</p>
+        <div class="stepai">
+          <label style="margin-top:10px">READ TEXT — the model that reads the page</label>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <select id="ocr_backend" onchange="saveSettings();modelsStale('ocr')" style="flex:1 1 150px">
+              <option value="anthropic">Claude API</option>
+              <option value="gemini">Google AI Studio</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+            <select id="ocr_model_sel" onchange="pickModel('ocr')"
+                    style="flex:2 1 200px"></select>
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="ocr_model" placeholder="model name" style="flex:2 1 200px;display:none"
+                   onchange="saveSettings()">
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="ocr_base_url" placeholder="address, only for a local or odd one"
+                   onchange="saveSettings()" style="flex:2 1 200px">
+          </div>
+        </div>
+        <div class="stepai">
+          <label style="margin-top:10px">TRANSLATE — the model that writes the English</label>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <select id="translate_backend" onchange="saveSettings();modelsStale('translate')" style="flex:1 1 150px">
+              <option value="anthropic">Claude API</option>
+              <option value="gemini">Google AI Studio</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+            <select id="translate_model_sel" onchange="pickModel('translate')"
+                    style="flex:2 1 200px"></select>
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="translate_model" placeholder="model name" style="flex:2 1 200px;display:none"
+                   onchange="saveSettings()">
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="translate_base_url" placeholder="address, only for a local or odd one"
+                   onchange="saveSettings()" style="flex:2 1 200px">
+          </div>
+        </div>
+        <div class="stepai">
+          <label style="margin-top:10px">PROOFREAD — the model that checks it</label>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <select id="proofread_backend" onchange="saveSettings();modelsStale('proofread')" style="flex:1 1 150px">
+              <option value="anthropic">Claude API</option>
+              <option value="gemini">Google AI Studio</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+            <select id="proofread_model_sel" onchange="pickModel('proofread')"
+                    style="flex:2 1 200px"></select>
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="proofread_model" placeholder="model name" style="flex:2 1 200px;display:none"
+                   onchange="saveSettings()">
+          </div>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <input id="proofread_base_url" placeholder="address, only for a local or odd one"
+                   onchange="saveSettings()" style="flex:2 1 200px">
+          </div>
+        </div>
+
+            <label class="swx" style="margin-top:12px"
+             title="Sets the four configurable thresholds to OFF">
+        <input type="checkbox" id="gemini_safety_off" onchange="saveSettings()">
+        <i></i><span>Turn Gemini's safety thresholds down</span></label>
+      <!-- This one line stays. It is not an explanation of how to use the
+           software, it is a limit on what the switch above can do: the four
+           categories Google lets you set go to OFF, and its protections
+           against core harms are not configurable and remain on either way.
+           A switch labelled only "turn safety down" would claim more than it
+           does. -->
+      <p class="help" style="margin:3px 0 0">Core protections stay on.</p>
+</section>
+
+      <section class="set-section" data-sec="cleaning">
+        <h2 class="set-h">Page cleaning</h2>
+      <label>Method</label>
+      <select id="ai_clean" onchange="toggleAiCfg();saveSettings()">
+        <option value="off">Local — instant, no cost (default)</option>
+        <option value="hard">AI for hard areas — screentone, SFX, text on art</option>
+        <option value="all">AI for the whole page</option>
+      </select>
+      <div id="aicfg" style="display:none">
+        <label>Cleaner endpoint URL</label>
+        <input id="clean_url" placeholder="https://…modal.run"
+               onchange="saveSettings()">
+        <label>Cleaner token</label>
+        <input id="clean_token" type="password"
+               placeholder="the token from your deploy file"
+               onchange="saveSettings()">
+        <div style="margin:8px 0 0">
+          <button id="cleanTestBtn" onclick="testCleaner()">Test cleaner</button>
+        </div>
+        <p class="help" id="cleanTestOut" style="margin:6px 0 0"></p>
+      </div>
+      </section>
+
+      <section class="set-section on" data-sec="synopsis">
+        <h2 class="set-h">Synopsis</h2>
+        <!-- The name of the thing. It travels with the synopsis and the cast
+             rather than with the settings, because it is content — and it is
+             what the story context file and the chapter file get named, which
+             beats "mangatl-project" on both counts.
+             lee: *"in teh symo[psis tab add a tilee box fort the manga"*. -->
+        <label>Title</label>
+        <input id="title" onchange="saveSettings()" maxlength="120"
+               placeholder="What this manga is called">
+        <label>Series synopsis (guides the translation)</label>
+        <textarea id="synopsis" onchange="saveSettings()" oninput="growSynopsis()"
+          placeholder="Who the story is about, what is happening, and — most useful of all — each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
+      </section>
+
+      <section class="set-section" data-sec="characters">
+        <h2 class="set-h">Characters</h2>
+        <div id="charList"></div>
+        <div class="row" style="margin-top:6px">
+          <input id="chName" placeholder="Name" style="flex:1">
+          <input id="chDesc" placeholder="pronouns · how they speak"
+                 style="flex:2">
+          <button class="pri" onclick="addCharacter()">Add</button>
+        </div>
+      </section>
+
+      <section class="set-section" data-sec="terms">
+        <h2 class="set-h">Places, terms and other</h2>
+        <div id="glossList"></div>
+        <div class="row" style="margin-top:6px">
+          <input id="glTerm" placeholder="Name in English" style="flex:1">
+          <input id="glDesc" placeholder="Note"
+                 style="flex:2">
+          <button class="pri" onclick="addGloss()">Add</button>
+        </div>
+      </section>
+
+    </div><!-- /#setBody -->
+    <!-- Save and Cancel end the card, bottom right, where the button that
+         finishes a form belongs. They used to be pinned to the foot of the
+         nav column on the far left, a whole screen away from the last control
+         you touched. lee: *"the save an cancel button shoud be at teh bttom
+         right"*. -->
+    <div class="setfoot">
+      <button onclick="cancelSettings()">Cancel</button>
+      <button class="pri" onclick="saveSettingsClick()">Save settings</button>
+    </div>
+    </div><!-- /.setmain -->
+   </div><!-- /.setcard -->
+  </div><!-- /#settingsPage -->
+
+</div><!-- /#main -->
+<div id="toast"></div>
+
+<!-- Classic scripts, not ES modules: they share one global scope and MUST
+     load in this order. See each file's banner for what lives where. -->
+<script src="/static/js/core.js"></script>
+<script src="/static/js/project.js"></script>
+<script src="/static/js/frames.js"></script>
+<script src="/static/js/history.js"></script>
+<script src="/static/js/paint.js"></script>
+<script src="/static/js/picker.js"></script>
+<script src="/static/js/sync.js"></script>
+<script src="/static/js/select.js"></script>
+<script src="/static/js/typesetting.js"></script>
+<script src="/static/js/panels.js"></script>
+<script src="/static/js/region-ops.js"></script>
+<script src="/static/js/pipeline.js"></script>
+<script src="/static/js/coins.js"></script>
+<script src="/static/js/typesetting-edit.js"></script>
+<script src="/static/js/project-io.js"></script>
+<script src="/static/js/toolbar.js"></script>
+<script src="/static/js/view.js"></script>
+<script src="/static/js/boot.js"></script>
+</html>

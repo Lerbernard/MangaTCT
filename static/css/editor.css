@@ -1,0 +1,1380 @@
+:root{
+  --bg:#101216; --panel:#171a21; --panel2:#1e222b; --line:#2b313d;
+  --fg:#e7e9ee; --dim:#8b93a4; --accent:#ffc400; --ok:#4ade80;
+  --warn:#fb923c; --bad:#f87171; --blue:#60a5fa;
+  /* Kept in step with LINK_COLOR in frames.js and LINK_COLOUR in render.py —
+     a test fails if the three drift apart. */
+  --link:#2a63d8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+ font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+ height:100vh;display:flex;flex-direction:column;overflow:hidden;
+ /* Greyscale antialiasing, not the subpixel kind.
+
+    Windows draws small text with ClearType, which lights the red, green and
+    blue subpixels of one pixel by different amounts to fake a third of a
+    pixel of precision. On black-on-white that is invisible. On DARK TEXT OVER
+    A SATURATED YELLOW — the lit view switch, the open tab, every .pri button
+    — the fringes have nothing to blend into and the label comes out tinted:
+    lee sent a crop of "Translation" on its pill reading blue-violet rather
+    than black. Greyscale AA has no colour to fringe with, so a label is the
+    colour it was given. lee: *"fix tjis whike you are at it"*. */
+ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale}
+/* A button that answers when you touch it.
+   lee: *"mak ethe on hover and on clcikk for the button look btter"*. Hover
+   was one flat colour swap and a press did nothing at all, so there was no
+   moment where the button acknowledged the click — on a slow action that
+   reads as a button that did not take it. Now: it lifts a little under the
+   pointer, and goes down and dark on the press, which is the whole of what a
+   button has to say. */
+button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+ border-radius:6px;padding:6px 11px;cursor:pointer;font-size:12px;
+ transition:background .12s ease, border-color .12s ease,
+            transform .06s ease, box-shadow .12s ease}
+button:hover:not(:disabled){background:#2f3648;border-color:#4a5670;
+ box-shadow:0 1px 4px rgba(0,0,0,.35);transform:translateY(-1px)}
+button:active:not(:disabled){background:#232a37;border-color:#3c465a;
+ transform:translateY(1px);box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}
+button.pri{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:600}
+button.pri:hover:not(:disabled){background:#ffd851;border-color:#ffd851;
+ box-shadow:0 2px 8px rgba(255,199,0,.28)}
+button.pri:active:not(:disabled){background:#e0ab00;border-color:#e0ab00;
+ box-shadow:inset 0 2px 6px rgba(0,0,0,.3)}
+button.danger{background:#d63a3a;border-color:#d63a3a;color:#fff;font-weight:600}
+button.danger:hover:not(:disabled){background:#e94f4f;border-color:#e94f4f;
+ color:#fff;box-shadow:0 2px 8px rgba(214,58,58,.32)}
+button.danger:active:not(:disabled){background:#b32d2d;border-color:#b32d2d;
+ box-shadow:inset 0 2px 6px rgba(0,0,0,.35)}
+input,select,textarea{background:#12151b;color:var(--fg);border:1px solid var(--line);
+ border-radius:6px;padding:6px 8px;font:inherit;width:100%}
+
+/* --- the stepper on a number box ---
+   Chromium's own is a pair of hairline arrows sized for a white page: on this
+   theme it reads as a smudge, and on a 28px-tall box the two halves are barely
+   4px each. Turning `appearance` off does NOT remove the control — it keeps
+   working, top half up and bottom half down — so it can be painted properly:
+   one column the full height of the box, a divider down its left, and the two
+   chevrons drawn as one background image, dim until the box is touched. */
+/* --- the up/down on a number box ---
+   Both browsers draw their own and neither can be made to look like the other:
+   Chromium's inner-spin-button can be painted, Firefox's cannot be touched at
+   all, and lee works in Firefox — so his boxes carried a cramped little native
+   control. Both natives are switched off here and one is BUILT instead, out of
+   two real buttons (see dressNumbers in project-io.js). It is the same control
+   in every browser, it is big enough to hit, and it can be styled.
+
+   The buttons sit inside the box rather than beside it, so nothing on the page
+   changes width: the wrapper is the size the input used to be. */
+input[type=number]{-moz-appearance:textfield;appearance:textfield;
+ padding-right:20px}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{
+ -webkit-appearance:none;appearance:none;margin:0;display:none}
+.numwrap{position:relative;display:block;width:100%}
+.numwrap>input{width:100%;box-sizing:border-box}
+.numbtn{position:absolute;right:1px;width:19px;height:calc(50% - 1px);
+ padding:0;margin:0;border:0;border-left:1px solid var(--line);
+ background:#171a21;color:#8b93a4;cursor:pointer;line-height:0;
+ display:flex;align-items:center;justify-content:center;
+ font-size:9px;border-radius:0;transition:background .1s,color .1s}
+.numbtn.up{top:1px;border-radius:0 5px 0 0}
+.numbtn.dn{bottom:1px;border-top:1px solid var(--line);border-radius:0 0 5px 0}
+.numbtn:hover{background:#2b3140;color:var(--accent)}
+.numbtn:active{background:var(--accent);color:#161616}
+.numwrap:focus-within .numbtn{color:var(--accent)}
+
+/* --- a switch ---
+   The three show/hide switches in the Current page card. A switch says "this
+   is on, and turning it off does something now"; a tick says "this is one of
+   the things I am choosing". lee asked for switches on the three kinds and
+   they are the right control: unticking one changes the page immediately. */
+input.sw[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;
+ width:34px;height:19px;padding:0;border-radius:19px;position:relative;
+ background:#39414f;border:1px solid #4a5468;cursor:pointer;margin:0;
+ transition:background .16s ease,border-color .16s ease}
+input.sw[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;
+ width:13px;height:13px;border-radius:50%;background:#c9d1de;
+ transition:transform .16s ease,background .16s ease}
+input.sw[type=checkbox]:hover{border-color:#5b6780}
+input.sw[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input.sw[type=checkbox]:checked::after{transform:translateX(15px);background:#161616}
+input.sw[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Boxes are a fixed size — dragging the corner only ever left the panel in a
+   shape you had to fix again later. Anything taller than its box scrolls. */
+textarea{resize:none;min-height:52px;line-height:1.45}
+/* The synopsis is reference text you re-read, so it grows to fit instead of
+   hiding the end. growSynopsis() sets the height, and switches the scrollbar
+   back on once the text passes ten lines — past that it is a wall, not a note. */
+#synopsis{overflow:hidden}
+label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
+ text-transform:uppercase;letter-spacing:.05em}
+
+/* ---------- top bar ---------- */
+#top,#work{display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:7px 14px;background:var(--panel);flex:0 0 auto}
+#top{border-bottom:1px solid var(--line)}
+#work{border-bottom:1px solid var(--line);background:#13161d;padding:9px 14px}
+.side{display:flex;align-items:center;gap:8px;min-width:0}
+.side.right{justify-content:flex-end;flex:0 0 auto}
+.brand{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+ font-size:15px;letter-spacing:-.01em;line-height:1;flex:0 0 auto}
+.brand svg{display:block;flex:0 0 auto}
+/* MangaTCT is ONE word. The gap on `.brand` is a flex gap, so it fell between
+   every child — including between "Manga" and "TCT", which split the name in
+   half. lee: *"remve teh gap between mangatctc"*. The two halves live in their
+   own span now: the gap separates the mark from the word, and nothing
+   separates the word from itself. */
+.brand .wm{display:inline-flex;align-items:baseline;gap:0}
+.brand b{color:var(--fg);font-weight:800}
+.brand i{color:var(--accent);font-weight:800;font-style:normal}
+
+/* --- step tracker --- */
+#steps{gap:6px;flex-wrap:nowrap;overflow-x:auto;align-items:center}
+/* The seven steps are three pieces of work. A named group with a rule between
+   them says which of the three you are in the middle of, which one line of
+   seven buttons never did.
+   lee: *"this shoud be split into 3 section text for the fist 4, image or
+   panel fro teh next 2 and exort"*. */
+.stepgrp{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.stepgrp + .stepgrp{margin-left:10px;padding-left:12px;
+ border-left:1px solid var(--line)}
+.sgl{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--dim);margin-right:2px}
+/* A step whose turn has not come. Not `disabled`: it takes the press and
+   answers with the reason. */
+.step{white-space:nowrap}
+.step{position:relative;display:flex;align-items:center;gap:8px;
+ padding:7px 13px 7px 9px;border:1px solid var(--line);border-radius:8px;
+ background:var(--panel2);cursor:pointer;overflow:hidden;transition:.15s}
+.step:hover{border-color:#46536b;background:#242a35}
+.step .sn{display:flex;align-items:center;justify-content:center;
+ width:19px;height:19px;border-radius:50%;background:#394152;color:var(--fg);
+ font-size:10px;font-weight:700;flex:0 0 auto;transition:.15s}
+/* .sl is ALSO the slider-row class (display:flex;margin-top:9px further down),
+   which was leaking onto the step label and dropping it out of line. Reset. */
+.step .sl{display:inline;align-items:initial;gap:0;margin-top:0;
+  font-size:12px;line-height:1;white-space:nowrap}
+.step .sc{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;
+ background:#00000038;padding:1px 6px;border-radius:8px}
+.step .sfill{position:absolute;left:0;bottom:0;height:2px;width:0;
+ background:var(--accent);transition:width .3s}
+.step.done{border-color:#2c5d3f;background:#16251c}
+.step.done .sn{background:var(--ok);color:#0b1a10}
+.step.done .sc{color:var(--ok)}
+.step.part .sn{background:var(--warn);color:#1a1208}
+.step.busy{border-color:var(--accent)}
+.step.busy .sn{background:var(--accent);color:#161616}
+.step.next{border-color:#4b5573}
+/* The three model steps while you are translating it yourself. Not a lock —
+   see runStep() — but nothing there is going to call a model, so the buttons
+   say so by going quiet. lee: *"the manual tranlat button should grey out the
+   read text translate and profread"*. */
+.step.off{opacity:.4;cursor:default}
+.step.off:hover{border-color:var(--line);background:var(--panel2)}
+
+/* linked bubbles: coloured border (colour set inline per group) + a bright
+   dashed outline on the bubble you're about to link from */
+.box.linked{border-width:2px!important;border-style:solid!important}
+.box.linkpick{outline:3px dashed #ffd23f;outline-offset:2px;
+  animation:linkpulse 1s ease-in-out infinite}
+@keyframes linkpulse{0%,100%{outline-color:#ffd23f}50%{outline-color:#ff7a1a}}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;
+  background:#2a3140;color:var(--fg);font-size:11px;line-height:1.6}
+#linkbanner{position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  z-index:9999;background:#ffd23f;color:#161616;padding:8px 16px;
+  border-radius:20px;font-size:13px;font-weight:600;display:none;
+  box-shadow:0 4px 18px rgba(0,0,0,.45)}
+#linkbanner b{background:#161616;color:#ffd23f;padding:1px 6px;border-radius:5px}
+
+/* --- progress --- */
+#job{min-width:210px;text-align:right;display:flex;align-items:stretch;
+  justify-content:flex-end;gap:8px}
+/* A FIXED width, and the reason is a bug lee hit: *"the error moved everything
+   out of the way"*. `#jobtxt` is nowrap and `.side.right` is `flex:0 0 auto`,
+   so a four-hundred-character answer from a provider made the job strip as
+   wide as the sentence and pushed the page tools off the bar.
+   250px is wide enough for the longest running label ("Proofreading… 23 of 23
+   pages (100%)"), so the strip is the same size whatever it says. The message
+   is cut with an ellipsis, the whole of it is on `title`, and clicking it puts
+   it in a toast that wraps. */
+.jobcol{flex:0 0 250px;width:250px;min-width:0;display:flex;
+  flex-direction:column;justify-content:center}
+.barrow{display:flex;align-items:center;gap:8px}
+.barrow #bar{flex:1 1 auto}
+/* Cancel spans both rows (text + bar), so it stretches to the column height. */
+#cancelJob{padding:0 12px;font-size:11px;border:1px solid #d63a3a;
+  background:#d63a3a;color:#fff;font-weight:600;border-radius:6px;cursor:pointer;
+  flex:0 0 auto;align-self:stretch;display:flex;align-items:center;
+  justify-content:center}
+#cancelJob:hover{background:#e14b4b;border-color:#e14b4b}
+#cancelJob:disabled{background:#b23232;border-color:#b23232;cursor:default}
+#job.idle #bar{opacity:.35}
+#jobtxt{font-size:11px;color:var(--dim);margin-bottom:5px;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+ font-variant-numeric:tabular-nums}
+/* Only when there is more of it to see. A pointer over "Ready" promises
+   something that does not happen. */
+#job.err #jobtxt,#job.warn #jobtxt{cursor:pointer}
+#job.busy #jobtxt{color:var(--accent)}
+#job.err #jobtxt{color:var(--bad)}
+/* The run finished, but not the way it was asked to. Orange, not red: nothing
+   is broken and nothing was lost — the pages just did not get the cleaning. */
+#job.warn #jobtxt{color:var(--warn)}
+#job.warn #fill{background:var(--warn);width:100%}
+/* A setting that is filled in but cannot work. The rim is the only way an empty
+   box with placeholder text reads as wrong rather than as merely blank. */
+input.bad,textarea.bad{border-color:var(--warn)}
+input.bad::placeholder{color:var(--warn)}
+/* The boxes a proofreader's remark is about, as the numbers shown on the page.
+   Clickable: the remark says what changed, these say where. */
+.nrow{margin-top:6px;color:var(--dim);font-size:11px}
+.nchip{display:inline-block;min-width:18px;text-align:center;cursor:pointer;
+ margin-left:5px;padding:1px 6px;border-radius:99px;background:#2a2f3a;
+ color:var(--fg);border:1px solid var(--line)}
+.nchip:hover{background:var(--warn);color:#1a1208;border-color:var(--warn)}
+.help.good{color:var(--ok)}
+.help.warnbad{color:var(--warn)}
+#bar{height:6px;background:#0e1116;border:1px solid var(--line);
+ border-radius:99px;overflow:hidden}
+#fill{height:100%;width:0;border-radius:99px;transition:width .35s ease;
+ background:linear-gradient(90deg,#ffb300,var(--accent),#ffe08a);
+ background-size:200% 100%}
+#job.busy #fill{animation:flow 1.4s linear infinite}
+@keyframes flow{from{background-position:0 0}to{background-position:-200% 0}}
+
+/* ---------- layout ---------- */
+#main{flex:1;display:flex;min-height:0}
+#pages{width:168px;flex:0 0 auto;overflow-y:auto;background:var(--panel);
+ border-right:1px solid var(--line);padding:6px}
+.pg{position:relative;padding:6px 8px;margin-bottom:4px;border-radius:6px;
+ cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid transparent}
+.pg.ins-t{box-shadow:inset 0 2px 0 var(--accent)}
+.pg.ins-b{box-shadow:inset 0 -2px 0 var(--accent)}
+.pg.sel{background:#1e2f3f;border-color:#39597a}
+.pgchk{flex:0 0 auto;cursor:pointer;width:14px;height:14px;accent-color:var(--accent)}
+.selrow{display:flex;align-items:center;gap:8px;padding:2px 4px 6px;font-size:11px;
+ color:var(--dim)}
+.selall{display:flex;align-items:center;gap:5px;cursor:pointer}
+.selall input{accent-color:var(--accent);cursor:pointer}
+button.tiny{padding:1px 7px;font-size:10px}
+.vw:disabled,.vw.locked{opacity:.4;cursor:not-allowed}
+.pg .rm{position:absolute;top:-4px;right:-4px;width:16px;height:16px;
+ border-radius:50%;background:#3a4152;color:var(--dim);font-size:13px;
+ line-height:15px;text-align:center;opacity:0;transition:.12s;z-index:2}
+.pg:hover .rm{opacity:1}
+.pg .rm:hover{background:var(--bad);color:#fff}
+.addbtn{width:100%;margin-bottom:7px;border-style:dashed;color:var(--dim);
+ padding:7px}
+.addbtn:hover{color:var(--fg);border-color:var(--accent)}
+.pg:hover{background:var(--panel2)}
+.pg.on{background:#2a3040;border-color:var(--accent)}
+/* One dot per step of the view you are on — four on Original, two on Edit.
+   They are small and they sit together, so the row of them reads as one
+   progress mark for the page rather than four separate lights. */
+.dots{display:inline-flex;gap:3px;flex:0 0 auto;align-items:center}
+.dots .dot{width:6px;height:6px}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:#3a4152}
+.dot.detected{background:var(--blue)} .dot.ocr{background:var(--warn)}
+.dot.translated{background:var(--ok)} .dot.empty{background:var(--bad)}
+/* a checked page with no text is done — green, like a finished one */
+.dot.done{background:var(--ok)}
+.pg .nm{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name, being renamed. Sized like the label it replaces so the row does
+   not jump when the field appears. */
+.pg .nmedit{font-size:11px;flex:1;min-width:0;padding:1px 4px;margin:0;
+ background:var(--bg);border:1px solid var(--accent);border-radius:4px;
+ color:var(--fg);font-family:inherit}
+.pg .ct{font-size:10px;color:var(--dim);margin-left:auto}
+
+/* NO flex centring here. Centring an overflowing flex item pushes part of it
+   beyond scrollLeft 0 where no scrollbar can reach, so "centred scroll" was
+   sitting left of the page's true centre — the page looked pushed left with
+   extra space on the right. Block flow + symmetric borders means the scroll
+   midpoint IS the page's centre, exactly. */
+#canvasWrap{flex:1;overflow:auto;overflow-anchor:none;position:relative;
+ background:#0b0d11}
+#stage{position:relative;user-select:none;-webkit-user-select:none;
+ /* Sized to CONTENT: a plain block would stretch-and-clamp to the pane and
+    push the page off to one side. Room to pan well past every edge — the
+    SAME amount on every side, so the empty space around the page is even.
+    A transparent border (not padding) keeps the overlays' coordinate origin
+    glued to the image. */
+ width:max-content;border:46vmax solid transparent}
+/* width is set explicitly by the zoom code, so no max-width clamp here */
+#stage img{display:block;max-width:none;border-radius:4px}
+/* the reference pane: the untouched original, in step with the edit pane —
+   identical border geometry so scroll positions map one to one */
+#refWrap{flex:1;overflow:auto;overflow-anchor:none;position:relative;
+ background:#0b0d11;border-left:1px solid var(--line);display:none}
+#refStage{width:max-content;border:46vmax solid transparent}
+#refImg{display:block;max-width:none;border-radius:4px;opacity:.96}
+.box{position:absolute;border:2px solid #ff3b30;border-radius:5px;
+ cursor:move;background:rgba(255,59,48,.10);z-index:20}
+#canvasWrap.painting .box{pointer-events:none}
+/* One balloon, one box. When a balloon holds two SECTIONS — a sentence and a
+   small あっ！ under it — the pair get this single frame drawn round them, and
+   their own boxes go dashed and quiet inside it. It is a label, not a
+   control: nothing is clicked or dragged here, the sections are still the
+   things you select. */
+.gbox{position:absolute;border:2px solid #ff3b30;border-radius:7px;
+ pointer-events:none;background:rgba(255,59,48,.06);z-index:19}
+/* The BALLOON, drawn faint and dashed behind the box. Find text measures the
+   writing; the balloon round it is worked out afterwards and is only ever the
+   room the English gets to use. Drawing the balloon as THE box is what made it
+   look as though the detector had boxed whole panels of artwork — lee: "these
+   bubbles are too big the detector should only try to find the text not the
+   whole bubble". So the box is the writing now and this is the room. It is a
+   label, not a control: nothing here is clicked or dragged. */
+/* .bhint (the dashed balloon behind each box) was removed on 2026-07-30 —
+   see frames.js. The clear-up in drawBoxes still names it, harmlessly. */
+/* Sections are linked to each other, and .box.linked forces a solid border,
+   so this has to shout back or the dashes never appear. */
+.box.section{border-style:dashed!important;border-width:2px!important;
+ background:transparent!important}
+.box.weak{border-style:dashed;border-color:rgba(255,120,110,.8)}
+.box.manual{border-color:#ff9f0a}
+/* the SELECTED box — and with it the corner handles — sits above its
+   neighbours (plain boxes are 20; it used to be 5, which buried the
+   handles under any overlapping box) */
+/* The box border/fill now come from the text TYPE (set inline), so selection
+   shows as a bright glow around it rather than a colour swap. */
+.box.sel{z-index:24;box-shadow:0 0 0 2px var(--accent),0 0 10px 2px rgba(255,196,0,.55)}
+/* Multi-pick wears the SAME yellow as a single selection — every picked box is
+   equally selected, and a second colour only made it look like two different
+   things. The one whose editor is open keeps the wider glow. */
+.box.msel{z-index:23;box-shadow:0 0 0 2px var(--accent),0 0 7px 1px rgba(255,196,0,.4)}
+.box.msel.sel{z-index:24;
+ box-shadow:0 0 0 3px var(--accent),0 0 12px 3px rgba(255,196,0,.6)}
+.tagf.msel{box-shadow:0 0 0 2px var(--accent)}
+/* While "c" is down, every box says "click me to add" */
+body.multipick .box{cursor:copy}
+/* colour swatches for the custom-type picker */
+.swatchrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.swatch{width:24px;height:24px;border-radius:6px;cursor:pointer;flex:none;
+  border:2px solid rgba(255,255,255,.18);box-sizing:border-box;
+  display:inline-block;vertical-align:middle;position:relative;
+  transition:transform .08s ease}
+.swatch:hover{transform:scale(1.14)}
+/* A family's default has a colour but nothing to choose — it IS the family's
+   colour, and there is no other one it could be. */
+.swatch.fixed{cursor:default;border-color:rgba(255,255,255,.10)}
+.swatch.fixed:hover{transform:none}
+/* Box types, grouped under the three main types. */
+.ckfam{margin-top:10px}
+.ckfamh{margin:0 0 4px;font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--dim)}
+.ckrow{margin-top:4px;gap:8px}
+.ckrow.ckdef{opacity:.8}
+.cknm{flex:1;min-width:0}
+.ckrow select.fontsel{flex:1;min-width:0}
+/* The default's row has no × — it cannot be removed. It still has to be the
+   same width as one that does, or every row under it starts and ends a button
+   further along and the columns fan out. So it holds a real × that is simply
+   not there to see: same font, same padding, same border, same width. */
+.ckrow .ckpad{visibility:hidden;pointer-events:none}
+/* A name that cannot be edited is a span where the others are inputs, so its
+   text sat a border and a padding to the left of theirs. */
+span.cknm.ckfix{padding:6px 8px;border:1px solid transparent;
+  display:flex;align-items:center}
+.swatch.on{border-color:#fff;
+  box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 7px rgba(255,255,255,.45)}
+.swatch.on::after{content:'✓';position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;color:#fff;font-size:13px;
+  font-weight:800;text-shadow:0 0 3px rgba(0,0,0,.9)}
+/* small colour dot on the kind chip in the text list */
+.kd{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:4px;vertical-align:middle}
+/* order numbers float in their own layer above every box */
+.tagf{position:absolute;background:#ff3b30;color:#fff;
+ font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;
+ display:flex;align-items:center;justify-content:center;padding:0 4px;
+ z-index:26;pointer-events:none}
+.tagf.sel{background:var(--accent);color:#161616}
+.tagf.manual{background:#ff9f0a;color:#161616}
+.hd{position:absolute;width:11px;height:11px;background:var(--accent);
+ border:1px solid #111;border-radius:2px;z-index:6}
+.hd::before{content:'';position:absolute;inset:-7px}   /* larger hit area */
+.hd.nw{left:-5px;top:-5px;cursor:nwse-resize} .hd.ne{right:-5px;top:-5px;cursor:nesw-resize}
+.hd.sw{left:-5px;bottom:-5px;cursor:nesw-resize} .hd.se{right:-5px;bottom:-5px;cursor:nwse-resize}
+#rubber{position:absolute;border:2px dashed var(--accent);
+ background:rgba(255,196,0,.12);pointer-events:none;display:none;border-radius:4px}
+
+#side{width:330px;flex:0 0 auto;background:var(--panel);border-left:1px solid var(--line);
+ overflow-y:auto;padding:11px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+ padding:9px;margin-bottom:8px}
+.card.on{border-color:var(--accent)}
+.row{display:flex;gap:6px;align-items:center}
+.muted{color:var(--dim);font-size:11px}
+.ja{color:#9aa4b8;font-size:12px}
+.chip{font-size:10px;padding:1px 6px;border-radius:9px;background:#2b3140;
+ color:var(--dim);flex:0 0 auto}
+/* Only the chips in the ROW HEAD are kept on one line — that is the head's
+   whole point. A warning is a sentence, and a sentence that is not allowed to
+   wrap is a sentence with its end cut off: lee's *"overflow: shrunk below the
+   minimum font size (10pt) to fit the bo…"*. */
+.rowhead .chip{white-space:nowrap}
+.chip.r, .chip.g{white-space:normal}
+/* The same warning, in the typesetting panel, where the block is worked on —
+   and the only copy of it, now that the box list no longer carries one.
+   It sits directly under the Sub-type select, and a red box hard against the
+   bottom of a control reads as part of that control: lee, with a picture,
+   *"add some sapce betwwen these in teh edit page"*. Ten above, so the gap
+   above the warning is wider than the 4px the selects sit apart from their
+   own labels and the warning reads as its own thing. */
+.lyflag{display:block;margin:10px 0 9px;line-height:1.45;padding:5px 8px}
+/* The link chip carries the link colour itself, so a linked box says so in
+   the one colour nothing else on the page uses. */
+.chip.link{background:var(--link);color:#fff;display:inline-flex;
+ align-items:center}
+.chip.g{background:#193024;color:var(--ok)} .chip.r{background:#331b1b;color:var(--bad)}
+h3{margin:2px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+details summary{cursor:pointer;color:var(--dim);font-size:11px;
+ text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+/* Add pages covers the work, not the way out of it.
+
+   It used to be `inset:0` — the whole window, top bar and all — so from that
+   screen there was no Edit tab, no Results, no Settings, and the only way back
+   was the Close button, which is not there at all until a chapter is loaded.
+   lee: *"the add page shoud have this top bar be visible"*.
+
+   `#top` stays where it is and this starts underneath it. The bar is given a
+   z-index of its own so it is above this rather than merely uncovered — two
+   positioned things with no stacking order between them is the sort of thing
+   that works in one browser. */
+#top{position:relative;z-index:60}
+#picker{position:fixed;left:0;right:0;bottom:0;top:0;background:var(--bg);
+ z-index:50;display:none;align-items:center;justify-content:center;
+ padding:20px}
+#picker.on{padding-top:calc(var(--topbar,52px) + 20px)}
+#picker.on{display:flex}
+/* The File screen is one card with a section rail, the same shape as Settings
+   — `#fileNav` borrows `#setNav`'s rules below, and the sections inside are
+   the same `.set-section` the settings body uses. The card is the card: the
+   panel inside it drops its own border so there is not a box in a box. */
+.filecard{display:flex;width:100%;max-width:860px;
+ max-height:min(100%, 760px);min-height:340px;
+ background:var(--panel);border:1px solid var(--line);
+ border-radius:12px;overflow:hidden}
+/* Tall enough to look like a screen, no taller than it needs. It was pinned to
+   760px, so a form that ends two thirds of the way up left a third of a very
+   large card empty underneath it — lee: *"make the fle look better"*. */
+#fileBody{flex:1;min-width:0;min-height:0;overflow-y:auto;padding:26px 28px;
+ display:flex;justify-content:center;align-items:flex-start}
+.pk{max-width:560px;width:100%;background:transparent;border:0;
+ border-radius:12px;padding:0}
+.pk h2{margin:0 0 4px;font-size:18px}
+/* Add pages is two screens: pages, then the settings file. Only one is in the
+   document flow at a time, so the card is the height of whichever is showing
+   rather than the taller of the two. */
+.pkstep{display:none}
+.pkstep.on{display:block}
+.pksteps{display:flex;gap:8px;margin:10px 0 4px}
+.pkdot{font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+ color:var(--dim);border:1px solid var(--line);border-radius:999px;
+ padding:3px 10px}
+.pkdot.on{color:#161616;background:var(--accent);border-color:var(--accent);
+ font-weight:600}
+/* The one row of buttons that ends a screen, always at the bottom right where
+   Next was on the screen before. */
+.pkfoot{margin-top:16px;gap:8px;justify-content:flex-end;align-items:center}
+#pkJsonMsg.bad{color:#e08a8a}
+#stagedList{max-height:240px;overflow:auto;margin-top:8px;
+ border:1px solid var(--line);border-radius:8px}
+.sf{display:flex;align-items:center;gap:9px;padding:6px 9px;font-size:12px;
+ border-bottom:1px solid var(--line)}
+.sf:last-child{border-bottom:none}
+.sf:nth-child(even){background:var(--panel2)}
+.sf .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sf .sz{color:var(--dim);font-variant-numeric:tabular-nums;font-size:11px}
+.sf .x{cursor:pointer;color:var(--dim);padding:0 4px;border-radius:4px}
+.sf .x:hover{background:var(--bad);color:#fff}
+.sf .i{color:var(--dim);font-variant-numeric:tabular-nums;min-width:22px;
+ text-align:right;font-size:11px}
+.drop{margin-top:16px;border:2px dashed var(--line);border-radius:10px;
+ padding:26px;text-align:center;transition:.15s}
+.drop.hot{border-color:var(--accent);background:rgba(255,196,0,.07)}
+.tab{border-radius:6px}
+.zoomer{display:flex;gap:2px;padding:3px;background:#12151b;
+ border:1px solid var(--line);border-radius:8px;align-items:center}
+/* splits the bar into two groups: the pan/zoom TOOLS and the − 100% + steps */
+.zdiv{width:1px;align-self:stretch;margin:2px 4px;background:var(--line)}
+.zb{border:none;background:transparent;border-radius:6px;padding:4px 9px;
+ font-size:12px;color:var(--dim);min-width:30px}
+.zb:hover{background:#242a35;color:var(--fg)}
+.zb.on{background:var(--accent);color:#161616}
+.swx{display:inline-flex;align-items:center;gap:7px;
+ font-size:11.5px;color:var(--dim);cursor:pointer;user-select:none;white-space:nowrap}
+.swx:hover{color:var(--fg)}
+.swx input{display:none}
+.swx i{width:28px;height:16px;border-radius:9px;background:#39414f;
+ border:1px solid #4a5261;position:relative;flex:none;
+ transition:background .15s,border-color .15s}
+.swx i::after{content:'';position:absolute;left:2px;top:2px;width:10px;
+ height:10px;border-radius:50%;background:#aeb6c6;transition:left .15s,background .15s}
+.swx input:checked+i{background:var(--accent);border-color:var(--accent)}
+.swx input:checked+i::after{left:14px;background:#161616}
+/* A switch with nothing to switch — greyed and unclickable rather than
+   sitting there bright and doing nothing (see syncTextToggle). */
+.swx.off{opacity:.42;cursor:not-allowed}
+.swx.off:hover{color:var(--dim)}
+.swx.off input:checked+i{background:#4a5261;border-color:#4a5261}
+.swx.off input:checked+i::after{background:#aeb6c6}
+/* Both of the Translation view's switches sit to the LEFT of the two view
+   buttons, so the space they take when they appear comes off the far side of
+   a right-aligned group and the buttons themselves do not budge. */
+#showTextWrap{display:none;margin-right:12px}
+#canvasWrap.zoomin{cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="9" cy="9" r="6.5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2.6"/><circle cx="9" cy="9" r="6.5" fill="none" stroke="black" stroke-width="1.3"/><line x1="14" y1="14" x2="19.5" y2="19.5" stroke="white" stroke-width="3.4" stroke-linecap="round"/><line x1="14" y1="14" x2="19.5" y2="19.5" stroke="black" stroke-width="1.6" stroke-linecap="round"/><line x1="5.8" y1="9" x2="12.2" y2="9" stroke="black" stroke-width="1.8"/><line x1="9" y1="5.8" x2="9" y2="12.2" stroke="black" stroke-width="1.8"/></svg>') 9 9, zoom-in}
+#canvasWrap.zoomout{cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="9" cy="9" r="6.5" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="2.6"/><circle cx="9" cy="9" r="6.5" fill="none" stroke="black" stroke-width="1.3"/><line x1="14" y1="14" x2="19.5" y2="19.5" stroke="white" stroke-width="3.4" stroke-linecap="round"/><line x1="14" y1="14" x2="19.5" y2="19.5" stroke="black" stroke-width="1.6" stroke-linecap="round"/><line x1="5.8" y1="9" x2="12.2" y2="9" stroke="black" stroke-width="1.8"/></svg>') 9 9, zoom-out}
+/* The icon is an inline SVG using currentColor: an emoji glyph ignores CSS
+   colour, which is why it never changed. */
+#handbtn{background:#39414f;color:#cfd6e4;display:flex;align-items:center;
+ justify-content:center;padding:5px 9px}
+#handbtn:hover{background:#465064;color:#fff}
+#handbtn.on{background:var(--accent);color:#161616}
+#zlabel{font-variant-numeric:tabular-nums;min-width:48px}
+#canvasWrap.hand{cursor:grab}
+#canvasWrap.hand.grabbing{cursor:grabbing}
+#canvasWrap.hand .box{pointer-events:none}
+/* Two views, one lit pill — and the pill MOVES. lee: *"can you add an animation
+   of teh button switching side wneh i clcik it"*.
+
+   It used to be a background that appeared on one button and vanished from the
+   other, which is a cut, not a switch. Now the yellow is a single element that
+   slides, so the eye follows it across instead of re-finding it.
+
+   The arithmetic only works because the two buttons are exactly equal width,
+   and a two-column GRID is what makes them so. `flex:1 1 0` does not: a flex
+   item's default `min-width:auto` will not let it shrink below its own text,
+   so "Scan" and "Typeset" came out 50.7 and 66.0 and the pill sat 9px off the
+   one it was meant to be under. Two `1fr` columns take the width of the wider
+   label and give it to both.
+
+   A percentage on an absolutely positioned child resolves against the PADDING
+   box, so with 3px of padding either side and a 3px gap, each column is exactly
+   `50% - 4.5px` of that box — and the second one starts its own width plus the
+   gap further along, which is what the transform says. */
+.views{position:relative;display:grid;grid-template-columns:repeat(2,1fr);
+ gap:3px;padding:3px;background:#12151b;
+ border:1px solid var(--line);border-radius:8px}
+.views::before{content:'';position:absolute;top:3px;bottom:3px;left:3px;
+ width:calc(50% - 4.5px);border-radius:6px;background:var(--accent);
+ transform:translateX(0);transition:transform .19s cubic-bezier(.4,0,.2,1);
+ pointer-events:none}
+.views.right::before{transform:translateX(calc(100% + 3px))}
+@media (prefers-reduced-motion:reduce){.views::before{transition:none}}
+/* Bold at all times, and only the COLOUR changes when one lights up. The
+   weight used to go on with the light, and bold text is wider text: the group
+   is sized by its widest label, so switching views made the pair grow ten
+   pixels and every button in the bar shuffle along. Weight held still, the
+   only thing that moves is the pill. */
+.vw{border:none;background:transparent;border-radius:6px;padding:5px 11px;
+ font-size:12.5px;font-weight:600;color:#a4adbd;text-align:center;
+ white-space:nowrap;position:relative;z-index:1;transition:color .19s}
+/* The hover.
+
+   `:not(.on)` was not enough, and that is what lee was looking at the second
+   time: the generic `button:hover` up at the top of this file paints #2f3648
+   on ANY button, so hovering the lit one dropped a dark plate over the yellow
+   pill and left a sliver of it showing down one side. Both states are answered
+   here — lee: *"chnage teh on hover to loo better"*.
+
+   The unlit one brightens its label; the lit one brightens the PILL, which is
+   the thing you are actually pointing at. Neither of them draws a rectangle. */
+/* `.views .vw:hover` and not `.vw:hover`: the generic rule is
+   `button:hover:not(:disabled)`, which carries two pseudo-classes and an
+   element, and a single class with one pseudo-class does not beat it. That is
+   the whole of why the plate kept coming back. */
+.views .vw:hover{background:transparent}
+.vw:hover:not(.on){color:var(--fg)}
+.views:has(.vw.on:hover)::before{background:#ffd851}
+/* The pill under it is the background. Painting one here as well would put a
+   hard-edged rectangle on top of the thing that is meant to be sliding. */
+.vw.on{background:transparent;color:#12151b}
+.box.textmode{cursor:grab;border-style:dashed;border-color:rgba(255,59,48,.5);
+ background:transparent}
+.box.textmode.sel{border-color:var(--accent);border-style:solid;
+ background:rgba(255,196,0,.10)}
+.box.textmode:active{cursor:grabbing}
+#overlay{position:absolute;inset:0;pointer-events:none;display:none;z-index:22}
+/* Lines stay click-through so dragging still works; double-click is caught on
+   the stage and hit-tested instead. */
+#overlay.on{cursor:text}
+#canvasEdit:focus{outline:none}
+/* Selecting words while editing on the page.
+   The browser's own selection paints a solid slab behind every glyph AND
+   overrides the text colour, and typesetting is white with a black outline — so
+   selecting a line turned it into a blue block with an outline on top and
+   nothing readable inside. lee: *"this is what happens when i select the text
+   with the outine it shoud look normal"*.
+   A see-through tint instead, and the letters keep their own colour, their
+   outline and their shadow: you can see what you have selected AND read it. */
+#canvasEdit::selection,#canvasEdit *::selection{
+ background:rgba(255,196,0,.32);color:inherit;
+ -webkit-text-fill-color:currentColor;text-shadow:inherit}
+#canvasEdit::-moz-selection,#canvasEdit *::-moz-selection{
+ background:rgba(255,196,0,.32);color:inherit;text-shadow:inherit}
+/* the text's own frame, independent of the region box */
+#tframe{position:absolute;border:1px dashed #6b7686;pointer-events:none;
+ z-index:22;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+#tframe .th{position:absolute;width:9px;height:9px;background:#fff;
+ border:1px solid #55607a;border-radius:50%;pointer-events:auto;margin:-5px;
+ z-index:3}
+/* The dot stays small so it does not hide the typesetting, but the thing you
+   have to hit with the mouse is a ~25px square centred on it. Same trick the
+   region box uses. */
+#tframe .th::before{content:'';position:absolute;inset:-5px}
+#tframe .th:hover{background:var(--accent)}
+/* Rotate zones: a square just outside each corner. Invisible until you are
+   over one, when the cursor becomes the curved arrow — the same bargain as
+   every drawing program. They sit UNDER the resize handles, so a press on
+   the corner itself still resizes.
+   lee: *"if i go to the edgec corner and out out a little a rotate thing come
+   up to alow me to rorta ... and tht hsoud happen to all 4 corners"*. */
+#tframe .trotz{position:absolute;width:30px;height:30px;
+ pointer-events:auto;z-index:1;background:none}
+#tframe .th{z-index:2}
+#tframe .tover{position:absolute;right:-1px;bottom:-14px;width:13px;height:13px;
+ background:#c0392b;color:#fff;font:700 11px/13px sans-serif;text-align:center;
+ pointer-events:auto;cursor:help}
+.he{display:flex;gap:8px;padding:4px 2px;font-size:11.5px;color:var(--fg);
+ border-bottom:1px solid var(--line)}
+.he:last-child{border-bottom:none}
+.he .ht{color:var(--dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+#histList{max-height:220px;overflow:auto;margin-top:4px}
+#histpanel{display:none}
+.mdl{position:fixed;inset:0;background:rgba(6,8,12,.6);display:none;z-index:80;
+ align-items:center;justify-content:center}
+.mdl.on{display:flex}
+.mdlbox{background:#1d222b;border:1px solid #333b48;border-radius:10px;
+ width:min(620px,95vw);max-height:90vh;overflow:auto;padding:20px 22px;
+ box-shadow:0 18px 60px rgba(0,0,0,.5);font-size:13px;line-height:1.55}
+/* clearer sections in the settings dialog: each heading gets breathing room
+   and a rule above it, and labels are a touch larger and lighter to scan */
+.mdlbox h3{font-size:14px;margin:20px 0 8px;padding-top:14px;
+ border-top:1px solid var(--line);letter-spacing:.02em}
+.mdlbox h3:first-of-type{border-top:none;padding-top:0;margin-top:4px}
+.mdlbox label{font-size:11.5px;margin:11px 0 4px}
+.mdlbox .help{font-size:11.5px;line-height:1.5}
+.mdlbox details{margin-top:12px;border:1px solid var(--line);
+ border-radius:8px;padding:4px 10px 10px;background:#181c24}
+.mdlbox details>summary{cursor:pointer;padding:8px 0;font-weight:600;
+ color:var(--fg);font-size:12.5px}
+.colwell{display:inline-flex;align-items:center;gap:6px;background:#12151b;
+ border:1px solid var(--line);border-radius:7px;padding:3px 8px 3px 3px}
+.colwell{cursor:pointer}
+.colwell:hover{border-color:#46536b}
+.colwell i{width:22px;height:18px;border-radius:5px;border:1px solid #0006;
+ display:inline-block}
+#picker2{position:fixed;z-index:80;background:var(--panel);
+ border:1px solid var(--line);border-radius:10px;padding:12px;width:218px;
+ box-shadow:0 10px 30px #000a;display:none}
+#picker2 canvas{display:block;border-radius:6px;cursor:crosshair}
+#pkSV{border:1px solid #0007}
+#pkHue{margin-top:8px;border:1px solid #0007}
+#picker2 .row2{display:flex;gap:6px;align-items:center;margin-top:9px}
+#pkHex{flex:1;background:#12151b;border:1px solid var(--line);color:var(--fg);
+ border-radius:6px;padding:5px 8px;font-size:12px;
+ font-variant-numeric:tabular-nums}
+#pkNow{width:34px;height:26px;border-radius:6px;border:1px solid #0007}
+#picker2 .sw{display:flex;gap:5px;flex-wrap:nowrap;margin-top:9px;overflow:hidden}
+#picker2 .sw i{width:18px;height:18px;border-radius:5px;cursor:pointer;
+ border:1px solid #0007}
+#picker2 .sw i:hover{outline:2px solid var(--accent)}
+.colwell b{font-weight:500;font-size:11px;color:var(--dim);
+ font-variant-numeric:tabular-nums;text-transform:lowercase}
+.swatches{display:inline-flex;gap:4px}
+.swatches i{width:16px;height:16px;border-radius:4px;border:1px solid #0007;
+ cursor:pointer}
+.swatches i:hover{outline:2px solid var(--accent)}
+/* #healBtn stood in these three rules. There is no such button: the toolbar
+   draws itself from TOOLS in toolbar.js, and the healing brush lost its
+   hand-written one along with the second brush beside it. */
+#eyeBtn,#brushBtn,#pkEye,#stampBtn{display:inline-flex;align-items:center;padding:6px 8px}
+#eyeBtn.pri,#brushBtn.pri,#pkEye.pri,#stampBtn.pri{background:var(--accent);color:#161616}
+#eyeBtn.pri:hover,#brushBtn.pri:hover,#pkEye.pri:hover,
+#stampBtn.pri:hover{background:#ffd851;color:#161616}
+#cloneMark{position:absolute;transform:translate(-50%,-50%);border-radius:50%;
+ border:1.6px dashed #7fd08a;pointer-events:none;z-index:30;
+ box-shadow:0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.55)}
+#cloneMark::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;
+ margin:-2px 0 0 -2px;border-radius:50%;background:#7fd08a}
+#cloneRing{position:absolute;transform:translate(-50%,-50%);border-radius:50%;
+ border:1.4px solid rgba(127,208,138,.95);pointer-events:none;z-index:31;
+ box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+/* the source preview looks like the colour picker's loupe: a small circle
+   floating up-right of the pointer */
+#clonePrev{position:absolute;width:48px;height:48px;border-radius:50%;
+ overflow:hidden;border:2px solid #fff;pointer-events:none;z-index:32;
+ box-shadow:0 0 0 1.5px #0009, 0 3px 10px #0007;
+ transform:translate(14px,-62px)}
+#clonePrev canvas{display:block;width:100%;height:100%}
+#brushCursor{position:fixed;border:1.5px solid #111;border-radius:50%;
+ pointer-events:none;z-index:70;display:none;
+ box-shadow:0 0 0 1px rgba(255,255,255,.85)}
+/* Both of these are pinned to the window ABOVE the dialog backdrop — 70 and 71
+   against the modal's 60 — so with a tool armed, "Clean the pages?" came up
+   with the brush circle drawn across it. lee: *"if have a have a tool active
+   and i clcik of cleaned ot nay other tab and a popup window opend it shoud
+   just be the mouse pointer over the popup"*.
+   Here rather than in the code that moves them, because they are moved on
+   mousemove and a dialog can open without the mouse moving at all — from a
+   keyboard shortcut, or from the click that opened it being the last event
+   before the ring would next be asked about. `!important` because the display
+   they are fighting is set inline. */
+body:has(.modal.on) #brushCursor, body:has(.modal.on) #loupe,
+body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
+ display:none !important}
+/* the eyedropper's loupe: the colour under the point, before you commit */
+#loupe{position:fixed;pointer-events:none;z-index:71;display:none;
+ width:44px;height:44px;border-radius:50%;border:2px solid #fff;
+ box-shadow:0 0 0 1.5px #0009, 0 3px 10px #0007;
+ transform:translate(12px,-56px)}
+#loupe b{position:absolute;left:50%;top:100%;transform:translateX(-50%);
+ margin-top:5px;background:#111;color:#fff;font-size:10px;font-weight:500;
+ padding:2px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
+.psum{cursor:pointer;color:var(--dim);font-size:11px;
+ text-transform:uppercase;letter-spacing:.06em;user-select:none}
+.lay.stackrow{cursor:default}
+.lay.textrow{cursor:pointer;margin-left:14px}
+.lay .llock{color:var(--dim);padding:2px 4px;border-radius:4px;cursor:pointer;
+ display:inline-flex;align-items:center}
+.lay .llock:hover{color:var(--fg);background:#2c3444}
+.lay .llock.off{color:#5a6172;opacity:.75}
+.lay .lth-glyph{width:22px;height:22px;border-radius:3px;border:1px solid #0008;
+ background:#141821;display:flex;align-items:center;justify-content:center;
+ font-size:12px;font-weight:700;color:var(--dim);flex:0 0 auto}
+.lay .lgrip{color:var(--dim);cursor:grab;font-size:13px;padding:0 1px;
+ user-select:none}
+.lay:active .lgrip{cursor:grabbing}
+.lay img.lth{width:22px;height:22px;border-radius:3px;border:1px solid #0008;
+ background:#141821;flex:0 0 auto}
+.lay .lnm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lay.ins-t{box-shadow:inset 0 2px 0 var(--accent)}
+.lay.ins-b{box-shadow:inset 0 -2px 0 var(--accent)}
+.lay{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;
+ border:1px solid var(--line);border-radius:6px;margin-top:5px;cursor:pointer}
+.lay.on{border-color:var(--accent)}
+.lay i{width:13px;height:13px;border-radius:3px;border:1px solid #0008}
+.lay span:nth-child(2){flex:1}
+.lay .lx{color:var(--dim);padding:0 4px;border-radius:4px}
+.sl{display:flex;align-items:center;gap:9px;margin-top:9px}
+.sl span{min-width:56px;color:var(--dim);font-size:11px}
+/* Slim, quiet sliders: a hairline track with an accent fill up to the knob,
+   and a small white knob ringed in the accent. The runnable track is styled
+   EXPLICITLY (leaving it unstyled let some browser/zoom combos park the
+   knob at the left whatever the value); track and thumb geometry are fixed
+   so the knob rides flush from end to end — at max it touches the end. */
+.sl input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;
+ height:20px;background:transparent;outline:none;cursor:pointer;margin:0}
+.sl input[type=range]::-webkit-slider-runnable-track{height:5px;
+ border-radius:999px;
+ background:
+   linear-gradient(var(--accent),var(--accent)) no-repeat left center/
+     var(--p,50%) 100%,
+   #39414f}
+.sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+ width:15px;height:15px;margin-top:-5px;border-radius:50%;
+ background:#f4f6fb;border:2px solid var(--accent);box-sizing:border-box;
+ box-shadow:0 1px 4px rgba(0,0,0,.5);
+ cursor:grab;transition:transform .08s}
+.sl input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.sl input[type=range]:active::-webkit-slider-thumb{cursor:grabbing}
+.sl input[type=range]:focus-visible::-webkit-slider-thumb{
+ box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+.sl input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+ background:#f4f6fb;border:2px solid var(--accent);box-sizing:border-box;
+ box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:grab}
+.sl input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:#39414f}
+.sl input[type=range]::-moz-range-progress{height:5px;border-radius:999px;background:var(--accent)}
+.sl input[type=number]{width:42px;padding:4px 2px;background:#242933;
+ border:1px solid #3a4150;border-radius:6px;color:var(--fg);font-size:11.5px;
+ text-align:center;-moz-appearance:textfield;appearance:textfield}
+.sl input[type=number]::-webkit-outer-spin-button,
+.sl input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;
+ display:none}
+.sl input[type=number]:focus{border-color:var(--accent);outline:none}
+.lay .lx:last-child,.rm,.sf .x{color:#e07a7a}
+.lay .lx:last-child:hover,.rm:hover,.sf .x:hover{color:#ff9b9b;background:#3a1416}
+.lay .lx:hover{background:#2c3444;color:var(--fg)}
+#tframe .tbody{position:absolute;inset:0;pointer-events:auto;cursor:move}
+/* grab strips along the border, live only while the text is being edited */
+#tframe .tedge{position:absolute;pointer-events:auto;cursor:move}
+#tframe .tedge.t{left:0;right:0;top:-5px;height:10px}
+#tframe .tedge.b{left:0;right:0;bottom:-5px;height:10px}
+#tframe .tedge.l{top:0;bottom:0;left:-5px;width:10px}
+#tframe .tedge.r{top:0;bottom:0;right:-5px;width:10px}
+/* Word-ish hatched border while editing: visible enough to grab, quiet
+   enough not to fight the artwork. */
+#tframe.editing{border:1px dashed #8b93a3;
+ box-shadow:0 0 0 1px rgba(255,255,255,.45)}
+#overlay.on{display:block}
+.tl{position:absolute;transform:translate(-50%,-50%);white-space:pre;
+ line-height:1;text-align:center;will-change:transform;
+ user-select:none;-webkit-user-select:none}
+.tl .ts{position:absolute;left:0;top:0}  /* outline layer, behind the fill */
+.tl .tf{position:relative}               /* clean fill on top */
+/* A gradient fill is painted ON the fill span, so the outline behind it stays
+   behind it. Clipped to the letters, and the letters themselves transparent so
+   only the gradient shows through. */
+.tl.grad>.tf, .tc.grad>.tf{color:transparent;
+ -webkit-background-clip:text;background-clip:text}
+/* The inner-glow rim, over the fill and pinned to the same origin as the
+   outline layer so it lands exactly on the letters. */
+.tl .tg{position:absolute;left:0;top:0;pointer-events:none}
+/* A CURVED line: the line div is only a container at the group's origin, and
+   each letter is placed and turned on the arc itself. */
+.tl.tlcurve{left:0;top:0;transform:none}
+.tc{position:absolute;display:inline-block;white-space:pre}
+.tgrp.moving{filter:opacity(.85)}
+#modehint{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;
+ background:#1e2027e6;border:1px solid var(--line);border-radius:8px;
+ padding:6px 12px;font-size:11px;color:var(--dim);pointer-events:none;
+ display:none;z-index:20}
+.tab.on{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:600}
+/* A tab that is already open does not go grey when the pointer crosses it.
+   The generic hover rule outranks a plain `.tab.on` on specificity, so the
+   lit state has to say so itself — otherwise the tab you are looking at
+   un-lights whenever the mouse passes over it. */
+.tab.on:hover:not(:disabled),.tab.on:active:not(:disabled){
+  background:var(--accent);color:#161616;border-color:var(--accent)}
+.tab.on:hover:not(:disabled){background:#ffd851;border-color:#ffd851}
+/* A tab you cannot open yet. Not `disabled`: it still takes the press, and the
+   press is answered with the reason (see tabShut in view.js). */
+.tab.off{opacity:.45}
+.tab.off:hover{background:#2a3040;border-color:#3c465a}
+/* The finished pages, centred the same way.
+
+   Wrapping flex, not a grid. A grid needs `auto-fit` to collapse the columns
+   it has no pages for, and `auto-fit` cannot collapse anything while an item
+   spans `1/-1` — which the row of Download buttons does. So the tracks stayed,
+   the pages stayed left, and the centring did nothing. Flex has no tracks to
+   leave empty: the cards are their own width and the row is centred. */
+/* Room above the first row and below the last. Without it the top row was cut
+   off against the bar and the bottom row sat flush on the edge of the window.
+   lee: *"add some padding at teh top and bottom of the result page"*. */
+#results{display:none;width:100%;padding:22px 4px 28px}
+#results.on{display:flex;flex-wrap:wrap;gap:12px;margin:0 auto;
+ max-width:1180px;justify-content:center;align-content:flex-start}
+.rcard{flex:0 0 210px}
+.rcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+ padding:7px;cursor:pointer}
+.rcard img{width:100%;display:block;border-radius:5px}
+.rcard:hover{border-color:var(--accent)}
+.tgl{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;
+ text-transform:none;letter-spacing:0;color:var(--fg);white-space:nowrap;
+ cursor:pointer;user-select:none}
+.tgl input{width:auto;margin:0}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim);
+ padding:7px 9px;background:var(--panel2);border:1px solid var(--line);
+ border-radius:8px;margin-bottom:9px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;
+ margin-right:4px;vertical-align:middle}
+/* The three main types lead the key and carry the number keys, so they read
+   ahead of the sub-types that follow them. */
+.legend .lgmain{color:var(--fg)}
+.legend .lgmain i{width:10px;height:10px;border-radius:3px}
+/* Text boxes in the region editor are as tall as their text and no taller —
+   no grip, nothing to drag, nothing cut off. See growBox() in panels.js. */
+/* The head of a region card is its drag handle — grip, number and all. */
+.lrow .rowhead{cursor:grab}
+.lrow .rowhead:active{cursor:grabbing}
+.lrow .chip.num{cursor:grab}
+.help{font-size:11px;color:var(--dim);line-height:1.6}
+.help b{color:var(--fg);font-weight:600}
+.modal{position:fixed;inset:0;background:#0b0d11cc;display:none;
+ align-items:center;justify-content:center;z-index:60}
+.modal.on{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+ padding:20px 22px;max-width:520px;width:calc(100% - 40px)}
+.sheet h2{margin:0 0 4px;font-size:16px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px;margin-top:9px;
+ border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:12px;
+ text-transform:none;letter-spacing:0;color:var(--fg)}
+.opt:hover{border-color:#46536b;background:var(--panel2)}
+.opt.disabled{opacity:.45;cursor:default}
+.opt.disabled:hover{border-color:var(--line);background:transparent}
+.opt input{width:auto;margin:2px 0 0}
+.opt i{color:var(--dim);font-style:normal;font-size:11px;line-height:1.5}
+/* The show/hide switches in the Current page card: the same control as the
+   Find text dialog's, tightened up for a side panel, with the text type's own
+   colour beside each one so a row means the same thing as the boxes it governs. */
+.opt.hopt{padding:6px 8px;margin-top:5px;align-items:center;gap:8px}
+.opt.hopt span{display:flex;align-items:center;gap:7px}
+.kdot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+ background:#2a3040;border:1px solid var(--line);padding:9px 15px;border-radius:8px;
+ display:none;z-index:99;max-width:60%}
+kbd{background:#2b3140;border-radius:3px;padding:0 4px;font-size:10px}
+
+/* --- drag-to-reorder in the "Text on this page" list --- */
+/* The row is text you can select, copy and paste out of. Only the grip drags
+   it — a `draggable` card cannot be selected in at all (see armRowDrag). */
+.card.lrow{cursor:default}
+/* The head is one line, and it stays one line.
+   It carried a ⋮ grip and a ▲▼ pair as well as the chips, so on any box whose
+   type has a longish name the row wrapped and the card grew a second line of
+   controls. lee: *"remove tehup and down arrow, remove teh 3 dots ... mkw it
+   so athat everything in the top row fits"*. Both were duplicates: the whole
+   head is the drag handle (see armRowDrag), and dragging is how the reading
+   order is set. What is left is the number, the confidence, the type, and the
+   link — and the type is the one that gives way when there is not room. */
+.lrow .rowhead{flex-wrap:nowrap;overflow:hidden}
+/* The per-box eye. Pushed hard right by its own margin rather than by a
+   spacer, so it keeps its place on a row whose chips have run out of room. */
+.beye{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;
+ padding:2px 3px;border-radius:5px;color:var(--dim);cursor:pointer}
+.beye:hover{color:var(--fg);background:#2b3140}
+.beye.on{color:var(--dim)}
+/* A box that has been put away: still readable, plainly not in play. */
+.lrow.away{opacity:.55}
+.lrow.away .rowhead{cursor:default}
+.lrow.away:hover{opacity:.85}
+.hidhead{margin:12px 2px 5px;font-size:11px;text-transform:uppercase;
+ letter-spacing:.06em}
+.lrow .chip.kind{min-width:0;overflow:hidden;
+ display:inline-flex;align-items:center;gap:4px;flex:0 1 auto}
+/* The colour is the point of the chip, so it is the last thing to give way —
+   and the NAME is what ellipsises, which needs a box of its own to do it in. */
+.lrow .chip.kind i.kd{flex:0 0 auto}
+.lrow .chip.kind .kdn{font-weight:400;min-width:0;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap}
+/* The rows are a plain grey plate again.
+
+   They wore their own box's colour for two rounds — first mixed into the panel,
+   then the swatch's hue and chroma held at a fixed lightness so every row came
+   out the same brightness whatever colour it wore. lee looked at both and said
+   *"aslo just go back to the  grey backgrounf"*, so the plate is `--panel2`
+   from `.card` and nothing here overrides it. The type is still said twice on
+   every row: by the coloured dot and by the name beside it.
+
+   The blue went in the same sitting and does not come back — a linked pair
+   says so with its border and with the chip in its head. */
+.card.lrow.linked{border-color:var(--link)}
+.card.lrow.linked.on{border-color:var(--accent)}
+.lrow .tx{margin-top:5px;cursor:text;user-select:text;-webkit-user-select:text}
+/* Same yellow as the row whose editor is open — they are all selected. */
+.card.lrow.msel:not(.on){border-color:var(--accent)}
+.card.lrow.ins-t{box-shadow:inset 0 2px 0 var(--accent)}
+.card.lrow.ins-b{box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* the region editor folded into the selected row (accordion) */
+.rinline{cursor:auto;margin-top:9px;padding-top:9px;
+  border-top:1px solid var(--line)}
+.rinline label{display:block;margin:7px 0 3px;font-size:11px;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.rinline label:first-child{margin-top:0}
+/* As tall as what is in it, and no taller.
+   It was two lines with a drag handle: a long line was cut off until you
+   pulled the corner, and a short one sat half empty. lee: *"get rid of teh
+   expanding on the boxes ... it shou djust always fit the text"*. `growBox`
+   in panels.js sets the height from the content on every keystroke, so there
+   is nothing to drag and nothing hidden. */
+.rinline textarea{width:100%;box-sizing:border-box;resize:none;line-height:1.45;
+  min-height:0;overflow:hidden}
+.rinline select{width:100%;box-sizing:border-box}
+
+/* The font pickers are native <select>s again — see `fontWidget` in
+   project.js. Everything that dressed the custom one is gone with it, and so
+   is the strip of the word "sample" that used to sit on every row of Fonts ▸
+   your own fonts: lee, *"remove teh smaple from the add fonts"*. Nothing
+   reads `.fsel-sm` any more, so the rule that drew it is gone too. */
+select.fontsel{width:100%}
+/* One uploaded face: its name, and the way to remove it. */
+.upfont{align-items:center;gap:8px;padding:5px 0;
+  border-bottom:1px solid #232833}
+.upfont-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.xbtn{background:none;border:1px solid #3a4150;color:#98a2b3;
+  width:24px;height:24px;line-height:1;border-radius:6px;cursor:pointer;
+  padding:0;flex:0 0 auto}
+.xbtn:hover{border-color:#c04a4a;color:#e08a8a}
+
+/* ---- Settings page (full-width tabbed view, replaces the old modal) ----
+   Manga settings is the same furniture with its own nav and body, so the two
+   pages cannot drift apart visually. */
+/* One card, centred both ways, with the nav inside it.
+
+   The nav used to be a full-height column pinned to the left edge of the
+   window with the content beside it, so the two read as two things and the
+   Save button sat a whole screen away from the last control you touched.
+   lee: *"in the setting page the side bar shoud be intergrated with the
+   center, the cenetr page shoud be center verticsaly and horizontaly and the
+   save an cancel button shoud be at teh bttom right"*.
+
+   `align-items:center` centres vertically and `justify-content:center`
+   horizontally — but only while the card is SHORTER than the room. Past that
+   the card is capped at the full height and scrolls inside itself, because a
+   centred box taller than its parent is one whose top is unreachable. */
+#settingsPage,#mangaPage{flex:1;min-height:0;display:flex;
+ align-items:center;justify-content:center;padding:20px;background:var(--bg)}
+/* ONE size, whichever section is open. Sized to the room and capped, not to
+   the content: Fonts & typesetting is five times the height of Synopsis, and a
+   card that resized to each of them jumped every time you moved between them.
+   lee: *"ishnta fo the setting pages swithing size it shoud be this size and
+   it there more text a side scroll bar shoud appear"*. Anything longer than
+   the card scrolls inside `#setBody`. */
+.setcard{display:flex;width:100%;max-width:960px;height:min(100%, 760px);
+ min-height:0;background:var(--panel);border:1px solid var(--line);
+ border-radius:12px;overflow:hidden}
+.setmain{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+/* The row that ends the card. Outside the scrolling body on purpose: Save is
+   reachable without scrolling to the end of whichever section is open. */
+.setfoot{flex:0 0 auto;display:flex;gap:8px;justify-content:flex-end;
+ padding:12px 20px;border-top:1px solid var(--line);background:var(--panel)}
+#setNav,#mangaNav,#fileNav{width:210px;flex:0 0 auto;background:var(--panel2);
+  border-right:1px solid var(--line);padding:14px 10px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:4px}
+.setnav-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dim);padding:2px 8px 8px}
+.setnav-btn{text-align:left;background:transparent;border:1px solid transparent;
+  border-radius:7px;padding:9px 11px;color:var(--fg);font-size:13px;
+  cursor:pointer;width:100%}
+/* Hover has to be READABLE. `--panel2` is barely off the panel it sits on and
+   the label all but vanished into it — lee, with a picture: *"change the on
+   hover color it sberely readable"*. A lighter plate and full-strength text,
+   the same pair every other button here uses. */
+.setnav-btn:hover:not(:disabled){background:#2f3648;border-color:#4a5670;
+  color:#fff}
+.setnav-btn.on{background:var(--accent);color:#161616;border-color:var(--accent);
+  font-weight:600}
+/* One section at a time, centred in the card's body. */
+#setBody,#mangaBody{flex:1;min-height:0;overflow-y:auto;padding:22px 24px}
+/* The CARD is the card now — a second border inside it was a box in a box. */
+.set-section{display:none;width:100%;max-width:620px;margin:0 auto}
+.set-section.on{display:block}
+.set-h{margin:0 0 4px;font-size:19px;font-weight:600}
+#setBody label,#mangaBody label{font-size:11.5px;margin:11px 0 4px}
+#setBody h3,#mangaBody h3{font-size:14px;margin:20px 0 8px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#setBody .help,#mangaBody .help{font-size:11.5px;line-height:1.5}
+#setBody details,#mangaBody details{margin-top:12px;border:1px solid var(--line);
+  border-radius:8px;padding:0 12px}
+#setBody details>summary,#mangaBody details>summary{cursor:pointer;padding:8px 0;
+  font-weight:600;color:var(--fg);font-size:12.5px}
+.addpages-top{font-weight:600}
+/* Add pages is a screen like the others, so its button lights up like a tab
+   while it is showing. lee: *"if im on te add page it shiud be yellow"*. */
+.addpages-top.on{background:var(--accent);color:#161616;border-color:var(--accent)}
+.addpages-top.on:hover:not(:disabled){background:#ffd851;border-color:#ffd851;
+  color:#161616}
+
+/* --- groups in the side panel ---
+   lee: *"make teh side bar more organized"*. Fourteen controls in one strip is
+   a wall; they are folded into named groups now, each remembering whether it
+   was open (lyOpen in panels.js). `details` does the folding, so it works with
+   the keyboard and needs no script of its own. */
+/* No `overflow:hidden` here, however tidy it looks. The font picker's menu is
+   positioned against the box it drops out of, and a clipping ancestor cuts it
+   off — which is what left one option showing and the rest of the list behind
+   the edge of the group. lee: *"fix this make teh list be visible"*. The
+   corners are rounded on the summary instead, which is what the clip was
+   there for. */
+.grp{border:1px solid var(--line);border-radius:8px;margin-top:8px;
+ background:#00000024}
+.grp>summary{border-radius:7px;list-style:none;cursor:pointer;user-select:none;
+ padding:7px 10px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--dim);display:flex;align-items:center;gap:7px}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary::before{content:"";width:0;height:0;flex:none;
+ border-left:5px solid currentColor;border-top:4px solid transparent;
+ border-bottom:4px solid transparent;transition:transform .12s}
+.grp[open]>summary::before{transform:rotate(90deg)}
+.grp>summary:hover{color:var(--fg);background:#ffffff08}
+.grp[open]>summary{color:var(--fg);border-bottom:1px solid var(--line);
+ border-radius:7px 7px 0 0}
+.grpbody{padding:2px 10px 10px}
+/* The first label in a group sits right under the heading and needs no extra
+   air above it. */
+.grpbody>label:first-child,.grpbody>.row:first-child,.grpbody>.sl:first-child{
+ margin-top:6px}
+
+/* --- the queue button ---
+   lee: *"it shou d be a button with a clcok and a number so 0 if nothing te
+   queue and 1 if there is sonething"*. It sits on the progress bar because
+   that is where you are looking when something is already running. */
+#queuewrap{position:relative;flex:none}
+#queueBtn{display:flex;align-items:center;gap:6px;padding:5px 9px}
+#queueBtn.has{border-color:var(--accent);color:var(--accent)}
+#queueN{font-variant-numeric:tabular-nums;min-width:8px;text-align:center}
+.qclock{width:13px;height:13px;flex:none;border:1.6px solid currentColor;
+ border-radius:50%;position:relative;display:inline-block}
+.qclock::before,.qclock::after{content:"";position:absolute;left:50%;top:50%;
+ background:currentColor;transform-origin:0 0;border-radius:1px}
+.qclock::before{width:4px;height:1.6px;transform:rotate(-90deg) translate(0,-.8px)}
+.qclock::after{width:3px;height:1.6px;transform:rotate(20deg) translate(0,-.8px)}
+/* The bar lives at the TOP of the window, so the panel drops DOWN from the
+   button. Opening upwards put it off the screen entirely. */
+#queuePop{display:none;position:absolute;right:0;top:calc(100% + 8px);
+ width:290px;max-height:320px;overflow:auto;z-index:60;
+ background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+ box-shadow:0 14px 34px #000a;padding:8px;text-align:left}
+#queuePop.open{display:block}
+#queuePop h4{margin:2px 4px 7px;text-align:left;font-size:11px;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--dim)}
+.qrow{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:7px;
+ font-size:12px}
+.qrow+.qrow{margin-top:3px}
+.qrow.now{background:#ffc4001a;border:1px solid #ffc40040}
+.qrow .qlbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+ white-space:nowrap}
+.qrow .qpg{color:var(--dim);font-size:11px;flex:none}
+.qrow button{padding:1px 6px;font-size:11px;line-height:1.5;flex:none}
+.qrow .qx{color:#e07a7a}
+.qrow .qx:hover{color:#ff9b9b;background:#3a1416}
+
+/* --- scrollbars ---
+   lee: *"there are also these while slide bar update them"*, then, still in
+   Chrome: *"thses are sill in the cghorm version remove them or make them
+   match teh theme"*.
+
+   The two mechanisms are not additive — they FIGHT. From Chromium 121 the
+   standard `scrollbar-color` property takes precedence and the whole
+   `::-webkit-scrollbar` set is ignored, so setting both for everybody is what
+   put the pale native bar back: Chrome fell out of the painted scrollbar and
+   into the standard one, which on Windows still draws a light track and a pair
+   of arrow buttons.
+
+   So each engine is given exactly one of them, and Firefox's is fenced behind
+   a test for the thing only Chromium has. `@supports selector()` is the only
+   way to ask a browser what it understands; a plain rule cannot.
+
+   The track is a real colour rather than `transparent`, because a transparent
+   track on a light panel shows the panel, not the theme. */
+::-webkit-scrollbar{width:12px;height:12px;background:#14171d}
+::-webkit-scrollbar-track{background:#14171d;border-radius:99px}
+::-webkit-scrollbar-thumb{background:#39414f;border-radius:99px;
+ border:3px solid #14171d;background-clip:padding-box;min-height:36px}
+::-webkit-scrollbar-thumb:hover{background:#4c566b;
+ border:3px solid #14171d;background-clip:padding-box}
+::-webkit-scrollbar-thumb:active{background:var(--accent);
+ border:3px solid #14171d;background-clip:padding-box}
+::-webkit-scrollbar-corner{background:#14171d}
+/* Chromium also draws stepper arrows at the ends unless they are told not to.
+   Firefox has none to hide. */
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:#39414f #14171d}
+}
+
+/* --- the same slider in both browsers ---
+   The knob had four states painted in Chromium — hover, active, focus — and
+   one flat rule in Firefox, so the same control answered differently to the
+   same mouse depending on the browser. The rules cannot be merged into one
+   selector list: a selector either browser does not understand invalidates the
+   WHOLE list, so each has to be written out on its own. */
+.sl input[type=range]:hover::-moz-range-thumb{transform:scale(1.2)}
+.sl input[type=range]:active::-moz-range-thumb{cursor:grabbing}
+.sl input[type=range]:focus-visible::-moz-range-thumb{
+ box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* Dragging a layer row to restack it. Pointer events, not HTML5 drag —
+   see layDown() in paint.js. lee: *"clci ad drag up and doen teh list and
+   remove the un and down arrow to move them"*. */
+body.laydragging{cursor:grabbing;user-select:none}
+body.laydragging .lay{cursor:grabbing}
+#stackList .lay[data-lid]{cursor:grab}
+#stackList .lay[data-lid] .lx{cursor:pointer}
+
+/* The Text block in the layer list, wrapped so a drag can measure it: above
+   its middle is "over the typesetting", below is "under". */
+#stackList .textband{display:block}
+/* Folded away. A page with twenty bubbles is twenty rows of text between the
+   drawings above the typesetting and the drawings below it, and the two ends of
+   the stack cannot be seen at once. lee: *"alwome to colapst the text foler in
+   teh layer"*. The band itself stays — it is what a layer is dragged across
+   to change which side of the typesetting it is on. */
+#stackList .textband.shut .textrow{display:none}
+/* The fold arrow on the Text folder. At 9px it was a speck you had to aim at
+   — lee, with a screenshot of it: *"malke this bigger for teh drop down in teh
+   layers"*. It is the one control on that row, so it is sized like one. */
+.lcar{color:var(--dim);font-size:15px;width:16px;height:16px;flex:0 0 auto;
+      cursor:pointer;display:inline-flex;align-items:center;
+      justify-content:center;border-radius:4px;
+      transition:transform .12s ease, background .12s ease, color .12s ease}
+.lcar.shut{transform:rotate(-90deg)}
+.lcar:hover{color:var(--fg);background:#2c3444}
+
+/* Picking a row up, and where it will land.
+   lee: *"add a visula for when im moving layers"*. The list already reorders
+   live, so the row under the pointer IS where it lands — what was missing was
+   any sign that a row had been picked up at all, and any mark on the boundary
+   a drag is about to cross. */
+#stackList .lay.dragging{border-color:var(--accent);
+  background:#232b3a;box-shadow:0 2px 8px #0006;opacity:.92}
+#stackList .lay.dragging .lnm{color:var(--fg)}
+#stackList .textband.crossing{outline:1px dashed var(--accent);
+  outline-offset:2px;border-radius:5px}
+#stackList .droplin{height:0;border-top:2px solid var(--accent);margin:1px 4px;
+  border-radius:2px}
+
+/* A list that is allowed to get long gets its own scrollbar instead of
+   pushing everything below it off the panel. lee: *"make this all fit in the
+   page and make the the layer and clenning per bubble have a scroll bar oif
+   they get too long"* — a page with sixteen bubbles pushed the tools a whole
+   screen down, and the panel is the thing you work from.
+
+   Twelve-ish rows before it starts scrolling, which is the same bargain the
+   font list already makes. */
+.scrolllist{max-height:300px;overflow-y:auto;overscroll-behavior:contain}
+.scrolllist::-webkit-scrollbar{width:9px}
+.scrolllist::-webkit-scrollbar-thumb{background:#3c465a;border-radius:5px}
+.scrolllist::-webkit-scrollbar-thumb:hover{background:#4c586e}
+.scrolllist::-webkit-scrollbar-track{background:transparent}
+/* The stack is the one people scroll most, and it holds the text list too. */
+#stackList{max-height:340px}
+
+/* An Effects row is three columns with a label over each control and a clear
+   button at the end. Centring the row put that button halfway up the label,
+   so it floated above the boxes it belongs to. lee: *"the x in the effect tab
+   shoud be in line"*. Bottom-aligned, and the same height as the number box
+   beside it. */
+.row.fxrow{align-items:flex-end}
+.row.fxrow > button{height:29px;flex:0 0 auto;padding:0 9px;line-height:1}
+
+/* The per-bubble font picker is a button as wide as its card, and the card
+   has padding — without border-box it drew itself past the edge.
+   lee, on This box: *"the test for this bubble is broken"*. */
+#lyFontWrap, select.fontsel{max-width:100%;box-sizing:border-box}
+
+
+/* --- the toolbox -----------------------------------------------------------
+   A strip of tools down the left of the page, always there. The tools used to
+   be in four tabbed sections of the side panel, so three quarters of them were
+   never on screen and nothing showed what was armed.
+   lee: *"make a side bar lke this for all the tool and make tool folder for
+   them like photoshop where you can right clcik to slected similiar tool from
+   a small windown"*. See js/toolbar.js. */
+#toolbox{flex:0 0 auto;width:40px;background:var(--panel);
+  border-right:1px solid var(--line);padding:5px 4px;display:flex;
+  flex-direction:column;gap:3px;overflow-y:auto;overscroll-behavior:contain}
+#toolbox::-webkit-scrollbar{width:0}
+.tbtn{position:relative;width:32px;height:32px;padding:0;display:flex;
+  align-items:center;justify-content:center;background:transparent;
+  border:1px solid transparent;border-radius:7px;color:var(--dim);
+  transition:background .12s ease,color .12s ease,transform .06s ease}
+.tbtn:hover:not(:disabled){background:#272e3c;border-color:#3c465a;
+  color:var(--fg);transform:none;box-shadow:none}
+.tbtn:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+/* The tool this slot is SET to, when that tool is not armed. Quieter than
+   `.on`, which means "this is in your hand right now" — but it has to be
+   visible, or picking out of the flyout reads as a click that did nothing. */
+.tbtn.on{background:var(--accent);border-color:var(--accent);color:#161616}
+.tbtn.on:hover:not(:disabled){background:#ffd851;border-color:#ffd851;
+  color:#161616}
+/* The corner mark that says this slot holds more than one tool — the same
+   signal Photoshop and GIMP use, and the thing you right-click. */
+.tbmore{position:absolute;right:2px;bottom:2px;width:0;height:0;
+  border-left:4px solid transparent;border-bottom:4px solid currentColor;
+  opacity:.75}
+
+.tbflyout{position:fixed;z-index:70;background:var(--panel2);
+  border:1px solid #3c465a;border-radius:9px;padding:4px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:200px}
+.tbrow{display:flex;align-items:center;gap:9px;width:100%;padding:6px 8px;
+  background:transparent;border:none;border-radius:6px;color:var(--fg);
+  text-align:left;font-size:12px}
+.tbrow:hover:not(:disabled){background:#2f3648;transform:none;box-shadow:none}
+.tbrow.on{background:var(--accent);color:#161616}
+.tbrow.on:hover:not(:disabled){background:#ffd851;color:#161616}
+.tbrow span{flex:1;min-width:0}
+
+/* A text block somebody emptied. Nothing is drawn on the page — it IS empty —
+   but on screen it stands where it stands, so it can be found, clicked, typed
+   into again or deleted. lee: *"if i dlete all teh text from a text box its
+   shoud accesp the edit and stay the last size it was and i shoud be able to
+   lcick on it to add text or dleete it"*. */
+.temptyph{position:absolute;border:1px dashed rgba(255,196,0,.55);
+  border-radius:3px;background:rgba(255,196,0,.06);pointer-events:none}
+
+/* Alignment, as three buttons rather than a menu — it is a picture of what it
+   does, and the lit one says what the block is. */
+.alignrow{gap:4px;margin-top:5px}
+.alignb{width:34px;height:28px;padding:0;display:flex;align-items:center;
+  justify-content:center}
+
+/* --- TCT Coins ---
+   lee: *"call teh coin tct coind and use teh logo as the coin face also add a
+   coin count in the ui at the top"*.
+
+   The count sits in the top bar between the tabs and the page tools, on its
+   own group: the two groups either side of it swap with the tab you are on,
+   and what is left to spend is true on every tab. */
+.coinwrap{position:relative;flex:none;margin-left:auto;margin-right:14px}
+#coinBtn{display:flex;align-items:center;gap:7px;padding:5px 10px;
+ font-variant-numeric:tabular-nums}
+#coinBtn .coinface{flex:none;display:block}
+/* Nearly out. Not red — you are not in trouble yet, and a red bar for a
+   balance that still works is the sort of alarm people learn to ignore. */
+#coinBtn.low{border-color:#c8890033;color:#ffc400}
+#coinBtn.broke{border-color:#e0555540;color:#ff9b9b}
+#coinN{min-width:10px;text-align:right}
+#walletPop{display:none;position:absolute;right:0;top:calc(100% + 8px);
+ width:320px;max-height:70vh;overflow:auto;z-index:60;
+ background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+ box-shadow:0 14px 34px #000a;padding:12px;text-align:left}
+#walletPop.open{display:block}
+.wtot{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
+.wtot .big{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.wtot .usd{color:var(--dim);font-size:12px;margin-left:auto}
+#walletPop h4{margin:12px 2px 6px;font-size:11px;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--dim)}
+.wrow{display:flex;align-items:baseline;gap:8px;padding:4px 6px;
+ border-radius:7px;font-size:12px}
+.wrow:nth-child(odd){background:#ffffff08}
+.wrow .wlbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+ white-space:nowrap}
+.wrow .wamt{font-variant-numeric:tabular-nums;flex:none}
+.wrow .wamt.plus{color:#8fd08f}
+.wrow .wsub{color:var(--dim);font-size:11px;flex:none}
+.wnote{color:var(--dim);font-size:11px;line-height:1.5;margin:8px 2px 0}
+.wtop{display:flex;gap:6px;margin-top:10px}
+.wtop button{flex:1}
+
+/* Whose coins these are. A line above the chapter's prices rather than a
+   screen of its own: signing in is a thing you do once, and the place you
+   think about it is the place the number is. */
+.wacct{display:flex;align-items:center;gap:8px;margin:8px 0 2px;
+ padding:8px 8px;border-radius:8px;background:#ffffff08}
+.wacct .wnote{margin:0;flex:1}
+.wacct .wwho{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+ white-space:nowrap;font-size:12px}
+.wacct button{flex:none}
+.wform{display:flex;flex-direction:column;gap:6px}
+.wform input{width:100%}
+.wform .wlink{background:none;border:none;color:var(--dim);font-size:11px;
+ text-decoration:underline;padding:2px;cursor:pointer;align-self:flex-start}
+.wform .wlink:hover{color:var(--ink)}
+
+/* The price on a scoped run's two choices. lee: *"on the pop up it shoud tell
+   teh price for all the pages and and this page onli on the side"* — beside
+   the label, not in it, so the label still reads as the label and the number
+   is the thing you are comparing between the two rows. */
+#scopedlg .scpcoin{position:absolute;right:12px;top:50%;
+ transform:translateY(-50%);display:flex;align-items:center;gap:5px;
+ font-variant-numeric:tabular-nums;font-size:12px;opacity:.85}
+#scpAll,#scpOne{position:relative}
+/* The real coin, not a gold dot. One <symbol> in editor.html, drawn at
+   whatever size the place it sits in wants — 15px in the top bar, 13px on a
+   choice. lee: *"also make the coin look like the oher coins"*.
+
+   On the highlighted choice the metal would be gold on gold, so it gets a
+   thin dark ring to sit in rather than a different coin. */
+.coinpip{flex:none;display:block}
+#scopedlg .pri .coinpip{border-radius:50%;box-shadow:0 0 0 1.5px #00000030}
+
+/* A step running a model nobody priced. Charged at the dearest rate on the
+   list, which is the right fallback and an eightfold difference nobody would
+   guess from the number — so the row says so, and so does a line under it. */
+.wrow.unpriced .wamt{color:#ffc400}
+.wflag{display:inline-flex;align-items:center;justify-content:center;
+ width:13px;height:13px;margin-left:5px;border-radius:50%;font-size:9px;
+ background:#ffc4001f;color:#ffc400;border:1px solid #ffc40055;cursor:help}
+.wnote.warn{color:#e2b871}
+
+/* A line of explanation under a settings heading. Grey, small, and never a
+   label — a label names a control and this names the shape of a group. */
+.sethint{margin:4px 2px 2px;color:var(--dim);font-size:12px;line-height:1.55}

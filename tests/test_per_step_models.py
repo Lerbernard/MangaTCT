@@ -1,0 +1,637 @@
+"""Each AI step can run on its own model.
+
+lee: *"i wan t a difent ai for vsion that reads teh text and a diffrent ai for
+translation they need to understand jappenese chinesse and koren and be cheap
+but good ... i wan to keep sonnet 5 for proofrreding"*.
+
+Reading a page is a vision job on every page; translating is a language job on
+every page; proofreading runs once at the end. Paying Sonnet rates for all three
+is paying the expensive model to do the cheap work. So each step carries its own
+model, and — because reading with Gemini and proofreading with Claude is the
+whole point — its own backend, address and key.
+
+There WAS a project-wide engine behind these three — a "Claude model" menu and
+a "Translation engine" menu — and a step with nothing set fell through to it.
+Both are gone. lee: *"remove teh recomened tab and the translation engine and
+the coins shou look at what ai is in each of teh step to use to bill"*, and he
+is right: two places to set one thing is two places for them to disagree, and
+the coin price could only ever quote one of the two.
+
+What is locked here now:
+
+* a step with a model set uses it, and leaves the other steps alone
+* a step with NOTHING set falls back to `STEP_DEFAULTS` — a default, the same
+  for every project, not a setting that can drift out of step with the screen
+* a project set up on the old engine has it carried onto its three steps, once,
+  so nothing anybody configured is lost
+* the three per-step keys never leave the machine through `summary()`
+
+The last one matters most: `summary()` is what `/api/project` returns to the
+browser, so a key that shows up there is a key on the wire.
+"""
+import shutil
+
+from mangatl.editor import AI_STEPS, STEP_DEFAULTS, _ctx_from_settings
+from mangatl.project import Project, migrate_engine
+from scratch import scratch
+from where import PKG
+
+ROOT = scratch("_tmp_stepai")
+
+
+def _proj():
+    """A project with nothing configured. There is no project-wide engine to
+    set any more — every step brings its own."""
+    shutil.rmtree(ROOT, ignore_errors=True)
+    return Project(None, ROOT)
+
+
+OLD_FILE = {"backend": "gemini", "model": "gemini-2.5-flash",
+            "base_url": "https://old.invalid/v1", "api_key": "house-key"}
+
+
+def _old_proj(saved=None):
+    """A project READ OFF DISK from before the per-step boxes existed: one
+    engine, one model, one key, and nothing per step.
+
+    Written to disk and loaded back rather than poked into `settings`, because
+    the migration has to read the FILE: every step has a model in `settings`
+    whether the file mentioned one or not, and a migration that looked there
+    would never fire.
+    """
+    import json
+    import os
+    shutil.rmtree(ROOT, ignore_errors=True)
+    p = Project(None, ROOT)
+    with open(p.state_path, encoding="utf-8") as fh:
+        d = json.load(fh)
+    d["settings"] = dict(OLD_FILE, **(saved or {}))
+    with open(p.state_path, "w", encoding="utf-8") as fh:
+        json.dump(d, fh)
+    q = Project(None, ROOT)
+    assert os.path.isfile(q.state_path)
+    return q
+
+
+def _clean():
+    shutil.rmtree(ROOT, ignore_errors=True)
+
+
+def test_the_three_steps_are_the_ones_the_pipeline_runs():
+    assert AI_STEPS == ("ocr", "translate", "proofread")
+
+
+def test_a_step_with_nothing_set_uses_its_own_default():
+    """Not "the project's engine" — there is no such thing any more. A default
+    is the same for every project, so it cannot drift out of step with what
+    the screen shows, which is exactly how the two menus that used to sit
+    above these boxes ended up being able to disagree with the price."""
+    p = _proj()
+    try:
+        for step in AI_STEPS:
+            _ctx_from_settings(p, step)
+            back, model = STEP_DEFAULTS[step]
+            assert (p.ctx.backend, p.ctx.model) == (back, model), step
+    finally:
+        _clean()
+
+
+def test_the_defaults_are_a_cheap_reader_and_a_good_writer():
+    """Reading a page is a vision job a cheap model does well; writing the
+    English is where the money should go; checking it is a judgement call
+    worth a good model once at the end. If the three were the same there would
+    be no reason for there to be three boxes."""
+    from mangatl import coins
+    for step, (back, model) in STEP_DEFAULTS.items():
+        assert coins.priced(model, back), step        # never the unknown rate
+    assert coins.rate_for(STEP_DEFAULTS["ocr"][1]).inp < \
+        coins.rate_for(STEP_DEFAULTS["proofread"][1]).inp
+
+
+def test_the_defaults_are_written_down_in_exactly_one_place():
+    """`Project.settings` is where they live and where the screen reads them.
+    `editor.STEP_DEFAULTS` is the last resort for a project.json old enough to
+    be missing the keys — and if the two disagree, a step falls back to a model
+    the screen never showed and the price is for something else again. That is
+    the whole failure these three boxes replaced."""
+    p = _proj()
+    try:
+        for step, (back, model) in STEP_DEFAULTS.items():
+            assert p.settings[f"{step}_model"] == model, step
+            assert p.settings[f"{step}_backend"] == back, step
+    finally:
+        _clean()
+
+
+def test_an_old_project_keeps_the_engine_it_was_set_up_with():
+    """The screen that set it is gone. Copy it onto the three steps, once, so
+    nobody opens the app to find their model, their address and their key have
+    quietly become somebody else's defaults."""
+    p = _old_proj()
+    try:
+        for step in AI_STEPS:
+            _ctx_from_settings(p, step)
+            assert p.ctx.model == "gemini-2.5-flash", step
+            assert p.ctx.backend == "gemini", step
+            assert p.ctx.base_url == "https://old.invalid/v1", step
+            assert p.ctx.api_key == "house-key", step
+    finally:
+        _clean()
+
+
+def test_the_migration_leaves_a_step_that_was_already_set_alone():
+    """A project that DID use the per-step boxes must not have them
+    overwritten by the old menu it also happens to carry."""
+    p = _old_proj({"ocr_model": "gemini-3.5-flash-lite",
+                   "ocr_backend": "gemini", "ocr_key": "reader-key"})
+    try:
+        _ctx_from_settings(p, "ocr")
+        assert p.ctx.model == "gemini-3.5-flash-lite"
+        assert p.ctx.api_key == "reader-key"
+        _ctx_from_settings(p, "translate")
+        assert p.ctx.model == "gemini-2.5-flash"
+    finally:
+        _clean()
+
+
+def test_a_project_with_nothing_to_migrate_is_not_touched():
+    """A new project has no old engine to carry, and its own defaults must
+    survive the migration untouched."""
+    p = _proj()
+    try:
+        assert migrate_engine(p.settings, {}) is False
+        assert p.settings["ocr_model"] == "gemini-3.5-flash-lite"
+        # ...and a file that names a step but no engine is not migrated either.
+        assert migrate_engine(p.settings, {"ocr_model": "x"}) is False
+    finally:
+        _clean()
+
+
+def test_each_step_picks_up_its_own_model():
+    p = _proj()
+    try:
+        # A key for the step, because a step with no key it can use is not used
+        # at all — reading and translating come pointed at Google by default
+        # now, and an install with no Google key has to carry on working.
+        p.settings.update({"ocr_key": "k", "translate_key": "k",
+                           "proofread_key": "k"})
+        p.settings["ocr_model"] = "gemini-2.5-flash-lite"
+        p.settings["translate_model"] = "gemini-2.5-flash"
+        p.settings["proofread_model"] = "claude-sonnet-5"
+        _ctx_from_settings(p, "ocr")
+        assert p.ctx.model == "gemini-2.5-flash-lite"
+        _ctx_from_settings(p, "translate")
+        assert p.ctx.model == "gemini-2.5-flash"
+        _ctx_from_settings(p, "proofread")
+        assert p.ctx.model == "claude-sonnet-5"
+    finally:
+        _clean()
+
+
+def test_one_step_set_does_not_move_the_others():
+    """Setting the reader must not drag the translator onto Gemini."""
+    p = _proj()
+    try:
+        p.settings["ocr_model"] = "gemini-2.5-flash-lite"
+        p.settings["ocr_backend"] = "gemini"
+        _ctx_from_settings(p, "translate")
+        assert (p.ctx.backend, p.ctx.model) == STEP_DEFAULTS["translate"]
+    finally:
+        _clean()
+
+
+def test_a_step_can_live_on_another_provider_with_its_own_key():
+    p = _proj()
+    try:
+        p.settings.update({"ocr_model": "gemini-2.5-flash-lite",
+                           "ocr_backend": "gemini",
+                           "ocr_base_url": "https://example.invalid/v1",
+                           "ocr_key": "reader-key"})
+        _ctx_from_settings(p, "ocr")
+        assert p.ctx.backend == "gemini"
+        assert p.ctx.base_url == "https://example.invalid/v1"
+        assert p.ctx.api_key == "reader-key"
+        # ...and the next step is on its own default, with no key of its own —
+        # a step's key belongs to that step and is never lent to another.
+        _ctx_from_settings(p, "translate")
+        assert (p.ctx.backend, p.ctx.model) == STEP_DEFAULTS["translate"]
+        assert p.ctx.api_key == ""
+    finally:
+        _clean()
+
+
+def test_a_backend_without_a_model_gets_the_default_model():
+    """A half-filled row must not post model="" to a provider. It used to fall
+    all the way back to the project's engine, provider and all; now the row's
+    own provider is kept — it is what somebody chose — and only the missing
+    model comes from the default."""
+    p = _proj()
+    try:
+        p.settings.update({"ocr_backend": "openai", "ocr_key": "reader-key",
+                           "ocr_model": ""})
+        _ctx_from_settings(p, "ocr")
+        assert p.ctx.model == STEP_DEFAULTS["ocr"][1]
+        assert p.ctx.model != ""
+        assert p.ctx.backend == "openai"
+        assert p.ctx.api_key == "reader-key"
+    finally:
+        _clean()
+
+
+def test_blank_step_fields_mean_not_set_and_not_set_to_nothing():
+    p = _proj()
+    try:
+        p.settings.update({"translate_model": "gemini-2.5-flash",
+                           "translate_backend": "", "translate_base_url": "",
+                           "translate_key": ""})
+        _ctx_from_settings(p, "translate")
+        assert p.ctx.model == "gemini-2.5-flash"
+        assert p.ctx.backend == STEP_DEFAULTS["translate"][0]   # not blanked
+    finally:
+        _clean()
+
+
+def test_whitespace_only_is_not_a_model():
+    p = _proj()
+    try:
+        p.settings["ocr_model"] = "   "
+        _ctx_from_settings(p, "ocr")
+        assert p.ctx.model == STEP_DEFAULTS["ocr"][1]
+    finally:
+        _clean()
+
+
+def test_an_unknown_step_name_changes_nothing():
+    p = _proj()
+    try:
+        p.settings["ocr_model"] = "gemini-2.5-flash-lite"
+        # A step that calls no model gets no step's engine — not the reader's,
+        # and not a leftover from whichever step ran last.
+        _ctx_from_settings(p, "clean")
+        assert p.ctx.model != "gemini-2.5-flash-lite"
+        assert p.ctx.api_key == ""
+        _ctx_from_settings(p)
+        assert p.ctx.model != "gemini-2.5-flash-lite"
+    finally:
+        _clean()
+
+
+def test_the_step_keys_never_reach_the_browser():
+    """`summary()` is the payload of /api/project. A key in there is a key on
+    the wire."""
+    p = _proj()
+    try:
+        for step in AI_STEPS:
+            p.settings[f"{step}_key"] = f"secret-{step}"
+        s = p.summary()["settings"]
+        blob = repr(s)
+        for step in AI_STEPS:
+            assert s[f"{step}_key"] == "set"
+            assert f"secret-{step}" not in blob
+        assert "house-key" not in blob
+    finally:
+        _clean()
+
+
+def test_unset_step_keys_report_as_empty_not_set():
+    p = _proj()
+    try:
+        s = p.summary()["settings"]
+        for step in AI_STEPS:
+            assert s[f"{step}_key"] == ""
+    finally:
+        _clean()
+
+
+def test_every_step_field_has_a_default():
+    """A missing default means `.get()` returns None somewhere and the settings
+    dialog writes `undefined` back.
+
+    Two of them have a real default rather than a blank one: reading and
+    translating come set up for Google AI Studio, which is what they are worth
+    doing on. lee: *"these shoud be teh default"*. What matters here is that
+    every field is PRESENT and is a string."""
+    p = _proj()
+    try:
+        for step in AI_STEPS:
+            for suffix in ("model", "backend", "base_url", "key"):
+                v = p.settings[f"{step}_{suffix}"]
+                assert isinstance(v, str), (step, suffix, v)
+        # ...and nothing arrives with a key already in it
+        for step in AI_STEPS:
+            assert p.settings[f"{step}_key"] == ""
+            assert p.settings[f"{step}_base_url"] == ""
+        # Proofreading used to arrive BLANK, meaning "the project's engine".
+        # There is no project engine any more, and blank would be a step the
+        # price screen could not name — so it arrives named, on the model lee
+        # picked for it: *"i wan to keep sonnet 5 for proofrreding"*.
+        assert p.settings["proofread_model"] == "claude-sonnet-5"
+        assert p.settings["proofread_backend"] == "anthropic"
+    finally:
+        _clean()
+
+
+def test_the_pipeline_asks_for_the_right_step():
+    """The three callers name their own step — a copy-paste that leaves
+    do_translate asking for "ocr" would silently route translation through the
+    reader's cheap model."""
+    import inspect
+    from mangatl import editor
+    for fn, step in ((editor.do_ocr, "ocr"),
+                     (editor.do_translate, "translate"),
+                     (editor.do_proofread, "proofread")):
+        src = inspect.getsource(fn)
+        assert f'_ctx_from_settings(p, "{step}")' in src, fn.__name__
+
+
+def test_the_settings_api_masks_the_step_keys():
+    """/api/settings echoes the saved sheet back; it must mask there too."""
+    from pathlib import Path
+    src = (PKG
+           / "editor.py").read_text(encoding="utf8")
+    assert 'safe[f"{k}_key"] = "set" if safe.get(f"{k}_key") else ""' in src
+
+
+def test_the_dialog_offers_a_row_for_every_step():
+    from pathlib import Path
+    html = (PKG / "static"
+            / "editor.html").read_text(encoding="utf8")
+    for step in AI_STEPS:
+        for suffix in ("model", "backend", "base_url"):
+            assert f'id="{step}_{suffix}"' in html, f"{step}_{suffix}"
+
+
+def test_the_key_is_asked_for_once_per_service_and_not_once_per_step():
+    """A key is a fact about the PROVIDER — the same Google key that reads the
+    page translates it. Three boxes meant typing it twice, and meant it could
+    be right in one and stale in the other with nothing on screen saying which
+    of the two a run would use."""
+    from mangatl.project import SERVICES
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf8")
+    for svc in SERVICES:
+        assert f'id="key_{svc}"' in html, svc
+    for step in AI_STEPS:
+        assert f'id="{step}_key"' not in html, step
+
+
+# ------------------------------------------------- the model is a menu now
+
+def test_the_models_offered_are_the_models_that_can_be_paid_for():
+    """lee: *"inatd of habving to type teh names of teh model there shou dbe a
+    drop downlist of all the models"*.
+
+    Typing was how a chapter died halfway through with a 404 — providers
+    retire models and nothing here would have told you — and it was also how a
+    step ended up on a model the app cannot price, which silently charges the
+    top rate. So the menu offers what can be paid for.
+    """
+    from mangatl import coins
+    for back in ("anthropic", "gemini", "openrouter"):
+        offered = coins.models_for(back)
+        assert offered, back
+        for m in offered:
+            assert coins.priced(m, back), (back, m)
+
+
+def test_the_menu_opens_on_something_current():
+    """In the price table's own order, which is newest first. Sorted by name it
+    would open on the oldest model in the range, which is the one thing nobody
+    wants and the one thing that gets picked by accident."""
+    from mangatl import coins
+    assert coins.models_for("anthropic")[0] == "claude-fable-5"
+    assert coins.models_for("gemini")[0] == "gemini-3.6-flash"
+
+
+def test_a_model_that_is_priced_but_retired_is_not_offered():
+    """Somebody may still have one set — it stays PRICED, so they are not
+    charged the unknown rate for it — but a menu of every model a provider
+    ever shipped is a menu nobody can choose from."""
+    from mangatl import coins
+    for old in coins.RETIRED:
+        assert coins.priced(old), old
+        assert old not in coins.models_for("anthropic"), old
+        assert old not in coins.models_for("gemini"), old
+
+
+def test_a_provider_this_app_does_not_price_offers_nothing_of_its_own():
+    """Ollama and the rest are asked what they have instead — their range is
+    not in the table and it costs nothing to run either way.
+
+    OpenRouter used to be one of these and is not any more: its ten slugs are
+    priced, so it can be offered like the other two services rather than being
+    a box you type a name into and hope."""
+    from mangatl import coins
+    for back in ("ollama", "openai", "groq", "cerebras", ""):
+        assert coins.models_for(back) == [], back
+
+
+def test_the_default_for_every_step_is_on_its_own_menu():
+    """A step that opens on a model its own menu does not offer is a menu that
+    changes the setting the moment somebody touches it."""
+    from mangatl import coins
+    p = _proj()
+    try:
+        for step, (back, model) in STEP_DEFAULTS.items():
+            assert model in coins.models_for(back), step
+    finally:
+        _clean()
+
+
+# --------------------------------------------------------- the menu on screen
+
+def _browser(fn):
+    """The settings screen, open on Translation engine."""
+    import json
+    import threading
+    from http.server import ThreadingHTTPServer
+
+    import browserpool
+    import numpy as np
+    import pytest as _pytest
+    cv2 = _pytest.importorskip("cv2")
+    from mangatl import editor
+
+    shutil.rmtree(ROOT, ignore_errors=True)
+    p = Project(None, ROOT)
+    p.add_uploaded("001.png", cv2.imencode(
+        ".png", np.full((400, 300, 3), 240, np.uint8))[1].tobytes())
+    for step in AI_STEPS:
+        p.settings[f"{step}_key"] = "k"
+    p.save()
+    was, editor.PROJECT = editor.PROJECT, p
+    # The menu asks the PROVIDER what the key can reach, and these tests are
+    # about the menu rather than about somebody's network. Answering nothing
+    # is the honest stand-in: an empty crossing leaves the priced list
+    # standing, which is what every assertion below is written against.
+    from mangatl import translate as _t
+    was_list, _t.list_models = _t.list_models, (lambda url, key="", **k: [])
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), editor.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % srv.server_address[1]
+    try:
+        with browserpool.session() as br:
+            pg = br.new_page(viewport={"width": 1400, "height": 1000})
+            errs = []
+            pg.on("pageerror", lambda e: errs.append(str(e)))
+            pg.goto(base + "/", wait_until="load")
+            browserpool.ready(pg)
+            pg.evaluate("setTab('settings'); setSettingsTab('translation')")
+            browserpool.settled(pg)
+            pg.wait_for_function(
+                "document.querySelectorAll('#ocr_model_sel option').length > 2",
+                timeout=10000)
+            try:
+                return fn(pg, p)
+            finally:
+                assert not errs, errs
+    finally:
+        _t.list_models = was_list
+        editor.PROJECT = was
+        srv.shutdown()
+        shutil.rmtree(ROOT, ignore_errors=True)
+
+
+def test_the_model_is_a_menu_and_not_a_box_to_type_in():
+    """lee: *"inatd of habving to type teh names of teh model there shou dbe a
+    drop downlist of all the models"*."""
+    from mangatl import coins
+
+    def check(pg, p):
+        for step in AI_STEPS:
+            got = pg.evaluate(
+                "[...document.querySelectorAll('#%s_model_sel option')]"
+                ".map(o=>o.value)" % step)
+            back = p.settings[f"{step}_backend"]
+            assert got[:-1] == coins.models_for(back), step
+            assert got[-1] == "__other__", step      # ...and a way out
+            # It opens on what the step is really set to, not on the first row.
+            assert pg.evaluate("$('%s_model_sel').value" % step) == \
+                p.settings[f"{step}_model"], step
+    _browser(check)
+
+
+def test_choosing_from_the_menu_saves_it():
+    def check(pg, p):
+        pg.evaluate("""(()=>{ const s=$('translate_model_sel');
+            s.value='gemini-2.5-flash-lite'; pickModel('translate'); })()""")
+        pg.wait_for_function(
+            "proj.settings.translate_model==='gemini-2.5-flash-lite'",
+            timeout=8000)
+        assert p.settings["translate_model"] == "gemini-2.5-flash-lite"
+        assert pg.evaluate("$('translate_model').value") == \
+            "gemini-2.5-flash-lite"
+    _browser(check)
+
+
+def test_other_opens_a_box_and_saves_nothing_until_it_is_filled():
+    """Somebody running a local model has a name nobody could have listed. But
+    choosing "Other" is not itself a choice of model — saving an empty name
+    the moment it is picked would unset the step."""
+    def check(pg, p):
+        was = p.settings["ocr_model"]
+        pg.evaluate("""(()=>{ const s=$('ocr_model_sel');
+            s.value=MODEL_OTHER; pickModel('ocr'); })()""")
+        pg.wait_for_timeout(400)
+        assert pg.evaluate("$('ocr_model').style.display") != "none"
+        assert p.settings["ocr_model"] == was, "it unset the step"
+    _browser(check)
+
+
+def test_a_model_that_is_set_but_not_on_the_menu_is_still_shown():
+    """A local one, or an entry a provider has retired since. Taking somebody's
+    setting away without asking is worse than an odd-looking menu."""
+    def check(pg, p):
+        pg.evaluate("""(()=>{ $('ocr_model').value='my-own-local-thing';
+            drawModels('ocr', ['gemini-3.6-flash'], new Set(['gemini-3.6-flash']));
+            })()""")
+        got = pg.evaluate(
+            "[...document.querySelectorAll('#ocr_model_sel option')]"
+            ".map(o=>o.value)")
+        assert "my-own-local-thing" in got, got
+        assert pg.evaluate("$('ocr_model_sel').value") == "my-own-local-thing"
+    _browser(check)
+
+
+def test_a_model_the_app_cannot_price_says_so_on_the_menu():
+    """Choosing one charges the top rate. That should be visible at the moment
+    of choosing, not afterwards on the coin panel."""
+    def check(pg, p):
+        labels = pg.evaluate("""(()=>{
+            drawModels('ocr', ['gemini-3.6-flash', 'mystery-9'],
+                       new Set(['gemini-3.6-flash']));
+            return [...document.querySelectorAll('#ocr_model_sel option')]
+                     .map(o=>o.textContent); })()""")
+        assert any("mystery-9" in t and "not priced" in t for t in labels), labels
+        assert not any("gemini-3.6-flash" in t and "not priced" in t
+                       for t in labels), labels
+    _browser(check)
+
+
+def test_changing_the_provider_asks_for_that_provider_s_models():
+    """The model chosen for the old provider almost certainly does not exist
+    on the new one, so the menu is refilled straight away rather than the next
+    time somebody happens to look at it."""
+    from mangatl import coins
+
+    def check(pg, p):
+        pg.evaluate("""(()=>{ $('ocr_backend').value='anthropic';
+            saveSettings(); modelsStale('ocr'); })()""")
+        pg.wait_for_function(
+            "[...document.querySelectorAll('#ocr_model_sel option')]"
+            ".some(o=>o.value.startsWith('claude-'))", timeout=10000)
+        got = pg.evaluate(
+            "[...document.querySelectorAll('#ocr_model_sel option')]"
+            ".map(o=>o.value)")
+        assert got[:-1] == coins.models_for("anthropic"), got
+        # ...and the Gemini model it was on is GONE, not kept as "as set". It
+        # belongs to the provider that was just left and cannot run on this
+        # one; the step moves to the first model the new provider offers, and
+        # saves it, so the settings and the screen still agree.
+        assert not any(m.startswith("gemini") for m in got), got
+        pg.wait_for_function(
+            "proj.settings.ocr_model==='%s'" % coins.models_for("anthropic")[0],
+            timeout=8000)
+        assert p.settings["ocr_model"] == coins.models_for("anthropic")[0]
+    _browser(check)
+
+
+def test_a_step_with_no_key_is_refused_before_the_run():
+    """And by the ENDPOINT, not only by the function behind it — a run that
+    starts and fails on page one has already taken the coins."""
+    import json
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    import numpy as np
+    import pytest as _pytest
+    cv2 = _pytest.importorskip("cv2")
+    from mangatl import editor
+
+    shutil.rmtree(ROOT, ignore_errors=True)
+    p = Project(None, ROOT)
+    p.add_uploaded("001.png", cv2.imencode(
+        ".png", np.full((400, 300, 3), 240, np.uint8))[1].tobytes())
+    p.settings["translate_key"] = ""            # the one that matters
+    p.save()
+    was, editor.PROJECT = editor.PROJECT, p
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), editor.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % srv.server_address[1]
+    try:
+        req = urllib.request.Request(
+            base + "/api/translate_all", data=json.dumps({"pages": [0]}).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            urllib.request.urlopen(req, timeout=20)
+            raise AssertionError("it started a run with no key")
+        except urllib.error.HTTPError as e:
+            assert e.code == 402
+            body = e.read().decode()
+            assert "Translate" in body and "API key" in body, body
+        assert not p.job.get("running")
+    finally:
+        editor.PROJECT = was
+        srv.shutdown()
+        shutil.rmtree(ROOT, ignore_errors=True)

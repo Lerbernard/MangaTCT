@@ -1,0 +1,1091 @@
+/* project.js — Project summary load, page strip rendering + drag reorder, add/remove pages, ask() dialog, settings save, region split.
+   Split from editor.html. Classic script: shares globals with the other
+   modules and must load in the order editor.html lists. No build step. */
+
+/* The synopsis is the one box you read rather than fill in, so it takes whatever
+   height its text needs instead of hiding the end behind a scrollbar. A hidden
+   textarea measures as zero, so this is also called when Settings opens. */
+const SYNOPSIS_MAX_LINES=10;
+function growSynopsis(){
+  const t=$('synopsis');
+  if(!t || !t.offsetParent) return;     // not on screen yet — nothing to measure
+  const cs=getComputedStyle(t);
+  let lh=parseFloat(cs.lineHeight);
+  if(!isFinite(lh)||!lh) lh=(parseFloat(cs.fontSize)||13)*1.45;
+  // border-box: the height has to carry the padding and the border too.
+  const chrome=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0)
+              +(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+  const cap=Math.round(lh*SYNOPSIS_MAX_LINES+chrome);
+  t.style.height='auto';
+  const want=t.scrollHeight+(parseFloat(cs.borderTopWidth)||0)
+                           +(parseFloat(cs.borderBottomWidth)||0);
+  const over=want>cap;
+  t.style.height=(over?cap:want)+'px';
+  // Whole thing on screen while it fits; a scrollbar only once it does not.
+  t.style.overflowY=over?'auto':'hidden';
+}
+
+/* ---------------- project ---------------- */
+async function loadProject(){
+  proj=await api('/api/project');
+  if($('title')) $('title').value=proj.context.title||'';
+  $('synopsis').value=proj.context.synopsis||''; growSynopsis();
+  charSheet={...(proj.context.characters||{})};
+  renderCharList();
+  glossSheet={...(proj.context.glossary||{})};
+  renderGlossList();
+  $('minf').value=proj.settings.min_font; $('maxf').value=proj.settings.max_font;
+  $('upper').checked=!!proj.settings.uppercase;
+  // One default, and it lives in `Project.settings` — every project that
+  // is read off disk has been through `settings.update(...)` over those
+  // defaults, so the key is always there and a second default here would
+  // only ever be a second place to get it wrong.
+  $('substitutes').checked=!!proj.settings.substitutes;
+  { const mt=$('manual_translate');
+    if(mt) mt.checked=!!proj.settings.manual_translate;
+    syncManualMode(); }
+  { const g=$('gemini_safety_off');
+    if(g) g.checked=!!proj.settings.gemini_safety_off; }
+  const _md=mediumDefaults($('medium').value=proj.settings.medium||'manga');
+  // `auto` is what the old "Same as the source material" option saved. It only
+  // ever resolved to the medium's own language, so it is shown as that.
+  $('source').value=(proj.settings.source && proj.settings.source!=='auto')
+                    ? proj.settings.source : _md.source;
+  $('target').value=proj.settings.target||'en';
+  if($('ocr_engine')) $('ocr_engine').value=proj.settings.ocr_engine||'auto';
+  if($('ocr_detail')) $('ocr_detail').value=proj.settings.ocr_detail||'auto';
+  $('direction').value=(proj.settings.direction && proj.settings.direction!=='auto')
+                       ? proj.settings.direction : _md.direction;
+  $('detector').value='comictext';   // comic-text-detector is the only detector now
+  $('weights').value=proj.settings.weights||'';
+  $('text_weights').value=proj.settings.text_weights||'';
+  $('yolocfg').style.display='block';
+  { const n=$('ctdcfg'); if(n) n.style.display='block'; }
+  if($('auto_kind')) $('auto_kind').checked=(proj.settings.auto_kind!==false);
+  if($('restitch_strips'))
+    $('restitch_strips').checked=(proj.settings.restitch_strips!==false);
+  if($('strip_target')) $('strip_target').value=proj.settings.strip_target||2400;
+  if($('strip_max')) $('strip_max').value=proj.settings.strip_max||6000;
+  // An 'ai_boxes' menu stood here. The pass it drove is gone, and an old
+  // project.json may still carry the key — nothing reads it.
+  // A project-wide engine used to be loaded here — a "Claude model" menu and
+  // a "Translation engine" menu. They are gone from the screen; what a step
+  // runs on is the step's own boxes and nothing else.
+  ['ocr','translate','proofread'].forEach(k=>{
+    // Per-step models. The provider box used to offer "Same as the project"
+    // and sit on it, which told you nothing about what the step would actually
+    // call; it now shows the provider itself, pre-filled with the project's
+    // own when the step has never been pointed anywhere else. What decides
+    // whether a step is used at all is unchanged and is the MODEL name beside
+    // it — an empty model still means "run this step on the project's engine"
+    // (see `_ctx_from_settings`) — so no project behaves differently.
+    const be=$(k+'_backend'), md=$(k+'_model'),
+          bu=$(k+'_base_url'), ky=$(k+'_key');
+    // Straight off the settings, with no second default here: the server
+    // sends what every step is set to and prices the chapter off the same
+    // values, so a box showing anything else would be a screen disagreeing
+    // with a bill.
+    if(be) be.value=proj.settings[k+'_backend']||'anthropic';
+    if(md){
+      md.value=proj.settings[k+'_model']||'';
+      // The menu is filled from the server, and until it answers the box's
+      // own value stands in — so the screen never shows a step as unset while
+      // a request is in flight.
+      drawModels(k, md.value ? [md.value] : [], null);
+      fillModels(k);
+    }
+    if(bu) bu.value=proj.settings[k+'_base_url']||'';
+    if(ky) ky.placeholder=proj.settings[k+'_key']==='set'
+      ?'(saved)':'key for this one';
+  });
+  // One key per service. The boxes are masked the same way the per-step ones
+  // were: the server never sends a key back, so an empty box with "(saved)"
+  // in it means there is one and nothing has to be retyped to keep it.
+  SERVICES.forEach(s=>{
+    const el=$('key_'+s);
+    if(el) el.placeholder=proj.settings['key_'+s]==='set'?'(saved)':'not set';
+  });
+  if($('ai_clean')){
+    $('ai_clean').value=proj.settings.ai_clean||'off';
+    $('clean_url').value=proj.settings.clean_url||'';
+    // "(saved)" for anything non-empty is what hid this for a week: the
+    // CHANGE-ME example out of the deploy file is non-empty, so a token that
+    // had never been filled in looked configured while the endpoint answered
+    // 401 to every single call. The placeholder state says so, in the field.
+    const ts=proj.settings.clean_token;
+    const tf=$('clean_token');
+    tf.placeholder = ts==='set' ? '(saved)'
+      : ts==='placeholder' ? 'still the CHANGE-ME example — paste your real token'
+      : 'the token from your deploy file';
+    tf.classList.toggle('bad', ts==='placeholder');
+    toggleAiCfg();
+  }
+  renderPages();
+  if(!$('font').options.length){
+    const f=await api('/api/fonts');
+    takeFonts(f);
+  }
+  if(proj.settings.font) $('font').value=proj.settings.font;
+  FONT_KINDS.forEach(k=>{
+    const el=$('font_'+k);
+    if(el) el.value=(proj.settings.fonts||{})[k]||'';
+  });
+  if(typeof renderLegend==='function') renderLegend();
+  if(typeof renderCustomKinds==='function') renderCustomKinds();
+}
+// Selection is keyed by page NAME (stable), NOT by position — deleting or
+// adding a page renumbers indices, so an index-keyed tick would jump to
+// whatever page slid into that slot. A name follows its own page.
+let selPages = new Set();      // page NAMES ticked for "do all"
+let _seenPages = new Set();    // page NAMES seen so far — new pages start CHECKED
+// Remember the ticks across a full page reload (F5), so unchecked pages stay
+// unchecked. Stored locally in the browser for this editor.
+try{
+  const _s=JSON.parse(localStorage.getItem('mangatl_sel')||'null');
+  // Only restore the newer name-keyed form; old numeric ticks are ignored so
+  // they can't mis-map onto the wrong pages.
+  if(_s && Array.isArray(_s.sel) && _s.byName){
+    selPages=new Set(_s.sel); _seenPages=new Set(_s.seen||_s.sel);
+  }
+}catch(e){}
+function saveSel(){
+  try{ localStorage.setItem('mangatl_sel',
+    JSON.stringify({byName:true, sel:[...selPages], seen:[..._seenPages]})); }catch(e){}
+}
+function _pageName(i){ const p=(proj.pages||[]).find(p=>p.index===i); return p?p.name:null; }
+function togglePageSel(i){
+  const nm=_pageName(i); if(nm==null) return;
+  if(selPages.has(nm)) selPages.delete(nm); else selPages.add(nm);
+  saveSel(); renderPages();
+}
+function selectAllPages(on){
+  selPages = on ? new Set(proj.pages.map(p=>p.name)) : new Set();
+  saveSel(); renderPages();
+}
+// Pages a "do all" run targets: the checked ones, as current indices.
+function scopedPages(){
+  return proj.pages.filter(p=>selPages.has(p.name)).map(p=>p.index)
+                   .sort((a,b)=>a-b);
+}
+
+function renderPages(){
+  // New (and first-load) pages default to CHECKED; manual deselects persist.
+  let _added=false;
+  proj.pages.forEach(p=>{
+    if(!_seenPages.has(p.name)){ _seenPages.add(p.name); selPages.add(p.name); _added=true; }
+  });
+  if(_added) saveSel();
+  const all=proj.pages.length;
+  const selCount=proj.pages.filter(p=>selPages.has(p.name)).length;
+  const allSel=selCount===all && all>0;
+  // Whether Edit can be reached is a question about this list.
+  if(typeof syncTabs==='function') syncTabs();
+  $('pages').innerHTML =
+    // Adding pages is an editing action; the Results tab is a gallery of what
+    // came OUT. An "+ Add pages" there offers to change the chapter from the
+    // one screen that is only ever about the finished thing.
+    // lee: *"the add page shosud not be visible in teh result page"*.
+    (tab==='results' ? ''
+      : `<button class="addbtn" onclick="addFiles()">+ Add pages</button>`) +
+    `<button class="addbtn selbtn" onclick="selectAllPages(${allSel?'false':'true'})">
+       ${allSel?'Deselect all':`Select all (${selCount}/${all})`}</button>` +
+    proj.pages.map(p=>`
+      <div class="pg ${p.index===cur?'on':''} ${selPages.has(p.name)?'sel':''}" draggable="true"
+           data-i="${p.index}"
+           onclick="showPage(${p.index})"
+           oncontextmenu="pgMenu(event,${p.index});return false"
+           ondragstart="pgDragStart(event,${p.index})"
+           ondragover="pgDragOver(event,${p.index})"
+           ondragleave="pgDragLeave(event)"
+           ondragend="pgDragEnd()"
+           ondrop="pgDrop(event,${p.index})"
+           title="Drag to reorder">
+        <input type="checkbox" class="pgchk" ${selPages.has(p.name)?'checked':''}
+               onclick="event.stopPropagation();togglePageSel(${p.index})"
+               title="Tick to include in ‘do all’">
+        ${pageDots(p)}
+        <span class="nm" title="${p.name}">${p.name}</span>
+        <span class="ct">${p.regions||''}</span>
+        <span class="rm" title="Remove from editor"
+              onclick="event.stopPropagation();removePage(${p.index})">&times;</span>
+      </div>`).join('') +
+    '';
+  renderSteps();
+}
+
+/* One dot per STEP this view is about, filled in when that page has finished
+   it. The list used to carry a single dot for the whole page, which said
+   "something has happened to this one" and nothing else — so a page that had
+   been read but not translated looked exactly like a page that was finished.
+   lee: *"istaed of 1 green bubble it shoud be 4 for the origibla page and 2
+   for the edit page, one for each step"*.
+
+   Which steps depends on which view you are on, because that is what the view
+   IS: Original is the four steps about the WORDS (find, read, translate,
+   proofread) and Edit is the two about the PICTURE (clean, typeset). Export
+   belongs to neither — it is the whole chapter leaving, not a state a page
+   sits in. */
+function stepsForView(){
+  return (typeof view!=='undefined' && view==='typeset') ? [4,5] : [0,1,2,3];
+}
+function pageDots(p){
+  if(typeof pageDoneStep!=='function')
+    return `<span class="dot ${p.status}"></span>`;
+  return `<span class="dots">` + stepsForView().map(i=>{
+    const done=pageDoneStep(p,i);
+    const s=(typeof STEPS!=='undefined' && STEPS[i]) ? STEPS[i].label : '';
+    return `<i class="dot${done?' done':''}" title="${_fesc(s)}"></i>`;
+  }).join('') + `</span>`;
+}
+
+/* ---- drag to reorder the page list ----
+   The reorder is committed from BOTH drop and dragend: browsers are
+   inconsistent about delivering drop, but dragend always arrives on the
+   dragged row, so letting go over a target always works. */
+let pgDragFrom=null, pgOver=null, pgDropped=false;
+function pgDragStart(e,i){
+  pgDragFrom=i; pgOver=null; pgDropped=false;
+  e.dataTransfer.effectAllowed='move';
+  try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+}
+function pgDragOver(e,i){
+  if(pgDragFrom===null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  const el=e.currentTarget, r=el.getBoundingClientRect();
+  const below = e.clientY > r.top + r.height/2;
+  pgOver={i, after:below};
+  el.classList.toggle('ins-b', below);
+  el.classList.toggle('ins-t', !below);
+}
+function pgDragLeave(e){ e.currentTarget.classList.remove('ins-t','ins-b'); }
+function pgDragEnd(){
+  const from=pgDragFrom, over=pgOver, handled=pgDropped;
+  pgDragFrom=null; pgOver=null; pgDropped=false;
+  document.querySelectorAll('.pg.ins-t,.pg.ins-b')
+    .forEach(el=>el.classList.remove('ins-t','ins-b'));
+  if(!handled && from!==null && over && over.i!==from)
+    reorderPages(from, over.i, over.after);
+}
+function pgDrop(e,i){
+  e.preventDefault();
+  const el=e.currentTarget, r=el.getBoundingClientRect();
+  const after = e.clientY > r.top + r.height/2;
+  el.classList.remove('ins-t','ins-b');
+  const from=pgDragFrom;
+  pgDragFrom=null; pgOver=null; pgDropped=true;
+  if(from===null || from===i) return;
+  reorderPages(from, i, after);
+}
+async function reorderPages(from, i, after){
+  const n=proj.pages.length;
+  const order=[...Array(n).keys()];
+  order.splice(from,1);
+  let at=order.indexOf(i);
+  at = at<0 ? order.length : at + (after?1:0);
+  order.splice(at,0,from);
+  const origCur=cur, newCur=order.indexOf(cur);
+  // show the new order at once; the server confirms right behind it
+  proj.pages=order.map((k,pos)=>Object.assign({},proj.pages[k],{index:pos}));
+  cur=newCur;
+  renderPages();
+  await syncPaint();                 // strokes in flight belong to old indices
+  const j=await api('/api/pages/reorder','POST',{order});
+  proj=await api('/api/project');
+  if(j.error){                       // server said no: put things back
+    cur=origCur;
+    renderPages(); showPage(cur);
+    return;
+  }
+  renderPages();
+  record('pages','Pages reordered', null);
+  showPage(newCur);
+  toast('Pages reordered.');
+}
+
+function addFiles(){ $('faddm').click(); }
+
+async function addMorePages(fileList){
+  await uploadFiles([...fileList], true);
+}
+
+let askResolve=null;
+function ask(title, body, okLabel, danger){
+  $('askTitle').textContent=title;
+  $('askBody').textContent=body||'';
+  const b=$('askOk');
+  b.textContent=okLabel||'OK';
+  b.className = danger ? 'danger' : 'pri';
+  $('ask').classList.add('on');
+  setTimeout(()=>b.focus(),30);
+  return new Promise(res=>{askResolve=res;});
+}
+function askClose(v){
+  $('ask').classList.remove('on');
+  if(askResolve){askResolve(v);askResolve=null;}
+}
+window.addEventListener('keydown',e=>{
+  if(!$('ask').classList.contains('on')) return;
+  if(e.key==='Escape'){e.stopPropagation();askClose(false);}
+  if(e.key==='Enter'){e.stopPropagation();askClose(true);}
+},true);
+
+/* ---- right-click a page ----
+
+   lee: *"if i right clcik on one of these tabs i shou dhave the option to
+   rename the file"*.
+
+   One entry so far, built the same way the toolbox's long-press flyout is
+   (see tbFlyout): a small panel pinned to the viewport at the pointer, closed
+   by the next click anywhere or by Escape. */
+function pgMenuClose(){ const f=$('pgmenu'); if(f) f.remove(); }
+function pgMenu(ev, i){
+  ev.preventDefault(); ev.stopPropagation();
+  pgMenuClose();
+  const f=document.createElement('div');
+  f.id='pgmenu'; f.className='tbflyout';
+  f.innerHTML=`<button class="tbrow" onclick="renamePage(${i})">
+      <span>Rename…</span></button>`;
+  document.body.appendChild(f);
+  const r=f.getBoundingClientRect();
+  f.style.left=Math.round(Math.max(8,
+    Math.min(ev.clientX, window.innerWidth-r.width-8)))+'px';
+  f.style.top=Math.round(Math.max(8,
+    Math.min(ev.clientY, window.innerHeight-r.height-8)))+'px';
+}
+document.addEventListener('click', e=>{
+  if(!e.target.closest || !e.target.closest('#pgmenu')) pgMenuClose();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') pgMenuClose(); });
+
+/* Renamed in place, in the row, rather than through a dialog: the name is
+   already written there and this is the app's own way of editing text.
+
+   The EXTENSION is not offered. It is not part of what the page is called, and
+   a page renamed to .txt is a page nothing can open — so the field holds the
+   stem and the server puts the suffix back. */
+function renamePage(i){
+  pgMenuClose();
+  const row=$('pages').querySelector(`.pg[data-i="${i}"]`);
+  const span=row && row.querySelector('.nm');
+  if(!span || row.querySelector('.nmedit')) return;
+  const was=(proj.pages.find(p=>p.index===i)||{}).name || '';
+  const dot=was.lastIndexOf('.');
+  const inp=document.createElement('input');
+  inp.className='nmedit';
+  inp.value = dot>0 ? was.slice(0,dot) : was;
+  // The row is a click target and a drag handle; while it holds a field it is
+  // neither, or selecting the text picks the page up and drops it somewhere.
+  row.draggable=false;
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  ['click','mousedown','dblclick'].forEach(k=>
+    inp.addEventListener(k, e=>e.stopPropagation()));
+  let done=false;
+  const finish=async (save)=>{
+    if(done) return;
+    done=true;
+    const want=inp.value.trim();
+    if(save && want && want!==(dot>0?was.slice(0,dot):was)){
+      const j=await api(`/api/page/${i}/rename`,'POST',{name:want});
+      if(!j.error){
+        // Both of these are keyed by page NAME, so the tick has to follow the
+        // page across the rename or it comes back unticked.
+        if(selPages.delete(was)) selPages.add(j.name);
+        _seenPages.delete(was); _seenPages.add(j.name);
+        saveSel();
+        proj=await api('/api/project');
+      }
+    }
+    renderPages();
+  };
+  inp.addEventListener('keydown', e=>{
+    e.stopPropagation();
+    if(e.key==='Enter') finish(true);
+    else if(e.key==='Escape') finish(false);
+  });
+  inp.addEventListener('blur', ()=>finish(true));
+  // A press anywhere else on the screen ends it, and blur alone does not do
+  // that: the canvas, the toolbox and the page strip all call preventDefault
+  // on mousedown to stop a drag selecting text, and a prevented mousedown
+  // never moves the focus — so the field sat there open with the click having
+  // gone somewhere else entirely. lee: *"for teh rename thing if i clcik
+  // anywhere on teh screen it shoud turn off"*.
+  // `capture`, so it is heard before whatever swallows it.
+  const away = e => {
+    if(e.target===inp) return;
+    document.removeEventListener('mousedown', away, true);
+    finish(true);
+  };
+  document.addEventListener('mousedown', away, true);
+}
+
+async function removePage(i){
+  const name=proj.pages[i].name;
+  const yes=await ask(`Remove ${name}?`,
+    'It comes out of this project. The file on your disk is not deleted.',
+    'Remove page', true);
+  if(!yes) return;
+  await api('/api/page/'+i,'DELETE');
+  proj=await api('/api/project');
+  if(!proj.pages.length){showPicker(true);renderPages();return;}
+  if(cur>=proj.pages.length) cur=proj.pages.length-1;
+  renderPages(); showPage(cur);
+}
+/* The MAIN types that have their own font row in settings. `bubble` is not
+   here: its row is `#font`, the one everything else falls back to. A
+   sub-type's face is set beside it under Box types and travels on its own
+   record — it is part of what that sub-type is. */
+const FONT_KINDS=['freefloat','sfx'];
+let FONTS=[];
+/* Paths, most recent first. Drawn at the head of every font list. */
+let RECENT_FONTS=[];
+/* Paths of the faces this person uploaded — the only ones with a remove. */
+let UPLOADED_FONTS=[];
+/* One answer, three lists. Every font endpoint returns all three so nothing
+   can be redrawn from a half-updated picture. */
+function takeFonts(f){
+  FONTS=f.fonts||[];
+  RECENT_FONTS=f.recent||[];
+  UPLOADED_FONTS=f.uploaded||[];
+  if(typeof rebuildFontSelects==='function') rebuildFontSelects();
+  if(typeof renderUploadedFonts==='function') renderUploadedFonts();
+}
+/* The pickers show comic / manga typesetting fonts only (plus everything in
+   the project's fonts/ folder). A font already chosen somewhere always stays
+   listed, whatever it is. */
+function fontChoices(sel){
+  const L=(FONTS||[]).filter(f=>f.comic||f.bundled||f.path===sel);
+  return L.length ? L : (FONTS||[]);       // nothing comic installed? show all
+}
+/* Each font option carries the family on the option (so the custom dropdown
+   can draw the word "sample" in it) plus data-name for the plain label. The
+   native <select> is hidden; fontWidget() renders the visible dropdown. */
+function _fesc(s){return String(s==null?'':s)
+  .replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+function fontOptionHTML(f, sel){
+  // No browser font-loading here — the preview is a server-rendered image
+  // (see fontRowInner), so the option only needs its value and name.
+  return `<option value="${_fesc(f.path)}"${f.path===sel?' selected':''} `+
+         `data-name="${_fesc(f.name)}">${_fesc(f.name)}</option>`;
+}
+function fontOptions(sel){
+  return fontOptionList(fontChoices(sel), sel);
+}
+
+/* ---- the font picker ----
+
+   A native <select>, and nothing else.
+
+   What stood here was a custom one: the select hidden, a div mirroring it, a
+   search box, a recents band, a menu positioned by hand above or below
+   depending on room, and a click handler that wrote the pick back through
+   whichever select was live at the time. Every one of those parts was there
+   for a reason and together they did not work — lee, four times over, ending
+   with *"the text drop down still dosent work re design it and remake it so
+   taht it works"*.
+
+   So it is the browser's own control. It opens where the browser decides,
+   scrolls itself, filters itself when you type a few letters, and cannot be
+   left open over a panel that has since been rebuilt. The two things the
+   custom one had that this does not:
+
+   * the face drawn in its own face — that went already, because a sample per
+     row is an HTTP request per row and four hundred of those is what was
+     jamming the sidebar; and
+   * a search box — native type-ahead does the same job for a name you know,
+     and the Fonts page still has a filter across all the pickers at once.
+
+   Recents survive as an <optgroup>, which is the native way to say the same
+   thing. */
+function fontWidget(sel){
+  if(!sel) return;
+  // Anything left over from the old widget goes, including on a page that was
+  // open across the change.
+  if(sel._fw){ sel._fw.remove(); sel._fw=null; }
+  // Three of these are not controls at all: they carry a family's font for
+  // `saveSettings` to read and the row you set them from is in Box types.
+  // lee: *"detete these"*.
+  sel.style.display = (sel.dataset && sel.dataset.headless) ? 'none' : '';
+}
+
+/* The five faces you reached for last, then the rest — as two native groups.
+
+   Four hundred fonts with the one you always use somewhere in the middle is a
+   search every single time. lee: *"Add a recent fonts to the top of the font
+   search top 5"*. A recent that is not in this list (the picker offers
+   typesetting faces) is left out rather than offered and then refusing to
+   load. */
+function fontOptionList(list, cur){
+  const recent=(RECENT_FONTS||[])
+    .map(p=>list.find(f=>f.path===p)).filter(Boolean);
+  const seen=new Set(recent.map(f=>f.path));
+  const rest=list.filter(f=>!seen.has(f.path));
+  if(!recent.length) return rest.map(f=>fontOptionHTML(f,cur)).join('');
+  const g=(label,items)=>`<optgroup label="${_fesc(label)}">`+
+    items.map(f=>fontOptionHTML(f,cur)).join('')+'</optgroup>';
+  return g('Recent', recent)+g('All fonts', rest);
+}
+
+/* Picking one is what makes it recent, wherever it was picked from. The old
+   widget did this in its own click handler; a native select has no handler of
+   ours to hang it on, so it is heard once, here, for all of them. */
+if(typeof document!=='undefined')
+  document.addEventListener('change', e=>{
+    const s=e.target;
+    if(s && s.tagName==='SELECT' && s.classList &&
+       s.classList.contains('fontsel') && s.value) noteFontUsed(s.value);
+  });
+
+
+function enhanceFontSelects(){
+  document.querySelectorAll('select.fontsel').forEach(fontWidget);
+}
+let _fwTimer=null;
+function refreshFontWidgets(){
+  clearTimeout(_fwTimer);
+  _fwTimer=setTimeout(enhanceFontSelects, 60);
+}
+/* The inspector rebuilds its HTML on every render (region panel, typesetting
+   panel, …). Whenever it does, wrap any font <select> that appeared — this
+   covers the per-bubble font picker without threading a call through every
+   render branch. */
+document.addEventListener('DOMContentLoaded',()=>{
+  const insp=$('inspector');
+  if(insp && typeof MutationObserver!=='undefined'){
+    new MutationObserver(()=>{
+      // only wrap NEW selects — wrapping mutates the DOM, and re-wrapping an
+      // already-wrapped select would loop the observer
+      insp.querySelectorAll('select.fontsel').forEach(fontWidget);
+    }).observe(insp,{childList:true,subtree:true});
+  }
+});
+function rebuildFontSelects(){
+  const keep=id=>{const el=$(id);return el?el.value:'';};
+  const cur={font:keep('font')};
+  FONT_KINDS.forEach(k=>{ cur[k]=keep('font_'+k); });
+  $('font').innerHTML=fontOptions(cur.font||proj?.settings?.font||'');
+  if(cur.font) $('font').value=cur.font;
+  FONT_KINDS.forEach(k=>{
+    const el=$('font_'+k);
+    if(!el) return;
+    el.innerHTML=`<option value="">Same as speech balloons</option>`+
+      fontOptions(cur[k]);
+    if(cur[k]) el.value=cur[k];
+  });
+  if(typeof fillCkFont==='function') fillCkFont();
+  enhanceFontSelects();
+}
+function fontName(kind){
+  const path=fontPathFor(kind);
+  const hit=FONTS.find(f=>f.path===path);
+  return hit?hit.name:(path.split(/[\\/]/).pop()||'default');
+}
+/* Which face a kind of box actually typesets in, following the same chain the
+   server does: the sub-type's own font, then its family's, then the project
+   default. */
+function fontPathFor(kind){
+  const st=(proj&&proj.settings)||{};
+  const per=st.fonts||{};
+  const sub=((st.custom_kinds)||[]).find(k=>k&&k.key===kind);
+  if(sub && sub.font) return sub.font;
+  const fam=(typeof familyOf==='function') ? familyOf(kind) : 'bubble';
+  return per[fam] || per[kind] || st.font || '';
+}
+/* The name of the face a box would typeset in if nothing were chosen for it.
+
+   The blank option used to read "Same as the bubble setting", which answers a
+   question nobody asked — you are looking at the menu to find out WHICH FACE,
+   and the one word that is not on it is the name of the face.
+   lee: *"instad of saying sma as this text box it shoud just say the font, do
+   that for all of the spot fonts are used"*. */
+function inheritedFontLabel(kind){
+  const n=fontName(kind);
+  return n && n!=='default' ? n : 'Project default';
+}
+/* Ask the cleaner one question and print the answer here, in the settings
+   screen, beside the two fields that decide it.
+
+   This exists because "the token is the same in the app and in the code" and
+   "the endpoint answers 401" were true at the same time, and there was no way to
+   tell a wrong string from a deployment built before the string changed. The
+   server compares the saved token against each local deploy file by hash and
+   makes one real call with the cache bypassed; no token is ever sent back. */
+async function testCleaner(){
+  const out=$('cleanTestOut'), btn=$('cleanTestBtn');
+  if(!out) return;
+  if($('clean_token')&&$('clean_token').value) await saveSettings();  // test what is typed
+  out.className='help'; out.textContent='Asking the cleaner…';
+  if(btn){ btn.disabled=true; }
+  let r;
+  try{ r=await api('/api/clean_test','POST',{}); }
+  catch(e){ r={error:String(e&&e.message||e), hint:''}; }
+  if(btn){ btn.disabled=false; }
+  const bits=[];
+  if(r.ok) bits.push('The cleaner answered.');
+  else if(r.error) bits.push(r.error.charAt(0).toUpperCase()+r.error.slice(1)+'.');
+  if(r.hint) bits.push(r.hint);
+  (r.files||[]).forEach(f=>{
+    bits.push(`${f.file} → ${f.app||'?'}: token ${f.same_token?'matches':'does NOT match'}`
+      + `, address ${f.url_matches?'points here':'points elsewhere'}.`);
+  });
+  out.textContent=bits.join(' ');
+  out.className = 'help ' + (r.ok?'good':'warnbad');
+}
+function toggleAiCfg(){
+  const c=$('aicfg'); if(!c) return;
+  c.style.display=($('ai_clean').value==='off')?'none':'block';
+}
+/* Which picker each refused font came from, in words. */
+const FONT_SLOT={default:'speech bubbles', freefloat:'free-floating text',
+                 sfx:'sound effects', narration:'narration'};
+/* Put the font pickers back to what the server actually kept. It refuses a
+   font that has no letters in it, so without this the dropdown goes on
+   showing a choice that was never saved. */
+function syncFontSelects(){
+  const s=(proj&&proj.settings)||{};
+  if($('font')) $('font').value=s.font||'';
+  ['freefloat','sfx','narration'].forEach(k=>{
+    const el=$('font_'+k); if(el) el.value=(s.fonts||{})[k]||'';
+  });
+  if(typeof enhanceFontSelects==='function') enhanceFontSelects();
+}
+async function saveSettings(){
+  const fonts={};
+  FONT_KINDS.forEach(k=>{ const el=$('font_'+k);
+    if(el && el.value) fonts[k]=el.value; });
+  (proj.settings.custom_kinds||[]).forEach(k=>{ if(k.font) fonts[k.key]=k.font; });
+  const res=await api('/api/settings','POST',{settings:{
+    font:$('font').value, fonts, uppercase:$('upper').checked,
+    substitutes:$('substitutes').checked,
+    manual_translate:($('manual_translate')
+                      ? $('manual_translate').checked : false),
+    min_font:+$('minf').value, max_font:+$('maxf').value,
+    custom_kinds:proj.settings.custom_kinds||[],
+    medium:$('medium').value, target:$('target').value,
+    source:$('source').value,
+    ocr_engine:($('ocr_engine')?$('ocr_engine').value:'ai'), direction:$('direction').value,
+    ocr_detail:($('ocr_detail')?$('ocr_detail').value:'auto'),
+    detector:$('detector').value, weights:$('weights').value,
+    text_weights:$('text_weights').value,
+    auto_kind:($('auto_kind')?$('auto_kind').checked:true),
+    restitch_strips:($('restitch_strips')?$('restitch_strips').checked:true),
+    strip_target:(+($('strip_target')||{}).value||2400),
+    strip_max:(+($('strip_max')||{}).value||6000),
+    gemini_safety_off:($('gemini_safety_off')
+                       ? $('gemini_safety_off').checked : false),
+    ai_clean:($('ai_clean')?$('ai_clean').value:'off'),
+    clean_url:($('clean_url')?$('clean_url').value:''),
+    ...['ocr','translate','proofread'].reduce((o,k)=>{
+      const v=id=>($(k+'_'+id)?$(k+'_'+id).value:'');
+      o[k+'_backend']=v('backend'); o[k+'_model']=v('model');
+      o[k+'_base_url']=v('base_url');
+      return o;
+    },{}),
+    ...SERVICES.reduce((o,s)=>{
+      // Masked: only ever send a key somebody has just typed. An empty box
+      // means "leave the saved one alone", not "clear it".
+      const el=$('key_'+s);
+      if(el && el.value) o['key_'+s]=el.value;
+      return o;
+    },{}),
+    ...(($('clean_token')&&$('clean_token').value)?{clean_token:$('clean_token').value}:{})},
+    title:($('title')?$('title').value:''),
+    synopsis:$('synopsis').value,
+    characters:charSheet, glossary:glossSheet});
+  proj=await api('/api/project');
+  renderInspector();
+  syncManualMode();
+  const bad=(res&&res.bad_fonts)||[];
+  if(bad.length){
+    // A font with no alphabet in it — an icon or symbol face — cannot typeset
+    // anything, and choosing one used to lay out empty bubbles. The server
+    // keeps the font that was working; say which picker went back and why.
+    syncFontSelects();
+    const who=bad.map(k=>FONT_SLOT[k]||k).join(', ');
+    if(typeof toast==='function')
+      toast(`That font has no letters in it, so it cannot be typeset with —`+
+            ` ${who} kept the font it had.`);
+  }
+  // Refresh the preview — cleaning settings really can change the plate under
+  // the text. What this does NOT do is re-typeset: the layouts already laid out
+  // come back untouched and stay on the page until Typeset is run again.
+  if(inText()) showPage(cur);
+}
+
+/* Settings auto-save as you type; these two buttons give explicit control.
+   Entering the Settings page snapshots the saved state (snapshotSettings, in
+   view.js setTab) so Cancel can put it back even though edits already saved. */
+async function saveSettingsClick(){
+  await saveSettings();
+  snapshotSettings();                        // this IS the new saved baseline
+  if(typeof toast==='function') toast('Settings saved.');
+  setTab('edit');
+}
+async function cancelSettings(){
+  // Restore the values captured when the page was opened, then leave. api_key
+  // and clean_token are never resent (they are masked), so secrets survive.
+  if(_setSnap){
+    const s={...(_setSnap.settings||{})};
+    delete s.api_key; delete s.clean_token;
+    ['ocr','translate','proofread'].forEach(k=>delete s[k+'_key']);
+    SERVICES.forEach(x=>delete s['key_'+x]);
+    try{ await api('/api/settings','POST',{settings:s,
+      title:_setSnap.title||'',
+      synopsis:_setSnap.synopsis||'', characters:_setSnap.characters||{},
+      glossary:_setSnap.glossary||{}}); }
+    catch(e){}
+  }
+  await loadProject();
+  if(typeof toast==='function') toast('Changes discarded.');
+  setTab('edit');
+}
+let _setSnap=null;
+function snapshotSettings(){
+  if(!proj) return;
+  _setSnap={
+    settings:JSON.parse(JSON.stringify(proj.settings||{})),
+    title:(proj.context&&proj.context.title)||'',
+    synopsis:(proj.context&&proj.context.synopsis)||'',
+    characters:JSON.parse(JSON.stringify((proj.context&&proj.context.characters)||{})),
+    glossary:JSON.parse(JSON.stringify((proj.context&&proj.context.glossary)||{})),
+  };
+}
+
+async function splitRegion(id){
+  const j=await api(`/api/page/${cur}/region/${id}/split`,'POST',{});
+  if(j.regions){sel=null;setRegions(j.regions);refreshPages();}
+  if(j.split) toast(`Split into ${j.split} bubbles`);
+}
+
+/* ---- character sheet (settings) ----
+   The working copy lives here; every edit saves through saveSettings, which
+   REPLACES the sheet server-side — what you write is the final word. */
+let charSheet={};
+function renderCharList(){
+  const el=$('charList'); if(!el) return;
+  const names=Object.keys(charSheet).sort((a,b)=>a.localeCompare(b));
+  el.innerHTML=names.map(n=>`
+    <div class="row" style="margin-top:5px;align-items:center" data-ch="${esc(n)}">
+      <input value="${esc(n)}" style="flex:1"
+        onchange="renameCharacter('${esc(n).replace(/'/g,"\\'")}',this.value)">
+      <input value="${esc(charSheet[n])}" style="flex:2"
+        placeholder="pronouns - voice note"
+        onchange="updCharacter('${esc(n).replace(/'/g,"\\'")}',this.value)">
+      <button class="danger" title="Remove this character"
+        onclick="delCharacter('${esc(n).replace(/'/g,"\\'")}')">&times;</button>
+    </div>`).join('')
+    ||'<p class="help" style="margin:4px 0">No characters yet.</p>';
+}
+function addCharacter(){
+  const n=$('chName').value.trim(), d=$('chDesc').value.trim();
+  if(!n){ toast('Give the character a name.'); return; }
+  charSheet[n]=d||'';
+  $('chName').value=''; $('chDesc').value='';
+  renderCharList(); saveSettings();
+}
+function updCharacter(n,d){ charSheet[n]=d.trim(); saveSettings(); }
+function renameCharacter(oldName,newName){
+  newName=newName.trim();
+  if(!newName||newName===oldName){ renderCharList(); return; }
+  charSheet[newName]=charSheet[oldName]; delete charSheet[oldName];
+  renderCharList(); saveSettings();
+}
+function delCharacter(n){ delete charSheet[n]; renderCharList(); saveSettings(); }
+
+/* ---- glossary: places, terms and other (manga settings) ----
+   Stored as {source term: canon English rendering} — the source side is what
+   the translator matches on, so it stays in the file, but it is never shown:
+   you cannot proofread a language you do not read. The panel shows the English
+   rendering only, and that is what you edit.
+
+   The rendering carries its own short note in brackets — "Zaldone (the northern
+   kingdom)" — so a row reads name | note, the same shape as a character row,
+   and the note travels to the translator with the name.
+
+   People do not belong here. Anything whose rendering names someone already on
+   the character sheet is folded away, so a character is never listed twice; the
+   AI puts every person it meets on the character sheet directly. */
+let glossSheet={};
+
+/* "Lulu (white rabbit)" -> "Lulu";  "Glow — the mercenary" -> "Glow" */
+function glossName(v){
+  return String(v||'').split(/\s*[（(]|\s+[—–-]\s+/)[0].trim();
+}
+/* ...and the other half: "Lulu (white rabbit)" -> "white rabbit". */
+function glossNote(v){
+  const t=String(v||'');
+  const m=/[（(]([^)）]*)[)）]/.exec(t);
+  if(m) return m[1].trim();
+  const d=/\s+[—–-]\s+(.+)$/.exec(t);
+  return d?d[1].trim():'';
+}
+/* Put the two halves back together the one way they are stored. */
+function glossValue(name,note){
+  name=String(name||'').trim(); note=String(note||'').trim();
+  return note ? `${name} (${note})` : name;
+}
+function _charNameSet(){
+  return new Set(Object.keys(charSheet).map(n=>n.trim().toLowerCase()));
+}
+function _isCharTerm(k){
+  const cs=_charNameSet();
+  if(!cs.size) return false;
+  return cs.has(glossName(glossSheet[k]||k).toLowerCase())
+      || cs.has(String(k).trim().toLowerCase());
+}
+function renderGlossList(){
+  const el=$('glossList'); if(!el) return;
+  const all=Object.keys(glossSheet);
+  const dup=all.filter(_isCharTerm);                  // already a character
+  const terms=all.filter(k=>!_isCharTerm(k))
+    .sort((a,b)=>String(glossSheet[a]||a).localeCompare(String(glossSheet[b]||b)));
+  const q=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  el.innerHTML=(terms.map(n=>`
+    <div class="row" style="margin-top:5px;align-items:center" data-gl="${esc(n)}">
+      <input value="${esc(glossName(glossSheet[n]||n))}" style="flex:1"
+        placeholder="how it should be written in English"
+        onchange="updGlossName('${q(esc(n))}',this.value)">
+      <input value="${esc(glossNote(glossSheet[n]||n))}" style="flex:2"
+        placeholder="a short note — what or where it is"
+        onchange="updGlossNote('${q(esc(n))}',this.value)">
+      <button class="danger" title="Remove this term"
+        onclick="delGloss('${q(esc(n))}')">&times;</button>
+    </div>`).join('')
+    ||'<p class="help" style="margin:4px 0">Nothing yet.</p>')
+  + (dup.length
+     ? `<p class="help" style="margin:8px 0 0">${dup.length} entr${dup.length===1?'y is':'ies are'}
+        hidden — ${dup.map(k=>esc(glossName(glossSheet[k]||k))).join(', ')}
+        ${dup.length===1?'is':'are'} on the character sheet. The spelling is still
+        sent to the translator; it just is not listed twice.</p>`
+     : '');
+}
+function addGloss(){
+  const n=$('glTerm').value.trim(), d=$('glDesc').value.trim();
+  if(!n){ toast('Give the place or term a name.'); return; }
+  // Typed by hand there is no source-side spelling, so the English doubles as
+  // the key — the translator still matches it, and nothing shows twice.
+  glossSheet[n]=glossValue(n,d);
+  $('glTerm').value=''; $('glDesc').value='';
+  renderGlossList(); saveSettings();
+}
+/* Editing one half leaves the other exactly where it was. */
+function updGlossName(k,name){
+  name=String(name).trim();
+  if(!name){ renderGlossList(); return; }        // a term with no name is nothing
+  glossSheet[k]=glossValue(name, glossNote(glossSheet[k]||k));
+  renderGlossList(); saveSettings();
+}
+function updGlossNote(k,note){
+  glossSheet[k]=glossValue(glossName(glossSheet[k]||k), note);
+  renderGlossList(); saveSettings();
+}
+function updGloss(n,d){ glossSheet[n]=d.trim(); renderGlossList(); saveSettings(); }
+function renameGloss(oldName,newName){
+  newName=newName.trim();
+  if(!newName||newName===oldName){ renderGlossList(); return; }
+  glossSheet[newName]=glossSheet[oldName]; delete glossSheet[oldName];
+  renderGlossList(); saveSettings();
+}
+function delGloss(n){ delete glossSheet[n]; renderGlossList(); saveSettings(); }
+
+/* ---- the model box suggests what the key can actually use ----
+
+   A model name typed by hand is a chapter that dies halfway through: providers
+   retire models, and nothing in the editor would tell you.
+   lee: *"RuntimeError: OCR server returned 404 ... This model
+   models/gemini-2.5-flash-lite is no longer available to new users"*.
+
+   So the box asks the provider for its list the first time it is clicked into.
+   Asked once per step per visit — the list does not change while you are
+   looking at it, and every ask is a round trip to somebody else's server. The
+   settings are saved first, or the answer would be for the provider you had
+   before you changed it. */
+const modelsAsked = new Set();
+/* The models a step may be pointed at, as a MENU rather than a box you type a
+   name into. lee: *"inatd of habving to type teh names of teh model there
+   shou dbe a drop downlist of all the models"*.
+
+   Typing was how a chapter died halfway through with a 404 — providers retire
+   models and nothing here would have told you — and it was also how a step
+   ended up on a model the app cannot price, which silently charges the top
+   rate. The list comes from the server: the models it prices for that
+   provider, or, for a local one whose range it does not price, whatever that
+   provider says it has.
+
+   "Other…" is still there, because somebody running a local model has a name
+   nobody could have listed. Choosing it shows the box back. */
+/* The sentinel the "Other…" row carries. Not a NUL byte, which is what it
+   was: a NUL in a DOM value is stripped somewhere between setting it and
+   reading it back, so the row existed and could never be selected. No real
+   model id looks like this. */
+const MODEL_OTHER = '__other__';
+
+async function fillModels(step, force){
+  const sel = $(step + '_model_sel');
+  if(!sel) return;
+  if(modelsAsked.has(step) && !force) return;
+  modelsAsked.add(step);
+  let names = [], priced = null;
+  try{
+    // The server answers off the SAVED settings, and the provider box that
+    // just changed is only on screen so far — its own `onchange` starts a
+    // save but does not wait for it. Waiting here is what stops the menu
+    // being filled with the provider's models from a moment ago.
+    if(force) await saveSettings();
+    const j = await api('/api/models', 'POST', {step});
+    names = j.models || [];
+    priced = new Set(j.priced || []);
+  }catch(e){ modelsAsked.delete(step); }
+  drawModels(step, names, priced);
+  // A provider change is the one time the model that was set has to go: it
+  // belongs to the provider you just left and cannot run on the one you just
+  // chose. Move to the first model the new provider offers, and SAVE it, so
+  // the settings and the screen still say the same thing.
+  //
+  // There was a flag here as well, telling `drawModels` not to keep the old
+  // model on the menu. It changed nothing — the move below redraws with a
+  // value the new provider does offer — so it is gone.
+  if(force && names.length){
+    const box = $(step + '_model');
+    if(box && !names.includes((box.value || '').trim())){
+      box.value = names[0];
+      drawModels(step, names, priced);
+      await saveSettings();
+    }
+  }
+}
+
+function drawModels(step, names, priced){
+  const sel = $(step + '_model_sel'), box = $(step + '_model');
+  if(!sel || !box) return;
+  const have = (box.value || '').trim();
+  sel.innerHTML = '';
+  const add = (value, label) => {
+    const o = document.createElement('option');
+    o.value = value; o.textContent = label;   // set, not written into markup:
+    sel.appendChild(o); return o;             // a model name is somebody's string
+  };
+  for(const m of names)
+    add(m, m + (priced && !priced.has(m) ? '  — not priced' : ''));
+  // A model that is already set but not in the list — a local one, or an
+  // entry a provider has retired since. It stays selectable, because taking
+  // somebody's setting away without asking is worse than an odd-looking menu.
+  if(have && !names.includes(have)) add(have, have + '  — as set');
+  add(MODEL_OTHER, 'Other\u2026');
+  sel.value = have || (names[0] || MODEL_OTHER);
+  box.style.display = 'none';
+}
+
+/* The menu chose. The BOX is what gets saved — one value, one place — so the
+   menu writes into it and everything downstream is unchanged. */
+function pickModel(step){
+  const sel = $(step + '_model_sel'), box = $(step + '_model');
+  if(!sel || !box) return;
+  if(sel.value === MODEL_OTHER){
+    box.style.display = '';
+    box.focus();
+    return;                       // nothing saved until they type one
+  }
+  box.value = sel.value;
+  box.style.display = 'none';
+  saveSettings();
+}
+
+/* Changing the provider changes the answer — and the model that was chosen
+   for the old one almost certainly does not exist on the new one, so the menu
+   is asked again straight away rather than the next time somebody looks. */
+function modelsStale(step){
+  // No step named means the KEY changed, and a key is a fact about the
+  // service — so every step that could be on it has to ask again. See
+  // `editor.model_menu`: the menu is what the key can reach crossed with
+  // what this app can price, so a new key is a different menu everywhere.
+  const steps = step ? [step] : SERVICES_STEPS;
+  for(const s of steps){ modelsAsked.delete(s); fillModels(s, true); }
+}
+
+/* The three services this app offers, and the three steps that can be put on
+   one. This list is `project.SERVICES` and `editor.SERVICES`, and a test holds
+   all three in step: a service the screen offers and the server does not know
+   is a step nobody can run, and it fails at the provider rather than at the
+   menu, halfway through a chapter. */
+const SERVICES = ['anthropic', 'gemini', 'openrouter'];
+const SERVICES_STEPS = ['ocr', 'translate', 'proofread'];
+
+/* ---- fonts you added yourself ----
+
+   lee: *"Allow uploading fonts in the setting and a way to remove the fonts
+   that were uploaded - the fonts should presist to new projects"*.
+
+   They are kept beside the app rather than in the chapter, so the server owns
+   the list and every one of these answers with the whole of it — there is no
+   way for the three lists on screen to disagree with each other. */
+async function uploadFonts(input){
+  const files=[...(input.files||[])];
+  input.value='';                            // so the same file can be re-picked
+  if(!files.length) return;
+  const msg=$('fontUpMsg');
+  if(msg) msg.textContent='Adding…';
+  const payload=[];
+  for(const f of files){
+    payload.push({name:f.name, data:await fileB64(f)});
+  }
+  const j=await api('/api/font','POST',{do:'add', files:payload});
+  takeFonts(j);
+  if(msg) msg.textContent = j.error ? j.error
+    : (files.length===1 ? 'Added.' : `Added ${files.length} fonts.`);
+  if(j.error && typeof toast==='function') toast(j.error);
+}
+/* FileReader, not fetch: the file is on this machine and never had a URL. */
+function fileB64(f){
+  return new Promise((ok,no)=>{
+    const r=new FileReader();
+    r.onerror=()=>no(new Error('could not read '+f.name));
+    r.onload=()=>ok(String(r.result).split(',')[1]||'');
+    r.readAsDataURL(f);
+  });
+}
+async function removeFont(path){
+  const j=await api('/api/font','POST',{do:'remove', path});
+  takeFonts(j);
+  // A face that was being typeset in has just gone. Whichever select was
+  // pointing at it now points at nothing, which the server reads as "use the
+  // default" — the same thing it will actually do.
+  if(j.error && typeof toast==='function') toast(j.error);
+}
+/* Which face was reached for last. Not saved with the project: the point is
+   that the next chapter already knows. */
+async function noteFontUsed(path){
+  if(!path) return;
+  try{ takeFonts(await api('/api/font','POST',{do:'used', path})); }
+  catch(e){}                                 // a recents list is never worth an error
+}
+function renderUploadedFonts(){
+  const box=$('upFontList');
+  if(!box) return;
+  const list=UPLOADED_FONTS||[];
+  box.innerHTML='';
+  if(!list.length){
+    const p=document.createElement('p');
+    p.className='help'; p.style.margin='6px 0 0';
+    p.textContent='No fonts added yet.';
+    box.appendChild(p);
+    return;
+  }
+  for(const fp of list){
+    const name=String(fp).split(/[\\/]/).pop().replace(/\.(ttf|otf)$/i,'');
+    const row=document.createElement('div');
+    row.className='row upfont';
+    const nm=document.createElement('span');
+    nm.className='upfont-nm'; nm.textContent=name;   // a file name, set not written
+    // No strip of the word "sample" beside it. The row is a list of what you
+    // have added and a way to take one back out; the face itself is looked at
+    // in the menu you typeset from, where choosing it is the next thing you do.
+    // lee: *"remove teh smaple from the add fonts"*.
+    const x=document.createElement('button');
+    x.className='xbtn'; x.title='Remove this font'; x.textContent='×';
+    x.addEventListener('click',()=>removeFont(fp));
+    row.append(nm, x);
+    box.appendChild(row);
+  }
+}
