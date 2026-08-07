@@ -58,7 +58,11 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # The name `firebase init hosting:github` gave it. Matched to the
+          # secret rather than the secret renamed to match this: the CLI will
+          # make this same name again if it is ever re-run, and a secret
+          # renamed by hand would silently stop being the one it updates.
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT }}
           projectId: mangatctproject
           channelId: live
           entryPoint: mangatl

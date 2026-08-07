@@ -111,19 +111,34 @@ firebase login
 
 It signs in to GitHub through your browser and needs no `gh`.
 
-It asks for the repository (`YOURNAME/mangatl`), then does three things by
+It asks for the repository (`Lerbernard/MangaTCT`), then does three things by
 itself: creates a service account in the Firebase project, puts its key into
-GitHub as a repository secret, and offers to write a workflow file.
+GitHub as a repository secret called
+**`FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT`**, and offers to write workflow
+files.
 
-**Say NO to the workflow file** — `.github/workflows/site.yml` is already
-there and does more than the generated one. Say no to "set up automatic
-deployment to your site's live channel" as well, for the same reason.
+**Say NO to "run a build script before every deploy"** — `site.yml` already
+runs `python site/build.py`. **Say NO to "automatic deployment to your live
+channel when a PR is merged"** as well: that is exactly what `site.yml` does,
+and two workflows deploying one site would race.
 
-Then check the secret's name. GitHub → your repo → Settings → Secrets and
-variables → Actions. Firebase names it
-`FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT`; the workflow expects
-`FIREBASE_SERVICE_ACCOUNT`. Either rename the secret, or change that one line
-in `site.yml`. One or the other, not both.
+It writes `.github/workflows/firebase-hosting-pull-request.yml` whatever you
+answer. Keep it — it only runs on pull requests and gives each one a temporary
+preview URL, which nothing else here does.
+
+`site.yml` reads `FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT`, the name the CLI
+chooses. Matched to the secret rather than the other way round on purpose: the
+CLI will make that same name again if it is ever re-run, and a secret renamed
+by hand would quietly stop being the one it updates.
+
+### If `firebase init hosting:github` fails with "service account does not exist"
+
+It creates the account and then asks Google to grant it permissions a moment
+later, before the account has finished propagating. Wait a minute and run it
+again. If it keeps happening, do it by hand — Google Cloud Console → Service
+Accounts → create one with **Firebase Authentication Admin**, **Firebase
+Hosting Admin**, **Cloud Run Viewer** and **API Keys Viewer**, download a JSON
+key, and paste the whole file into a GitHub secret of that name.
 
 ---
 
