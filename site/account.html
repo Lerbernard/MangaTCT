@@ -1,9 +1,22 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Your account — MangaTCT</title>
+<title>Your account | MangaTCT</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints: applied after first paint it is
+     a white flash on a dark page, every load.
+
+     `js` hides the sections so they can be revealed on scroll, and the timer
+     is the undo. These pages load their script from a CDN as a module, and a
+     module that never arrives - blocked, offline, one syntax error - would
+     otherwise leave a page of invisible sections and no way back. `initChrome`
+     sets `chrome` the moment it runs; if it has not run in two and a half
+     seconds, nothing is going to reveal anything and the page stops hiding. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t;d.classList.add('js');
+setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch(e){}</script>
 
 <header>
   <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
@@ -11,9 +24,11 @@
     <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
   </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
   <nav>
-    <a href="pricing.html">Pricing</a>
-    <a href="account.html">Account</a>
-    <a href="#" id="out">Sign out</a>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <a class="navb on" href="account.html">Account</a>
+    <button class="navb" id="out" type="button">Sign out</button>
+    <button class="navb icon" id="theme" type="button"></button>
   </nav>
 </header>
 
@@ -21,20 +36,26 @@
   <h1>Your account</h1>
   <p class="lede" id="who"></p>
 
-  <!-- The balance first. It is the thing somebody opens this page to see, and
-       after a payment it is the thing they are anxious about. -->
-  <div class="card row spread" id="purse">
-    <div class="row">
-      <span class="dim">Loading…</span>
+  <!-- The balance first, and given room. It is the thing somebody opens this
+       page to see, and after a payment it is the thing they are anxious
+       about. -->
+  <section class="sect reveal" id="purseBox">
+    <div class="row spread" id="purse">
+      <span class="dim">Loading...</span>
     </div>
-  </div>
+  </section>
 
-  <h2>Profile</h2>
-  <div class="card">
-    <div class="row" style="align-items:flex-start;gap:20px;flex-wrap:wrap">
-      <div>
-        <div id="picNow"></div>
-      </div>
+  <section class="sect reveal">
+    <p class="eyebrow">Coins in and out</p>
+    <h2>Everything that moved</h2>
+    <div id="ledger"><p class="dim" style="margin:0">Loading...</p></div>
+  </section>
+
+  <section class="sect reveal plain">
+    <p class="eyebrow">Profile</p>
+    <h2>How people see you</h2>
+    <div class="row" style="align-items:flex-start;gap:22px;flex-wrap:wrap">
+      <div id="picNow"></div>
       <div style="flex:1;min-width:260px">
         <label for="name">Username</label>
         <input id="name" autocomplete="off" spellcheck="false"
@@ -45,15 +66,12 @@
       </div>
     </div>
 
-    <label style="margin-top:22px">Picture</label>
+    <label style="margin-top:24px">Picture</label>
     <div class="picks" id="picks"></div>
-    <p class="hint">Pick one — it saves as you press it.</p>
-  </div>
+    <p class="hint">Pick one. It saves as you press it.</p>
+  </section>
 
-  <h2>Coins in and out</h2>
-  <div class="card" id="ledger"><p class="dim" style="margin:0">Loading…</p></div>
-
-  <p class="foot"><a href="pricing.html">Buy more coins</a> ·
+  <p class="foot"><a href="pricing.html">Buy more coins</a> &middot;
     <span class="dim">Signed in as</span> <span id="mail" class="dim"></span></p>
 </main>
 
@@ -63,8 +81,10 @@
 import {
   call, $, toast, saysWhat, whoAmI, needSignIn, COIN, esc, ICONS, iconSvg,
   auth, signOut, watchMe, db, doc, setDoc, collection, query, orderBy, limit,
-  getDocs,
+  getDocs, initChrome,
 } from './app.js';
+
+initChrome();
 
 let uid = '', mine = null;
 
@@ -90,9 +110,9 @@ async function setPic(id) {
   drawPic(id);
   try {
     // Written straight to Firestore, not through a function. The rules let a
-    // person write these two fields on their own document and nothing else —
-    // a picture is not money, and routing it through a callable would only be
-    // a slower way to reach the same rule.
+    // person write these two fields on their own document and nothing else. A
+    // picture is not money, and routing it through a callable would only be a
+    // slower way to reach the same rule.
     await setDoc(doc(db, 'users', uid), { photo: id }, { merge: true });
   } catch (e) { toast(saysWhat(e), true); }
 }
@@ -115,8 +135,8 @@ async function saveName() {
 }
 
 /* Says "taken" while somebody types, so the answer does not arrive only after
-   they have committed to a name. Debounced — a call per keystroke is a call
-   per keystroke. */
+   they have committed to a name. Debounced, because a call per keystroke is a
+   call per keystroke. */
 let tap;
 function typing() {
   clearTimeout(tap);
@@ -136,9 +156,45 @@ function typing() {
   }, 400);
 }
 
-/* ------------------------------------------------------------------ ledger */
+/* ------------------------------------------------------------------ ledger
 
-const WORDS = { spend: 'Spent', refund: 'Refunded', credit: 'Added' };
+   Four kinds, and only two of them are money coming IN.
+
+   This used to read `kind !== 'spend'`, which put a clawback on the green side
+   with a plus in front of it: lee refunded a $4.99 pack and the page told him
+   he had been GIVEN five hundred coins for it. The balance was right the whole
+   time, which is what made it a lie rather than a bug. The list of what adds
+   is now written out, so a fifth kind arriving later is shown as a subtraction
+   until somebody decides otherwise, and being wrong in that direction is a
+   question rather than a gift. */
+const IN = new Set(['credit', 'refund']);
+const WORDS = {
+  spend: 'Spent on',
+  refund: 'Given back',
+  credit: 'Bought',
+  clawback: 'Taken back',
+};
+
+/* `pack pack1` on a customer's page, twice over, because the server writes
+   `pack ${id}` and the page put a word in front of it. The id means nothing to
+   the person reading it; the size does.
+
+   The sizes are not written here. They come from `me`, which returns `PACKS`
+   out of `purse.js`, which is the same list that grants the coins. A pack
+   renamed there is renamed here, and a pack this page has never heard of is
+   left exactly as the server wrote it rather than guessed at. */
+let PACKS = {};
+function saysWhatFor(r) {
+  let what = String(r.what || '');
+  what = what.replace(/\bpack (pack\d+)\b/g,
+    (m, id) => (PACKS[id] ? 'the ' + PACKS[id] + ' pack' : m));
+  // The server tags a clawback `... - refunded`, which is the right thing for
+  // it to write down and the wrong thing to read twice: "Taken back the 500
+  // coins pack, refunded" says it once too often. The word in front is the one
+  // that carries it, so the tag comes off here.
+  what = what.replace(/\s*[-|\u2013\u2014]\s*refunded\s*$/i, '');
+  return `${WORDS[r.kind] || r.kind} ${what}`.trim();
+}
 
 async function drawLedger() {
   let rows = [];
@@ -152,20 +208,21 @@ async function drawLedger() {
     return;
   }
   if (!rows.length) {
-    $('ledger').innerHTML = '<p class="dim" style="margin:0">Nothing yet.</p>';
+    $('ledger').innerHTML = '<p class="dim" style="margin:0">Nothing yet. '
+      + 'Every coin in and every coin out shows up here.</p>';
     return;
   }
   $('ledger').innerHTML = `<table>
     <tr><th>When</th><th>What</th><th class="n">Coins</th></tr>
     ${rows.map((r) => {
-      const plus = r.kind !== 'spend';
+      const plus = IN.has(r.kind);
       const when = r.at && r.at.toDate ? r.at.toDate().toLocaleString(undefined,
         { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '';
       return `<tr><td class="dim">${esc(when)}</td>
-        <td>${esc(WORDS[r.kind] || r.kind)} — ${esc(r.what || '')}${
+        <td>${esc(saysWhatFor(r))}${
           r.page ? ` <span class="dim">${esc(r.page)}</span>` : ''}</td>
-        <td class="n${plus ? ' plus' : ''}">${plus ? '+' : '−'}${
+        <td class="n ${plus ? 'plus' : 'minus'}">${plus ? '+' : '−'}${
           Number(r.coins || 0)}</td></tr>`;
     }).join('')}</table>`;
 }
@@ -177,8 +234,7 @@ async function drawLedger() {
   if (needSignIn(u)) return;
   uid = u.uid;
   $('mail').textContent = u.email || '';
-  $('out').onclick = async (e) => {
-    e.preventDefault();
+  $('out').onclick = async () => {
     await signOut(auth);
     location.href = 'signin.html';
   };
@@ -198,16 +254,25 @@ async function drawLedger() {
     drawPurse(d);
     if (document.activeElement !== $('name')) $('name').value = d.username || '';
     $('who').textContent = d.username ? 'Hello, ' + d.username + '.'
-      : 'Pick a username below — it is how anyone else sees you.';
+      : 'Pick a username below. It is how anyone else sees you.';
     drawPic(d.photo || ICONS[0]);
   });
+
+  // The pack names, before the ledger is drawn with them in it. If this call
+  // fails the ledger still draws, saying `pack pack1` as the server wrote it.
+  try {
+    const { data } = await call('me')();
+    for (const q of data.packs || []) {
+      PACKS[q.id] = Number(q.coins).toLocaleString() + ' coins';
+    }
+  } catch { /* the ledger reads a little worse and nothing else changes */ }
 
   drawLedger();
 
   // Straight back from Stripe. The webhook may not have landed yet; the
   // balance is watched, so it will simply appear.
   if (new URLSearchParams(location.search).get('paid')) {
-    toast('Payment taken — your coins will land in a moment.');
+    toast('Payment taken. Your coins will land in a moment.');
     setTimeout(drawLedger, 4000);
   }
 })();

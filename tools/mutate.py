@@ -100,6 +100,15 @@ T_MANUAL = ["tests/test_translating_it_yourself.py"]
 SEED = "firebase/functions/seed.js"
 T_SEED = ["tests/test_the_website.py"]
 
+# The four pages a customer sees, and the numbers on them. `T_LOOK` runs the
+# browser file as well as the source one: half of what matters here is only
+# true once a browser has painted it.
+ACC = "site/account.html"
+SCSS = "site/style.css"
+APPJS = "site/app.js"
+COSTS = "site/costs.js"
+T_LOOK = ["tests/test_the_site_pages.py", "tests/test_the_website.py"]
+
 MUTANTS = [
     # ---- the file that goes out
     ("manual-label-drops-the-number", MAN,
@@ -1380,6 +1389,47 @@ MUTANTS = [
     ("site-nobody-is-told-what-is-still-wanted", SITE,
      "    WANTED.append((name, want or alt))\n",
      "", T_SITE),
+    # ---- what a customer sees
+    #
+    # The first of these is the bug that started the rewrite: lee refunded a
+    # live $4.99 purchase and the page told him he had been GIVEN 500 coins.
+    ("look-a-clawback-is-shown-as-money-coming-in", ACC,
+     "const IN = new Set(['credit', 'refund']);",
+     "const IN = new Set(['credit', 'refund', 'clawback']);", T_LOOK),
+    ("look-a-clawback-is-shown-with-no-sign-at-all", ACC,
+     "const plus = IN.has(r.kind);",
+     "const plus = r.kind !== 'spend';", T_LOOK),
+    ("look-the-ledger-says-pack-pack1", ACC,
+     "    (m, id) => (PACKS[id] ? 'the ' + PACKS[id] + ' pack' : m));",
+     "    (m, id) => m);", T_LOOK),
+    ("look-the-refunded-tag-is-read-out-twice", ACC,
+     "  what = what.replace(/\\s*[-|\\u2013\\u2014]\\s*refunded\\s*$/i, '');",
+     "", T_LOOK),
+    ("look-links-are-underlined-again", SCSS,
+     "a{color:var(--link);text-decoration:none}",
+     "a{color:var(--link)}", T_LOOK),
+    ("look-following-the-system-is-stored-as-a-choice", APPJS,
+     "    if (want === 'auto') localStorage.removeItem('tct-theme');\n"
+     "    else localStorage.setItem('tct-theme', want);",
+     "    localStorage.setItem('tct-theme', want);", T_LOOK),
+    ("look-the-theme-is-not-remembered", APPJS,
+     "  if (want === 'auto') delete document.documentElement.dataset.theme;\n"
+     "  else document.documentElement.dataset.theme = want;",
+     "  if (want !== 'auto') document.documentElement.dataset.theme = want;",
+     T_LOOK),
+    ("look-a-page-whose-script-never-arrives-stays-invisible", APPJS,
+     "  document.documentElement.dataset.chrome = '1';", "", T_LOOK),
+    ("look-the-calculator-forgets-the-chapter-context", COSTS,
+     "    total += coinsFor(pages * model[s][0] + boxes * model[s][1]\n"
+     "                      + pages * boxes * model[s][2]);",
+     "    total += coinsFor(pages * model[s][0] + boxes * model[s][1]);",
+     T_LOOK),
+    ("look-the-calculator-rounds-once-instead-of-per-step", COSTS,
+     "export function quote(model, pages, boxes, steps) {\n  let total = 0;",
+     "export function quote(model, pages, boxes, steps) {\n  let total = 0.4;",
+     T_LOOK),
+
+
     # ---- the price ids that go into Firestore by hand
     #
     # `seed.js` is not run by any test — it needs a Firestore. What IS tested

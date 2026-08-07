@@ -1,9 +1,22 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Pricing — MangaTCT</title>
+<title>Coins | MangaTCT</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints: applied after first paint it is
+     a white flash on a dark page, every load.
+
+     `js` hides the sections so they can be revealed on scroll, and the timer
+     is the undo. These pages load their script from a CDN as a module, and a
+     module that never arrives - blocked, offline, one syntax error - would
+     otherwise leave a page of invisible sections and no way back. `initChrome`
+     sets `chrome` the moment it runs; if it has not run in two and a half
+     seconds, nothing is going to reveal anything and the page stops hiding. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t;d.classList.add('js');
+setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch(e){}</script>
 
 <header>
   <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
@@ -11,51 +24,117 @@
     <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
   </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
   <nav>
-    <a href="pricing.html">Pricing</a>
-    <a id="acct" href="account.html">Account</a>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb on" href="pricing.html">Coins</a>
+    <a class="navb cta" id="acct" href="account.html">Account</a>
+    <button class="navb icon" id="theme" type="button"></button>
   </nav>
 </header>
 
 <main>
   <h1>Coins</h1>
-  <p class="lede">Every AI step is priced on what it really costs to run, per
-    text box on the page. A hundred coins is a dollar, your coins never expire,
-    and you can spend them on any model.</p>
+  <p class="lede">One currency, no plan, nothing that expires. A hundred coins
+    is a dollar, every AI step is priced on what it really costs to run, and
+    anything that runs on your own machine costs nothing at all.</p>
 
   <div id="balance"></div>
 
-  <h2>Coin packs</h2>
-  <p class="lede">Buy what you need, when you need it. No subscription, no
-    monthly minimum, and nothing expires — the coins sit on your account until
-    you spend them.</p>
-  <!-- Tax is INSIDE the price. lee: *"also make the price will include the
-       tax"*. Stripe is the merchant of record and works out each country's
-       sales tax, VAT or GST — with `tax_behavior: inclusive` it takes that out
-       of the figure below rather than adding it on top, so the number on the
-       page is the number on the card in every country. We net less where tax
-       is high; nobody is ever surprised at checkout, which is the trade. -->
-  <p class="dim" style="margin-top:-14px">Every price includes tax. What you
-    see is what you pay, wherever you are — sales tax, VAT and GST are already
-    in the figure, and are collected and paid on our behalf by Stripe.</p>
-  <div class="grid" id="packs"></div>
+  <!-- ------------------------------------------------------------ packs -->
+  <section class="sect reveal">
+    <p class="eyebrow">Buy what you need</p>
+    <h2>Coin packs</h2>
+    <!-- Tax is INSIDE the price. lee: *"also make the price will include the
+         tax"*. Stripe is the merchant of record and works out each country's
+         sales tax, VAT or GST; with `tax_behavior: inclusive` it takes that
+         out of the figure rather than adding it on top, so the number on the
+         page is the number on the card in every country. -->
+    <p class="lede">Every price includes tax. What you see is what you pay,
+      wherever you are: sales tax, VAT and GST are already in the figure, and
+      are collected and paid on our behalf by Stripe.</p>
+    <div class="grid" id="packs"></div>
+  </section>
 
-  <h2>What that buys</h2>
-  <div class="card">
-    <p class="dim" style="margin-top:0">A 23-page chapter with 217 text boxes —
-      read, translated, proofread and cleaned:</p>
-    <table>
-      <tr><th>Model</th><th class="n">Coins a chapter</th><th class="n">Chapters per 1,000</th></tr>
-      <tr><td>Gemini 2.5 Flash-Lite</td><td class="n">28</td><td class="n">35</td></tr>
-      <tr><td>Gemini 3.5 Flash-Lite</td><td class="n">60</td><td class="n">16</td></tr>
-      <tr><td>Claude Haiku 4.5</td><td class="n">102</td><td class="n">9</td></tr>
-      <tr><td>Gemini 3.6 Flash</td><td class="n">166</td><td class="n">6</td></tr>
-      <tr><td>Claude Sonnet 5</td><td class="n">268</td><td class="n">3</td></tr>
-      <tr><td>Claude Opus 5</td><td class="n">434</td><td class="n">2</td></tr>
-    </table>
-    <p class="hint">You pick the model for each step, so reading a page on a
-      cheap one and checking it on a good one is the usual answer. A model you
-      run on your own machine costs no coins at all.</p>
-  </div>
+  <!-- ------------------------------------------------------- calculator -->
+  <section class="sect reveal">
+    <p class="eyebrow">Before you spend anything</p>
+    <h2>What will my chapter cost?</h2>
+    <p class="lede">Drag it to the size of what you actually work on. These are
+      not example figures: this is the same arithmetic that takes the coins,
+      reading the same numbers the app reads.</p>
+
+    <div class="calc">
+      <div>
+        <label for="pages">Pages</label>
+        <div class="slider">
+          <input id="pages" type="range" min="1" max="80" value="23">
+          <b id="pagesN">23</b>
+        </div>
+
+        <label for="boxes">Text boxes in the chapter</label>
+        <div class="slider">
+          <input id="boxes" type="range" min="5" max="900" step="1" value="217">
+          <b id="boxesN">217</b>
+        </div>
+        <p class="hint" id="dense"></p>
+
+        <label>Model</label>
+        <div class="chips" id="models"></div>
+        <p class="hint" id="blurb"></p>
+
+        <label>Steps</label>
+        <div class="chips" id="steps">
+          <button class="chip on" disabled title="Always on">Read the text</button>
+          <button class="chip on" disabled title="Always on">Translate</button>
+          <button class="chip" data-step="proofread">Proofread</button>
+          <button class="chip" data-step="clean">Hosted cleaner</button>
+        </div>
+        <p class="hint">Proofreading is optional. It is a second pass for
+          quality, not a part of translating, and plenty of chapters never need
+          it. Cleaning and typesetting run on your own machine for nothing
+          unless you ask for the hosted cleaner on a hard page.</p>
+      </div>
+
+      <div class="out">
+        <div class="row" style="justify-content:center;gap:8px">
+          <span class="dim">This chapter costs</span>
+        </div>
+        <p class="sum" id="sum">0</p>
+        <p class="per" id="per"></p>
+        <div style="height:14px"></div>
+        <p class="per" id="fromPack"></p>
+        <a class="btn pri wide" href="#packs" id="jump">Get coins</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------- what else -->
+  <section class="sect reveal">
+    <p class="eyebrow">What is free</p>
+    <h2>Most of the app costs nothing</h2>
+    <div class="grid">
+      <div class="card lift">
+        <h3>Finding the text</h3>
+        <p class="dim">The detector runs on your machine. No upload, no key,
+          no coins, however many pages you throw at it.</p>
+      </div>
+      <div class="card lift">
+        <h3>Cleaning and typesetting</h3>
+        <p class="dim">Flat fill, tone copy, the local inpainter, line
+          breaking, fitting, fonts, export. All local, all free.</p>
+      </div>
+      <div class="card lift">
+        <h3>Your own models</h3>
+        <p class="dim">Point a step at a model running on your own machine and
+          that step costs nothing. The coins are only for the hosted ones.</p>
+      </div>
+      <div class="card lift">
+        <h3>Everything you redo</h3>
+        <p class="dim">Editing a line, moving a box, re-typesetting, changing
+          a font, exporting again. You are only ever charged for asking a
+          hosted model a question.</p>
+      </div>
+    </div>
+  </section>
 
   <p class="foot">Card, Apple&nbsp;Pay, Google&nbsp;Pay, Link and local methods,
     through Stripe. We never see your card.</p>
@@ -64,18 +143,24 @@
 <div id="toast" class="toast"></div>
 
 <script type="module">
-import { call, $, toast, saysWhat, whoAmI, COIN, esc } from './app.js';
+import { call, $, toast, saysWhat, whoAmI, COIN, esc, initChrome } from './app.js';
+import { MODELS, CHAPTER, quote } from './costs.js';
+
+initChrome();
 
 const money = (n) => '$' + (Number(n) % 1 ? Number(n).toFixed(2) : n);
 let signedIn = false;
+let packs = [];
 
-function draw(packs) {
+/* ------------------------------------------------------------- the packs */
+
+function draw(list) {
   // The third one is raised. A price list with nothing chosen makes the
-  // reader start the choosing from scratch, and the second-largest is the one
+  // reader start the choosing from scratch, and the second largest is the one
   // most people should be looking at.
-  const pick = Math.min(2, packs.length - 1);
-  $('packs').innerHTML = packs.map((q, i) => `
-    <div class="card tier${i === pick ? ' pick' : ''}">
+  const pick = Math.min(2, list.length - 1);
+  $('packs').innerHTML = list.map((q, i) => `
+    <div class="card tier lift${i === pick ? ' pick' : ''}">
       ${i === pick ? '<span class="tag">most people</span>' : ''}
       <div class="give" style="font-size:19px">${COIN}
         <b>${q.coins.toLocaleString()}</b> coins</div>
@@ -88,11 +173,12 @@ function draw(packs) {
 
   for (const b of document.querySelectorAll('[data-buy]'))
     b.onclick = () => buy(b.dataset.buy, b);
+  sums();
 }
 
 async function buy(what, btn) {
   if (!signedIn) {
-    // Sign in first, and come back HERE — bouncing somebody to an account page
+    // Sign in first, and come back HERE. Bouncing somebody to an account page
     // after they pressed a price is losing them the thing they were doing.
     location.href = 'signin.html?next=' +
       encodeURIComponent('pricing.html?buy=' + what);
@@ -105,23 +191,85 @@ async function buy(what, btn) {
   } catch (e) { toast(saysWhat(e), true); btn.disabled = false; }
 }
 
+/* -------------------------------------------------------- the calculator */
+
+let model = MODELS[3] || MODELS[0];
+const on = { ocr: true, translate: true, proofread: false, clean: false };
+
+// The sliders start on the chapter every "about a chapter" claim on this site
+// is measured against, taken from the same file as the prices so the two
+// cannot drift apart.
+$('pages').value = CHAPTER.pages;
+$('boxes').value = CHAPTER.boxes;
+
+$('models').innerHTML = MODELS.map((m, i) =>
+  `<button class="chip${m === model ? ' on' : ''}" data-m="${i}">${
+    esc(m.name)}</button>`).join('');
+for (const b of $('models').children) b.onclick = () => {
+  model = MODELS[Number(b.dataset.m)];
+  for (const o of $('models').children) o.classList.toggle('on', o === b);
+  sums();
+};
+for (const b of $('steps').querySelectorAll('[data-step]')) b.onclick = () => {
+  on[b.dataset.step] = !on[b.dataset.step];
+  b.classList.toggle('on', on[b.dataset.step]);
+  sums();
+};
+
+function sums() {
+  const pages = Number($('pages').value);
+  const boxes = Number($('boxes').value);
+  $('pagesN').textContent = pages;
+  $('boxesN').textContent = boxes;
+  $('blurb').textContent = model.blurb;
+
+  const each = (boxes / pages).toFixed(1);
+  $('dense').textContent = `${each} boxes a page. A quiet chapter is about 6, a `
+    + 'talkative one is about 14.';
+
+  const n = quote(model, pages, boxes, on);
+  $('sum').textContent = n.toLocaleString();
+  $('per').textContent = pages > 1
+    ? `${(n / pages).toFixed(1)} coins a page, or about ${
+        money(n / 100)} of real money.`
+    : `About ${money(n / 100)} of real money.`;
+
+  // What a pack buys, said in chapters, because that is the unit somebody
+  // thinks in. The middle pack, since that is the one the cards raise.
+  const q = packs[Math.min(2, packs.length - 1)];
+  $('fromPack').innerHTML = q && n > 0
+    ? `The ${money(q.usd)} pack is <b>${Math.floor(q.coins / n)
+      }</b> chapters of this.`
+    : '';
+}
+
+for (const id of ['pages', 'boxes']) $(id).addEventListener('input', sums);
+
+$('jump').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('packs').scrollIntoView({ block: 'center' });
+};
+
+/* -------------------------------------------------------------- the boot */
+
 (async () => {
+  sums();
   const u = await whoAmI();
   signedIn = !!u;
   $('acct').textContent = u ? 'Account' : 'Sign in';
   $('acct').href = u ? 'account.html' : 'signin.html';
 
-  let packs;
   if (u) {
     const { data } = await call('me')();
     packs = data.packs;
-    $('balance').innerHTML = `<div class="card row spread">
+    $('balance').innerHTML = `<div class="card row spread" style="margin-bottom:22px">
       <div class="row">${COIN}<span class="big">${data.coins}</span>
         <span class="dim">coins on your account</span></div>
       <a class="btn" href="account.html">Your account</a></div>`;
   } else {
-    // The prices are public — a price list that needs an account to read is a
-    // price list nobody reads. `config/prices` is world-readable by the rules.
+    // The prices are public. A price list that needs an account to read is a
+    // price list nobody reads, and `config/prices` is world readable by the
+    // rules for exactly this.
     const { FIREBASE } = await import('./config.js');
     const r = await fetch(`https://firestore.googleapis.com/v1/projects/${
       FIREBASE.projectId}/databases/(default)/documents/config/prices`);
@@ -132,7 +280,7 @@ async function buy(what, btn) {
     packs = val('packs').map(obj);
   }
   if (!packs || !packs.length) {
-    $('packs').innerHTML = '<p class="dim">Prices are not published yet — sign '
+    $('packs').innerHTML = '<p class="dim">Prices are not published yet. Sign '
       + 'in to see them, or write <code>config/prices</code> in Firestore.</p>';
     return;
   }

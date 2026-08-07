@@ -1,16 +1,33 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Sign in — MangaTCT</title>
+<title>Sign in | MangaTCT</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints: applied after first paint it is
+     a white flash on a dark page, every load.
+
+     `js` hides the sections so they can be revealed on scroll, and the timer
+     is the undo. These pages load their script from a CDN as a module, and a
+     module that never arrives - blocked, offline, one syntax error - would
+     otherwise leave a page of invisible sections and no way back. `initChrome`
+     sets `chrome` the moment it runs; if it has not run in two and a half
+     seconds, nothing is going to reveal anything and the page stops hiding. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t;d.classList.add('js');
+setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch(e){}</script>
 
 <header>
   <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
   <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
     <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
   </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
-  <nav><a href="pricing.html">Pricing</a></nav>
+  <nav>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <button class="navb icon" id="theme" type="button"></button>
+  </nav>
 </header>
 
 <main class="narrow">
@@ -19,37 +36,40 @@
     picks them up wherever you are signed in.</p>
 
   <div class="card">
-    <div class="tabs">
-      <button id="tabIn" class="on" onclick="setMode('in')">Sign in</button>
-      <button id="tabUp" onclick="setMode('up')">Create an account</button>
+    <div class="tabs" role="tablist">
+      <button id="tabIn" class="on" role="tab" aria-selected="true">Sign in</button>
+      <button id="tabUp" role="tab" aria-selected="false">Create an account</button>
     </div>
 
-    <form id="form" onsubmit="return false">
+    <!-- Google first. It is one press against three fields, and putting it
+         under the form is putting the easy way where nobody looks. -->
+    <button class="wide gbtn" id="gbtn" style="margin-top:0"></button>
+
+    <div class="sep">or with an email</div>
+
+    <form id="form">
       <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="email" required>
+      <input id="email" type="email" autocomplete="email" required
+             autocapitalize="off" spellcheck="false">
 
       <label for="pass">Password</label>
-      <input id="pass" type="password" autocomplete="current-password" required>
-
-      <!-- Only on sign-up. A username is chosen once and has to be unique, so
-           it is asked for here rather than left as a thing to do later that
-           nobody does. -->
-      <div id="nameRow" style="display:none">
-        <label for="user">Username</label>
-        <input id="user" autocomplete="username" spellcheck="false"
-               placeholder="what people will see">
-        <p class="hint" id="nameHint">Letters, numbers, dot, dash, underscore.
-          Three to twenty.</p>
+      <div class="pw">
+        <input id="pass" type="password" autocomplete="current-password" required>
+        <button type="button" class="peek" id="peek" aria-label="Show password">Show</button>
       </div>
+      <p class="hint" id="passHint"></p>
 
-      <button class="pri wide" id="go" onclick="go()">Sign in</button>
+      <!-- Errors land here, beside the button that caused them. A message at
+           the bottom of the window is a message about a form you are not
+           looking at. -->
+      <p class="hint bad" id="err" role="alert"></p>
+
+      <button class="pri wide" id="go" type="submit">Sign in</button>
     </form>
 
-    <div class="sep">or</div>
-    <button class="wide" onclick="google()">Continue with Google</button>
-
-    <p class="hint" style="margin-top:14px">
-      <a href="#" onclick="forgot();return false">Forgotten your password?</a>
+    <p class="hint" style="margin-top:16px;text-align:center">
+      <button id="forgot" type="button" style="font-size:13px;padding:7px 13px">
+        Forgot your password?</button>
     </p>
   </div>
 
@@ -57,14 +77,36 @@
     own. Coins are only for the hosted ones.</p>
 </main>
 
+<!-- Asked once, at the moment the account exists. lee: *"theer shoud be a
+     create username popup"*. It is a dialog and not a page because the person
+     may have been halfway through buying something when they signed up, and a
+     redirect to a settings page loses that. -->
+<div class="veil" id="veil" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h2 id="mTitle">Pick a username</h2>
+    <p class="dim" style="margin-top:0">This is how anyone else sees you. It
+      has to be different from everyone else's, and you can change it later on
+      your account page.</p>
+    <label for="user">Username</label>
+    <input id="user" autocomplete="username" spellcheck="false" maxlength="20"
+           autocapitalize="off" placeholder="what people will see">
+    <p class="hint" id="nameHint">Letters, numbers, dot, dash and underscore.
+      Three to twenty.</p>
+    <button class="pri wide" id="claim" style="margin-top:14px">Take this name</button>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script type="module">
 import {
-  auth, call, $, toast, saysWhat, whoAmI,
+  auth, call, $, toast, saysWhat, whoAmI, initChrome, GOOGLE,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup,
 } from './app.js';
+
+initChrome();
+$('gbtn').innerHTML = GOOGLE + '<span>Continue with Google</span>';
 
 /* Where to go after signing in. Checked rather than trusted: `next` comes out
    of the address bar, and a link like `signin.html?next=https://evil.example`
@@ -79,74 +121,137 @@ function safeNext(raw){
 const next = safeNext(new URLSearchParams(location.search).get('next'));
 let mode = 'in';
 
-window.setMode = (m) => {
+function say(msg) { $('err').textContent = msg || ''; }
+
+function setMode(m) {
   mode = m;
+  say('');
   $('tabIn').classList.toggle('on', m === 'in');
   $('tabUp').classList.toggle('on', m === 'up');
-  $('nameRow').style.display = m === 'up' ? '' : 'none';
+  $('tabIn').setAttribute('aria-selected', String(m === 'in'));
+  $('tabUp').setAttribute('aria-selected', String(m === 'up'));
   $('go').textContent = m === 'up' ? 'Create the account' : 'Sign in';
   $('title').textContent = m === 'up' ? 'Create an account' : 'Sign in';
+  $('gbtn').querySelector('span').textContent =
+    m === 'up' ? 'Sign up with Google' : 'Continue with Google';
   $('pass').autocomplete = m === 'up' ? 'new-password' : 'current-password';
+  $('passHint').textContent = m === 'up' ? 'Six characters at least.' : '';
+}
+$('tabIn').onclick = () => setMode('in');
+$('tabUp').onclick = () => setMode('up');
+
+$('peek').onclick = () => {
+  const on = $('pass').type === 'password';
+  $('pass').type = on ? 'text' : 'password';
+  $('peek').textContent = on ? 'Hide' : 'Show';
+  $('peek').setAttribute('aria-label', on ? 'Hide password' : 'Show password');
+  $('pass').focus();
 };
 
-/* Availability, as you type. Asked of the server, because "is this name taken"
-   is not a question the browser can answer — and asked on a timer, because it
-   is one request per keystroke otherwise. */
+/* ------------------------------------------------------------ the popup */
+
+let onNamed = null;
+
+function askName(then) {
+  onNamed = then;
+  $('veil').classList.add('on');
+  $('veil').setAttribute('aria-hidden', 'false');
+  setTimeout(() => $('user').focus(), 60);
+}
+
+/* Availability as you type. Asked of the server, because "is this name taken"
+   is not a question the browser can answer, and on a timer, because otherwise
+   it is one request per keystroke. */
 let ask;
 $('user').addEventListener('input', () => {
   clearTimeout(ask);
   const h = $('nameHint');
+  const v = $('user').value.trim();
+  if (!v) { h.className = 'hint'; h.textContent = 'Three to twenty characters.'; return; }
   h.className = 'hint';
-  h.textContent = 'Checking…';
+  h.textContent = 'Checking...';
   ask = setTimeout(async () => {
-    const v = $('user').value.trim();
-    if (!v) { h.textContent = 'Letters, numbers, dot, dash, underscore.'; return; }
     try {
       const { data } = await call('usernameFree')({ username: v });
       h.className = 'hint ' + (data.free ? 'good' : 'bad');
-      h.textContent = data.free ? `${v} is free.` : (data.why || 'taken');
-    } catch (e) { h.className = 'hint'; h.textContent = ''; }
+      h.textContent = data.free ? v + ' is free.' : (data.why || 'Taken.');
+    } catch { h.className = 'hint'; h.textContent = ''; }
   }, 400);
 });
+$('user').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); $('claim').click(); }
+});
 
-window.go = async () => {
-  const email = $('email').value.trim(), pass = $('pass').value;
-  $('go').disabled = true;
+$('claim').onclick = async () => {
+  const want = $('user').value.trim();
+  if (!want) { $('user').focus(); return; }
+  $('claim').disabled = true;
   try {
-    if (mode === 'up') {
-      const want = $('user').value.trim();
-      if (!want) throw { message: 'Choose a username.' };
-      // The account is made FIRST and the name claimed second: claiming needs
-      // a signed-in caller, because the name is written against a uid.
-      await createUserWithEmailAndPassword(auth, email, pass);
-      await call('claimUsername')({ username: want });
-    } else {
-      await signInWithEmailAndPassword(auth, email, pass);
-    }
-    location.href = next;
+    await call('claimUsername')({ username: want });
+    if (onNamed) onNamed();
   } catch (e) {
-    const why = saysWhat(e);
-    if (why) toast(why, true);
-    $('go').disabled = false;
+    $('nameHint').className = 'hint bad';
+    $('nameHint').textContent = saysWhat(e);
+    $('claim').disabled = false;
   }
 };
 
-window.google = async () => {
+/* ------------------------------------------------------------- the forms */
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  say('');
+  const email = $('email').value.trim(), pass = $('pass').value;
+  const was = $('go').textContent;
+  $('go').disabled = true;
+  $('go').textContent = mode === 'up' ? 'Creating...' : 'Signing in...';
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
-    // Google gives an email, not a username. The account page asks for one and
-    // will not let it be skipped.
-    location.href = 'account.html?name=1';
-  } catch (e) { const w = saysWhat(e); if (w) toast(w, true); }
+    if (mode === 'up') {
+      // The account is made FIRST and the name claimed second: claiming needs
+      // a signed-in caller, because the name is written against a uid.
+      await createUserWithEmailAndPassword(auth, email, pass);
+      askName(() => { location.href = next; });
+      return;
+    }
+    await signInWithEmailAndPassword(auth, email, pass);
+    location.href = next;
+  } catch (er) {
+    say(saysWhat(er));
+    $('go').disabled = false;
+    $('go').textContent = was;
+  }
+});
+
+$('gbtn').onclick = async () => {
+  say('');
+  $('gbtn').disabled = true;
+  try {
+    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+    // Google hands over an email, never a username. A brand new account is a
+    // sign-up whichever button was pressed, so it gets the same popup; one
+    // that already has a name goes straight through.
+    const { data } = await call('me')().catch(() => ({ data: {} }));
+    if (!data || !data.username) { askName(() => { location.href = next; }); return; }
+    location.href = next;
+  } catch (er) {
+    const w = saysWhat(er);
+    if (w) say(w);
+    $('gbtn').disabled = false;
+  }
 };
 
-window.forgot = async () => {
+$('forgot').onclick = async () => {
   const email = $('email').value.trim();
-  if (!email) return toast('Type your email first, then press this.', true);
+  if (!email) {
+    say('Type your email above first, then press this.');
+    $('email').focus();
+    return;
+  }
   try {
     await sendPasswordResetEmail(auth, email);
-    toast('Sent. Check your email.');
-  } catch (e) { toast(saysWhat(e), true); }
+    say('');
+    toast('Sent. Check your email for the link to set a new password.');
+  } catch (e) { say(saysWhat(e)); }
 };
 
 // Already signed in? Then this page is a dead end.

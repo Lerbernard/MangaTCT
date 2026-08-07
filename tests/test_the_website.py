@@ -386,3 +386,124 @@ def test_seed_does_not_refuse_an_id_that_is_shaped_like_one():
     # It gets past the guard and dies at Firestore instead, which is the point:
     # the refusal happened before the network, and this one reached it.
     assert got.returncode != 1 or "Nothing was written." not in got.stderr
+
+
+# ------------------------------------------------- the numbers on the page
+
+def _site_costs():
+    import importlib.util
+    from where import PKG
+    spec = importlib.util.spec_from_file_location(
+        "site_costs", str(PKG / "tools" / "site_costs.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_the_cost_table_on_the_site_is_what_coins_py_says_today():
+    """`site/costs.js` is generated. This is the test that makes generated
+    mean CURRENT.
+
+    The pricing page used to carry six hand-typed figures. They were right the
+    day they were typed; `coins.py` then gained thinking-token output, prompt
+    caching and the drift correction, every one of them moved, and nothing
+    anywhere noticed. A chapter the page priced at 28 coins was 14, and one it
+    priced at 268 was 237. A sales page cannot audit itself, so this does.
+    """
+    from where import PKG
+    got = (PKG / "site" / "costs.js").read_text(encoding="utf-8")
+    assert got == _site_costs().js(), \
+        "site/costs.js is stale. Run: python tools/site_costs.py"
+
+
+def test_the_models_named_on_the_landing_page_are_the_ones_you_can_buy():
+    """`build.py` may import nothing but the standard library - the site
+    workflow installs no dependencies and depends on that staying true - so
+    the list of models is written out there by hand. This is what stops the
+    hand-written copy and the generated one drifting: a model dropped from the
+    calculator cannot linger on the sales page beside it."""
+    import re
+    from where import PKG
+    src = (PKG / "site" / "build.py").read_text(encoding="utf-8")
+    block = src.split("AIS = [", 1)[1].split("\n]", 1)[0]
+    named = re.findall(r'\(\s*"([^"]+)"', block)
+    want = [name for _id, name, _b, _w in _site_costs().SHOW]
+    assert named == want, (named, want)
+
+    # ...and every blurb is the same sentence in both places, so the page and
+    # the calculator cannot describe the same model differently.
+    why = re.findall(r'"([^"]{20,})"\),', block)
+    assert why == [w for _i, _n, _b, w in _site_costs().SHOW], why
+
+
+# ------------------------------------------------------------- the house style
+
+def _rendered(html):
+    """Just the words. Comments and script and style are not what a reader
+    reads, and a rule about punctuation is a rule about what they read."""
+    import re
+    out = re.sub(r"<!--.*?-->", " ", html, flags=re.S)
+    out = re.sub(r"<script\b.*?</script>", " ", out, flags=re.S | re.I)
+    out = re.sub(r"<style\b.*?</style>", " ", out, flags=re.S | re.I)
+    return re.sub(r"<[^>]+>", " ", out)
+
+
+def test_no_page_uses_an_em_dash_or_a_middot():
+    """lee: *"avoid using em dahes and use rehulat dahses and vertical bars
+    when needed"*.
+
+    Asked of the RENDERED text rather than of the file, because a comment is
+    not something anybody reads and a rule that fails on one is a rule people
+    start working around."""
+    from where import PKG
+    for name in ("index.html", "pricing.html", "account.html", "signin.html"):
+        words = _rendered((PKG / "site" / name).read_text(encoding="utf-8"))
+        assert "—" not in words, f"{name}: em dash"
+        assert "–" not in words, f"{name}: en dash"
+        assert "·" not in words, f"{name}: middot, use a vertical bar"
+
+
+def test_the_password_link_is_written_the_way_people_say_it():
+    """lee, on "Forgotten your password?": *"are you serious?"*"""
+    from where import PKG
+    page = (PKG / "site" / "signin.html").read_text(encoding="utf-8")
+    assert "Forgot your password?" in page
+    assert "Forgotten" not in page
+
+
+def test_proofreading_is_offered_as_a_choice_and_not_as_a_step():
+    """lee: *"make it so that proffsetting is optional and is theer for better
+    quality"*. It is a second pass for quality, not a part of translating, and
+    a page that lists it between Translate and Clean has told somebody it is
+    compulsory."""
+    from where import PKG
+    page = (PKG / "site" / "index.html").read_text(encoding="utf-8")
+    proof = page[page.index("Proofread"):page.index("Proofread") + 700]
+    assert "optional" in proof.lower(), proof[:200]
+    pricing = (PKG / "site" / "pricing.html").read_text(encoding="utf-8")
+    assert "Proofreading is optional" in pricing
+    assert 'data-step="proofread"' in pricing, \
+        "and it has to be a thing you can switch off in the calculator"
+
+
+def test_every_page_carries_both_themes_and_the_control():
+    """The media query is the default and the attribute is the decision. A
+    page with the tokens and no boot script flashes the wrong theme on every
+    load; one with the boot script and no tokens does nothing at all."""
+    from where import PKG
+    css = (PKG / "site" / "style.css").read_text(encoding="utf-8")
+    assert "prefers-color-scheme: light" in css
+    assert 'html[data-theme="light"]' in css and 'html[data-theme="dark"]' in css
+
+    for name in ("pricing.html", "account.html", "signin.html"):
+        page = (PKG / "site" / name).read_text(encoding="utf-8")
+        assert "localStorage.getItem('tct-theme')" in page, name
+        assert 'id="theme"' in page, name
+        # The dead man. These pages hide their sections for the reveal, and
+        # the thing that reveals them comes from a CDN.
+        assert "dataset.chrome" in page, name
+
+    built = (PKG / "site" / "index.html").read_text(encoding="utf-8")
+    assert "prefers-color-scheme:light" in built
+    assert 'html[data-theme="light"]' in built
+    assert "tct-theme" in built
