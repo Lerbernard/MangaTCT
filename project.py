@@ -716,6 +716,22 @@ class Project:
             "translate_base_url": "", "translate_key": "",
             "proofread_model": "claude-sonnet-5", "proofread_backend": "anthropic",
             "proofread_base_url": "", "proofread_key": "",
+            # THE STORY SWITCHES. lee: *"add a story setting that allow the
+            # user ti turn the story thing off, and to tun what the ai detects
+            # with check boxes"*.
+            #
+            # `story` off means the synopsis, the character sheet and the
+            # glossary are neither sent with a page nor added to by the reply.
+            # The sheets themselves are left alone — switching it back on
+            # finds them as they were.
+            #
+            # All four default TRUE, which is what every project did before
+            # they existed, so nothing changes for a chapter already in
+            # progress.
+            "story": True,
+            "learn_characters": True,
+            "learn_terms": True,
+            "name_speakers": True,
             # ONE KEY PER SERVICE, not one per step.
             #
             # A key is a fact about the provider, not about the step: the same

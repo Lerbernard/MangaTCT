@@ -604,3 +604,25 @@ def test_the_template_buttons_are_only_there_in_manual_mode():
             == "none"
     _screen(on, True)
     _screen(off, False)
+
+
+def test_the_switch_lives_beside_the_text_it_is_about():
+    """lee: *"move teh ill translate myselt to the translation tab"*.
+
+    It spent a while in Settings ▸ Translation engine, which is where you go
+    to decide a thing once — not where you go to DO it. Typing a chapter in by
+    hand happens against the text list, and that is where the switch and its
+    template buttons are now.
+    """
+    from where import PKG
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    side = html.split('<div id="side">', 1)[1].split("<!-- /#side -->", 1)[0]
+    for want in ('id="manual_translate"', 'id="manrow"',
+                 "downloadManualTemplate", "uploadManualTranslation"):
+        assert want in side, want
+    # ...and it is above the list it is about, not below it.
+    assert side.index('id="manual_translate"') < side.index('id="listHead"')
+    # ...and it is not left behind in Settings as well. Two switches for one
+    # setting is two places for them to disagree about which is on.
+    settings = html.split('<div id="settingsPage"', 1)[1]
+    assert 'id="manual_translate"' not in settings

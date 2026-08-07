@@ -1039,6 +1039,11 @@ select.fontsel{width:100%}
    the same pair every other button here uses. */
 .setnav-btn:hover:not(:disabled){background:#2f3648;border-color:#4a5670;
   color:#fff}
+/* A Story section whose story is switched off. Dimmed, not hidden — somebody
+   who has just turned it off should still be able to see what they have
+   written down, and hiding three buttons is how a person concludes the app
+   has lost their character sheet. */
+.setnav-btn.dim:not(.on){opacity:.42}
 .setnav-btn.on{background:var(--accent);color:#161616;border-color:var(--accent);
   font-weight:600}
 /* One section at a time, centred in the card's body. */

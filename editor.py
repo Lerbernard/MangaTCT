@@ -2309,8 +2309,16 @@ def _reachable(back: str, url: str, key: str) -> list:
     return names
 
 
+# An OpenRouter id can carry a VARIANT after a colon — `:free`, `:nitro`,
+# `:floor`. Each is a different price for the same model and none of them is
+# the price in the table, so they are not offered: a `:free` variant quoted at
+# the paid rate overcharges, and a `:nitro` one quoted at the standard rate is
+# a bill this app eats.
+VARIANT = ":"
+
+
 def model_menu(back: str, url: str, key: str, step: str = "") -> list:
-    """The models this step may be put on: priced AND reachable.
+    """The models this step may be put on: reachable AND priceable.
 
     Both halves are needed and each one alone is a different fault.
 
@@ -2319,29 +2327,55 @@ def model_menu(back: str, url: str, key: str, step: str = "") -> list:
       looking at the number.
     * Offer what the key cannot REACH and you get lee's 404:
       `gemini-2.5-flash` sat in the menu looking available and was not enabled
-      on his Google project. The old menu returned `coins.models_for(back)` —
-      the models the app PRICES — and never asked the provider anything.
+      on his Google project.
+
+    **It starts from what the key can reach, not from a list written here.**
+    That is the fix for the second bug lee found — an OpenRouter menu holding
+    exactly one model. The old version intersected the provider's listing with
+    the ten slugs written into `coins.RATES`, so a key that could reach two
+    hundred models was offered the one that happened to be on both lists. The
+    ten are a price table, not a catalogue, and a catalogue is not something
+    this app can keep up to date.
+
+    Pricing does not need the catalogue either: `coins.priced` reads through
+    the vendor prefix, so `google/gemini-2.5-pro` is priced by the same entry
+    as `gemini-2.5-pro`. Anything the table cannot price is left out, which is
+    the half of the crossing that still matters.
 
     **Read text only offers models that can see a picture.** A text-only model
     chosen for OCR is the same 404 one step later, arriving through a different
     door.
 
-    If the crossing comes out EMPTY the priced list stands. A key with no
+    If the crossing comes out EMPTY the written-down list stands. A key with no
     listing permission, a provider answering an unexpected shape, a network
     that is down — none of those mean the person has no models, and an empty
     menu is a step nobody can configure, which is worse than the fault it was
     trying to report.
     """
     from . import coins
-    priced = [m for m in coins.models_for(back)
-              if step != "ocr" or coins.sees(m)]
-    if not priced:
-        # A provider whose range is not in the price table at all. Ask it what
-        # it has; there is nothing to cross against.
-        return _reachable(back, url, key)
-    have = set(_reachable(back, url, key))
-    both = [m for m in priced if m in have]
-    return both or priced
+
+    free = (back or "").strip().lower() in coins.FREE_BACKENDS
+
+    def usable(m):
+        # The variant rule is about PRICE, so it only applies where there is
+        # one. A local tag is full of colons — `qwen2.5:14b-instruct` — and
+        # costs nothing whichever one you pick.
+        if not free and VARIANT in m:
+            return False
+        return (coins.priced(m, back)
+                and coins.vendor_free(m) not in coins.RETIRED
+                and (step != "ocr" or coins.sees(m)))
+
+    known = [m for m in coins.models_for(back) if usable(m)]
+    offer = [m for m in _reachable(back, url, key) if usable(m)]
+    if not offer:
+        return known
+    # The table's order first, because it is newest-first and hand-kept, then
+    # everything else by name. A menu sorted purely alphabetically opens on the
+    # oldest model in the range, which is the one nobody wants and the one that
+    # gets picked by accident.
+    rank = {m: i for i, m in enumerate(coins.models_for(back))}
+    return sorted(offer, key=lambda m: (rank.get(m, len(rank)), m))
 
 
 # The last resort, for a project.json old enough to be missing the keys
@@ -2384,6 +2418,14 @@ def _ctx_from_settings(p: Project, step: str = "") -> None:
     # still come back refused, and now it says so instead of failing on a
     # schema error two retries later.
     p.ctx.safety = "OFF" if s.get("gemini_safety_off") else ""
+    # The story switches. Read on every step because they change what is SENT
+    # as well as what is kept, and a setting toggled between two runs has to
+    # bite on the second one. Default TRUE, so a project.json written before
+    # they existed behaves exactly as it did.
+    p.ctx.story = s.get("story", True) is not False
+    p.ctx.learn_characters = s.get("learn_characters", True) is not False
+    p.ctx.learn_terms = s.get("learn_terms", True) is not False
+    p.ctx.name_speakers = s.get("name_speakers", True) is not False
 
     back, model = STEP_DEFAULTS.get(step, STEP_DEFAULTS["translate"])
     if step not in AI_STEPS:

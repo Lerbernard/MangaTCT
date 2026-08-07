@@ -502,8 +502,7 @@ def test_the_model_is_a_menu_and_not_a_box_to_type_in():
                 "[...document.querySelectorAll('#%s_model_sel option')]"
                 ".map(o=>o.value)" % step)
             back = p.settings[f"{step}_backend"]
-            assert got[:-1] == coins.models_for(back), step
-            assert got[-1] == "__other__", step      # ...and a way out
+            assert got == coins.models_for(back), step
             # It opens on what the step is really set to, not on the first row.
             assert pg.evaluate("$('%s_model_sel').value" % step) == \
                 p.settings[f"{step}_model"], step
@@ -523,17 +522,43 @@ def test_choosing_from_the_menu_saves_it():
     _browser(check)
 
 
-def test_other_opens_a_box_and_saves_nothing_until_it_is_filled():
-    """Somebody running a local model has a name nobody could have listed. But
-    choosing "Other" is not itself a choice of model — saving an empty name
-    the moment it is picked would unset the step."""
+def test_there_is_no_way_back_to_typing_a_name():
+    """lee: *"remove teh other from all the dropdowns"*.
+
+    "Other…" was the way back to a text box, and typing a name is the thing
+    the menu exists to stop: every id it could produce is either one the menu
+    already offers, or one that cannot be run, cannot be priced, or both.
+    """
     def check(pg, p):
+        for step in AI_STEPS:
+            vals = pg.evaluate(
+                "[...document.querySelectorAll('#%s_model_sel option')]"
+                ".map(o=>o.value+'|'+o.textContent)" % step)
+            assert not any("__other__" in v or "Other" in v for v in vals), \
+                (step, vals)
+            # ...and the box behind the menu is a value, not something to type
+            # into: no placeholder, nothing focusable, nothing to fill in.
+            assert pg.evaluate("$('%s_model').type" % step) == "hidden", step
+    _browser(check)
+
+
+def test_a_menu_with_nothing_in_it_says_so():
+    """A provider that answered with an empty list, or a key nobody has typed
+    yet. An empty menu is something a person clicks at; a row that says why is
+    the one place they are already looking."""
+    def check(pg, p):
+        # Nothing offered AND nothing already set — a step that HAS a model
+        # keeps it on the menu, which is a different case and its own test.
+        pg.evaluate("$('ocr_model').value=''; drawModels('ocr', [], null)")
+        vals = pg.evaluate(
+            "[...document.querySelectorAll('#ocr_model_sel option')]"
+            ".map(o=>o.value+'|'+o.textContent)")
+        assert any("check the key" in v for v in vals), vals
+        # ...and picking it does not unset the step.
         was = p.settings["ocr_model"]
-        pg.evaluate("""(()=>{ const s=$('ocr_model_sel');
-            s.value=MODEL_OTHER; pickModel('ocr'); })()""")
-        pg.wait_for_timeout(400)
-        assert pg.evaluate("$('ocr_model').style.display") != "none"
-        assert p.settings["ocr_model"] == was, "it unset the step"
+        pg.evaluate("$('ocr_model_sel').value=''; pickModel('ocr')")
+        pg.wait_for_timeout(300)
+        assert p.settings["ocr_model"] == was, "the empty row unset the step"
     _browser(check)
 
 
@@ -582,7 +607,7 @@ def test_changing_the_provider_asks_for_that_provider_s_models():
         got = pg.evaluate(
             "[...document.querySelectorAll('#ocr_model_sel option')]"
             ".map(o=>o.value)")
-        assert got[:-1] == coins.models_for("anthropic"), got
+        assert got == coins.models_for("anthropic"), got
         # ...and the Gemini model it was on is GONE, not kept as "as set". It
         # belongs to the provider that was just left and cannot run on this
         # one; the step moves to the first model the new provider offers, and

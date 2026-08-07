@@ -89,6 +89,8 @@ T_WORD = ["tests/test_the_word_is_typesetting.py"]
 # nothing. See `tests/test_the_website_is_built.py` for why they are apart.
 SITE = "site/build.py"
 T_SITE = ["tests/test_the_website.py"]
+T_STORY = ["tests/test_the_story_switches.py"]
+T_MANUAL = ["tests/test_translating_it_yourself.py"]
 
 MUTANTS = [
     # ---- the file that goes out
@@ -1399,7 +1401,59 @@ MUTANTS = [
     ("site-the-webtoon-answer-goes-back-to-do-it-yourself", SITE,
      '"A chapter uploaded as identical tiles is re-cut into pages near 2,400px "',
      '"Long webtoon strips are the weak spot. "', T_SITE),
+
+    # ---- the story is a thing you can switch off
+    ("story-the-sheets-are-sent-anyway", TR,
+     '        **({"series_context": ctx.synopsis,\n'
+     '            "glossary": ctx.glossary} if story else {}),',
+     '        "series_context": ctx.synopsis,\n'
+     '        "glossary": ctx.glossary,', T_STORY),
+    ("story-the-character-sheet-is-sent-anyway", TR,
+     '        **({"characters": getattr(ctx, "characters", {}) or {}}\n'
+     "           if story else {}),",
+     '        "characters": getattr(ctx, "characters", {}) or {},', T_STORY),
+    ("story-the-model-is-not-told-what-to-leave-out", TR,
+     '        **({"do_not_return": off} if off else {}),',
+     "", T_STORY),
+    ("story-a-switched-off-sheet-is-written-to-anyway", TR,
+     "        if story and getattr(ctx, \"learn_terms\", True) and isinstance(gl, dict):",
+     "        if isinstance(gl, dict):", T_STORY),
+    ("story-a-switched-off-cast-is-written-to-anyway", TR,
+     "        if story and getattr(ctx, \"learn_characters\", True) and isinstance(adds, dict):",
+     "        if isinstance(adds, dict):", T_STORY),
+    ("story-the-two-ticks-are-really-one", TR,
+     "        if story and getattr(ctx, \"learn_terms\", True) and isinstance(gl, dict):",
+     "        if story and getattr(ctx, \"learn_characters\", True) and isinstance(gl, dict):",
+     T_STORY),
+    ("story-a-speaker-arrives-anyway", TR,
+     '            sp = item.get("speaker") if getattr(ctx, "name_speakers", True) else None',
+     '            sp = item.get("speaker")', T_STORY),
+    ("story-a-sheet-nobody-keeps-is-still-complained-about", TR,
+     "            if not story or not r.speaker or is_generic_speaker(r.speaker):",
+     "            if not r.speaker or is_generic_speaker(r.speaker):", T_STORY),
+    ("story-an-old-project-loses-its-story", PY,
+     '    p.ctx.story = s.get("story", True) is not False',
+     '    p.ctx.story = bool(s.get("story"))', T_STORY),
+    ("story-the-screen-reads-a-missing-switch-as-off", JSP,
+     "    const el=$(k); if(el) el.checked = proj.settings[k] !== false; });",
+     "    const el=$(k); if(el) el.checked = !!proj.settings[k]; });", T_STORY),
+
+    # ---- and where the manual switch lives
+    ("manual-the-switch-is-not-beside-the-text", HTML,
+     '      <input type="checkbox" id="manual_translate" onchange="saveSettings()">',
+     '      <input type="checkbox" id="manual_translate_x" onchange="saveSettings()">',
+     T_MANUAL),
+    ("manual-the-switch-is-in-two-places-at-once", HTML,
+     '        <h2 class="set-h">Translation engine</h2>',
+     '        <h2 class="set-h">Translation engine</h2>\n'
+     '        <input type="checkbox" id="manual_translate">', T_MANUAL),
+    # There is deliberately NO mutant for "the switch sits below the list
+    # instead of above it". The test asserts the order, but a mutation here is
+    # one find-and-replace and moving a block of markup is not — every version
+    # of it was an attribute change that moved nothing, and a mutant that
+    # cannot express the fault proves only that the suite survives a no-op.
 ]
+
 
 
 

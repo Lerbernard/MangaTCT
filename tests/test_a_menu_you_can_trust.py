@@ -194,3 +194,75 @@ def test_the_anthropic_slugs_are_written_out_and_not_guessed():
 
 def test_ten_of_them():
     assert len(coins.models_for("openrouter")) == 10
+
+
+# ------------------------- and the bug lee found: a menu with one model in it
+
+def test_the_menu_is_not_limited_to_the_slugs_written_down_here(monkeypatch):
+    """lee, with a screenshot of an OpenRouter menu holding exactly one model:
+    *"the other options are not showing up"*.
+
+    The old crossing intersected the provider's listing with the ten slugs
+    written into `coins.RATES`, so a key that could reach two hundred models
+    was offered the one that happened to be on both lists. The ten are a PRICE
+    TABLE, not a catalogue, and a catalogue is not a thing this app can keep up
+    to date.
+    """
+    reach = ["google/gemini-2.5-flash", "google/gemini-2.5-pro",
+             "google/gemini-3.1-pro", "anthropic/claude-haiku-4-5",
+             "openai/gpt-4.1"]
+    _reach(monkeypatch, reach)
+    got = editor.model_menu("openrouter", "u", "KEY", "translate")
+    assert sorted(got) == sorted(reach), got
+    # ...and only two of those five are written into the table, which is the
+    # whole point: the other three are priced through their maker's entry.
+    assert len([m for m in reach if m in coins.RATES]) == 2
+
+
+def test_a_model_nobody_can_price_is_still_kept_out(monkeypatch):
+    """The half of the crossing that still matters. An unpriced model is
+    charged at the top of the range the moment it is chosen."""
+    _reach(monkeypatch, ["google/gemini-2.5-pro", "mistralai/mistral-large",
+                         "x-ai/grok-3", "deepseek/deepseek-chat"])
+    assert editor.model_menu("openrouter", "u", "KEY") == \
+        ["google/gemini-2.5-pro"]
+
+
+def test_a_retired_model_is_not_offered_under_its_slug_either(monkeypatch):
+    """`claude-opus-4` is priced — somebody may still be on it — and not
+    offered. Arriving with a vendor in front of it does not change that."""
+    _reach(monkeypatch, ["anthropic/claude-opus-4", "anthropic/claude-opus-5"])
+    assert editor.model_menu("openrouter", "u", "KEY") == \
+        ["anthropic/claude-opus-5"]
+
+
+def test_a_priced_variant_of_a_model_is_not_offered(monkeypatch):
+    """OpenRouter sells the same model at several prices — `:free`, `:nitro`,
+    `:floor` — and none of them is the price in the table. Quoting a `:free`
+    variant at the paid rate overcharges; quoting a `:nitro` one at the
+    standard rate is a bill this app eats."""
+    _reach(monkeypatch, ["google/gemini-2.5-pro", "google/gemini-2.5-pro:free",
+                         "google/gemini-2.5-pro:nitro"])
+    assert editor.model_menu("openrouter", "u", "KEY") == \
+        ["google/gemini-2.5-pro"]
+
+
+def test_a_local_tag_full_of_colons_is_still_offered(monkeypatch):
+    """`qwen2.5:14b-instruct` is a name, not a price variant. A model you run
+    yourself costs nothing whichever tag you pick, so the rule that keeps
+    variants out has nothing to protect here."""
+    _reach(monkeypatch, ["qwen2.5:14b-instruct", "llama3.2:3b"])
+    got = editor.model_menu("ollama", "http://localhost:11434/v1", "KEY")
+    assert got == ["llama3.2:3b", "qwen2.5:14b-instruct"], got
+
+
+def test_the_menu_still_opens_on_something_current(monkeypatch):
+    """The price table's order first — it is newest-first and hand-kept — then
+    whatever else the key can reach, by name. Sorted purely alphabetically the
+    menu opens on the oldest model in the range, which is the one nobody wants
+    and the one that gets picked by accident."""
+    _reach(monkeypatch, ["google/gemini-2.5-flash-lite", "anthropic/claude-opus-5",
+                         "google/gemini-3.6-flash"])
+    got = editor.model_menu("openrouter", "u", "KEY")
+    assert got[0] == "google/gemini-2.5-flash-lite"   # first in the table
+    assert got[-1] == "anthropic/claude-opus-5"       # not in the table at all

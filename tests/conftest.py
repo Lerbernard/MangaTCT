@@ -32,16 +32,32 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(autouse=True)
-def cold_model_menu():
-    """Every test starts with the menu cache empty, the way a fresh editor does.
+def cold_caches():
+    """Every test starts the way a freshly opened editor does.
 
-    `editor._MENU_CACHE` remembers what a provider said a key could reach, for
-    fifteen minutes, keyed on (address, key hash). That is right for the app —
-    one person, one process, and Settings asks three times in a row — and wrong
-    for a suite, where the next test is a different world with the same key in
-    it and would be handed the last test's answer.
+    Three module globals survive between tests in one worker, and each is right
+    for the app and wrong for a suite:
+
+    * `_MENU_CACHE` — what a provider said a key could reach, for fifteen
+      minutes. The next test is a different world with the same key in it and
+      would be handed the last test's answer.
+    * `_plate_cache` — the cleaned plate per page. A page cleaned in one test
+      is a page the next one does not pay to clean, and the flat fee is charged
+      where the plate is BUILT, so a leaked plate is a charge that goes missing
+      — or, in the other order, one that arrives twice.
+    * the cleaning warning — a complaint about a provider that answered a
+      previous test.
+
+    Individual tests were clearing these by hand, which works right up until
+    the test that needed it and did not know. Doing it here means an
+    order-dependent failure cannot be written in the first place.
     """
     from mangatl import editor
-    editor._MENU_CACHE.clear()
+
+    def cold():
+        editor._MENU_CACHE.clear()
+        editor._plate_cache.clear()
+        editor.clear_clean_warning()
+    cold()
     yield
-    editor._MENU_CACHE.clear()
+    cold()

@@ -46,6 +46,13 @@ async function loadProject(){
     syncManualMode(); }
   { const g=$('gemini_safety_off');
     if(g) g.checked=!!proj.settings.gemini_safety_off; }
+  // The story switches. Read with `!==false` rather than `!!`, because these
+  // four default ON and a project.json written before they existed has no key
+  // at all — `!!undefined` would switch the story off for every chapter that
+  // predates the setting.
+  STORY_SWITCHES.forEach(k=>{
+    const el=$(k); if(el) el.checked = proj.settings[k] !== false; });
+  syncStory();
   const _md=mediumDefaults($('medium').value=proj.settings.medium||'manga');
   // `auto` is what the old "Same as the source material" option saved. It only
   // ever resolved to the medium's own language, so it is shown as that.
@@ -674,6 +681,11 @@ async function saveSettings(){
     strip_max:(+($('strip_max')||{}).value||6000),
     gemini_safety_off:($('gemini_safety_off')
                        ? $('gemini_safety_off').checked : false),
+    ...STORY_SWITCHES.reduce((o,k)=>{
+      // Absent from the screen is not the same as off: the settings page may
+      // not have been built yet. Only send what is really there.
+      const el=$(k); if(el) o[k]=el.checked; return o;
+    },{}),
     ai_clean:($('ai_clean')?$('ai_clean').value:'off'),
     clean_url:($('clean_url')?$('clean_url').value:''),
     ...['ocr','translate','proofread'].reduce((o,k)=>{
@@ -913,13 +925,12 @@ const modelsAsked = new Set();
    provider, or, for a local one whose range it does not price, whatever that
    provider says it has.
 
-   "Other…" is still there, because somebody running a local model has a name
-   nobody could have listed. Choosing it shows the box back. */
-/* The sentinel the "Other…" row carries. Not a NUL byte, which is what it
-   was: a NUL in a DOM value is stripped somewhere between setting it and
-   reading it back, so the row existed and could never be selected. No real
-   model id looks like this. */
-const MODEL_OTHER = '__other__';
+   There is no "Other…" row. lee: *"remove teh other from all the dropdowns"*.
+   It was the way back to typing a name, and typing a name is the thing this
+   menu exists to stop: every id it could produce is either one the menu
+   already offers or one that cannot be run, cannot be priced, or both. A model
+   that is ALREADY set and is not on the list is still kept and still
+   selectable — see `drawModels` — so nobody's existing setting disappears. */
 
 async function fillModels(step, force){
   const sel = $(step + '_model_sel');
@@ -972,8 +983,11 @@ function drawModels(step, names, priced){
   // entry a provider has retired since. It stays selectable, because taking
   // somebody's setting away without asking is worse than an odd-looking menu.
   if(have && !names.includes(have)) add(have, have + '  — as set');
-  add(MODEL_OTHER, 'Other\u2026');
-  sel.value = have || (names[0] || MODEL_OTHER);
+  // Nothing set and nothing offered — a provider that answered with an empty
+  // list, or a key that has not been typed yet. Say so in the one place the
+  // person is looking, rather than showing an empty menu they will click at.
+  if(!sel.options.length) add('', 'No models — check the key for this service');
+  sel.value = have || (names[0] || '');
   box.style.display = 'none';
 }
 
@@ -982,11 +996,7 @@ function drawModels(step, names, priced){
 function pickModel(step){
   const sel = $(step + '_model_sel'), box = $(step + '_model');
   if(!sel || !box) return;
-  if(sel.value === MODEL_OTHER){
-    box.style.display = '';
-    box.focus();
-    return;                       // nothing saved until they type one
-  }
+  if(!sel.value) return;          // the "no models" row is not a choice
   box.value = sel.value;
   box.style.display = 'none';
   saveSettings();
@@ -995,6 +1005,34 @@ function pickModel(step){
 /* Changing the provider changes the answer — and the model that was chosen
    for the old one almost certainly does not exist on the new one, so the menu
    is asked again straight away rather than the next time somebody looks. */
+/* The story switches, in one list so the three places that touch them —
+   loading, saving, and greying the rest out — cannot fall out of step. The
+   master switch is first, and the three that follow it are the ones it
+   disables. */
+const STORY_SWITCHES = ['story', 'learn_characters', 'learn_terms',
+                        'name_speakers'];
+
+/* With no story kept there is nothing for the AI to fill in, so the three
+   ticks below the master switch go dead rather than staying clickable and
+   doing nothing. Their own values are left alone — turning the story back on
+   finds them as they were. */
+function syncStory(){
+  const on = !$('story') || $('story').checked;
+  const box = $('storyopts');
+  if(box){
+    box.style.opacity = on ? '' : '.45';
+    box.style.pointerEvents = on ? '' : 'none';
+    box.querySelectorAll('input').forEach(i=>{ i.disabled = !on; });
+  }
+  // The three Story sections are about a story nobody is keeping. Say so on
+  // the buttons rather than hiding them — a person who has just switched it
+  // off should be able to see what they still have written down.
+  document.querySelectorAll('#setNav .setnav-btn').forEach(b=>{
+    if(['synopsis','characters','terms'].includes(b.dataset.sec))
+      b.classList.toggle('dim', !on);
+  });
+}
+
 function modelsStale(step){
   // No step named means the KEY changed, and a key is a fact about the
   // service — so every step that could be on it has to ask again. See

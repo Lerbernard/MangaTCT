@@ -259,6 +259,12 @@ Use the context you are given — this is what keeps chapters consistent:
   Follow it exactly, and propose new recurring ones in glossary_additions.
   A person NEVER goes in glossary_additions — a named character belongs in
   character_additions and nowhere else, so no one is listed twice.
+- do_not_return, when present, lists fields you must LEAVE OUT of your reply
+  entirely. They have been switched off for this project. Do not propose them,
+  do not explain that you have not, and do not put an empty one in instead —
+  omit the key. A field you were not given (no series_context, no glossary, no
+  characters) is one nobody is keeping for this project; translate from the
+  page in front of you and do not ask for it.
 - EVERY glossary rendering must say what the thing IS, in brackets after the
   name: "Tarel (the copper coin)", "Zaldone (the northern kingdom)". A bare
   name is refused and does not reach the sheet. A glossary that says only
@@ -642,6 +648,23 @@ class SeriesContext:
     # cast is off screen.
     characters: dict[str, str] = field(default_factory=dict)
     previous_page_tail: list[str] = field(default_factory=list)
+    # THE STORY SWITCHES. lee: *"add a story setting that allow the user ti
+    # turn the story thing off, and to tun what the ai detects with check
+    # boxes"*.
+    #
+    # `story` off means the synopsis, the character sheet and the glossary are
+    # neither SENT with a page nor ADDED TO by what comes back. The sheets are
+    # not touched — turning it on again finds them exactly as they were, which
+    # is the difference between a switch and a delete.
+    #
+    # The other three are independent, and each is off-able on its own because
+    # they fail differently: a series with a huge cast wants the character
+    # sheet and not the glossary, a one-shot wants neither, and somebody who
+    # letters from a script wants the words and no speaker guessed at all.
+    story: bool = True
+    learn_characters: bool = True
+    learn_terms: bool = True
+    name_speakers: bool = True
     honorifics: bool = True
     medium: str = "manga"           # manga | manhwa | manhua | comic
     target: str = "en"              # en | es | pt | fr
@@ -694,14 +717,31 @@ def _base_payload(page: Page, ctx: SeriesContext,
     # handed exactly the same information either way — a JSON object's key
     # order carries no meaning — but the cache can see where the repetition
     # stops.
+    # What the story switches turn off. Named in the payload rather than
+    # silently dropped, because the system prompt asks for these things by
+    # name — a model told to propose `character_additions` and then quietly
+    # ignored is a model spending output tokens on an answer nobody reads, and
+    # output is the expensive side of the bill.
+    #
+    # It sits in the FIXED half: the switches do not change during a run, so
+    # the bytes are identical on every page and the cache keeps them.
+    story = getattr(ctx, "story", True)
+    off = []
+    if not story or not getattr(ctx, "learn_characters", True):
+        off.append("character_additions")
+    if not story or not getattr(ctx, "learn_terms", True):
+        off.append("glossary_additions")
+    if not getattr(ctx, "name_speakers", True):
+        off.append("speaker")
     return {
         "medium": ctx.medium,
         "source_language": source_language(ctx.medium,
                                            getattr(ctx, "source", "")),
         "target_language": TARGETS.get(ctx.target, "English"),
         "keep_honorifics": ctx.honorifics,
-        "series_context": ctx.synopsis,
-        "glossary": ctx.glossary,
+        **({"do_not_return": off} if off else {}),
+        **({"series_context": ctx.synopsis,
+            "glossary": ctx.glossary} if story else {}),
         # The chapter belongs UP HERE, with the fixed things, even though it
         # is not fixed for ever — it is fixed for the RUN, which is what a
         # cache is measured over. It used to be appended after the regions,
@@ -709,7 +749,8 @@ def _base_payload(page: Page, ctx: SeriesContext,
         # prefix and threw the saving away on every page of every run.
         **({"chapter_context": chapter} if chapter else {}),
         # ---- everything below here changes from page to page ----
-        "characters": getattr(ctx, "characters", {}) or {},
+        **({"characters": getattr(ctx, "characters", {}) or {}}
+           if story else {}),
         "previous_page_tail": ctx.previous_page_tail[-6:],
         "regions": [
             {
@@ -1992,7 +2033,11 @@ def translate_page(
                 r.src_text)
             if added_masking(r.dst_text, r.src_text):
                 r.flagged = (r.flagged or "") + " " + CENSOR_NOTE
-            sp = item.get("speaker")
+            # Who said it, unless nobody asked for that. A speaker the
+            # model was told not to return but returned anyway is still
+            # dropped here — the switch is about the SHEET's contents, and a
+            # rule enforced only by asking politely is not enforced.
+            sp = item.get("speaker") if getattr(ctx, "name_speakers", True) else None
             r.speaker = str(sp) if sp not in (None, "") else None
             try:
                 r.confidence = float(item.get("confidence") or 0.0)
@@ -2001,8 +2046,9 @@ def translate_page(
             if r.confidence < 0.5:
                 r.flagged = (r.flagged or "") + " low translation confidence"
 
+        story = getattr(ctx, "story", True)
         gl = data.get("glossary_additions") or {}
-        if isinstance(gl, dict):
+        if story and getattr(ctx, "learn_terms", True) and isinstance(gl, dict):
             # Every term must say what it is — see `merge_glossary`. A bare
             # name comes back refused, and is shown the same way a refused
             # character is.
@@ -2027,7 +2073,11 @@ def translate_page(
         #      the label — it may still be the right person — but say so, so it
         #      is not mistaken for something the page established.
         for r in page.regions:
-            if not r.speaker or is_generic_speaker(r.speaker):
+            # Nothing to snap a name back TO when the sheet is switched off,
+            # and "is not named anywhere" is a complaint about a sheet nobody
+            # is keeping. Both checks read the character sheet; when there is
+            # no character sheet there is no check.
+            if not story or not r.speaker or is_generic_speaker(r.speaker):
                 continue
             known = match_known(r.speaker, getattr(ctx, "characters", {}) or {})
             if known:
@@ -2039,7 +2089,7 @@ def translate_page(
                              ).strip()
 
         adds = data.get("character_additions") or {}
-        if isinstance(adds, dict):
+        if story and getattr(ctx, "learn_characters", True) and isinstance(adds, dict):
             # first sighting wins: the sheet is canon, later pages only extend
             # it — they must not flip someone's pronouns, nor spell them a
             # second way, nor add a name the story never wrote down
