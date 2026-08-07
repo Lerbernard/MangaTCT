@@ -28,6 +28,15 @@
   <p class="lede">Buy what you need, when you need it. No subscription, no
     monthly minimum, and nothing expires — the coins sit on your account until
     you spend them.</p>
+  <!-- Tax is INSIDE the price. lee: *"also make the price will include the
+       tax"*. Stripe is the merchant of record and works out each country's
+       sales tax, VAT or GST — with `tax_behavior: inclusive` it takes that out
+       of the figure below rather than adding it on top, so the number on the
+       page is the number on the card in every country. We net less where tax
+       is high; nobody is ever surprised at checkout, which is the trade. -->
+  <p class="dim" style="margin-top:-14px">Every price includes tax. What you
+    see is what you pay, wherever you are — sales tax, VAT and GST are already
+    in the figure, and are collected and paid on our behalf by Stripe.</p>
   <div class="grid" id="packs"></div>
 
   <h2>What that buys</h2>
@@ -70,7 +79,7 @@ function draw(packs) {
       ${i === pick ? '<span class="tag">most people</span>' : ''}
       <div class="give" style="font-size:19px">${COIN}
         <b>${q.coins.toLocaleString()}</b> coins</div>
-      <div class="price">${money(q.usd)}</div>
+      <div class="price">${money(q.usd)}<span class="plustax">tax in</span></div>
       <p class="blurb">${(q.coins / q.usd).toFixed(0)} coins to the dollar.
         They never expire.</p>
       <button class="${i === pick ? 'pri ' : ''}wide" data-buy="${esc(q.id)}">

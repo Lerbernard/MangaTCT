@@ -62,6 +62,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   padding:2px 9px;border-radius:99px;text-transform:uppercase}
 .tier h3{margin:2px 0 2px;font-size:17px}
 .price{font-size:31px;font-weight:800;margin:8px 0 0}
+/* Stripe is the merchant of record and adds each country's sales tax on top of
+   the price, so a UK customer pays about a fifth more than the number beside
+   it. Small, next to the figure rather than in a footnote at the bottom: a
+   person who reads $4.99 and is charged $5.99 has been surprised by their own
+   money, and nobody reads a footnote before they read a price. */
+.plustax{font-size:13px;font-weight:600;color:var(--dim);margin-left:6px;
+  letter-spacing:.02em}
 .price small{font-size:14px;font-weight:500;color:var(--dim)}
 .tier .give{margin:10px 0 2px;font-size:15px}
 .tier .blurb{color:var(--dim);font-size:13.5px;flex:1;margin:8px 0 16px}

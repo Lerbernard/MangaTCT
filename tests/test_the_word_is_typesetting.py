@@ -102,8 +102,22 @@ def test_a_phrase_that_straddles_a_wrap_cannot_hide():
 
 
 def test_the_headline_on_the_website_says_typeset():
-    """The one that was on the front of the site for a week."""
-    for name in ("index.html", "mangatct-site-standalone.html"):
-        html = (PKG / "site" / name).read_text(encoding="utf-8")
-        assert "Translate, clean and typeset a chapter" in html, name
-        assert "clean and letter a chapter" not in html, name
+    """The one that was on the front of the site for a week.
+
+    Asked of the page on disk AND of the builder that writes it. Not of the
+    standalone copy: that is generated and no longer committed, so reading it
+    fails on a fresh clone — which is a thing about the checkout rather than a
+    thing about the word, and it broke CI on the first two pushes.
+    """
+    html = (PKG / "site" / "index.html").read_text(encoding="utf-8")
+    assert "Translate, clean and typeset a chapter" in html
+    assert "clean and letter a chapter" not in html
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sitebuild_word", PKG / "site" / "build.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    made = mod.build()
+    assert "Translate, clean and typeset a chapter" in made
+    assert "clean and letter a chapter" not in made

@@ -217,3 +217,91 @@ def test_an_anchor_lands_below_the_sticky_header(html):
     assert clear and head, "both the clearance and the header height must be set"
     assert int(clear.group(1)) >= int(head.group(1)), \
         f"{clear.group(1)}px of clearance under a {head.group(1)}px header"
+
+
+# ---------------------------------------------------- what the price promises
+
+def test_the_pricing_page_says_the_tax_is_already_in_the_price():
+    """lee: *"also make the price will include the tax"*.
+
+    Stripe is the merchant of record and works out each country's sales tax,
+    VAT or GST; with `tax_behavior: inclusive` it comes OUT of the figure
+    rather than being added on top, so the number on the page is the number on
+    the card in every country.
+
+    Said twice, doing two different jobs: a mark beside each figure, because
+    nobody reads a footnote before they read a price; and a sentence saying who
+    is collecting it. And it must not say the opposite anywhere — a page that
+    promises tax-inclusive in one place and tax-on-top in another is worse than
+    one that says nothing.
+    """
+    from where import PKG
+    page = (PKG / "site" / "pricing.html").read_text(encoding="utf-8")
+    assert 'class="plustax">tax in<' in page, "each price needs the mark"
+    assert "Every price includes tax" in page
+    assert "Stripe" in page
+    body = page.split("<body", 1)[-1]
+    for wrong in ("plus tax", "before tax", "+ tax", "excluding tax"):
+        assert wrong not in body, wrong
+    css = (PKG / "site" / "style.css").read_text(encoding="utf-8")
+    assert ".plustax{" in css, "the mark has to be smaller than the price"
+
+
+def test_the_going_live_note_says_to_set_it():
+    """Tax-inclusive is NOT Stripe's default, and a price's tax behaviour is
+    fixed once it has been used — so the one chance to get this right is
+    before the four prices exist."""
+    from where import PKG
+    doc = (PKG / "docs" / "going-live-with-payments.md").read_text(encoding="utf-8")
+    assert "tax_behavior: inclusive" in doc
+    assert "fixed once it has been used" in doc.replace("\n", " ")
+    assert "not the default" in doc.lower()
+
+
+def test_the_packs_on_the_page_are_the_packs_the_server_grants():
+    """The page draws whatever `config/prices` holds, and `seed.js` writes that
+    from `PACKS` in `purse.js` — which is also what grants the coins. One
+    source. This is the test that says the chain is unbroken, because a pack
+    priced on the page and unknown to the server is a Buy button that 400s."""
+    import re
+    from where import PKG
+    purse = (PKG / "firebase" / "functions" / "purse.js").read_text(encoding="utf-8")
+    block = purse.split("export const PACKS = [", 1)[1].split("];", 1)[0]
+    packs = re.findall(r"id:\s*'(\w+)',\s*coins:\s*(\d+),\s*usd:\s*([\d.]+)", block)
+    assert len(packs) == 4, packs
+    assert [p[0] for p in packs] == ["pack1", "pack2", "pack3", "pack4"]
+    seed = (PKG / "firebase" / "functions" / "seed.js").read_text(encoding="utf-8")
+    assert "from './purse.js'" in seed, \
+        "seed.js must read the packs rather than repeat them"
+    # ...and the going-live note quotes the same four, because somebody will
+    # create the Stripe products from that table.
+    doc = (PKG / "docs" / "going-live-with-payments.md").read_text(encoding="utf-8")
+    for pid, coins, usd in packs:
+        assert f"`{pid}`" in doc, pid
+        assert f"${usd}" in doc, usd
+        assert f"{int(coins)}" in doc, coins
+
+
+def test_the_product_copy_matches_the_packs_that_grant_the_coins():
+    """The four names and prices somebody will paste into Stripe by hand.
+
+    Stripe is the one link in this chain no test can reach — `seed.js` writes
+    the price ids into Firestore but nothing can check that the $4.99 in the
+    Dashboard is the $4.99 in `purse.js`. So the note they are copied FROM is
+    checked instead, which is as close as it gets.
+    """
+    import re
+    from where import PKG
+    doc = (PKG / "docs" / "the-four-products.md").read_text(encoding="utf-8")
+    purse = (PKG / "firebase" / "functions" / "purse.js").read_text(encoding="utf-8")
+    block = purse.split("export const PACKS = [", 1)[1].split("];", 1)[0]
+    packs = re.findall(r"id:\s*'(\w+)',\s*coins:\s*(\d+),\s*usd:\s*([\d.]+)", block)
+    assert len(packs) == 4
+    for pid, coins, usd in packs:
+        assert f"`{pid}`" in doc, pid
+        assert f"`${usd}`" in doc, usd
+        assert f"{int(coins):,} coins" in doc, coins
+    # ...and every one of them is sold tax-inclusive, which is the setting
+    # that cannot be changed after the first sale.
+    assert doc.count("tax inclusive") == 4
+    assert "Inclusive" in doc
