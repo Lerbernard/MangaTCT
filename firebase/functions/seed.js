@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { PACKS } from './purse.js';
+import { PACKS, looksLikePriceId } from './purse.js';
 
 /* Which project, said out loud rather than inferred.
  *
@@ -63,6 +63,25 @@ const db = getFirestore();
 
 const args = Object.fromEntries(process.argv.slice(2)
   .map((a) => a.split('=')).filter((p) => p.length === 2));
+
+/* Before anything is written, and before the network is touched: is what came
+   in on the command line actually a Stripe price id?
+ *
+ * An argument that is present but wrong is worse than one that is missing. A
+ * missing one is reported at the bottom of this file; a wrong one is written,
+ * reported as success, and surfaces as a 500 from the buy button on a live
+ * site. That happened here with a pasted `…`. */
+const junk = Object.entries(args)
+  .filter(([k, v]) => k.startsWith('price_') && !looksLikePriceId(v));
+if (junk.length) {
+  for (const [k, v] of junk) console.error(`not a Stripe price id: ${k}=${v}`);
+  console.error('');
+  console.error('They look like price_1U1fCAPRGT41DjkSNiPmuk4f — about thirty');
+  console.error('characters. Copy each one from the price row of its product');
+  console.error('in the Stripe dashboard, in the mode you are seeding.');
+  console.error('Nothing was written.');
+  process.exit(1);
+}
 
 const ids = { packs: {} };
 

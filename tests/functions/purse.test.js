@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PACKS, RESERVED, USERNAME_MAX, USERNAME_MIN, buy, checkUsername, clawback,
-  pack, refund, refundedShare, spend, usernameKey,
+  looksLikePriceId, pack, refund, refundedShare, spend, usernameKey,
 } from '../../firebase/functions/purse.js';
 
 describe('a username is unique to a person, not to a byte string', () => {
@@ -404,5 +404,48 @@ describe('clawback — a purchase undone', () => {
   it('leaves the balance alone when it says no', () => {
     expect(clawback(1000, 0).balance).toBe(1000);
     expect(clawback(1000, -5).balance).toBe(1000);
+  });
+});
+
+describe('a price id is checked for being one before it is written', () => {
+  /* The bug this came from: a placeholder ellipsis was pasted in place of all
+     four ids, `seed.js` wrote them without complaint, and the live buy button
+     answered 500 with `No such price: '…'` in a log nobody was watching. */
+
+  it('takes a real one', () => {
+    expect(looksLikePriceId('price_1U1fCAPRGT41DjkSNiPmuk4f')).toBe(true);
+  });
+
+  it('refuses the placeholder that caused this', () => {
+    expect(looksLikePriceId('…')).toBe(false);
+    expect(looksLikePriceId('price_…')).toBe(false);
+    expect(looksLikePriceId('...')).toBe(false);
+    expect(looksLikePriceId('price_XXXX')).toBe(false);   // too short
+  });
+
+  it('refuses the other id on the product page', () => {
+    // `prod_...` is the one right next to it, and it is the wrong one — a
+    // Checkout Session takes a price, not a product.
+    expect(looksLikePriceId('prod_V1JWOROYDWUVHX')).toBe(false);
+  });
+
+  it('refuses nothing at all', () => {
+    for (const bad of ['', ' ', null, undefined, 0, {}, [], 'price_']) {
+      expect(looksLikePriceId(bad), String(bad)).toBe(false);
+    }
+  });
+
+  it('refuses one with whitespace or quotes still attached', () => {
+    // What a paste out of a terminal or a document brings with it.
+    expect(looksLikePriceId(' price_1U1fCAPRGT41DjkSNiPmuk4f')).toBe(false);
+    expect(looksLikePriceId('price_1U1fCAPRGT41DjkSNiPmuk4f\n')).toBe(false);
+    expect(looksLikePriceId('"price_1U1fCAPRGT41DjkSNiPmuk4f"')).toBe(false);
+  });
+
+  it('does not claim to know whether the id exists', () => {
+    // Shape only. A well-formed sandbox id passes here and fails at Stripe,
+    // and that is the division of labour on purpose — this check must never
+    // grow into something that pretends to have asked.
+    expect(looksLikePriceId('price_1AAAAAAAAAAAAAAAAAAAAAAA')).toBe(true);
   });
 });

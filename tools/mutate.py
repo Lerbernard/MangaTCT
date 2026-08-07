@@ -94,6 +94,12 @@ T_TRIM = ["tests/test_a_menu_you_can_trust.py", "tests/test_per_step_models.py",
           "tests/test_model_gone.py"]
 T_MANUAL = ["tests/test_translating_it_yourself.py"]
 
+# The hand-run seeding script. Not executed by any test — it wants a
+# Firestore — so what is held is its source, and the property held is an
+# ordering: refuse before you write.
+SEED = "firebase/functions/seed.js"
+T_SEED = ["tests/test_the_website.py"]
+
 MUTANTS = [
     # ---- the file that goes out
     ("manual-label-drops-the-number", MAN,
@@ -1374,6 +1380,26 @@ MUTANTS = [
     ("site-nobody-is-told-what-is-still-wanted", SITE,
      "    WANTED.append((name, want or alt))\n",
      "", T_SITE),
+    # ---- the price ids that go into Firestore by hand
+    #
+    # `seed.js` is not run by any test — it needs a Firestore. What IS tested
+    # is its SOURCE, because the property that matters is an ordering: the
+    # check happens before the write. These four mutants are the four ways to
+    # break that ordering while leaving a file that still looks careful.
+    ("seed-a-pasted-placeholder-is-written-as-a-price", SEED,
+     "if (junk.length) {",
+     "if (false) {", T_SEED),
+    ("seed-a-bad-id-is-a-warning-and-the-run-goes-on", SEED,
+     "  console.error('Nothing was written.');\n  process.exit(1);",
+     "  console.error('Nothing was written.');", T_SEED),
+    ("seed-the-check-runs-after-the-writes", SEED,
+     "const junk = Object.entries(args)",
+     "const junk = [].concat(", T_SEED),
+    ("seed-the-shape-check-is-copied-instead-of-shared", SEED,
+     "import { PACKS, looksLikePriceId } from './purse.js';",
+     "import { PACKS } from './purse.js';\n"
+     "const looksLikePriceId = (s) => /^price_/.test(String(s || ''));", T_SEED),
+
     ("site-the-page-still-sells-a-service-that-is-gone", SITE,
      "<b>Claude, Google AI Studio or OpenRouter</b> —",
      "<b>Claude, Gemini, OpenAI or OpenRouter</b> —", T_SITE),

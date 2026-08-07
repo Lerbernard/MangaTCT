@@ -61,10 +61,15 @@ Managed Payments cannot calculate tax for a product it cannot categorise, and a
 product with no eligible tax code is **refused at checkout, in live mode
 only**. Nothing in test mode tells you.
 
-For each of the four: **⋯ → Edit product → Product tax code**. The eligible
-ones are labelled *Eligible for Managed Payments*. Coin packs are a digital
-service — a general "software as a service" or "digital goods" code is the
-right shape.
+**Set it once, as the preset**, rather than four times by hand:
+<https://dashboard.stripe.com/settings/managed-payments> → Tax settings →
+**Preset tax category** → `Digital products > Software > Software as a
+service`. It must read *✓ Eligible for Managed Payments*. Products made after
+it inherit it, so the four packs are covered before they exist, and the same
+page tells you *All of your products are eligible* when nothing is left out.
+
+The per-product way is still there if one ever needs its own: **⋯ → Edit
+product → Product tax code**.
 
 ### And the tax behaviour — set this, it is not the default
 
@@ -78,14 +83,34 @@ way round for a $4.99 impulse buy.
 **Stripe's default is the opposite**, so this has to be set, in one of two
 places:
 
-* per price, `tax_behavior: inclusive`, when you create it; or
-* once for the account — <https://dashboard.stripe.com/settings/tax> →
-  **Include tax in prices** → on — which then applies to prices created
-  afterwards.
+* once for the account — Managed Payments settings → Tax settings → **Include
+  tax in prices** → **Yes**, which every price made afterwards inherits; or
+* per price, `tax_behavior: inclusive`, when you create it.
+
+Not **Automatic**: that one includes tax for most currencies and EXCLUDES it
+for USD and CAD, so a US customer would be charged on top while a French one
+was not. Same page, same price, two different promises.
 
 Do it before the prices exist. **A price's tax behaviour is fixed once it has
 been used**, so changing your mind later means creating four NEW prices and
 re-running `seed.js`, not editing the four you have.
+
+And check the page you set it on is in **live** mode. Setting it in sandbox
+leaves live on the default, and the first thing you would hear about it is a
+receipt.
+
+> ### If you copied the products over from test mode
+>
+> **A copied price brings its original tax behaviour with it.** The account
+> setting applies to prices made AFTER it, and a price copied from sandbox was
+> made before — so it most likely arrives `unspecified`, which Managed Payments
+> reads as "add tax on top". The products look right, the category says
+> Eligible, and the customer is charged more than the page said.
+>
+> Open each of the four prices and read it: it must say the amount **includes**
+> tax. Where it does not, add a NEW price to the same product, archive the old
+> one, and use the new `price_...` id in `seed.js`. A price's tax behaviour
+> cannot be edited once it exists.
 
 Check it before you leave the Dashboard: open one of the four prices and it
 should say the amount **includes** tax. If it does not, delete it and make it
@@ -111,11 +136,17 @@ firebase deploy --only functions
 ```
 
 When it finishes it prints the function URLs. The one you want is
-`stripeWebhook`:
+`stripeWebhook`, and it looks like this:
 
 ```
-https://us-central1-mangatctproject.cloudfunctions.net/stripeWebhook
+Function URL (stripeWebhook(us-central1)): https://stripewebhook-wyfd5lpvba-uc.a.run.app
 ```
+
+**Use the line it prints, not one written down here.** These are second-
+generation functions, which run on Cloud Run and are given a `run.app` address
+with a random-looking piece in the middle. It belongs to this deployment; it is
+not guessable and it is not the same as the `cloudfunctions.net` form the older
+functions use.
 
 ## 6. The live webhook
 
@@ -136,6 +167,14 @@ firebase deploy --only functions
 
 The second deploy is not optional. A secret is bound to a function at deploy
 time, so setting it changes nothing until the function is deployed again.
+
+> **`Unhandled error cleaning up build images`** at the end of a deploy is not
+> a failed deploy — `Deploy complete!` on the next line is the truth. It means
+> the container images the build produced were left in the registry instead of
+> being swept up. They cost cents a month, and the next successful deploy
+> usually clears them; if the message keeps coming back, delete them at
+> <https://console.cloud.google.com/gcr/images/mangatctproject/us/gcf>.
+> Nothing about the running function depends on them.
 
 > If the webhook rejects everything with `bad signature`, the function logs the
 > **length** of the secret it is holding and the size of the body it got — never

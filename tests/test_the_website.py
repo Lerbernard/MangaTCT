@@ -305,3 +305,84 @@ def test_the_product_copy_matches_the_packs_that_grant_the_coins():
     # that cannot be changed after the first sale.
     assert doc.count("tax inclusive") == 4
     assert "Inclusive" in doc
+
+
+def test_seed_refuses_a_price_id_that_is_not_one_before_it_writes():
+    """`seed.js` writes what it is given and says nothing. That is fine for a
+    MISSING id — the bottom of the file reports those — and it was not fine for
+    a WRONG one: a pasted `…` went in as all four, was written, was reported as
+    success, and turned up as a 500 from the live buy button and
+    `No such price: '…'` in a Cloud Logging query twenty minutes later.
+
+    The check has to be BEFORE the writes, and it has to exit non-zero, or it
+    is a warning scrolled past."""
+    from where import PKG
+    seed = (PKG / "firebase" / "functions" / "seed.js").read_text(encoding="utf-8")
+    purse = (PKG / "firebase" / "functions" / "purse.js").read_text(encoding="utf-8")
+
+    assert "export function looksLikePriceId" in purse, \
+        "the shape check belongs with the packs, where vitest can reach it"
+    assert "looksLikePriceId } from './purse.js'" in seed, \
+        "seed.js must import it rather than repeat the regex"
+
+    guard = seed.index("looksLikePriceId(v)")
+    write = seed.index("db.doc('config/prices')")
+    assert guard < write, \
+        "the check has to run before anything is written, not after"
+    assert "process.exit(1)" in seed[guard:write], \
+        "a bad id has to stop the run, not print a warning nobody reads"
+    assert "Nothing was written." in seed, \
+        "and it has to say so, or somebody re-runs it in a panic"
+
+
+def _seed(*args):
+    """Actually run `seed.js`, with credentials it cannot use.
+
+    It can be run: `applicationDefault()` and `getFirestore()` are both lazy,
+    so nothing is authenticated and nothing is sent until a document is
+    written — which means the refusal path completes, on its own, offline.
+    The project id is overridden too, so that even on a machine that DOES hold
+    a credential the only thing reachable is a project that does not exist.
+    """
+    import os
+    import shutil
+    import subprocess
+    import pytest
+    from where import PKG
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("no node")
+    env = dict(os.environ,
+               GOOGLE_CLOUD_PROJECT="mangatct-there-is-no-such-project",
+               GOOGLE_APPLICATION_CREDENTIALS="")
+    return subprocess.run(
+        [node, "seed.js", *args], cwd=str(PKG / "firebase" / "functions"),
+        capture_output=True, text=True, timeout=120, env=env)
+
+
+def test_seed_stops_on_a_pasted_placeholder_and_says_what_it_wanted():
+    """The source check above says the guard is written; this one says it
+    runs. Two mutants live in the gap between those: one that turns the
+    condition off, and one that leaves the whole block unreachable. Both leave
+    a file that still reads as careful."""
+    got = _seed("price_pack1=…", "price_pack2=price_1U1fCAPRGT41DjkSNiPmuk4f")
+    assert got.returncode == 1, got.stdout + got.stderr
+    assert "not a Stripe price id: price_pack1=…" in got.stderr
+    # The one that WAS an id is not complained about — an error naming all four
+    # when one is wrong sends you looking in the wrong place.
+    assert "price_pack2" not in got.stderr
+    # And it says what one looks like, because "not a price id" without an
+    # example is a person guessing at the difference between prod_ and price_.
+    assert "price_1U1fCAPRGT41DjkSNiPmuk4f" in got.stderr
+    assert "Nothing was written." in got.stderr
+
+
+def test_seed_does_not_refuse_an_id_that_is_shaped_like_one():
+    """The other half. A guard that refuses everything is not a guard, and it
+    would be caught here rather than by somebody with a real id in their hand
+    wondering why the tool will not take it."""
+    got = _seed("price_pack1=price_1U1fCAPRGT41DjkSNiPmuk4f")
+    assert "not a Stripe price id" not in got.stderr
+    # It gets past the guard and dies at Firestore instead, which is the point:
+    # the refusal happened before the network, and this one reached it.
+    assert got.returncode != 1 or "Nothing was written." not in got.stderr

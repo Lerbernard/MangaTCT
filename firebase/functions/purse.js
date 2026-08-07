@@ -169,6 +169,26 @@ export function pack(id) {
   return PACKS.find((q) => q.id === id) || null;
 }
 
+/* Is this a Stripe price id, or is it something somebody pasted?
+
+   `seed.js` takes these on the command line and writes them into
+   `config/stripe`, and from there they go straight into a Checkout Session.
+   Nothing between the keyboard and Stripe ever looks at them.
+
+   The failure this catches happened. A placeholder — a literal `…`, copied out
+   of a set of instructions along with the rest of the line — went in as all
+   four ids. `seed.js` wrote it without a word, because an argument HAD been
+   supplied for every pack. The first anybody knew was a live buy button
+   answering 500, and `No such price: '…'` in a function log twenty minutes
+   later.
+
+   Shape only, deliberately. Whether an id exists, and whether it is the live
+   one or the sandbox one, only Stripe can answer — and it will, at checkout.
+   "That is not an id at all" is answerable here, for nothing. */
+export function looksLikePriceId(s) {
+  return /^price_[A-Za-z0-9]{8,}$/.test(String(s == null ? '' : s));
+}
+
 /* Coins in. Not capped and they do not expire: bought outright, this minute,
    on purpose. Refusing part of a purchase somebody just made is not a policy,
    it is a bug with a reason. */
