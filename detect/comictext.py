@@ -460,7 +460,6 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
 
     regions: list[TextRegion] = []
     rid = 0
-    link_seq = 0                         # groups the pieces of a split block
     claimed = np.zeros((im_h, im_w), bool)   # what the block head has boxed
     for x1, y1, x2, y2, cf in _decode_blocks(blks, conf_thresh, nms_thresh):
         X1 = max(0, int(x1 * rr_x)); Y1 = max(0, int(y1 * rr_y))
@@ -498,16 +497,26 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
             r.confidence = round(float(cf), 3)
             block_regions.append(r)
             rid += 1
-        # When one detected block splits into 2+ boxes, they are pieces of the
-        # same run of text — link them (translator reads a link group as one
-        # continuous line). Only speech/narration is linked: outside text (SFX,
-        # freefloat) is never one continuous sentence, so it is never linked.
-        linkable = [r for r in block_regions
-                    if r.kind in ("bubble", "narration")]
-        if len(linkable) >= 2:
-            link_seq += 1
-            for r in linkable:
-                r.link = link_seq
+        # Nothing is linked here any more.
+        #
+        # This used to link every box a single detected block split into, on
+        # the theory that a run of text broken up by the clusterer is still one
+        # run. Sometimes it is. Just as often the block is one balloon holding
+        # two things said, and the two cases look identical in ink: lee's
+        # hot-spring balloon holds よく見てください and a separate remark beside
+        # it, and it was linked, so the long English was typeset into the short
+        # line's column.
+        #
+        # A link is not a small thing to be wrong about. It tells the reader
+        # neither half may complete the sentence, it tells the translator to
+        # split one English sentence between them, and it makes the typesetter
+        # re-cut the balloon by English length. Guessing it from pixels is
+        # guessing at grammar from the shape of the paper.
+        #
+        # So the question is asked where it can be answered: after Read text,
+        # off the words, by `translate.link_sections`. A person can still link
+        # anything to anything with L, and splitting a box by hand still links
+        # the pieces - that one is not a guess, it is somebody saying so.
         regions.extend(block_regions)
 
     # Everything the block head never boxed. The box comes straight off the

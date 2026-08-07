@@ -2103,7 +2103,7 @@ def do_ocr(p: Project, i: int) -> None:
     invent a plausible line, so it does not hallucinate text into the page.
     """
     from .ocr import page_label_tiles, looks_like_garbage
-    from .translate import read_page_ocr
+    from .translate import link_sections, read_page_ocr
     page = p.materialize(i)
     regs = page.regions
     if not regs:
@@ -2145,6 +2145,11 @@ def do_ocr(p: Project, i: int) -> None:
         else:
             r.ocr_ok = True
             r.flagged = looks_like_garbage(t, r)
+    # Now that there are words, the one question the pixels could not answer:
+    # are two sections of a balloon one sentence broken in two, or two things
+    # said? The detector used to guess this and got lee's hot-spring balloon
+    # wrong. See `translate.reads_on`.
+    link_sections(regs)
     p.commit(i, page)
 
 

@@ -1640,6 +1640,92 @@ def gloss_value(name, note) -> str:
     return f"{name} ({note})" if note else name
 
 
+# ---------------------------------------------------------- one sentence?
+#
+# Two blocks of writing inside one balloon are either one sentence the typesetter
+# broke in two, or two things said. They look identical to a detector, and the
+# detector used to guess: `detect_comictext` linked every box a single block
+# split into. That guess was wrong on lee's hot-spring balloon, and a link is
+# not a small wrong thing - the reader is told neither half may complete the
+# sentence, the translator is told to split one English sentence between them,
+# and the typesetter re-cuts the balloon by English length.
+#
+# The pixels cannot answer it. The WORDS can, and by the time Read text has
+# finished they exist. So the question is asked here instead, once, and asked
+# narrowly.
+
+# What an author writes at the break when a line runs on. The same set
+# `strip_added_dashes` knows about, for the same reason: these are the marks
+# that mean "this is not the end".
+_RUNS_ON_END = "—–―─━〜～…‥"
+_RUNS_ON_START = "—–―─━〜～…‥"
+
+# ...and what ends a sentence, which settles it the other way whatever else is
+# on the line.
+_ENDS_IT = "。．！？!?"
+
+
+def reads_on(first: str, second: str) -> bool:
+    """Does `first` run on into `second`?
+
+    Deliberately narrow. Manga drops the full stop constantly, so "no ending
+    punctuation" would link half the balloons in a chapter, and a link invented
+    where there is none is worse than a link missed: it makes the translator
+    write one sentence across two speeches. So the only thing taken as evidence
+    is the author's own typography at the break - a dash or an ellipsis trailing
+    the first block, or leading the second. That is what a typesetter writes when
+    a line is carried, and it is the whole signal.
+
+    A missed one costs a press of L. An invented one costs a page.
+    """
+    a = (first or "").strip()
+    b = (second or "").strip()
+    if not a or not b:
+        return False
+    # Closing brackets and quotes sit outside the mark, so they come off first.
+    a = a.rstrip("」』）)】〕》”\"'")
+    b = b.lstrip("「『（(【〔《“\"'")
+    if not a or not b:
+        return False
+    if a[-1] in _ENDS_IT:
+        return False
+    return a[-1] in _RUNS_ON_END or b[0] in _RUNS_ON_START
+
+
+def link_sections(regions) -> int:
+    """Link the sections of each balloon that read on, and unlink those that do
+    not. Returns how many groups were linked.
+
+    Asked of the whole page after a read, so a re-read can change its mind: a
+    box whose text was corrected from a fragment to a whole sentence should
+    stop being half of one.
+
+    Only ever touches boxes that share a `box_group` - sections of one balloon,
+    which is the only case the detector was guessing about. A link somebody set
+    by hand between two separate balloons is not in a group and is not touched.
+    """
+    groups: dict = {}
+    for r in regions:
+        g = int(getattr(r, "box_group", 0) or 0)
+        if g:
+            groups.setdefault(g, []).append(r)
+
+    used = max([int(getattr(r, "link", 0) or 0) for r in regions] or [0])
+    done = 0
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda r: (r.order if r.order >= 0 else 0, r.id))
+        joined = all(reads_on(members[k].src_text, members[k + 1].src_text)
+                     for k in range(len(members) - 1))
+        if joined:
+            used += 1
+            done += 1
+        for r in members:
+            r.link = used if joined else 0
+    return done
+
+
 def merge_glossary(sheet: dict, adds: dict) -> list:
     """Fold proposed terms into the glossary. Returns what was refused.
 

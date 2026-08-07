@@ -1395,7 +1395,7 @@ class Project:
             img = page.image
             sections_in_one_balloon(
                 cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img,
-                found)
+                found, rtl=self.rtl)
 
         for n, r in enumerate(found):
             r.id = n

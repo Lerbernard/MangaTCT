@@ -112,6 +112,18 @@ T_LOOK = ["tests/test_the_site_pages.py", "tests/test_the_website.py"]
 # A request that went quiet. The one failure the retry loop did not retry.
 T_SLOW = ["tests/test_when_the_answer_never_comes.py"]
 
+# The card that goes at the end of a chapter.
+# Two things said in one balloon: which is spoken first, and whether they are
+# one sentence. Both travel: the order is what the reader is handed and what a
+# linked sentence is split across.
+BALL = "detect/balloon.py"
+T_BALL = ["tests/test_two_things_in_one_balloon.py",
+          "tests/test_one_box_per_bubble.py"]
+CTD = "detect/comictext.py"
+
+CARD = "tools/adcard.py"
+T_CARD = ["tests/test_the_card_at_the_end.py"]
+
 MUTANTS = [
     # ---- the file that goes out
     ("manual-label-drops-the-number", MAN,
@@ -1392,6 +1404,77 @@ MUTANTS = [
     ("site-nobody-is-told-what-is-still-wanted", SITE,
      "    WANTED.append((name, want or alt))\n",
      "", T_SITE),
+    # ---- two things said in one balloon
+    ("ball-side-by-side-is-decided-by-the-top-edge", BALL,
+     "        if side_by_side(a, b):\n"
+     "            return a.bbox[0] > b.bbox[0] if rtl else a.bbox[0] < b.bbox[0]\n"
+     "        return a.bbox[1] < b.bbox[1]",
+     "        return a.bbox[1] < b.bbox[1]", T_BALL),
+    ("ball-the-page-direction-is-ignored", BALL,
+     "            return a.bbox[0] > b.bbox[0] if rtl else a.bbox[0] < b.bbox[0]",
+     "            return a.bbox[0] > b.bbox[0]", T_BALL),
+    ("ball-two-columns-count-as-stacked", BALL,
+     "        return over > 0.5 * min(ah, bh)",
+     "        return over > 4.0 * min(ah, bh)", T_BALL),
+    ("ball-two-stacked-count-as-side-by-side", BALL,
+     "        return over > 0.5 * min(ah, bh)", "        return True", T_BALL),
+    ("ball-the-sections-stay-linked-as-one-sentence", BALL,
+     "            r.link = 0\n", "\n", T_BALL),
+    ("ball-the-detector-guesses-at-the-link-again", CTD,
+     "        regions.extend(block_regions)",
+     "        _lk = [r for r in block_regions if r.kind in ('bubble', 'narration')]\n"
+     "        if len(_lk) >= 2:\n"
+     "            for r in _lk:\n"
+     "                r.link = 1\n"
+     "        regions.extend(block_regions)", T_BALL),
+    ("ball-a-missing-full-stop-is-taken-as-a-carried-sentence", TR,
+     "    return a[-1] in _RUNS_ON_END or b[0] in _RUNS_ON_START",
+     "    return a[-1] not in _ENDS_IT", T_BALL),
+    ("ball-a-full-stop-does-not-settle-it", TR,
+     "    if a[-1] in _ENDS_IT:\n        return False\n", "", T_BALL),
+    ("ball-a-closing-bracket-hides-the-mark", TR,
+     '    a = a.rstrip("」』）)】〕》”\\"\'")',
+     "    a = a", T_BALL),
+    ("ball-only-the-first-block-is-looked-at", TR,
+     "    return a[-1] in _RUNS_ON_END or b[0] in _RUNS_ON_START",
+     "    return a[-1] in _RUNS_ON_END", T_BALL),
+    ("ball-the-sections-are-read-in-id-order", TR,
+     "        members.sort(key=lambda r: (r.order if r.order >= 0 else 0, r.id))",
+     "        members.sort(key=lambda r: r.id)", T_BALL),
+    ("ball-a-link-set-by-hand-is-overwritten", TR,
+     "        g = int(getattr(r, \"box_group\", 0) or 0)\n        if g:",
+     "        g = int(getattr(r, \"box_group\", 0) or 0) or 1\n        if g:",
+     T_BALL),
+    ("ball-reading-a-page-never-asks", PY,
+     "    link_sections(regs)\n", "", T_BALL),
+    ("ball-the-shares-are-handed-out-in-reading-order", BALL,
+     "            r.bubble_mask = shares[i]", "            r.bubble_mask = shares[seq]",
+     T_BALL),
+
+    # ---- the card at the end of a chapter
+    #
+    # Every one of these is something running off an edge, because that is the
+    # only way this card has ever been wrong and it is invisible until it is
+    # sitting under somebody's last panel.
+    ("card-the-address-hangs-off-the-bottom", CARD,
+     "    y = max(floor, (h - tall) // 2)",
+     "    y = max(floor, (h - tall) // 2) + int(h * 0.10)", T_CARD),
+    ("card-the-banner-address-runs-off-the-right", CARD,
+     "        f_url = fit(ANTON, URL, w - pad - ux, int(h * 0.190))",
+     "        f_url = fit(ANTON, URL, w * 0.40, int(h * 0.190))", T_CARD),
+    ("card-the-column-is-not-squeezed-to-fit", CARD,
+     "    if tall > room:",
+     "    if False:", T_CARD),
+    ("card-the-mark-is-a-copy-and-not-the-real-one", CARD,
+     '    d = re.search(r\'\\sd="([^"]+)"\', open(MARK_SVG, encoding="utf-8").read())',
+     '    d = re.search(r\'(M7 10.*?Z)\', \'M7 10 L18 10 L32 30 L46 10 L57 10 '
+     "L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 "
+     "L11.5 60 L7 47 Z')", T_CARD),
+    ("card-the-dark-one-comes-out-light", CARD,
+     "DARK = dict(bg=(11, 13, 18),", "DARK = dict(bg=(245, 245, 245),", T_CARD),
+    ("card-there-is-no-address-on-it", CARD,
+     'URL = "mangatct.com"', 'URL = ""', T_CARD),
+
     # ---- a request that went quiet
     ("slow-a-timeout-is-not-retried-at-all", TR,
      "SLOW_TRIES = 3", "SLOW_TRIES = 1", T_SLOW),

@@ -331,7 +331,8 @@ def _apply(r: TextRegion, mask: np.ndarray) -> bool:
 
 
 def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
-                            cfg: BalloonConfig | None = None) -> int:
+                            cfg: BalloonConfig | None = None,
+                            rtl: bool = True) -> int:
     """One balloon, one box — and inside that box, one SECTION per clump.
 
     lee's rule for the box: "the boxes shoud be around the bubbles no 2 of them
@@ -410,12 +411,28 @@ def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
         if any(not (s > 0).any() for s in shares):
             continue
         group += 1
-        # Reading order inside the balloon: Japanese runs right to left, top to
-        # bottom, so the topmost of the rightmost columns is spoken first.
-        order = sorted(range(len(members)),
-                       key=lambda i: (members[i].bbox[1], -members[i].bbox[0]))
+        order = _spoken_first(members, rtl)
         for seq, i in enumerate(order):
             r = members[i]
+            # These are separate speeches, and the detector has already said
+            # the opposite.
+            #
+            # `detect_comictext` links every box a single detected block split
+            # into, on the reasonable theory that a run of text broken up by
+            # the clusterer is still one run. In a balloon holding two things
+            # said, that theory is wrong, and a link is not a small wrong
+            # thing: the reader is told a link group is one sentence broken
+            # across the boxes and must not be completed in either half, and
+            # the translator is told to split one English sentence between
+            # them. lee sent back a balloon holding a sentence and a short
+            # line where the long English had been typeset into the short
+            # line's column.
+            #
+            # This pass has just decided, by looking at the paper, that these
+            # are sections and not halves. The docstring above has said since
+            # it was written that sections are NOT linked; this is the line
+            # that makes that true when the link came from upstream.
+            r.link = 0
             r.bubble_mask = shares[i]
             r.bubble_bbox = tuple(int(v) for v in cv2.boundingRect(shares[i]))
             # A chapter is held as geometry, so the outline stored for each
@@ -431,6 +448,49 @@ def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
             r.order = r.order if r.order >= 0 else seq
         done += 1
     return done
+
+
+def _spoken_first(members: list[TextRegion], rtl: bool) -> list[int]:
+    """The order the sections in one balloon are spoken in.
+
+    This used to sort on the top edge first and the right edge second, which
+    is right for two things stacked and a coin toss for two side by side: a
+    sentence and the column beside it start within a pixel or two of each
+    other, and two pixels decided which was spoken first. On lee's hot-spring
+    page it decided wrong, and the wrong answer travelled - it is the order the
+    reader is given the boxes in and the order the translator splits a linked
+    sentence across.
+
+    So the question is asked in the right order. Two blocks that overlap down
+    the page are BESIDE each other, whatever their tops say, and beside each
+    other is settled by the reading direction: Japanese runs right to left, so
+    the rightmost column is spoken first. Only blocks that genuinely do not
+    overlap are stacked, and only those are settled top to bottom.
+    """
+    def side_by_side(a: TextRegion, b: TextRegion) -> bool:
+        ay0, ah = a.bbox[1], a.bbox[3]
+        by0, bh = b.bbox[1], b.bbox[3]
+        over = min(ay0 + ah, by0 + bh) - max(ay0, by0)
+        return over > 0.5 * min(ah, bh)
+
+    def before(i: int, j: int) -> bool:
+        a, b = members[i], members[j]
+        if side_by_side(a, b):
+            return a.bbox[0] > b.bbox[0] if rtl else a.bbox[0] < b.bbox[0]
+        return a.bbox[1] < b.bbox[1]
+
+    # A comparison and not a key, because "beside" is a relation between two
+    # blocks and a key is a number about one. Insertion sort: a balloon holds
+    # two or three sections, never twenty.
+    out: list[int] = []
+    for i in range(len(members)):
+        at = len(out)
+        for pos, j in enumerate(out):
+            if before(i, j):
+                at = pos
+                break
+        out.insert(at, i)
+    return out
 
 
 def _by_nearest(balloon: np.ndarray, seeds: list[np.ndarray],
