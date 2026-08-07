@@ -8,6 +8,7 @@ that. Page-level translation can.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import re
@@ -1022,6 +1023,41 @@ def _refusal(data: dict) -> str:
             % why)
 
 
+# How many times a request that simply did not come back in time is sent
+# again. Separate from the rate-limit budget on purpose: a 429 comes back in
+# milliseconds and costs nothing to retry, while each of these costs a whole
+# `timeout` of waiting, so six of them is half an hour of somebody watching a
+# progress bar that is not moving.
+SLOW_TRIES = 3
+
+# What counts as "the answer did not arrive", as opposed to "the answer was
+# no". None of these is a refusal, a bad request or a wrong key: the request
+# was accepted and the connection then went quiet or went away. This is the
+# most retryable class of failure there is, and it was the one thing the loop
+# below did not retry - a read timeout on page 12 of a 23-page proofread ended
+# the whole run with a stack trace out of `ssl.py`.
+_WENT_QUIET = (TimeoutError, ConnectionError, http.client.HTTPException)
+
+
+def _too_slow(what: str, model: str, seconds: int, tries: int) -> str:
+    """The sentence a person gets instead of a traceback."""
+    return (f"{model} did not answer within {seconds} seconds, {tries} times "
+            f"running, so the {what} stopped here. Nothing is wrong with the "
+            f"page - the request was accepted and the answer never came. "
+            f"Everything finished before this is saved and the pages it did "
+            f"not reach have been refunded. Run it again; if it keeps "
+            f"happening, put a faster model on this step.")
+
+
+def _went_quiet(e) -> bool:
+    """...including a timeout wrapped in a URLError, which is what a slow
+    CONNECT looks like while a slow READ raises the bare thing."""
+    if isinstance(e, _WENT_QUIET):
+        return True
+    reason = getattr(e, "reason", None)
+    return reason is not None and isinstance(reason, _WENT_QUIET)
+
+
 class OpenAICompatClient:
     """Minimal client for any OpenAI-compatible /chat/completions endpoint.
 
@@ -1050,6 +1086,7 @@ class OpenAICompatClient:
         import urllib.request
 
         delay = 3.0
+        slow = 0
         for attempt in range(6):
             body_obj = {
                 "model": self.model,
@@ -1100,10 +1137,23 @@ class OpenAICompatClient:
                 raise RuntimeError(_model_error(
                     "translation", self.model, e.code, body,
                     self.base_url, self.api_key)) from e
-            except urllib.error.URLError as e:
-                raise RuntimeError(
-                    f"could not reach the translation server at "
-                    f"{self.base_url} ({e}). Is it running?") from e
+            except Exception as e:
+                # A request that went quiet is sent again. Separate from the
+                # branch above because the two are different failures: a 429 is
+                # the server saying no, and this is it saying nothing at all.
+                if _went_quiet(e):
+                    slow += 1
+                    if slow < SLOW_TRIES:
+                        time.sleep(min(delay, 20))
+                        delay *= 2
+                        continue
+                    raise RuntimeError(_too_slow(
+                        "translation", self.model, self.timeout, slow)) from e
+                if isinstance(e, urllib.error.URLError):
+                    raise RuntimeError(
+                        f"could not reach the translation server at "
+                        f"{self.base_url} ({e}). Is it running?") from e
+                raise
         else:
             raise RuntimeError("translation server kept rate-limiting us")
 
@@ -1132,6 +1182,7 @@ class OpenAICompatClient:
              "image_url": {"url": f"data:{media_type};base64,{image_b64}"}},
         ]
         delay = 3.0
+        slow = 0
         for attempt in range(6):
             body_obj = {"model": self.model, "max_tokens": max_tokens,
                         "messages": [{"role": "system", "content": system},
@@ -1167,9 +1218,20 @@ class OpenAICompatClient:
                 raise RuntimeError(_model_error(
                     "OCR", self.model, e.code, body,
                     self.base_url, self.api_key)) from e
-            except urllib.error.URLError as e:
-                raise RuntimeError(
-                    f"could not reach the OCR server at {self.base_url} ({e}).") from e
+            except Exception as e:
+                if _went_quiet(e):
+                    slow += 1
+                    if slow < SLOW_TRIES:
+                        time.sleep(min(delay, 20))
+                        delay *= 2
+                        continue
+                    raise RuntimeError(_too_slow(
+                        "reading", self.model, self.timeout, slow)) from e
+                if isinstance(e, urllib.error.URLError):
+                    raise RuntimeError(
+                        f"could not reach the OCR server at {self.base_url} "
+                        f"({e}).") from e
+                raise
         else:
             raise RuntimeError("OCR server kept rate-limiting us")
         _meter(data, self.model)

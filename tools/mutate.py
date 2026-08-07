@@ -109,6 +109,9 @@ APPJS = "site/app.js"
 COSTS = "site/costs.js"
 T_LOOK = ["tests/test_the_site_pages.py", "tests/test_the_website.py"]
 
+# A request that went quiet. The one failure the retry loop did not retry.
+T_SLOW = ["tests/test_when_the_answer_never_comes.py"]
+
 MUTANTS = [
     # ---- the file that goes out
     ("manual-label-drops-the-number", MAN,
@@ -1389,6 +1392,68 @@ MUTANTS = [
     ("site-nobody-is-told-what-is-still-wanted", SITE,
      "    WANTED.append((name, want or alt))\n",
      "", T_SITE),
+    # ---- a request that went quiet
+    ("slow-a-timeout-is-not-retried-at-all", TR,
+     "SLOW_TRIES = 3", "SLOW_TRIES = 1", T_SLOW),
+    ("slow-a-timeout-is-retried-as-often-as-a-rate-limit", TR,
+     "SLOW_TRIES = 3", "SLOW_TRIES = 6", T_SLOW),
+    # Two of them, because the retry is written twice - once in `complete` and
+    # once in `complete_vision`. That is exactly how one gets fixed and the
+    # other does not, so both are held.
+    ("slow-the-translator-does-not-retry", TR,
+     "                    if slow < SLOW_TRIES:\n"
+     "                        time.sleep(min(delay, 20))\n"
+     "                        delay *= 2\n"
+     "                        continue\n"
+     "                    raise RuntimeError(_too_slow(\n"
+     '                        "translation", self.model, self.timeout, slow)) from e',
+     "                    if False:\n"
+     "                        time.sleep(min(delay, 20))\n"
+     "                        delay *= 2\n"
+     "                        continue\n"
+     "                    raise RuntimeError(_too_slow(\n"
+     '                        "translation", self.model, self.timeout, slow)) from e',
+     T_SLOW),
+    ("slow-the-reader-does-not-retry", TR,
+     "                    if slow < SLOW_TRIES:\n"
+     "                        time.sleep(min(delay, 20))\n"
+     "                        delay *= 2\n"
+     "                        continue\n"
+     "                    raise RuntimeError(_too_slow(\n"
+     '                        "reading", self.model, self.timeout, slow)) from e',
+     "                    if False:\n"
+     "                        time.sleep(min(delay, 20))\n"
+     "                        delay *= 2\n"
+     "                        continue\n"
+     "                    raise RuntimeError(_too_slow(\n"
+     '                        "reading", self.model, self.timeout, slow)) from e',
+     T_SLOW),
+    ("slow-a-dropped-connection-is-not-a-timeout", TR,
+     "_WENT_QUIET = (TimeoutError, ConnectionError, http.client.HTTPException)",
+     "_WENT_QUIET = (TimeoutError,)", T_SLOW),
+    ("slow-a-timeout-wrapped-in-a-urlerror-is-missed", TR,
+     '    reason = getattr(e, "reason", None)\n'
+     "    return reason is not None and isinstance(reason, _WENT_QUIET)",
+     "    return False  # the wrapped kind is missed", T_SLOW),
+    ("slow-the-message-does-not-say-which-model", TR,
+     'return (f"{model} did not answer within {seconds} seconds, {tries} times "',
+     'return (f"a model did not answer within {seconds} seconds, {tries} times "',
+     T_SLOW),
+    ("slow-a-dead-address-is-retried-like-a-timeout", TR,
+     "                if isinstance(e, urllib.error.URLError):\n"
+     "                    raise RuntimeError(\n"
+     '                        f"could not reach the translation server at "',
+     "                if False:\n"
+     "                    raise RuntimeError(\n"
+     '                        f"could not reach the translation server at "',
+     T_SLOW),
+    ("slow-an-unknown-error-is-swallowed", TR,
+     '                        f"{self.base_url} ({e}). Is it running?") from e\n'
+     "                raise\n",
+     '                        f"{self.base_url} ({e}). Is it running?") from e\n'
+     "                continue\n",
+     T_SLOW),
+
     # ---- what a customer sees
     #
     # The first of these is the bug that started the rewrite: lee refunded a
