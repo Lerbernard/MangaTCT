@@ -1,0 +1,64 @@
+# The website, deployed when you push.
+#
+# `site/index.html` is GENERATED — `site/build.py` writes it and the standalone
+# copy from one source. So this rebuilds it here rather than shipping whatever
+# happened to be committed: what goes live is then, by definition, what
+# `build.py` makes, and a commit somebody forgot to rebuild cannot quietly ship
+# a stale page. (That the committed copy is ALSO current is checked by the test
+# workflow, which is where a stale file is a thing to fix rather than a thing
+# to work around.)
+#
+# It goes to Firebase Hosting because that is where `firebase.json` already
+# points it — `"hosting": {"public": "site"}` — beside the auth, the purse and
+# the Stripe functions that are already in that project.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  # ...and a button, for when you want it live without touching a file.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and a newer push wins. Two overlapping deploys can
+# land in either order, and the one that lands second is the one you see.
+concurrency:
+  group: site-live
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mangatl
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # `build.py` uses nothing but the standard library. If that ever stops
+      # being true, this is the step that will say so.
+      #
+      # It exits non-zero when the page asks for a picture `assets/` does not
+      # have, which would otherwise go live as a broken image — so that check
+      # is this step too. An empty SLOT is fine and is drawn as a labelled
+      # hole; a broken reference is not.
+      - name: Build the page
+        working-directory: mangatl
+        run: python site/build.py
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: mangatctproject
+          channelId: live
+          entryPoint: mangatl

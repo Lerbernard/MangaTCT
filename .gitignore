@@ -21,3 +21,14 @@ _to_delete/
 *.onnx
 models/
 firestore-debug.log
+
+# Generated, and large. `site/index.html` IS tracked — it is what Firebase
+# serves and it is 46KB — but the standalone copy is that same page with three
+# megabytes of pictures inlined, so committing it makes every rebuild a
+# three-megabyte diff of base64. `python site/build.py` writes one whenever you
+# want one.
+site/mangatct-site-standalone.html
+
+# scratch
+diag_*.png
+*.log

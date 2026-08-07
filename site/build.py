@@ -1036,6 +1036,10 @@ if __name__ == "__main__":
           "MB")
     broken = missing(html)
     if broken:
+        # A picture the page asks for and `assets/` does not have goes live as
+        # a broken image, which is the one fault a visitor sees before they
+        # read a word. Exiting non-zero is what lets the deploy workflow stop
+        # on it — an unread warning on a build that succeeded is not a guard.
         print("\nBROKEN image references (should be none):")
         for f in broken:
             print("  ", f)
@@ -1044,3 +1048,7 @@ if __name__ == "__main__":
               "hole on the page:")
         for name, want in WANTED:
             print(f"  {name}\n      {want}")
+    # A HOLE is fine — it is a picture lee has not taken yet and it is drawn as
+    # such. A BROKEN REFERENCE is not, and this is the difference between the
+    # two said out loud, in the exit code, where a machine can read it.
+    raise SystemExit(1 if broken else 0)

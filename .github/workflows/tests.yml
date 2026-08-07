@@ -1,0 +1,64 @@
+# The tests, on every push.
+#
+# **There is no list of which tests to run here, and there must not be.** A
+# list in a workflow file is a list that rots: somebody adds a test file and
+# CI silently stops covering it. Instead this installs everything EXCEPT
+# Playwright, and the browser tests skip themselves — `tests/browserpool.py`
+# has done that since it was written, because a machine without Chromium was
+# always a case it had to survive.
+#
+# That leaves about 1,600 tests in five minutes, and the ~390 that need a
+# browser are reported as skipped rather than quietly missing.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (no browser)
+    runs-on: ubuntu-latest
+    steps:
+      # Into a folder named after the package, with the workspace above it on
+      # the path: the repo root IS `mangatl`, so `import mangatl` needs its
+      # parent. Checking out by name rather than in place means this does not
+      # depend on what the repository happens to be called.
+      - uses: actions/checkout@v4
+        with:
+          path: mangatl
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy opencv-contrib-python-headless pillow pytest \
+                      pytest-xdist fonttools
+
+      - name: Run
+        working-directory: mangatl
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest tests -q -n auto
+
+  money:
+    name: The functions that move money
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # `tests/rules` needs the Firestore emulator and the Firebase CLI, so it
+      # is not run here. `tests/functions` is the arithmetic — what a pack is
+      # worth, what a refund gives back — and it needs nothing.
+      - run: npx vitest run tests/functions
