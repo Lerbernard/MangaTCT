@@ -18,21 +18,53 @@ leaves a mess behind.
 cd C:\Users\leema\OneDrive\Documents\mangatl
 ```
 
-Then either with the GitHub CLI:
+### In the browser, then two commands
 
-```bat
-gh auth login
-gh repo create mangatl --private --source . --remote origin --push
-```
+Nothing to install. Go to <https://github.com/new> and make a repository:
 
-...or by hand: make an empty private repo at <https://github.com/new> — **no**
-README, **no** .gitignore, **no** licence, because this folder already has a
-history — and then:
+* **Name**: `mangatl`
+* **Private**
+* **Do not** tick "Add a README", a `.gitignore`, or a licence.
+
+That last line matters. This folder is already a git repository with its own
+history; a repo created with a README has a commit of its own, the two
+histories have nothing in common, and the push is refused with
+`fetch first` — which reads like a network problem and is not one.
+
+Then, in the folder:
 
 ```bat
 git branch -M main
 git remote add origin https://github.com/YOURNAME/mangatl.git
 git push -u origin main
+```
+
+The first push opens a browser to sign in — that is Git Credential Manager,
+which comes with Git for Windows, and it only asks once.
+
+If `git remote add` says *"remote origin already exists"*, the address is
+already set and only needs correcting:
+
+```bat
+git remote set-url origin https://github.com/YOURNAME/mangatl.git
+```
+
+### ...or with the GitHub CLI, if you would rather
+
+`gh` is not installed by default on Windows. If you want it:
+
+```bat
+winget install --id GitHub.cli
+```
+
+Then **close and reopen PowerShell** — a new program is not on the PATH of a
+window that was already open, which is what
+`The term 'gh' is not recognized` means. After that it is one command instead
+of three:
+
+```bat
+gh auth login
+gh repo create mangatl --private --source . --remote origin --push
 ```
 
 ### What is NOT going with it
@@ -68,6 +100,16 @@ One command, run in the same folder:
 ```bat
 firebase init hosting:github
 ```
+
+This one is the **Firebase** CLI, not `gh` — a different program, and the one
+you already have if `npm run test:rules` has ever worked. If it has not:
+
+```bat
+npm install -g firebase-tools
+firebase login
+```
+
+It signs in to GitHub through your browser and needs no `gh`.
 
 It asks for the repository (`YOURNAME/mangatl`), then does three things by
 itself: creates a service account in the Firebase project, puts its key into
