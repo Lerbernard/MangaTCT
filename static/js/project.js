@@ -967,28 +967,89 @@ async function fillModels(step, force){
   }
 }
 
+/* Which maker a model comes from. `google/gemini-3.6-flash` -> `google`;
+   anything with no slash in it is a direct service's own id and has no maker
+   to speak of. Same cut as `coins.vendor_free` in Python, from the other
+   side. */
+/* The "show me all of them" row's value. Not the empty string, which is what
+   an untouched <select> reads as — the two have to be told apart or choosing
+   All is indistinguishable from never having chosen. */
+const ALL_MAKERS = '*';
+
+function vendorOf(m){
+  const i = String(m || '').indexOf('/');
+  return i < 0 ? '' : m.slice(0, i);
+}
+
 function drawModels(step, names, priced){
-  const sel = $(step + '_model_sel'), box = $(step + '_model');
+  const sel = $(step + '_model_sel'), box = $(step + '_model'),
+        ven = $(step + '_vendor');
   if(!sel || !box) return;
   const have = (box.value || '').trim();
+  // Kept on the element so choosing a maker can re-filter without asking the
+  // server again — it is the same answer, shown differently.
+  sel._all = names; sel._priced = priced;
+
+  // ---- the maker menu, and only when there is more than one maker to pick
+  const makers = [...new Set(names.map(vendorOf).filter(Boolean))];
+  let only = '';
+  if(ven){
+    if(makers.length > 1){
+      // What is already CHOSEN wins over what is already set: this redraws on
+      // every pick, and reading the set model's maker first would drag the
+      // filter back to it the moment you looked at another one.
+      // Empty means never chosen — which is why "All providers" carries a
+      // value of its own rather than the empty string.
+      const want = ven.value || vendorOf(have) || makers[0];
+      ven.innerHTML = '';
+      const vadd = (value, label) => {
+        const o = document.createElement('option');
+        o.value = value; o.textContent = label; ven.appendChild(o);
+      };
+      makers.forEach(v => vadd(v, v));
+      // ...and a way to see all of them at once, for somebody who does not
+      // yet know which maker has the thing they want.
+      vadd(ALL_MAKERS, 'All providers');
+      ven.value = (want === ALL_MAKERS || makers.includes(want))
+        ? want : makers[0];
+      ven.style.display = '';
+      only = ven.value === ALL_MAKERS ? '' : ven.value;
+    }else{
+      ven.style.display = 'none';
+      ven.value = '';
+    }
+  }
+
   sel.innerHTML = '';
   const add = (value, label) => {
     const o = document.createElement('option');
     o.value = value; o.textContent = label;   // set, not written into markup:
     sel.appendChild(o); return o;             // a model name is somebody's string
   };
-  for(const m of names)
+  // A model with no maker in its name sits under every maker: it is the
+  // direct service's own id and hiding it behind a filter it does not answer
+  // to would make it unreachable.
+  const shown = names.filter(m => !only || !vendorOf(m) || vendorOf(m) === only);
+  for(const m of shown)
     add(m, m + (priced && !priced.has(m) ? '  — not priced' : ''));
   // A model that is already set but not in the list — a local one, or an
   // entry a provider has retired since. It stays selectable, because taking
   // somebody's setting away without asking is worse than an odd-looking menu.
-  if(have && !names.includes(have)) add(have, have + '  — as set');
+  if(have && !shown.includes(have)) add(have, have + '  — as set');
   // Nothing set and nothing offered — a provider that answered with an empty
   // list, or a key that has not been typed yet. Say so in the one place the
   // person is looking, rather than showing an empty menu they will click at.
   if(!sel.options.length) add('', 'No models — check the key for this service');
-  sel.value = have || (names[0] || '');
+  sel.value = have || (shown[0] || '');
   box.style.display = 'none';
+}
+
+/* A maker was chosen. Nothing is saved by this — it narrows the menu beside
+   it and that is all, so browsing the list never changes what a step runs
+   on. */
+function pickVendor(step){
+  const sel = $(step + '_model_sel');
+  if(sel) drawModels(step, sel._all || [], sel._priced);
 }
 
 /* The menu chose. The BOX is what gets saved — one value, one place — so the

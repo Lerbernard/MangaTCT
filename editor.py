@@ -2317,7 +2317,8 @@ def _reachable(back: str, url: str, key: str) -> list:
 VARIANT = ":"
 
 
-def model_menu(back: str, url: str, key: str, step: str = "") -> list:
+def model_menu(back: str, url: str, key: str, step: str = "",
+               elsewhere=()) -> list:
     """The models this step may be put on: reachable AND priceable.
 
     Both halves are needed and each one alone is a different fault.
@@ -2355,6 +2356,9 @@ def model_menu(back: str, url: str, key: str, step: str = "") -> list:
     from . import coins
 
     free = (back or "").strip().lower() in coins.FREE_BACKENDS
+    # What the OTHER services can already run, with the keys this project
+    # holds. Only OpenRouter cares — see below.
+    direct = {coins.vendor_free(m) for m in (elsewhere or ())}
 
     def usable(m):
         # The variant rule is about PRICE, so it only applies where there is
@@ -2362,11 +2366,31 @@ def model_menu(back: str, url: str, key: str, step: str = "") -> list:
         # costs nothing whichever one you pick.
         if not free and VARIANT in m:
             return False
-        return (coins.priced(m, back)
-                and coins.vendor_free(m) not in coins.RETIRED
-                and (step != "ocr" or coins.sees(m)))
+        if not coins.priced(m, back) or coins.vendor_free(m) in coins.RETIRED:
+            return False
+        if step == "ocr" and not coins.sees(m):
+            return False
+        # A model you run yourself is a name you chose, not a range somebody
+        # publishes: there is no modality to guess at and no generation to be
+        # behind. Both rules are about a provider's catalogue.
+        if not free and not (coins.usable_model(m) and coins.current_enough(m)):
+            return False
+        # **OpenRouter is for what your own keys cannot reach.** lee: *"exclue
+        # teh molde that are usabe with teh keys that i have for example i cnat
+        # use gemeini 2.5 flash with my goohle key so it shoud be in teh open
+        # router"*.
+        #
+        # Asked of the KEYS, not of a table: a model your Google key can
+        # already run is not a thing to buy through a reseller, and one it
+        # cannot is exactly what the reseller is for. With no Google key at
+        # all, nothing is subtracted — OpenRouter is then the only way to any
+        # of it, which is the same rule reaching the opposite answer.
+        if back == "openrouter" and coins.vendor_free(m) in direct:
+            return False
+        return True
 
-    known = [m for m in coins.models_for(back) if usable(m)]
+    known = ([m for m in coins.models_for(back) if usable(m)] if free
+             else coins.offered(back, step))
     offer = [m for m in _reachable(back, url, key) if usable(m)]
     if not offer:
         return known
@@ -2375,7 +2399,12 @@ def model_menu(back: str, url: str, key: str, step: str = "") -> list:
     # oldest model in the range, which is the one nobody wants and the one that
     # gets picked by accident.
     rank = {m: i for i, m in enumerate(coins.models_for(back))}
-    return sorted(offer, key=lambda m: (rank.get(m, len(rank)), m))
+    offer.sort(key=lambda m: (rank.get(m, len(rank)), m))
+    # ...and then one model per price. Done HERE, after the reachable check,
+    # so a price band is never emptied by trimming away the only model in it
+    # this key can run. A local provider is left alone: nothing there has a
+    # price to be a duplicate of.
+    return offer if free else coins.one_per_price(offer)
 
 
 # The last resort, for a project.json old enough to be missing the keys
@@ -3612,7 +3641,20 @@ class Handler(BaseHTTPRequestHandler):
                     # the priced list is what put `gemini-2.5-flash` in front
                     # of lee on a project it was not enabled for.
                     from . import coins
-                    names = model_menu(back, url, key_for(p, back, step), step)
+                    # What the person's OWN keys can already reach, for the
+                    # OpenRouter rule. Cached and never asked for without a
+                    # key, so on a project with one service configured this
+                    # costs nothing.
+                    elsewhere = []
+                    if back == "openrouter":
+                        for svc, _label in SERVICES:
+                            if svc == "openrouter":
+                                continue
+                            k = key_for(p, svc, step)
+                            if k:
+                                elsewhere += _reachable(svc, "", k)
+                    names = model_menu(back, url, key_for(p, back, step), step,
+                                       elsewhere)
                 finally:
                     (p.ctx.backend, p.ctx.base_url, p.ctx.model,
                      p.ctx.api_key) = was

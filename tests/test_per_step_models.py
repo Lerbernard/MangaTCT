@@ -387,7 +387,7 @@ def test_the_models_offered_are_the_models_that_can_be_paid_for():
     """
     from mangatl import coins
     for back in ("anthropic", "gemini", "openrouter"):
-        offered = coins.models_for(back)
+        offered = coins.offered(back)
         assert offered, back
         for m in offered:
             assert coins.priced(m, back), (back, m)
@@ -432,14 +432,14 @@ def test_the_default_for_every_step_is_on_its_own_menu():
     p = _proj()
     try:
         for step, (back, model) in STEP_DEFAULTS.items():
-            assert model in coins.models_for(back), step
+            assert model in coins.offered(back, step), step
     finally:
         _clean()
 
 
 # --------------------------------------------------------- the menu on screen
 
-def _browser(fn):
+def _browser(fn, models=(), settings=None):
     """The settings screen, open on Translation engine."""
     import json
     import threading
@@ -457,6 +457,7 @@ def _browser(fn):
         ".png", np.full((400, 300, 3), 240, np.uint8))[1].tobytes())
     for step in AI_STEPS:
         p.settings[f"{step}_key"] = "k"
+    p.settings.update(settings or {})
     p.save()
     was, editor.PROJECT = editor.PROJECT, p
     # The menu asks the PROVIDER what the key can reach, and these tests are
@@ -464,7 +465,7 @@ def _browser(fn):
     # is the honest stand-in: an empty crossing leaves the priced list
     # standing, which is what every assertion below is written against.
     from mangatl import translate as _t
-    was_list, _t.list_models = _t.list_models, (lambda url, key="", **k: [])
+    was_list, _t.list_models = _t.list_models, (lambda url, key="", **k: list(models))
     srv = ThreadingHTTPServer(("127.0.0.1", 0), editor.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d" % srv.server_address[1]
@@ -477,9 +478,11 @@ def _browser(fn):
             browserpool.ready(pg)
             pg.evaluate("setTab('settings'); setSettingsTab('translation')")
             browserpool.settled(pg)
+            # Asked of what the SERVER returned, not of the rendered rows:
+            # with a maker menu beside it the model select deliberately shows
+            # one maker's models, so counting options is counting the filter.
             pg.wait_for_function(
-                "document.querySelectorAll('#ocr_model_sel option').length > 2",
-                timeout=10000)
+                "($('ocr_model_sel')._all || []).length > 2", timeout=10000)
             try:
                 return fn(pg, p)
             finally:
@@ -502,7 +505,7 @@ def test_the_model_is_a_menu_and_not_a_box_to_type_in():
                 "[...document.querySelectorAll('#%s_model_sel option')]"
                 ".map(o=>o.value)" % step)
             back = p.settings[f"{step}_backend"]
-            assert got == coins.models_for(back), step
+            assert got == coins.offered(back, step), step
             # It opens on what the step is really set to, not on the first row.
             assert pg.evaluate("$('%s_model_sel').value" % step) == \
                 p.settings[f"{step}_model"], step
@@ -607,16 +610,16 @@ def test_changing_the_provider_asks_for_that_provider_s_models():
         got = pg.evaluate(
             "[...document.querySelectorAll('#ocr_model_sel option')]"
             ".map(o=>o.value)")
-        assert got == coins.models_for("anthropic"), got
+        assert got == coins.offered("anthropic", "ocr"), got
         # ...and the Gemini model it was on is GONE, not kept as "as set". It
         # belongs to the provider that was just left and cannot run on this
         # one; the step moves to the first model the new provider offers, and
         # saves it, so the settings and the screen still agree.
         assert not any(m.startswith("gemini") for m in got), got
         pg.wait_for_function(
-            "proj.settings.ocr_model==='%s'" % coins.models_for("anthropic")[0],
+            "proj.settings.ocr_model==='%s'" % coins.offered("anthropic", "ocr")[0],
             timeout=8000)
-        assert p.settings["ocr_model"] == coins.models_for("anthropic")[0]
+        assert p.settings["ocr_model"] == coins.offered("anthropic", "ocr")[0]
     _browser(check)
 
 
@@ -660,3 +663,70 @@ def test_a_step_with_no_key_is_refused_before_the_run():
         editor.PROJECT = was
         srv.shutdown()
         shutil.rmtree(ROOT, ignore_errors=True)
+
+
+# ------------------------------------------- the maker menu, in the browser
+
+OR_MODELS = ["google/gemini-3.6-flash", "google/gemini-2.5-pro",
+             "anthropic/claude-sonnet-5", "deepseek/deepseek-v3.2",
+             "deepseek/deepseek-v4-flash"]
+
+# Every step on OpenRouter and NO key for anything else — otherwise the rule
+# under test kicks in and subtracts the lot: a Google key that can reach these
+# models is a Google key that makes buying them through a reseller pointless,
+# which is the whole point of `test_openrouter_drops_what_your_own_key_already
+# _runs` and is not what these three are about.
+_OR_ONLY = {"key_openrouter": "k", "key_gemini": "", "key_anthropic": "",
+            "ocr_backend": "openrouter", "ocr_key": "",
+            "translate_backend": "openrouter", "translate_key": "",
+            "proofread_backend": "openrouter", "proofread_key": "",
+            "translate_model": "google/gemini-3.6-flash",
+            "ocr_model": "google/gemini-3.6-flash",
+            "proofread_model": "anthropic/claude-sonnet-5"}
+
+
+def test_a_reseller_gets_a_maker_menu_of_its_own():
+    """lee: *"when its selected create s seperate drop down for the
+    providers"*. A hundred models from a dozen makers in one flat list is not
+    a choice, it is a search."""
+    def check(pg, p):
+        pg.wait_for_function(
+            "$('translate_vendor') && $('translate_vendor').style.display!=='none'",
+            timeout=10000)
+        makers = pg.evaluate(
+            "[...$('translate_vendor').options].map(o=>o.value)")
+        assert makers == ["google", "anthropic", "deepseek", "*"], makers
+        # ...and the model menu is only that maker's.
+        shown = pg.evaluate(
+            "[...$('translate_model_sel').options].map(o=>o.value)")
+        assert all(m.startswith("google/") for m in shown), shown
+    _browser(check, OR_MODELS, _OR_ONLY)
+
+
+def test_choosing_a_maker_changes_the_models_and_saves_nothing():
+    """Browsing the list must never change what the step runs on."""
+    def check(pg, p):
+        pg.wait_for_function(
+            "$('translate_vendor') && $('translate_vendor').style.display!=='none'",
+            timeout=10000)
+        was = p.settings["translate_model"]
+        pg.evaluate("$('translate_vendor').value='deepseek';"
+                    "pickVendor('translate')")
+        pg.wait_for_timeout(300)
+        shown = pg.evaluate(
+            "[...$('translate_model_sel').options].map(o=>o.value)")
+        assert "deepseek/deepseek-v3.2" in shown, shown
+        assert p.settings["translate_model"] == was, "browsing saved something"
+        # ...and the model that IS set stays reachable even under another
+        # maker's filter, because losing somebody's setting is worse.
+        assert was in shown, shown
+    _browser(check, OR_MODELS, _OR_ONLY)
+
+
+def test_a_direct_service_has_no_maker_menu():
+    """One maker. A menu with one row in it is a question with one answer."""
+    def check(pg, p):
+        for step in AI_STEPS:
+            assert pg.evaluate("$('%s_vendor').style.display" % step) == "none", step
+    _browser(check, ["gemini-3.6-flash", "gemini-2.5-pro",
+                     "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"])

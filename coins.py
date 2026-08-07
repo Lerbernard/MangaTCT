@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import os
 import threading
 import time
@@ -261,7 +262,135 @@ RETIRED = frozenset({
     "claude-opus-4", "claude-sonnet-4", "claude-haiku-4",
     "claude-3-5-haiku", "claude-3-haiku",
     "gemini-2.0-flash", "gemini-2.0-flash-lite",
+    # The GPT-4 family. lee named it as an example of what is too old to be
+    # worth offering — *"dont go for models taht are too old i generation
+    # behind shiud be teh limit like gpt 4, gmeini 2 etc"* — and the
+    # generation rule below cannot see it, because there is no GPT-5 in this
+    # table for it to be a generation behind OF. Written down instead of
+    # inferred, which is what this set is for.
+    "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
 })
+
+
+# ------------------------------------------------- what a menu may offer
+#
+# Three rules, and all three are about the same thing: a menu is a promise
+# that what is in it can be chosen. Everything they exclude stays PRICED —
+# somebody may have it set already, and an unpriced model is charged at the
+# top of the range — it is simply not offered to somebody choosing afresh.
+
+# A provider's model list is not a list of translators. Google's carries
+# text-to-speech, native audio, image generation and embedding models, all of
+# which answer `GET /models` and none of which can be handed a page and asked
+# for JSON. lee, with a screenshot of a menu holding
+# `gemini-2.5-flash-preview-tts`: *"only keep the models that my api can
+# aculy use"*.
+#
+# Matched as WORDS between dashes, not as substrings: `image` must not strike
+# out a model whose name merely contains those letters, and this list is going
+# to grow.
+NOT_A_TRANSLATOR = frozenset({
+    "tts", "audio", "image", "imagen", "veo", "sora", "embed", "embedding",
+    "embeddings", "rerank", "reranker", "moderation", "guard", "whisper",
+    "realtime", "live", "speech", "transcribe", "customtools", "computer",
+})
+# "vision" is deliberately NOT in that set. A vision model is the one thing
+# Read text cannot do without.
+
+# ...and the ones that are translators but are not a thing to point a chapter
+# at. A preview is withdrawn without notice, which is the 404 this whole menu
+# exists to prevent, and an experiment is a preview that says so.
+NOT_SETTLED = frozenset({"preview", "exp", "experimental", "beta", "alpha"})
+
+
+def usable_model(model: str) -> bool:
+    """Can this id be handed a page and asked for a translation?
+
+    Answered off the NAME, because the name is all a listing gives. That is a
+    heuristic and it is allowed to be: the cost of striking out a good model
+    is one absent row in a menu that has others, and the cost of keeping a
+    bad one is a chapter that dies on page one.
+    """
+    parts = set(re.split(r"[-_./]", vendor_free(model)))
+    return not (parts & NOT_A_TRANSLATOR) and not (parts & NOT_SETTLED)
+
+
+def _version(model: str) -> tuple:
+    """(family, major, minor) — or None where there is no version to read.
+
+    `gemini-3.6-flash` -> ("gemini", 3, 6). `claude-haiku-4-5` -> ("claude",
+    4, 5). `claude-sonnet-5` -> ("claude", 5, 0).
+    """
+    m = vendor_free(model)
+    fam = m.split("-", 1)[0]
+    v = re.search(r"(?:^|-)(\d+)(?:[.-](\d+))?(?=$|[-.])", m[len(fam):])
+    if not v:
+        return None
+    return (fam, int(v.group(1)), int(v.group(2) or 0))
+
+
+def current_enough(model: str) -> bool:
+    """Is this model within one generation of the newest of its family?
+
+    lee: *"dont go for models taht are too old i generation behind shiud be
+    teh limit"*. Read against the price table rather than against a date: the
+    table is the thing that gets updated when a range moves, so this cannot
+    drift out of step with it.
+
+    "One behind" is the whole of the newest major, plus the LAST minor of the
+    one before it — Gemini keeps 3.x and 2.5 and drops 2.0, which is the line
+    lee drew. A family with only one major in the table keeps all of it.
+    """
+    v = _version(model)
+    if v is None:
+        return True                      # nothing to compare; do not guess
+    fam, major, minor = v
+    seen = [x for x in (_version(k) for k in RATES) if x and x[0] == fam]
+    if not seen:
+        return True
+    top = max(x[1] for x in seen)
+    if major >= top:
+        return True
+    if major != top - 1:
+        return False
+    return minor >= max(x[2] for x in seen if x[1] == major)
+
+
+def offered(backend: str, step: str = "") -> list:
+    """The menu this app would show for a service if it could not ask it.
+
+    The written-down catalogue with all three menu rules applied, in one
+    place, so the fallback in `editor.model_menu` and every test that says
+    what a menu holds are reading the same answer. Two copies of this
+    arithmetic is two answers to "what is on the menu".
+    """
+    out = [m for m in models_for(backend)
+           if usable_model(m) and current_enough(m)
+           and (step != "ocr" or sees(m))]
+    return one_per_price(out)
+
+
+def one_per_price(models) -> list:
+    """Two models at the SAME rate are one choice with two names.
+
+    `gemini-2.5-flash` and `gemini-3.5-flash-lite` cost exactly the same, and
+    a menu that offers both is asking somebody to decide something that has no
+    consequence they can see. The FIRST of each rate wins, and the caller
+    hands them in newest-first, so what survives is the newest model at each
+    price.
+
+    Order is preserved, so this can be dropped into a list that has already
+    been sorted.
+    """
+    out, seen = [], set()
+    for m in models:
+        r = rate_for(m)
+        k = (r.inp, r.out, r.cache_read, r.cache_write)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(m)
+    return out
 
 
 def models_for(backend: str) -> list:

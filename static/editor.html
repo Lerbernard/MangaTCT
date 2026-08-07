@@ -793,6 +793,12 @@
               <option value="gemini">Google AI Studio</option>
               <option value="openrouter">OpenRouter</option>
             </select>
+            <!-- The provider, then the model. A reseller's list is a
+                 hundred models from a dozen makers, and picking one out of a
+                 flat list of that is not a choice, it is a search. Shown only
+                 when the ids carry a maker — a direct service has one. -->
+            <select id="ocr_vendor" onchange="pickVendor('ocr')"
+                    style="flex:1 1 130px;display:none"></select>
             <select id="ocr_model_sel" onchange="pickModel('ocr')"
                     style="flex:2 1 200px"></select>
           </div>
@@ -814,6 +820,12 @@
               <option value="gemini">Google AI Studio</option>
               <option value="openrouter">OpenRouter</option>
             </select>
+            <!-- The provider, then the model. A reseller's list is a
+                 hundred models from a dozen makers, and picking one out of a
+                 flat list of that is not a choice, it is a search. Shown only
+                 when the ids carry a maker — a direct service has one. -->
+            <select id="translate_vendor" onchange="pickVendor('translate')"
+                    style="flex:1 1 130px;display:none"></select>
             <select id="translate_model_sel" onchange="pickModel('translate')"
                     style="flex:2 1 200px"></select>
           </div>
@@ -835,6 +847,12 @@
               <option value="gemini">Google AI Studio</option>
               <option value="openrouter">OpenRouter</option>
             </select>
+            <!-- The provider, then the model. A reseller's list is a
+                 hundred models from a dozen makers, and picking one out of a
+                 flat list of that is not a choice, it is a search. Shown only
+                 when the ids carry a maker — a direct service has one. -->
+            <select id="proofread_vendor" onchange="pickVendor('proofread')"
+                    style="flex:1 1 130px;display:none"></select>
             <select id="proofread_model_sel" onchange="pickModel('proofread')"
                     style="flex:2 1 200px"></select>
           </div>

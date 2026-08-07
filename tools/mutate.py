@@ -90,6 +90,8 @@ T_WORD = ["tests/test_the_word_is_typesetting.py"]
 SITE = "site/build.py"
 T_SITE = ["tests/test_the_website.py"]
 T_STORY = ["tests/test_the_story_switches.py"]
+T_TRIM = ["tests/test_a_menu_you_can_trust.py", "tests/test_per_step_models.py",
+          "tests/test_model_gone.py"]
 T_MANUAL = ["tests/test_translating_it_yourself.py"]
 
 MUTANTS = [
@@ -1447,6 +1449,54 @@ MUTANTS = [
      '        <h2 class="set-h">Translation engine</h2>',
      '        <h2 class="set-h">Translation engine</h2>\n'
      '        <input type="checkbox" id="manual_translate">', T_MANUAL),
+    # ---- what a menu may offer: usable, current, one per price, and not a
+    # thing your own key can already reach
+    ("trim-a-text-to-speech-model-is-offered-as-a-translator", COIN,
+     "    return not (parts & NOT_A_TRANSLATOR) and not (parts & NOT_SETTLED)",
+     "    return not (parts & NOT_SETTLED)", T_TRIM),
+    ("trim-a-preview-is-offered", COIN,
+     "    return not (parts & NOT_A_TRANSLATOR) and not (parts & NOT_SETTLED)",
+     "    return not (parts & NOT_A_TRANSLATOR)", T_TRIM),
+    ("trim-the-word-is-matched-as-a-substring", COIN,
+     '    parts = set(re.split(r"[-_./]", vendor_free(model)))',
+     "    parts = set()", T_TRIM),
+    ("trim-nothing-is-ever-too-old", COIN,
+     "    if major != top - 1:\n        return False",
+     "    if major != top - 1:\n        return True", T_TRIM),
+    ("trim-the-whole-previous-generation-is-kept", COIN,
+     "    return minor >= max(x[2] for x in seen if x[1] == major)",
+     "    return True", T_TRIM),
+    ("trim-two-models-at-one-price-are-both-offered", COIN,
+     "        if k in seen:\n            continue",
+     "        if False:\n            continue", T_TRIM),
+    ("trim-the-price-trim-happens-before-the-key-is-asked", PY,
+     "    return offer if free else coins.one_per_price(offer)",
+     "    return offer", T_TRIM),
+    ("trim-the-written-down-menu-is-not-trimmed", PY,
+     "    known = ([m for m in coins.models_for(back) if usable(m)] if free\n"
+     "             else coins.offered(back, step))",
+     "    known = [m for m in coins.models_for(back) if usable(m)]", T_TRIM),
+    ("orouter-what-your-own-key-runs-is-offered-twice", PY,
+     '        if back == "openrouter" and coins.vendor_free(m) in direct:\n'
+     "            return False",
+     "        if False:\n            return False", T_TRIM),
+    ("orouter-a-direct-service-defers-to-the-others-too", PY,
+     '        if back == "openrouter" and coins.vendor_free(m) in direct:',
+     "        if coins.vendor_free(m) in direct:", T_TRIM),
+    ("orouter-nobody-asks-what-the-other-keys-can-reach", PY,
+     "                    elsewhere = []\n"
+     '                    if back == "openrouter":',
+     "                    elsewhere = []\n"
+     "                    if False:", T_TRIM),
+    ("orouter-the-maker-menu-never-appears", JSP,
+     "    if(makers.length > 1){",
+     "    if(false){", T_TRIM),
+    ("orouter-choosing-a-maker-shows-every-model-anyway", JSP,
+     "  const shown = names.filter(m => !only || !vendorOf(m) || vendorOf(m) === only);",
+     "  const shown = names;", T_TRIM),
+    ("orouter-the-maker-menu-snaps-back-to-the-model-that-is-set", JSP,
+     "      const want = ven.value || vendorOf(have) || makers[0];",
+     "      const want = vendorOf(have) || ven.value || makers[0];", T_TRIM),
     # There is deliberately NO mutant for "the switch sits below the list
     # instead of above it". The test asserts the order, but a mutation here is
     # one find-and-replace and moving a block of markup is not — every version
@@ -1480,6 +1530,25 @@ def main():
         for m in picked:
             print(m[0])
         return 0
+
+    # A run killed part-way — a timeout, a Ctrl-C, a `pkill` — never reaches
+    # its `finally`, and the mutant it was holding stays on disk. Everything
+    # measured afterwards is then measured against it, silently: one such
+    # leftover sat in `static/editor.html` for an hour and turned the coin in
+    # the top bar into a plain yellow disc.
+    #
+    # So: before touching anything, look for a file that holds some mutant's
+    # REPLACEMENT where its original should be, and refuse to start.
+    stale = [(n, f) for n, f, fi, rp, _t in MUTANTS
+             if rp and (PKG / f).exists()
+             and fi not in (PKG / f).read_text(encoding="utf-8")
+             and rp in (PKG / f).read_text(encoding="utf-8")]
+    if stale:
+        print("REFUSING TO RUN — a previous run left a mutant on disk:")
+        for n, f in stale:
+            print(f"  {n}\n      in {f}")
+        print("\nPut those back before measuring anything.")
+        return 2
 
     survivors = []
     for name, rel, find, repl, tests in picked:

@@ -253,7 +253,7 @@ def test_a_priced_provider_answers_from_the_price_table(monkeypatch):
     def check(p, post):
         p.settings.update({"ocr_backend": "gemini", "ocr_key": ""})
         j = post("/api/models", {"step": "ocr"})
-        assert j["models"] == coins.models_for("gemini")
+        assert j["models"] == coins.offered("gemini", "ocr")
         assert j["priced"] == j["models"]        # every one of them
         assert asked == [], "it went to the provider for a list it already had"
     _serve(check)
@@ -285,7 +285,7 @@ def test_a_step_with_no_model_yet_still_gets_a_list(monkeypatch):
     def check(p, post):
         p.settings.update({"ocr_backend": "gemini", "ocr_model": ""})
         assert post("/api/models", {"step": "ocr"})["models"] == \
-            coins.models_for("gemini")
+            coins.offered("gemini", "ocr")
         # ...and a provider whose range is not in the price table is asked
         # what it has. It needs a key to ask with — all three services refuse
         # `GET /models` without one, so nothing is requested when there is
@@ -579,3 +579,41 @@ def test_the_reader_hands_back_real_breaks(monkeypatch):
         lambda **k: (Fake("http://x/v1", "m", "k"), "m", "openai"))
     got = t.read_page_ocr(page, t.SeriesContext(), b"x")
     assert got[1] == "上の行\n下の行", repr(got[1])
+
+
+def test_openrouter_is_asked_what_the_other_keys_can_reach(monkeypatch):
+    """End to end, through the endpoint the screen calls.
+
+    lee: *"exclue teh molde that are usabe with teh keys that i have for
+    example i cnat use gemeini 2.5 flash with my goohle key so it shoud be in
+    teh open router"*. The rule is per KEY, so the route has to go and ask the
+    other services what THEIR keys reach — and the unit test for
+    `model_menu` cannot see whether it does, because it is handed the answer.
+    """
+    from mangatl import editor
+
+    def fake(url, key="", **kw):
+        # His Google key reaches 3.6 and not 2.5; OpenRouter reaches both.
+        if "generativelanguage" in url:
+            return ["gemini-3.6-flash"]
+        return ["google/gemini-3.6-flash", "google/gemini-2.5-flash",
+                "deepseek/deepseek-v3.2"]
+
+    monkeypatch.setattr("mangatl.translate.list_models", fake)
+
+    def check(p, post):
+        p.settings.update({"key_gemini": "G", "key_openrouter": "R",
+                           "translate_backend": "openrouter",
+                           "ocr_backend": "gemini"})
+        got = post("/api/models", {"step": "translate"})["models"]
+        assert "google/gemini-3.6-flash" not in got, \
+            "his own Google key already runs that one"
+        assert "google/gemini-2.5-flash" in got, "and it cannot run this one"
+        assert "deepseek/deepseek-v3.2" in got
+        # ...and with the Google key taken away, the whole of it comes back:
+        # there is no other road to any of it.
+        editor._MENU_CACHE.clear()
+        p.settings["key_gemini"] = ""
+        again = post("/api/models", {"step": "translate"})["models"]
+        assert "google/gemini-3.6-flash" in again
+    _serve(check)

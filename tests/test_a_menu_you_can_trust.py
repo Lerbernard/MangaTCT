@@ -63,9 +63,9 @@ def test_an_empty_crossing_leaves_the_priced_list_standing(monkeypatch):
     models, and an empty menu is a step nobody can configure — which is worse
     than the fault it was trying to report."""
     _reach(monkeypatch, [])
-    assert editor.model_menu("gemini", "u", "KEY") == coins.models_for("gemini")
+    assert editor.model_menu("gemini", "u", "KEY") == coins.offered("gemini")
     _reach(monkeypatch, ["nothing-we-have-ever-heard-of"])
-    assert editor.model_menu("gemini", "u", "KEY") == coins.models_for("gemini")
+    assert editor.model_menu("gemini", "u", "KEY") == coins.offered("gemini")
 
 
 def test_read_text_only_offers_models_that_can_see_a_picture(monkeypatch):
@@ -86,7 +86,7 @@ def test_nothing_is_asked_for_when_there_is_no_key(monkeypatch):
     """All three services refuse `GET /models` without one, so the request
     could only ever time out — three times, every time Settings opened."""
     seen = _reach(monkeypatch, ["gemini-3.6-flash"])
-    assert editor.model_menu("gemini", "u", "") == coins.models_for("gemini")
+    assert editor.model_menu("gemini", "u", "") == coins.offered("gemini")
     assert seen == []
 
 
@@ -209,13 +209,12 @@ def test_the_menu_is_not_limited_to_the_slugs_written_down_here(monkeypatch):
     to date.
     """
     reach = ["google/gemini-2.5-flash", "google/gemini-2.5-pro",
-             "google/gemini-3.1-pro", "anthropic/claude-haiku-4-5",
-             "openai/gpt-4.1"]
+             "google/gemini-3.1-pro", "anthropic/claude-haiku-4-5"]
     _reach(monkeypatch, reach)
     got = editor.model_menu("openrouter", "u", "KEY", "translate")
     assert sorted(got) == sorted(reach), got
-    # ...and only two of those five are written into the table, which is the
-    # whole point: the other three are priced through their maker's entry.
+    # ...and only two of those four are written into the table, which is the
+    # whole point: the other two are priced through their maker's entry.
     assert len([m for m in reach if m in coins.RATES]) == 2
 
 
@@ -266,3 +265,247 @@ def test_the_menu_still_opens_on_something_current(monkeypatch):
     got = editor.model_menu("openrouter", "u", "KEY")
     assert got[0] == "google/gemini-2.5-flash-lite"   # first in the table
     assert got[-1] == "anthropic/claude-opus-5"       # not in the table at all
+
+
+# --------------------------- only what the API can actually be asked to do
+
+def test_a_provider_list_is_not_a_list_of_translators(monkeypatch):
+    """lee, with a screenshot of a menu holding `gemini-2.5-flash-preview-tts`,
+    `gemini-3-pro-image` and `gemini-2.5-flash-native-audio-latest`: *"only
+    keep the models that my api can aculy use"*.
+
+    Every one of those answers `GET /models`, and not one of them can be
+    handed a page and asked for JSON back.
+    """
+    _reach(monkeypatch, [
+        "gemini-3.6-flash",
+        "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts",
+        "gemini-2.5-flash-native-audio-latest",
+        "gemini-2.5-flash-native-audio-preview-12-2025",
+        "gemini-3-pro-image", "gemini-3-pro-image-preview",
+        "gemini-3.1-flash-lite-image", "gemini-2.5-flash-image",
+        "gemini-3.1-pro-preview-customtools", "gemini-3-flash-preview",
+        "text-embedding-004",
+    ])
+    assert editor.model_menu("gemini", "u", "KEY") == ["gemini-3.6-flash"]
+
+
+def test_a_preview_is_not_something_to_point_a_chapter_at(monkeypatch):
+    """It is withdrawn without notice, which is the 404 this whole menu exists
+    to prevent."""
+    assert coins.usable_model("gemini-3-flash-preview") is False
+    assert coins.usable_model("gemini-3-flash") is True
+
+
+def test_the_word_has_to_be_a_whole_word():
+    """Matched between the dashes, not as a substring: this list is going to
+    grow, and a substring match on "live" would one day strike out a model
+    called `deliverance`."""
+    assert coins.usable_model("gemini-3.6-flash") is True
+    assert coins.usable_model("claude-sonnet-5") is True
+    assert coins.usable_model("some-audio-model") is False
+    # ...and a vision model is the one thing Read text cannot do without.
+    assert coins.usable_model("gemini-3.6-flash-vision") is True
+
+
+# ------------------------------------------------------- and not too old
+
+def test_one_generation_behind_is_the_limit():
+    """lee: *"dont go for models taht are too old i generation behind shiud be
+    teh limit like gpt 4, gmeini 2 etc"*.
+
+    The whole of the newest major, plus the LAST minor of the one before it.
+    Gemini keeps 3.x and 2.5 and drops 2.0, which is the line lee drew.
+    """
+    for ok in ("gemini-3.6-flash", "gemini-3-flash", "gemini-2.5-pro",
+               "claude-opus-5", "claude-haiku-4-5"):
+        assert coins.current_enough(ok), ok
+    for old in ("gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-1.5-pro",
+                "claude-opus-4", "claude-3-5-haiku"):
+        assert not coins.current_enough(old), old
+
+
+def test_the_line_is_read_off_the_price_table_not_off_a_date():
+    """The table is what gets updated when a range moves, so the rule cannot
+    drift out of step with it. Adding a Gemini 4 should retire Gemini 2.5 with
+    no other edit anywhere."""
+    assert coins.current_enough("gemini-2.5-pro")
+    with_four = dict(coins.RATES)
+    with_four["gemini-4-pro"] = coins.RATES["gemini-3.1-pro"]
+    import unittest.mock as mock
+    with mock.patch.object(coins, "RATES", with_four):
+        assert coins.current_enough("gemini-3.6-flash")
+        assert not coins.current_enough("gemini-2.5-pro")
+
+
+def test_a_model_too_old_to_offer_is_still_priced():
+    """Somebody may have it set. An UNPRICED model is charged at the top of
+    the range, which is the wrong way for "we stopped recommending this" to
+    fail."""
+    for old in ("gemini-2.0-flash", "claude-opus-4", "gpt-4o"):
+        assert coins.priced(old), old
+        # Asked as "did it MATCH an entry", not as "is the rate different from
+        # UNKNOWN" — `claude-opus-4` really does cost what the unknown
+        # fallback costs, and a test written the other way calls that a
+        # failure.
+        assert coins._prefix(old) is not None, old
+        assert old not in coins.offered("anthropic"), old
+        assert old not in coins.offered("gemini"), old
+
+
+def test_the_gpt_4_family_is_written_off_rather_than_worked_out():
+    """There is no GPT-5 in the table for GPT-4 to be a generation behind OF,
+    so the rule cannot see it and the set says so instead."""
+    for m in ("gpt-4o", "gpt-4.1", "gpt-4o-mini"):
+        assert m in coins.RETIRED, m
+
+
+# ------------------------------------------------------ one per price band
+
+def test_two_models_at_the_same_price_are_one_choice():
+    """`gemini-2.5-flash` and `gemini-3.5-flash-lite` cost exactly the same.
+    Offering both asks somebody to decide something with no consequence they
+    can see."""
+    same = coins.rate_for("gemini-2.5-flash") == coins.rate_for("gemini-3.5-flash-lite")
+    assert same, "the fixture for this test has stopped being true"
+    got = coins.one_per_price(["gemini-3.5-flash-lite", "gemini-2.5-flash"])
+    assert got == ["gemini-3.5-flash-lite"], "the first one wins"
+    assert coins.one_per_price(["gemini-2.5-flash", "gemini-3.5-flash-lite"]) \
+        == ["gemini-2.5-flash"]
+
+
+def test_the_trim_happens_after_the_reachable_check(monkeypatch):
+    """So a price band is never emptied by trimming away the only model in it
+    this key can run. lee cannot use `gemini-3.5-flash-lite`; he must still be
+    offered something at that price."""
+    _reach(monkeypatch, ["gemini-2.5-flash"])
+    assert editor.model_menu("gemini", "u", "KEY") == ["gemini-2.5-flash"]
+    assert "gemini-2.5-flash" not in coins.offered("gemini"), \
+        "and it is NOT what the written-down menu would have offered"
+    # ...and it really does still happen. Both of these cost the same, so one
+    # of them has to go — after the reachable check, not instead of it.
+    _reach(monkeypatch, ["gemini-2.5-flash", "gemini-3.5-flash-lite"])
+    editor._MENU_CACHE.clear()
+    assert editor.model_menu("gemini", "u", "KEY") == ["gemini-3.5-flash-lite"]
+
+
+def test_every_price_on_the_menu_is_a_different_price():
+    for back in ("anthropic", "gemini"):
+        rates = [coins.rate_for(m) for m in coins.offered(back)]
+        assert len(rates) == len(set(rates)), back
+
+
+# ------------------------------- openrouter is for what your keys cannot reach
+
+def test_openrouter_drops_what_your_own_key_already_runs(monkeypatch):
+    """lee: *"exclue teh molde that are usabe with teh keys that i have for
+    example i cnat use gemeini 2.5 flash with my goohle key so it shoud be in
+    teh open router"*.
+
+    Asked of the KEYS, not of a table. A model your Google key can already run
+    is not a thing to buy through a reseller.
+    """
+    _reach(monkeypatch, ["google/gemini-3.6-flash", "google/gemini-2.5-flash",
+                         "deepseek/deepseek-v3.2"])
+    direct = ["gemini-3.6-flash"]            # what his Google key really lists
+    got = editor.model_menu("openrouter", "u", "KEY", "translate", direct)
+    assert "google/gemini-3.6-flash" not in got, "he can already run that one"
+    assert "google/gemini-2.5-flash" in got, "and this is what OpenRouter is FOR"
+    assert "deepseek/deepseek-v3.2" in got
+
+
+def test_with_no_key_of_your_own_openrouter_offers_everything(monkeypatch):
+    """The same rule reaching the opposite answer: nothing is subtracted,
+    because there is no other way to any of it."""
+    _reach(monkeypatch, ["google/gemini-3.6-flash", "deepseek/deepseek-v3.2"])
+    got = editor.model_menu("openrouter", "u", "KEY", "translate", [])
+    assert "google/gemini-3.6-flash" in got
+
+
+def test_only_openrouter_subtracts(monkeypatch):
+    """A direct service is not a reseller and has nothing to defer to."""
+    _reach(monkeypatch, ["gemini-3.6-flash"])
+    assert editor.model_menu("gemini", "u", "KEY", "translate",
+                             ["gemini-3.6-flash"]) == ["gemini-3.6-flash"]
+
+
+# ------------------------------------------------- the maker menu, on screen
+
+def test_the_screen_has_a_maker_menu_beside_the_model_one():
+    """lee: *"when its selected create s seperate drop down for the
+    providers"*. A reseller's list is a hundred models from a dozen makers,
+    and picking one out of a flat list of that is not a choice, it is a
+    search."""
+    from where import PKG
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    for step in ("ocr", "translate", "proofread"):
+        assert f'id="{step}_vendor"' in html, step
+        assert f"pickVendor(\'{step}\')" in html, step
+    js = (PKG / "static" / "js" / "project.js").read_text(encoding="utf-8")
+    assert "function pickVendor" in js and "function vendorOf" in js
+
+
+# ------------------------------------------ the mutation runner's own safety
+
+def test_the_mutation_runner_refuses_to_start_on_a_leftover(tmp_path,
+                                                            monkeypatch):
+    """A run killed part-way never reaches its `finally`, and the mutant it
+    was holding stays on disk. Everything measured afterwards is measured
+    against it, silently — one such leftover sat in `static/editor.html` for
+    an hour and turned the coin in the top bar into a plain yellow disc, and
+    nothing said a word until a test that happened to look at the coin failed.
+    """
+    import importlib.util
+    import io
+    import contextlib
+    from where import PKG
+
+    spec = importlib.util.spec_from_file_location(
+        "mutrun", PKG / "tools" / "mutate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # A mutant whose ORIGINAL is missing from the file and whose REPLACEMENT
+    # is present — which is exactly what a killed run leaves behind.
+    f = tmp_path / "left.py"
+    f.write_text("the mutated line\n", encoding="utf-8")
+    monkeypatch.setattr(mod, "PKG", tmp_path)
+    monkeypatch.setattr(mod, "MUTANTS", [
+        ("x-left-behind", "left.py", "the real line", "the mutated line", [])])
+    monkeypatch.setattr(mod.sys, "argv", ["mutate.py"])
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        rc = mod.main()
+    assert rc == 2
+    assert "REFUSING TO RUN" in out.getvalue()
+    assert "x-left-behind" in out.getvalue()
+    # ...and it did not touch the file on its way out.
+    assert f.read_text(encoding="utf-8") == "the mutated line\n"
+
+
+def test_the_runner_starts_when_the_files_are_clean(tmp_path, monkeypatch):
+    """The other half: a guard that always refuses is a guard nobody can
+    use."""
+    import importlib.util
+    import io
+    import contextlib
+    from where import PKG
+
+    spec = importlib.util.spec_from_file_location(
+        "mutrun2", PKG / "tools" / "mutate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    f = tmp_path / "clean.py"
+    f.write_text("the real line\n", encoding="utf-8")
+    monkeypatch.setattr(mod, "PKG", tmp_path)
+    monkeypatch.setattr(mod, "MUTANTS", [
+        ("x-fine", "clean.py", "the real line", "the mutated line", [])])
+    monkeypatch.setattr(mod, "run", lambda tests: (False, ""))
+    monkeypatch.setattr(mod.sys, "argv", ["mutate.py"])
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        rc = mod.main()
+    assert rc == 0
+    assert "REFUSING" not in out.getvalue()
+    # ...and it put the file back.
+    assert f.read_text(encoding="utf-8") == "the real line\n"
