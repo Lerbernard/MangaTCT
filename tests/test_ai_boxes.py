@@ -155,7 +155,7 @@ def test_the_editor_offers_no_menu_for_it():
     assert "ai_boxes" not in body
 
 
-def test_the_other_ai_is_all_still_here():
+def test_the_other_ai_is_all_still_here(tmp_path):
     """"remove the ai" meant the box pass, which lee had just watched be bad at
     its job. It did not mean the reader, the translator, the proofreader or the
     cleaner — those are the ones that earn their keep, and a later tidy-up
@@ -171,7 +171,12 @@ def test_the_other_ai_is_all_still_here():
     # And the hosted (AI) cleaner in particular, which is the one that costs
     # money and is therefore the one somebody might rip out while "removing
     # the ai": its setting is still among the defaults.
-    p = Project(None, "/nonexistent-so-nothing-is-written")
+    # In `tmp_path`, because `Project` MAKES its output directory. This used
+    # to pass `/nonexistent-so-nothing-is-written`, on the theory that the name
+    # would keep it from being written — and a name is not a permission. Run as
+    # root the directory was quietly created at the root of the filesystem on
+    # every run; run as anybody else, as CI is, it was a PermissionError.
+    p = Project(None, str(tmp_path / "defaults"))
     assert "ai_clean" in p.settings
     assert "clean_url" in p.settings
 

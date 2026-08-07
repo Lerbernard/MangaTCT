@@ -175,3 +175,37 @@ def test_the_generated_page_is_not_carried_in_the_history():
     ign = (PKG / ".gitignore").read_text(encoding="utf-8")
     assert "site/mangatct-site-standalone.html" in ign
     assert "\nsite/index.html" not in ign
+
+
+# ------------------------------------------- and the suite writes where it may
+
+def test_no_test_builds_a_project_outside_its_own_temp_directory():
+    """`Project.__init__` calls `os.makedirs` on the path it is given. A test
+    that hands it an absolute path writes there — and the one that did wore a
+    name saying it would not: `/nonexistent-so-nothing-is-written`.
+
+    A name is not a permission. Running as root it created that directory at
+    the root of the filesystem, every run, for as long as it existed; running
+    as anybody else — which is what CI is — it was a PermissionError and a red
+    build. The two look nothing alike and are the same mistake.
+    """
+    import re
+    bad = []
+    for p in sorted((PKG / "tests").glob("test_*.py")):
+        for n, line in enumerate(p.read_text(encoding="utf-8").split("\n"), 1):
+            m = re.search(r"Project\(\s*[^,]+,\s*['\"](/[^'\"]*)", line)
+            if m:
+                bad.append(f"{p.name}:{n}: {m.group(1)}")
+    assert not bad, bad
+
+
+def test_the_suite_leaves_nothing_at_the_root_of_the_filesystem():
+    """The other half, asked of the machine rather than of the source: a run
+    that has just finished should not have added anything to `/`.
+
+    Cheap, and it is the check that would have caught the one above on the
+    machine it was passing on."""
+    import os
+    strays = [n for n in os.listdir("/")
+              if "nonexistent" in n or "mangatl" in n.lower()]
+    assert not strays, strays
