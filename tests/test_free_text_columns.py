@@ -118,7 +118,11 @@ def test_the_writing_is_read_before_the_stroke_pass():
     import inspect
     from mangatl import project
 
-    src = inspect.getsource(project.Project.detect)
+    # Find text is TWO methods since the AI option arrived: `detect` chooses
+    # which way to get boxes, `_detect_measured` is the measuring way. Read
+    # both, or a source check silently stops covering the half that moved.
+    src = (inspect.getsource(project.Project.detect)
+           + inspect.getsource(project.Project._detect_measured))
     calls = [ln.strip() for ln in src.splitlines()
              if "_ft.read_the_writing(" in ln or "_ft.detect_free_text(" in ln
              or "_ft.absorb_fragments(" in ln]
@@ -449,7 +453,11 @@ def test_the_stroke_pass_is_shown_the_page_before_the_reader_touched_it():
     round drawings."""
     import inspect
     from mangatl import project
-    src = inspect.getsource(project.Project.detect)
+    # Find text is TWO methods since the AI option arrived: `detect` chooses
+    # which way to get boxes, `_detect_measured` is the measuring way. Read
+    # both, or a source check silently stops covering the half that moved.
+    src = (inspect.getsource(project.Project.detect)
+           + inspect.getsource(project.Project._detect_measured))
     lines = [ln.strip() for ln in src.splitlines()]
     made = next(i for i, ln in enumerate(lines) if ln == "enclosed = list(found)")
     read = next(i for i, ln in enumerate(lines)

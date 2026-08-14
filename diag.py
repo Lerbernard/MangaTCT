@@ -4,6 +4,7 @@ import sys, os
 here = os.path.dirname(os.path.abspath(__file__))     # ...\mangatl
 sys.path.insert(0, os.path.dirname(here))             # so `import mangatl` works
 import cv2, numpy as np
+from mangatl import imgio
 print("cv2   :", cv2.__version__)
 print("numpy :", np.__version__)
 
@@ -21,7 +22,7 @@ print("raw output shapes:", [tuple(np.asarray(o).shape) for o in outs])
 # full detection through the real code
 from mangatl.models import Page
 from mangatl.detect.comictext import detect_comictext
-img = cv2.imread(page)
+img = imgio.imread(page)
 regs = detect_comictext(Page(image=img, source_path="004.jpg"),
                         model, split_gap=1.3, split_height=1.5)
 print("DETECTED BOXES:", len(regs))
@@ -31,6 +32,6 @@ for i, r in enumerate(regs):
     cv2.rectangle(vis,(x,y),(x+w,y+h),(0,0,255),3)
     cv2.putText(vis,str(i+1),(x+2,y+26),0,0.9,(0,0,255),2)
 outp = os.path.join(here, "diag_004.png")
-cv2.imwrite(outp, vis)
+imgio.imwrite(outp, vis)
 print("SAVED:", outp)
 print("--- send me everything above + the diag_004.png image ---")

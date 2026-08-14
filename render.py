@@ -437,6 +437,14 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
         # mean "leave this alone" instead.
         free = _kinds.family_of(r.kind) == "sfx" or bool(
             (r.layout_override or {}).get("locked"))
+        # ...and a box somebody drew and TURNED. Its block is fitted against the
+        # box upright and then turned about the frame's centre, while the mask
+        # is the box turned about the BOX's centre — two centres that are close
+        # but not the same, so clipping to the mask shaves the ends off lines
+        # that fitted perfectly. The box was drawn and angled by hand; where its
+        # text goes was decided by the person, not guessed.
+        free = free or (getattr(r, "manual", False)
+                        and abs(float(getattr(r, "turn", 0.0) or 0.0)) > 0.01)
         # ...and a block set at the minimum size BECAUSE it would not fit its
         # box. Cutting it back to the box here is the spill being undone at the
         # last possible moment, with the words simply missing their first and
@@ -781,9 +789,17 @@ def box_sheet(img, records, custom_kinds=()) -> np.ndarray:
     def balloon_of(r):
         return [int(v) for v in (r.get("bubble_bbox") or r.get("bbox"))]
 
-    # Two sections of one balloon wear a single frame round the pair, and their
-    # own boxes go dashed and quiet inside it — the balloon is the thing that
-    # is one, and the sections are the things you pick.
+    # Two sections of one balloon draw their own boxes dashed and quiet — the
+    # balloon is the thing that is one, and the sections are the things you
+    # pick.
+    #
+    # A solid frame used to be drawn round the pair as well. lee, finding one
+    # on a burst holding two speeches: *"there a big box with no label or
+    # anything"*, then *"hide teh big box afterware it dosnt need to be
+    # visibel"*. Gone from the editor and gone from here in the same move —
+    # the sheet shows what the screen shows, which is the rule that took the
+    # balloon hint out of both. `GROUP_FILL` stays: the sheet's other
+    # opacities are checked against it.
     groups: dict[int, list] = {}
     for r in recs:
         g = int(r.get("box_group") or 0)
@@ -791,14 +807,6 @@ def box_sheet(img, records, custom_kinds=()) -> np.ndarray:
             groups.setdefault(g, []).append(r)
     groups = {g: m for g, m in groups.items() if len(m) > 1}
     sectioned = {id(r) for m in groups.values() for r in m}
-
-    for g, mem in sorted(groups.items()):
-        xs = [balloon_of(r) for r in mem]
-        x0 = min(b[0] for b in xs); y0 = min(b[1] for b in xs)
-        x1 = max(b[0] + b[2] for b in xs); y1 = max(b[1] + b[3] for b in xs)
-        col = _bgr(kind_colour(mem[0].get("kind", "bubble"), custom_kinds))
-        ink.rect((x0, y0, x1 - x0, y1 - y0), col, GROUP_FILL)
-        ink.rect((x0, y0, x1 - x0, y1 - y0), col, 1.0, thickness=2)
 
     # The balloon used to be drawn here too, faint and dashed behind the
     # writing. It went with the editor's `.bhint` on 2026-07-30 — lee: *"there a

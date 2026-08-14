@@ -107,7 +107,11 @@ def test_the_page_says_the_app_cuts_webtoon_strips_up(html):
     assert "re-cut into pages near 2,400px" in faq
     assert "cut it up first" in faq, "and it should still say where the limit is"
     manhwa = [f for f in b.FORMATS if f["id"] == "manhwa"][0]
-    assert any("2,400px" in d for _t, d in manhwa["good"])
+    assert any("three and a half times as tall as they are wide" in d
+               for _t, d in manhwa["good"]), \
+        "the height is said as a shape now, the way the app says it"
+    assert not any("quietest row" in d for _t, d in manhwa["good"]), \
+        "the page must not still promise a cut the app stopped making"
     assert faq in html
 
 

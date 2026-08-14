@@ -18,6 +18,7 @@ Pick with the `engine` argument, or leave it on "auto" to choose by language.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 import cv2
 import numpy as np
@@ -246,6 +247,34 @@ MAX_SIDE = 1568          # what the vision APIs downscale to anyway
 TILE_BUDGET = {"page": 1, "auto": 4, "high": 9}
 
 
+# How far the outline is pushed OFF the writing it names.
+#
+# It used to be drawn exactly on the shape, and a shape is drawn round the ink
+# the detector found -- so anything the detector's box missed by a few pixels
+# ended up UNDER the red line. Page 011's name card is the case: its dashes sit
+# at x 280 and x 625, the box runs 290 to 617, and both dashes were painted
+# over and never restored, because the restore below only puts back ink the
+# region OWNS. The reader could not see them, and did not transcribe them.
+#
+# 3 pixels, which is more than the line's own 2px width and less than the gap
+# between two neighbouring balloons. The owned ink is still repainted on top
+# afterwards, so where an outset line does stray onto a neighbour's words the
+# words win, exactly as before.
+OUTSET = 3
+
+
+def _outset(pts: np.ndarray, px: int = OUTSET) -> np.ndarray:
+    """The same polygon, pushed `px` outwards from its own middle."""
+    p = np.asarray(pts, np.float64)
+    if len(p) < 3:
+        return np.asarray(pts, np.int32)
+    c = p.mean(axis=0)
+    d = p - c
+    n = np.hypot(d[:, 0], d[:, 1])
+    n[n < 1e-6] = 1e-6
+    return np.round(c + d * ((n + px) / n)[:, None]).astype(np.int32)
+
+
 def _shape(r, ox: int, oy: int, outline: np.ndarray | None) -> np.ndarray:
     """The region's shape in tile coordinates: its ink's outline, or its box.
 
@@ -271,7 +300,7 @@ def _draw_label(vis, r, ox: int, oy: int, tag_it: bool,
     else.
     """
     pts = _shape(r, ox, oy, outline)
-    cv2.polylines(vis, [pts], True,
+    cv2.polylines(vis, [_outset(pts)], True,
                   (0, 0, 255) if tag_it else (168, 168, 168), 2)
     if tag_it:
         _draw_tag(vis, r, pts)
@@ -317,6 +346,20 @@ def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
 
 
 def _encode(vis, max_side: int) -> bytes:
+    """PNG, at most `max_side` on its long edge.
+
+    There WAS a `fill` here, and a setting for it: a 690-wide webtoon tile went
+    to a reader that accepts 1568 at 690, so it padded the tile up to the cap
+    and spent the rest of the envelope. It is gone. Read the whole chapter four
+    ways and it never won: it does nothing at all under `page_box_crops` (a
+    crop is already scaled by its own characters, so the bytes come back
+    identical), and on tiles it cost +50% and produced the WORST run of the
+    four — five misreads no other run made. Upscaling adds no information; it
+    only adds patches over a glyph, and that turned out not to be what the
+    reader was short of.
+
+    A crop per box is what buys the pixels, and it buys them at -37%.
+    """
     H, W = vis.shape[:2]
     m = max(H, W)
     if m > max_side:
@@ -403,7 +446,26 @@ def tile_rects(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
     return out
 
 
-def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
+def detail_for(medium: str = "") -> str:
+    """What "Reading detail" means when nobody has chosen one.
+
+    A crop per box on the webtoons, the page cut up on manga. Measured over
+    lee's chapter 1, read four ways and scored against the printed pages: the
+    crops are the only mode that got page 011's `하이엘프 티리스` and page 066's
+    `드래건` — an unfamiliar string is what a whole-page read normalises toward
+    something it knows, and a close-up is what stops it. They are also **-37%**
+    on image tokens.
+
+    Manga stays on tiles. The measurement is a Korean webtoon: 690px wide,
+    thousands tall, mostly artwork, with the writing set horizontally. A manga
+    page is a different shape with vertical typesetting and furigana beside it,
+    the crops were never scored on one, and a default is not the place to
+    guess.
+    """
+    return "boxes" if str(medium or "").lower() in ("manhwa", "manhua") else "auto"
+
+
+def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
                      ) -> list[tuple[bytes, list[int]]]:
     """The page cut into pieces for the vision reader: [(png bytes, [region ids])].
 
@@ -417,6 +479,8 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
     regions whole, so a box straddling a grid line is never cut in half; the
     grid is only a way of dividing up the work, not a hard crop.
     """
+    if detail == "boxes":
+        return page_box_crops(page, max_side=max_side)
     img = page.image
     if img is None:
         return []
@@ -438,7 +502,8 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
                 if not (r.bbox[0] + r.bbox[2] <= x0 or r.bbox[0] >= x1
                         or r.bbox[1] + r.bbox[3] <= y0 or r.bbox[1] >= y1)]
         for r in here:
-            cv2.polylines(vis, [_shape(r, x0, y0, shapes.get(r.id))], True,
+            cv2.polylines(vis, [_outset(_shape(r, x0, y0, shapes.get(r.id)))],
+                          True,
                           (0, 0, 255) if r.id in ids else (168, 168, 168), 2)
         # The WORDS go back in front of the lines. Two boxes that sit beside
         # each other have a border between them, and it lands on whichever of
@@ -457,10 +522,159 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
     return out
 
 
+# ONE CROP PER BOX, instead of the page.
+#
+# lee: *"would it be feasible to instad of sending the pages, we send zommed
+# version of allthe boxes instread? hwo woud that wowrk or affct the frice?"*
+#
+# MEASURED on 9 pages of his chapter 1 -- 20 tiles, 40 boxes -- counting image
+# tokens as area/750:
+#
+#   the whole page in tiles, as now         2356 tokens per page
+#   one crop per box, glyphs at 48 px       1027    -56%
+#   one crop per box, glyphs at 64 px       1554    -34%
+#   one crop per box, glyphs at 80 px       2230     -5%
+#   one crop per box, glyphs at 96 px       2971    +26%
+#
+# Cheaper, because the hair and the sky and the trousers stop being paid for.
+# His 011 name arrives at 40 px today; at the same money it would arrive at 80.
+#
+# SCALED BY THE GLYPHS AND NOT BY THE CROP. Scaling each crop to a fixed long
+# side looks equivalent and is not: 048's small box would go from 33 px to 143
+# and 029's big narration panel from 33 to 44, because a wide box spreads a
+# fixed budget over more writing. The glyph is the thing that decides a
+# misread, so the glyph is what is held constant.
+#
+# The padding is not decoration. A crop is only as good as the box, and a box
+# is sometimes a few pixels too tight -- page 011's dashes sit OUTSIDE its box.
+# A page tile still shows what is just beyond; a hard crop does not.
+BOX_GLYPH = 64          # how tall a character should arrive
+BOX_PAD = 0.25          # ...with this much of the box again around it
+BOX_MIN = 160           # a tiny box still needs enough picture to look at
+
+
+def _glyph_px(page: Page, r) -> float:
+    """How tall this box's characters are on the page, in pixels."""
+    m = getattr(r, "text_mask", None)
+    x, y, w, h = [int(v) for v in r.bbox]
+    if m is None:
+        return max(1.0, h / 3.0)
+    a = np.asarray(m)
+    if a.shape[:2] != page.image.shape[:2]:
+        return max(1.0, h / 3.0)
+    sub = (a[max(0, y):y + h, max(0, x):x + w] > 0).astype(np.uint8)
+    if not sub.any():
+        return max(1.0, h / 3.0)
+    n, _l, st, _c = cv2.connectedComponentsWithStats(sub, 8)
+    hs = [int(st[i, cv2.CC_STAT_HEIGHT]) for i in range(1, n)
+          if int(st[i, cv2.CC_STAT_AREA]) >= 25]
+    if not hs:
+        return max(1.0, h / 3.0)
+    med = float(np.median(hs))
+    hs = [v for v in hs if v >= 0.45 * med] or hs
+    return max(1.0, float(np.median(hs)))
+
+
+def page_box_crops(page: Page, glyph_px: int = BOX_GLYPH,
+                   pad: float = BOX_PAD, max_side: int = MAX_SIDE
+                   ) -> list[tuple[bytes, list[int]]]:
+    """Every region as its own crop, blown up so its characters are readable.
+
+    Same annotation as the tiles: the region outlined in red and numbered, its
+    neighbours outlined grey, and every region's own ink repainted over the
+    lines so nothing is hidden by them.
+    """
+    img = page.image
+    if img is None:
+        return []
+    if img.ndim == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    H, W = img.shape[:2]
+    regions = list(page.regions)
+    if not regions:
+        return []
+    owner, index_of = _pixel_owner(page)
+    shapes = {r.id: ink_outline(r, owner, index_of.get(r.id, -1))
+              for r in regions}
+    out: list[tuple[bytes, list[int]]] = []
+    for r in sorted(regions, key=lambda r: (getattr(r, "order", 0), r.id)):
+        x, y, w, h = [int(v) for v in r.bbox]
+        mx, my = int(round(pad * w)), int(round(pad * h))
+        x0, y0 = max(0, x - mx), max(0, y - my)
+        x1, y1 = min(W, x + w + mx), min(H, y + h + my)
+        if x1 - x0 < 4 or y1 - y0 < 4:
+            continue
+        vis = img[y0:y1, x0:x1].copy()
+        here = [q for q in regions
+                if not (q.bbox[0] + q.bbox[2] <= x0 or q.bbox[0] >= x1
+                        or q.bbox[1] + q.bbox[3] <= y0 or q.bbox[1] >= y1)]
+        for q in here:
+            cv2.polylines(vis, [_outset(_shape(q, x0, y0, shapes.get(q.id)))],
+                          True,
+                          (0, 0, 255) if q.id == r.id else (168, 168, 168), 2)
+        keep = owner[y0:y1, x0:x1] >= 0
+        if keep.any():
+            vis[keep] = img[y0:y1, x0:x1][keep]
+        for q in here:
+            if q.id == r.id:
+                _draw_tag(vis, q, _shape(q, x0, y0, shapes.get(q.id)))
+        # ...and now the only thing that makes this worth doing.
+        s = float(glyph_px) / _glyph_px(page, r)
+        ch, cw = vis.shape[:2]
+        s = max(s, BOX_MIN / max(1, max(cw, ch)))
+        s = min(s, max_side / max(1, max(cw, ch)))
+        if abs(s - 1.0) > 0.02:
+            vis = cv2.resize(vis, (max(1, int(round(cw * s))),
+                                   max(1, int(round(ch * s)))),
+                             interpolation=(cv2.INTER_CUBIC if s > 1
+                                            else cv2.INTER_AREA))
+        out.append((_encode(vis, max_side), [r.id]))
+    return out
+
+
 def page_label_png(page: Page, max_side: int = MAX_SIDE) -> bytes:
     """The whole page, outlined and numbered, as one PNG. The single-tile case."""
     tiles = page_label_tiles(page, max_side, detail="page")
     return tiles[0][0] if tiles else b""
+
+
+def only_symbols(text: str) -> bool:
+    """Is there no WRITING in this, only marks?
+
+    lee: *"auto emove boxes taht are only symbol like ! or ....... etc"*. The
+    reader finds plenty of these — a lone `!`, a row of dots trailing off, a
+    `?!`, a heart — because the detector found ink there and ink is what it
+    was looking for. There is nothing to translate in any of them, and every
+    one costs a line of the translator's attention and a box on the page.
+
+    Asked of Unicode's own answer rather than a list of characters somebody
+    typed out. A hand-written class is a list of the marks whoever wrote it
+    happened to think of: the old one here had `…` and `・` and missed `♡`,
+    `★`, `※` and every full-width bracket. A character counts as WRITING when
+    Unicode calls it a letter or a number — which is every script at once,
+    Hangul and kana and Cyrillic included, with no list to keep up to date.
+
+    Two deliberate exclusions from "letter":
+
+    * Modifier letters (`Lm`) — `ー`, `々`, `ゝ`. Unicode calls them letters
+      and inside a word they are, but a box holding nothing BUT them is a
+      stretched sound, not a word. `ラーメン` still reads as writing; `ーー`
+      does not.
+    * Digits are NOT excluded. `3` on a sign, a year, a door number: that is
+      something to read, and something the typesetter may have to set again.
+
+    Empty is not symbols-only. Nothing was read at all, which is a different
+    fault with a different name, and deleting a box because the reader had a
+    bad turn is the one outcome this must never have.
+    """
+    t = (text or "").strip()
+    if not t:
+        return False
+    for ch in t:
+        cat = unicodedata.category(ch)
+        if (cat[0] == "L" and cat != "Lm") or cat[0] == "N":
+            return False
+    return True
 
 
 def looks_like_garbage(text: str, region: TextRegion) -> str | None:
@@ -478,7 +692,11 @@ def looks_like_garbage(text: str, region: TextRegion) -> str | None:
     visible = re.sub(r"\s+", "", t)          # drop the model's line-break \n
     if not visible:
         return "ocr: empty"
-    if re.fullmatch(r"[。、,.!?！？…・\-—ー~〜]+", visible):
+    # The same question the "delete symbol-only boxes" switch asks, asked once
+    # and in one place. This one only FLAGS — the switch is what removes the
+    # box — so with the switch off a `!!` still arrives marked for review
+    # rather than sliding into the translation unremarked.
+    if only_symbols(visible):
         return "ocr: punctuation only"
     if re.search(r"(.)\1{6,}", visible):
         return "ocr: repeated character run"

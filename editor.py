@@ -36,8 +36,10 @@ from .interactive import region_from_box
 from .order import assign_order
 from . import kinds as _kinds
 from . import project as project_mod
-from .project import (KIND_GROUPS, Project, read_sfx_axis, region_from_record,
-                      region_record, token_state)
+from . import imgio
+from .project import (KIND_GROUPS, Project, group_of, is_turned,
+                      read_sfx_axis, region_from_record, region_record,
+                      token_state, turned_box)
 from .score import text_likeness
 from .models import Page
 
@@ -138,7 +140,12 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
             _page_fingerprint(p, i), cc, _mtime(cc),
             ov, _mtime(ov), ovr, _mtime(ovr),
             json.dumps(inputs, sort_keys=True, default=str),
-            s.get("ai_clean") or "off", s.get("clean_url") or "")
+            s.get("ai_clean") or "off", s.get("clean_url") or "",
+            # ...and WHETHER IT HAS BEEN CLEANED, because that is now the
+            # difference between two different pictures rather than between a
+            # picture and the same picture built more slowly. Without it, the
+            # view you had open before pressing Clean is the view you keep.
+            bool(st.cleaned))
     if mode != "typeset":
         # The scan and the cleaned plate carry no text, so the typesetting
         # settings cannot change what they look like. Including them meant a
@@ -235,7 +242,8 @@ _plate_cache: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
 
 def _plate_stamp(p: Project, i: int) -> tuple:
     """Identity of the fully-cleaned plate — geometry, not eye toggles."""
-    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"))
+    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"),
+                 bool(r.get("focus", False)))
                 for r in p.pages[i].regions)
     # The cleaning method is part of the plate's identity — switching between
     # local and AI must rebuild it. So is the TOKEN, by its fingerprint: a
@@ -316,7 +324,37 @@ def _prune_cache_dir(d: str, keep: int) -> None:
 # which is its own thing worth saying, because on "AI for hard areas" a flat
 # white bubble never reaches the model at all, so the endpoint sits idle and the
 # page looks exactly as it did before.
-_AI_CLEAN_FAIL = {"n": 0, "msg": "", "url": "", "used": 0, "cached": 0}
+_AI_CLEAN_FAIL = {"n": 0, "msg": "", "url": "", "used": 0, "cached": 0,
+                  # Set once the endpoint has said the token is wrong. See
+                  # `_refused_for_good`.
+                  "refused": ""}
+
+# The HTTP answers that mean "and it will say the same thing next time".
+#
+# 401 and 403 are not flakes. They are the endpoint reading the token and
+# rejecting it, and nothing about running the next region changes the token. A
+# chapter with forty boxes on it therefore made forty round trips to be refused
+# forty times, printed forty tracebacks, and buried the one sentence that says
+# what to do about it under all of them. lee sent eight of those tracebacks in
+# a row with no message between them.
+CLEAN_FATAL = (401, 403)
+
+
+def _refused_for_good(url: str, token: str) -> bool:
+    """Has this exact (url, token) already been refused in this run?
+
+    Keyed on both, so pasting a new token or pointing at a new address starts
+    asking again immediately -- which is what a person does the second they
+    read the warning, and being told "still refused" without the endpoint
+    having been asked would be a lie.
+    """
+    return _AI_CLEAN_FAIL.get("refused") == _refusal_key(url, token)
+
+
+def _refusal_key(url: str, token: str) -> str:
+    import hashlib
+    return hashlib.sha1(
+        (url + "\x00" + token).encode("utf-8")).hexdigest()[:16]
 
 
 def _clean_error_text(e: Exception) -> str:
@@ -361,7 +399,59 @@ def clean_warning(p: Project) -> str:
     elif _token_is_placeholder(tok):
         msg += (" The saved token is still the CHANGE-ME example from the"
                 " deploy file — paste the real one into Settings ▸ Page cleaning.")
+    elif "401" in (f["msg"] or ""):
+        # A 401 with a real token saved has exactly two causes and the machine
+        # can tell them apart WITHOUT another call: hash the token against
+        # every local `*_clean_modal.py`. lee saw seven lines of "the cleaner
+        # refused the token (401)" and one sentence that named neither cause.
+        #
+        # `clean_check` already does this and says the same two things; it just
+        # has to be asked, and nothing on the screen said to ask it.
+        msg += " " + _why_401(p, tok)
     return msg
+
+
+def _why_401(p: Project, tok: str) -> str:
+    """Which of the two 401s this is, from the files on this machine.
+
+    The token is a string in a deploy file and a string in Settings. Either
+    they differ — the wrong one is pasted — or they agree and the DEPLOYED
+    image was built from an older copy of that file, in which case redeploying
+    is the whole fix and re-pasting the token will never help.
+
+    Hashes only; nothing here reads a token out loud.
+    """
+    url = (p.settings.get("clean_url") or "").strip()
+    try:
+        files = _deploy_files()
+    except Exception:
+        files = []
+    mine = hashlib.sha1(tok.encode("utf-8")).hexdigest()
+    # "mangatl-clean" is a substring of "mangatl-clean-lama", so plain
+    # containment says the manga app is deployed at the lama app's address —
+    # and then a token that is right for the wrong file reads as "matches, go
+    # and redeploy". Only the LONGEST name that appears in the URL names it.
+    # Same rule as `clean_check`, and it is here because a test drove the two
+    # apart.
+    named = [f for f in files if f.get("app") and f["app"] in url]
+    if named:
+        longest = max(len(f["app"]) for f in named)
+        named = [f for f in named if len(f["app"]) == longest]
+    else:
+        named = files
+    match = [f for f in named if f.get("sha") == mine]
+    if match:
+        return ("The saved token matches %s, so the string is right and the "
+                "DEPLOYED copy is out of date — run `python -m modal deploy "
+                "%s` and it will start working." % (match[0]["file"],
+                                                    match[0]["file"]))
+    if named:
+        return ("The saved token does NOT match %s — copy CLEAN_TOKEN out of "
+                "that file into Settings ▸ Page cleaning."
+                % ", ".join(f["file"] for f in named[:2]))
+    return ("Settings ▸ Page cleaning ▸ Test cleaner says which of the two it "
+            "is: a token that does not match the deploy file, or a deployed "
+            "copy built before the token changed.")
 
 
 def _token_state(tok: str | None) -> str:
@@ -380,7 +470,7 @@ def _token_is_placeholder(tok: str) -> bool:
 
 
 def clear_clean_warning() -> None:
-    _AI_CLEAN_FAIL.update(n=0, msg="", url="", used=0, cached=0)
+    _AI_CLEAN_FAIL.update(n=0, msg="", url="", used=0, cached=0, refused="")
     _CLEAN_TALLY.clear()
 
 
@@ -417,6 +507,16 @@ def clean_report(p: Project) -> str:
     # core only"* when ten boxes were cleaned and three of those ten were done
     # strokes-only.
     core = t.pop("core only", 0)
+    # ...and neither is the second step. It is not a route a box took INSTEAD
+    # of one of these; it is the cleaner going back over a box that still had
+    # writing standing after the ordinary clean. Counted as a route it would
+    # inflate the total and stand beside them as though it were an alternative
+    # to the AI, which is the mistake "core only" already made once.
+    again = t.pop("second pass", 0)
+    # ...nor is the redraw, for the same reason: it is the model being asked to
+    # draw a box's cleaned area again, as one piece, on a box two different
+    # things had already painted.
+    drew = t.pop("redrawn", 0)
     total = sum(v for k, v in t.items() if k not in ("skipped", "kept"))
     yours = (f" {own} page{'' if own == 1 else 's'} "
              f"{'uses' if own == 1 else 'use'} your own cleaned file and "
@@ -435,6 +535,16 @@ def clean_report(p: Project) -> str:
     bits = [f"{v} {NAMES.get(k, k)}" for k, v in sorted(
         t.items(), key=lambda kv: -kv[1]) if k not in ("skipped", "kept")]
     msg = f"Cleaned {total} box{'' if total == 1 else 'es'}: " + ", ".join(bits) + "."
+    if again:
+        msg += (f" {again} still had writing on {'them' if again > 1 else 'it'} "
+                f"after that and {'were' if again > 1 else 'was'} cleaned a "
+                f"second time — that is the pass for gold and other writing no "
+                f"fixed shade of grey describes.")
+    if drew:
+        msg += (f" The AI then drew {drew} of {'them' if drew > 1 else 'those'} "
+                f"again in one piece, so the artwork under the writing — a "
+                f"panel line, a gradient — is redrawn rather than patched "
+                f"twice. Answers that brought the words back were thrown away.")
     if core:
         msg += (f" {core} of {'them' if core > 1 else 'those'} had only the "
                 f"letter strokes erased — the typesetting there was hard to tell "
@@ -638,11 +748,22 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
                        + token.encode("utf-8")).hexdigest()
     fp = os.path.join(cache_dir, key + ".png")
     if os.path.exists(fp):
-        cached = cv2.imread(fp)
+        cached = imgio.imread(fp)
         if cached is not None and cached.shape[:2] == img.shape[:2]:
             _AI_CLEAN_FAIL["used"] += 1     # the model's answer, from the cache
             _AI_CLEAN_FAIL["cached"] += 1
             return cached
+
+    # Already refused this exact token at this exact address? Then the answer
+    # is known and the round trip is waste. Straight to the local fill --
+    # except under `strict`, where the caller has a better fallback of its own
+    # and has to be told rather than quietly handed Telea.
+    if _refused_for_good(url, token):
+        _AI_CLEAN_FAIL["n"] += 1
+        if strict:
+            raise RuntimeError(_AI_CLEAN_FAIL["msg"]
+                               or "the cleaner refused the token")
+        return cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
 
     try:
         import base64
@@ -663,17 +784,32 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
         out = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
         if out is None or out.shape[:2] != img.shape[:2]:
             raise ValueError("cleaner returned an unusable image")
-        cv2.imwrite(fp, out)
+        imgio.imwrite(fp, out)
         clear_clean_warning()          # it is working again; drop the old news
         _AI_CLEAN_FAIL["used"] += 1
         return out
     except Exception as e:
-        traceback.print_exc()
+        import urllib.error
+        fatal = (isinstance(e, urllib.error.HTTPError)
+                 and e.code in CLEAN_FATAL)
+        # The traceback is for the failure nobody has diagnosed yet. A refused
+        # token IS diagnosed -- `clean_warning` says which setting to change --
+        # so printing the stack once is a courtesy and printing it once per box
+        # buries the sentence that helps.
+        if not fatal:
+            traceback.print_exc()
+        else:
+            # Reached once per (url, token): the next call for the same pair
+            # turns back at the top of this function and never gets here.
+            print("mangatl: " + _clean_error_text(e) + " -- "
+                  + "not asking again this run. " + url, flush=True)
         # never break a run over the network: fall back to the local fill
         globals()["_LAST_AI_CLEAN_ERROR"] = f"{type(e).__name__}: {e}"
         _AI_CLEAN_FAIL["n"] += 1
         _AI_CLEAN_FAIL["msg"] = _clean_error_text(e)
         _AI_CLEAN_FAIL["url"] = url
+        if fatal:
+            _AI_CLEAN_FAIL["refused"] = _refusal_key(url, token)
         if strict:
             # ...unless the caller has its own, better fallback and needs to
             # know. A whole-page run must not stop for a flaky endpoint; a
@@ -739,7 +875,7 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
     cc = own_plate_path(p, i)
     custom = None
     if cc:
-        img = cv2.imread(cc)
+        img = imgio.imread(cc)
         if img is not None:
             if img.shape[:2] != page.image.shape[:2]:
                 img = cv2.resize(img, (page.image.shape[1], page.image.shape[0]),
@@ -760,7 +896,7 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
     if full is None:
         fp = _plate_disk_path(p, i)
         if os.path.exists(fp):
-            got = cv2.imread(fp)
+            got = imgio.imread(fp)
             if got is not None and got.shape[:2] == page.image.shape[:2]:
                 full = got
                 os.utime(fp, None)          # touch: it is still in use
@@ -778,6 +914,10 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
                 # own generous mask, and the page came back smeared with no
                 # way for anything downstream to know it had happened.
                 neural, neural_all = _make_cleaner(p, strict=True)
+                # Two steps, and both of them inside here: the ordinary clean,
+                # and then a second one over whatever it left standing. See
+                # `inpaint.second_pass`. There is nothing to configure — a box
+                # the first step cleaned is never touched by the second.
                 inpaint_mod.inpaint_page(page, neural=neural,
                                          neural_all=neural_all)
             finally:
@@ -820,7 +960,7 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
             try:
                 # Level 1: the plate is written once and read many times, and
                 # squeezing it harder costs more than it ever saves back.
-                cv2.imwrite(fp, full, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+                imgio.imwrite(fp, full, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                 _prune_cache_dir(os.path.dirname(fp), max(80, 3 * len(p.pages)))
             except Exception:
                 pass                        # a cache that cannot write is fine
@@ -892,7 +1032,7 @@ def _composite_paint(p: Project, i: int, page, include_paint: bool) -> None:
     ov = getattr(p.pages[i], "paint_overlay", "") or ""
     if not ov or not os.path.exists(ov):
         return
-    o = cv2.imread(ov, cv2.IMREAD_UNCHANGED)
+    o = imgio.imread(ov, cv2.IMREAD_UNCHANGED)
     if o is None or o.ndim != 3 or o.shape[2] != 4             or o.shape[:2] != page.clean_plate.shape[:2]:
         return
     a = o[:, :, 3:4].astype(np.float32) / 255.0
@@ -911,7 +1051,7 @@ def _composite_over(p: Project, i: int, img):
     ov = getattr(p.pages[i], "paint_over", "") or ""
     if not ov or not os.path.exists(ov):
         return img
-    o = cv2.imread(ov, cv2.IMREAD_UNCHANGED)
+    o = imgio.imread(ov, cv2.IMREAD_UNCHANGED)
     if o is None or o.ndim != 3 or o.shape[2] != 4 or o.shape[:2] != img.shape[:2]:
         return img
     a = o[:, :, 3:4].astype(np.float32) / 255.0
@@ -970,10 +1110,36 @@ def render_index(p: Project, i: int, mode: str = "original",
             _touch(_render_cache, key)
             return hit
         page = p.materialize(i)
+        # LOOKING AT A PAGE IS NOT CLEANING IT.
+        #
+        # This used to inpaint on demand: opening the Image view on a page
+        # nobody had cleaned built the plate right then. So browsing a chapter
+        # quietly ran the cleaner — lee got seven "the cleaner refused the
+        # token (401)" lines out of turning pages, and: *"if i move to teh
+        # image tab and i havnt done teh clenneing it shud just show teh
+        # unclened age not clen them until i clean teh page"*.
+        #
+        # It also showed the wrong picture. A view that cleans on sight cannot
+        # show what a page looks like BEFORE cleaning, so there is no way to
+        # judge whether the Clean step is worth running — and the Clean
+        # button reads 7/67 while every page you open is cleaned.
+        #
+        # `cleaned` is set by the Clean step and by an uploaded plate, and
+        # cleared whenever the text changes, so this follows the button.
+        done = bool(p.pages[i].cleaned) or bool(own_plate_path(p, i))
         if mode == "original" or not page.regions:
             img = page.image
+        elif mode == "clean" and not done:
+            img = page.image             # nothing has been erased yet
         else:
-            clean_page(p, i, page, include_paint=(paint or mode != "clean"))
+            if done:
+                clean_page(p, i, page,
+                           include_paint=(paint or mode != "clean"))
+            else:
+                # The English still goes on — over the page as it came, which
+                # is what it will look like until Clean runs. `clean_plate` is
+                # what the typesetter draws onto, so it is the scan.
+                page.clean_plate = page.image.copy()
             if mode == "clean":
                 img = page.clean_plate
             else:
@@ -1457,7 +1623,41 @@ def do_clean(p: Project, i: int, force: bool = False) -> None:
         drop_plate(p, i)
     page = p.materialize(i)
     clean_page(p, i, page)
+    _keep_the_clean_report(p, i, page)
     p.pages[i].cleaned = True
+
+
+def _keep_the_clean_report(p: Project, i: int, page) -> None:
+    """Copy back what the cleaner said about each box, and nothing else.
+
+    `inpaint_page` writes `clean_route` on every region and appends to
+    `flagged` when it falls back, copies a pattern, drops to the letter cores
+    on a dark panel, or finds the typesetting STILL VISIBLE after two goes.
+    None of it used to be committed: it was written onto the materialised page
+    and thrown away with it. Measured on lee's chapter, `clean_route` was empty
+    on all 134 regions and there was not one clean flag, on a chapter with
+    three boxes that had visibly kept their text.
+
+    **Two fields by id, and not `commit()`.** The first version of this called
+    `_commit_keep_proofread`, which writes the whole page back — and
+    `materialize` runs the balloon finder over `repaired(i)` on the way in. So
+    cleaning a page rewrote every region's `polygon` and `bubble_bbox` from a
+    balloon found on the CLEANED plate, where the ink that defines an interior
+    has just been erased. The next clean then worked from that geometry and
+    wrote it again. lee, after a chapter run: *"we regreesse in a lot of ways
+    with the clening"*.
+
+    Nothing the cleaner learns is geometry. It is two strings per box, and two
+    strings per box is exactly what comes back.
+    """
+    said = {r.id: (str(getattr(r, "clean_route", "") or ""),
+                   getattr(r, "flagged", None))
+            for r in page.regions}
+    for rec in p.pages[i].regions:
+        got = said.get(rec.get("id"))
+        if got is None:
+            continue                 # hidden, or not on the page that was built
+        rec["clean_route"], rec["flagged"] = got
 
 
 def _commit_keep_proofread(p: Project, i: int, page) -> None:
@@ -1501,7 +1701,7 @@ def export_page(p: Project, i: int, mode: str = "full") -> str:
     if mode == "boxes":
         # No materialize, no clean, no typeset: the boxes are already known and
         # the picture they belong on is the page as it arrived.
-        cv2.imwrite(out, render_mod.box_sheet(
+        imgio.imwrite(out, render_mod.box_sheet(
             p.image(i), p.pages[i].active,
             p.settings.get("custom_kinds") or []))
         return out
@@ -1515,7 +1715,7 @@ def export_page(p: Project, i: int, mode: str = "full") -> str:
         img = _composite_over(p, i, render_mod.render_page(page, cfg))
     else:
         img = page.clean_plate if page.clean_plate is not None else page.image
-    cv2.imwrite(out, img)
+    imgio.imwrite(out, img)
     if typeset:
         _commit_keep_proofread(p, i, page)
         p.pages[i].exported = True
@@ -1900,8 +2100,7 @@ def needs_key(p: Project, step: str) -> str:
         return ""                      # local, and local wants no key
     if key_for(p, back, step):
         return ""
-    label = {"ocr": "Read text", "translate": "Translate",
-             "proofread": "Proofread"}.get(step, step)
+    label = STEP_LABEL.get(step, step)
     service = dict(SERVICES).get(back, back)
     # Names the SERVICE, not the step. One key serves all three steps now, so
     # "put a key next to Translate" would send somebody looking for a box that
@@ -2093,6 +2292,34 @@ def _is_generic_speaker(name: str) -> bool:
     return is_generic_speaker(name)
 
 
+def symbol_only_boxes(regs) -> list:
+    """The boxes the reader found nothing in but marks — and no others.
+
+    lee: *"after read text happens if a box is only symboled with no text it
+    shodu auto delete"*. What counts as a mark is `ocr.only_symbols`; what
+    this adds is the three boxes that are NOT the app's to throw away, however
+    they read:
+
+    * a box somebody typed themselves (`own_text`) — there was never anything
+      under it to read, so what the reader made of it says nothing at all;
+    * a LOCKED box — locked is the word for "I have corrected this, leave it
+      alone", and deleting it is the loudest possible way of not doing that;
+    * a box that already has a translation. Re-reading a page that has been
+      through the translator must not take the English with it — the reader
+      having a worse turn than last time is not a reason to lose work.
+    """
+    from .ocr import only_symbols
+    out = []
+    for r in regs:
+        if getattr(r, "own_text", False) or getattr(r, "locked", False):
+            continue
+        if (getattr(r, "dst_text", "") or "").strip():
+            continue
+        if only_symbols(r.src_text or ""):
+            out.append(r)
+    return out
+
+
 def do_ocr(p: Project, i: int) -> None:
     """Read the Japanese out of every bubble with the vision model.
 
@@ -2102,12 +2329,14 @@ def do_ocr(p: Project, i: int) -> None:
     transcribe only what is printed and to leave a region empty rather than
     invent a plausible line, so it does not hallucinate text into the page.
     """
-    from .ocr import page_label_tiles, looks_like_garbage
+    from .inkstyle import measure_page
+    from .ocr import detail_for, page_label_tiles, looks_like_garbage
     from .translate import link_sections, read_page_ocr
     page = p.materialize(i)
     regs = page.regions
     if not regs:
         return
+    before = len(regs)
 
     def say(msg: str) -> None:
         try:
@@ -2118,15 +2347,22 @@ def do_ocr(p: Project, i: int) -> None:
 
     _ctx_from_settings(p, "ocr")
     say("Reading text — sending the page to the AI reader…")
-    detail = p.settings.get("ocr_detail") or "auto"
+    # Nothing chosen means the format decides: a crop per box on the webtoons,
+    # the page cut up on manga. See `ocr.detail_for`.
+    detail = (p.settings.get("ocr_detail")
+              or detail_for(p.settings.get("medium")))
     tiles = page_label_tiles(page, detail=detail)
+    # A crop per box is a dozen small pictures that all want the same system
+    # prompt, so they ride in ONE turn. See `ocr.page_box_crops` for what it
+    # costs (less than the page does) and `translate._ask_vision` for how.
+    batch = len(tiles) if detail == "boxes" else 1
 
     def tick(n: int, total: int) -> None:
         if total > 1:
             say(f"Reading text — AI reader, piece {n} of {total}…")
 
     try:
-        texts = read_page_ocr(page, p.ctx, tiles, progress=tick)
+        texts = read_page_ocr(page, p.ctx, tiles, progress=tick, batch=batch)
     except Exception as e:
         for r in regs:
             if not (getattr(r, "locked", False) and r.src_text):
@@ -2145,12 +2381,50 @@ def do_ocr(p: Project, i: int) -> None:
         else:
             r.ocr_ok = True
             r.flagged = looks_like_garbage(t, r)
+    # ...and now that there are words, the boxes with no words in them. lee:
+    # *"if a box is only symboled with no text it shodu auto delete"*.
+    #
+    # BEFORE `link_sections`, deliberately: a dropped box must not first be
+    # joined to its neighbour as the second half of a sentence. `!` under a
+    # line of dialogue is exactly the shape that reads on, and linking it and
+    # then deleting it leaves the line pointing at a box that is gone.
+    #
+    # `!== False` rather than `.get(..., True)` — a project.json written
+    # before this setting existed has no key at all, and it should behave the
+    # way lee asked for it to behave by default.
+    if p.settings.get("drop_symbol_only") is not False:
+        junk = symbol_only_boxes(regs)
+        if junk:
+            gone = {id(r) for r in junk}
+            page.regions = [r for r in page.regions if id(r) not in gone]
+            regs = page.regions
+            n = len(junk)
+            say(f"Reading text — removed {n} box{'' if n == 1 else 'es'} "
+                f"with nothing but symbols in {'it' if n == 1 else 'them'}…")
     # Now that there are words, the one question the pixels could not answer:
     # are two sections of a balloon one sentence broken in two, or two things
     # said? The detector used to guess this and got lee's hot-spring balloon
     # wrong. See `translate.reads_on`.
     link_sections(regs)
+    # ...and what the letters were PAINTED with, while they are still on the
+    # page. This is the last moment: cleaning wipes the Japanese, and by the
+    # time the typesetter runs there is nothing left to measure. lee: *"is it
+    # posible to have teh ai laos look for color/formats"* — it is, and the
+    # pixels answer it better than the reader would. See `inkstyle`.
+    try:
+        # The tally is kept on the PROJECT, so a chapter read in one run comes
+        # out with one black in it rather than one per page. See `_snap`.
+        if getattr(p, "ink_seen", None) is None:
+            p.ink_seen = {}
+        measure_page(page, p.ink_seen)
+    except Exception:
+        pass                     # a colour is a nicety; the words are the job
     p.commit(i, page)
+    # A box set that changed has to be renumbered, or the reading order keeps
+    # the gap the deleted box left and the cached overlay still has its
+    # rectangle on it. Same call the delete button makes, for the same reason.
+    if len(page.regions) != before:
+        reorder(p, i)
 
 
 def chapter_context(p: Project, indices=None):
@@ -2421,9 +2695,19 @@ def model_menu(back: str, url: str, key: str, step: str = "",
 # screen could not name, and naming what each step will run on is the whole
 # point of these three boxes. lee: *"the coins shou look at what ai is in each
 # of teh step to use to bill"*.
+# What each step is CALLED, everywhere a person reads its name: the "no API
+# key" note, and the refusal a provider sends back. One map, because those two
+# said different things — the refusal said "the OCR step's key was refused" on
+# a run of Translate, since `step_name` was only ever set by the AI find pass
+# and every other step left it empty and took the "OCR" fallback. That pass is
+# gone (lee: *"remoeve teh whole ai box deection and just keep what we have
+# now"*), so the fallback was the only path left.
+STEP_LABEL = {"ocr": "Read text", "translate": "Translate",
+              "proofread": "Proofread"}
+
 STEP_DEFAULTS = {
     "ocr": ("gemini", "gemini-3.5-flash-lite"),
-    "translate": ("gemini", "gemini-3.6-flash"),
+    "translate": ("gemini", "gemini-3.7-flash"),
     "proofread": ("anthropic", "claude-sonnet-5"),
 }
 
@@ -2443,6 +2727,18 @@ def _ctx_from_settings(p: Project, step: str = "") -> None:
     """
     s = p.settings
     p.ctx.medium = s.get("medium") or "manga"
+    # What the typesetter will actually be allowed to set, so the translator
+    # can be told how much each balloon holds. BOTH ends: the budget is taken
+    # at `translate.comfort_size`, a fraction of the full size, because the
+    # floor is a size the typesetter never reaches. See `translate.fits_chars`.
+    try:
+        p.ctx.min_font = int(s.get("min_font") or 12)
+    except (TypeError, ValueError):
+        p.ctx.min_font = 12
+    try:
+        p.ctx.max_font = int(s.get("max_font") or 34)
+    except (TypeError, ValueError):
+        p.ctx.max_font = 34
     p.ctx.source = s.get("source") or ""
     p.ctx.target = s.get("target") or "en"
     # Gemini's own safety thresholds, per project. "" is Google's default;
@@ -2475,6 +2771,10 @@ def _ctx_from_settings(p: Project, step: str = "") -> None:
     # One key per SERVICE. See `key_for` — the service box is the answer and
     # the step's own box is only a leftover to fall back on.
     p.ctx.api_key = key_for(p, p.ctx.backend, step)
+    # ...and what to call this step if the provider refuses it. See
+    # `translate._model_error`: without this the message names the reader
+    # whichever step was actually running.
+    p.ctx.step_name = STEP_LABEL.get(step, "")
 
 
 def do_proofread(p: Project, i: int) -> None:
@@ -2794,10 +3094,15 @@ def set_translation(rec: dict, text: str) -> None:
     # Same door the model's own output comes through: a translations file is
     # very often a machine's, and an ellipsis on the front of a line the
     # Japanese does not open with is a pause the page never drew.
-    from .translate import strip_added_ellipsis
-    rec["dst_text"] = strip_added_ellipsis(
-        typeset_mod.normalize_text(str(text or "").strip()),
-        str(rec.get("src_text") or ""))
+    # ...and nothing else in front of it either. lee: *"there isjat anything
+    # informt of th text in the raw so there shoud be notjing in the
+    # transated"*. See `translate.strip_added_lead`.
+    from .translate import strip_added_ellipsis, strip_added_lead
+    src = str(rec.get("src_text") or "")
+    rec["dst_text"] = strip_added_lead(
+        strip_added_ellipsis(
+            typeset_mod.normalize_text(str(text or "").strip()), src),
+        src)
     rec.pop("proofread", None)              # new text: nobody has read it yet
     # A box lee drew himself has no detection to fall back on: its frame is
     # the only record of where it is, so dropping the layout outright would
@@ -2925,6 +3230,39 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
+    # Every route that names a page by number. `/api/page/7`, `/api/page/7/ocr`,
+    # `/img/7`, `/render/7` — the number is always the first path segment after
+    # the prefix.
+    _NUMBERED = re.compile(r"/(?:api/page|img|render)/(\d+)(?:/.*)?")
+
+    def _no_such_page(self, p, path: str) -> str:
+        """"Page 121 is not there any more", or "" when it is.
+
+        The browser holds a list of pages and the server holds another, and
+        they come apart: a webtoon re-cut from 120 tiles into 66 pages, a page
+        deleted, a project closed while its thumbnails were still arriving. The
+        requests already in flight then ask for a page nobody has.
+
+        Every one of those used to end the same way — `IndexError: list index
+        out of range` in a toast, and a traceback in the console for each
+        request still coming, which on a chapter is a screenful. It reads like
+        the editor is broken. It is a page that has gone.
+
+        So it is a 404 with a sentence in it. The browser already knows what to
+        do with a page that is not there, and nobody has to read Python to find
+        out which page it was.
+        """
+        m = self._NUMBERED.fullmatch(path)
+        if not m:
+            return ""
+        i = int(m.group(1))
+        if 0 <= i < len(p.pages):
+            return ""
+        if not p.pages:
+            return "there are no pages open"
+        return (f"page {i + 1} is not in this project any more "
+                f"(there are {len(p.pages)})")
+
     def _static(self, rel: str) -> None:
         rel = posixpath.normpath(rel).lstrip("/")
         path = os.path.join(STATIC, rel)
@@ -2942,6 +3280,9 @@ class Handler(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(u.query)
         path = u.path
         try:
+            gone = self._no_such_page(p, path)
+            if gone:
+                return self._json({"error": gone}, 404)
             if path in ("/", "/index.html"):
                 return self._static("editor.html")
             if path.startswith("/static/"):
@@ -3300,6 +3641,31 @@ class Handler(BaseHTTPRequestHandler):
                     "ikey": _scan_key(p, i),
                 })
 
+            # Where the artist drew nothing on this page. The splitter's line
+            # snaps to these, because a row picked by eye off a preview a tenth
+            # of the size is a row picked to the nearest thirty pixels.
+            m = re.fullmatch(r"/api/page/(\d+)/gaps", path)
+            if m:
+                i = int(m.group(1))
+                return self._json({"gaps": p.gaps_in(i),
+                                   "height": p.pages[i].height,
+                                   # The picture's own fingerprint, so the
+                                   # dialog can name the file it is about to
+                                   # show. Without it the preview asked for
+                                   # `/img/3` — the same string every time —
+                                   # and an <img> already holding that src does
+                                   # not re-request when it is set to what it
+                                   # already says. Cut a page, open the dialog
+                                   # on the half, and you were looking at the
+                                   # WHOLE page again. lee: *"its still showing
+                                   # the previous uncut picure after i cut
+                                   # it"*.
+                                   "key": _scan_key(p, i),
+                                   # Boxes come through a cut now; pictures
+                                   # the size of the page do not. So "busy"
+                                   # means PAINTED, and nothing else stops it.
+                                   "busy": Project._painted(p.pages[i])})
+
             m = re.fullmatch(r"/img/(\d+)", path)
             if m:
                 i = int(m.group(1))
@@ -3333,6 +3699,9 @@ class Handler(BaseHTTPRequestHandler):
         p = PROJECT
         path = urllib.parse.urlparse(self.path).path
         try:
+            gone = self._no_such_page(p, path)
+            if gone:
+                return self._json({"error": gone}, 404)
             if path == "/api/project_upload":
                 # A project file the BROWSER hands over, for when the machine
                 # cannot show a file dialog — a headless install, or the
@@ -3576,6 +3945,14 @@ class Handler(BaseHTTPRequestHandler):
                 # first to keep a series' content for its next chapter.
                 old = p.ctx
                 p.settings.pop("exported", None)     # a new chapter has not
+                # `clear()` forgets the PAGES; the FILES are a different thing.
+                # Every chapter uploads into the same `input/` folder and until
+                # this line nothing ever emptied it, so the next chapter landed
+                # on top of the last one and anything that listed the folder
+                # afterwards called every file in it a page. lee: *"soem pages
+                # that wrere not i the folder are showing uo when i upload teh
+                # foler"*.
+                p.put_the_last_chapter_away()
                 p.clear()
                 p.ctx = SeriesContext(
                     honorifics=old.honorifics, medium=old.medium,
@@ -3740,13 +4117,24 @@ class Handler(BaseHTTPRequestHandler):
                 # as a wrong key rather than as a key with a newline on it.
                 # lee: *"RuntimeError: OCR server returned 400 ... Please pass a
                 # valid API key"* with the key filled in.
-                for k in ("clean_token", "clean_url", "api_key", "base_url",
-                          "ocr_key", "translate_key", "proofread_key",
-                          "ocr_base_url", "translate_base_url",
-                          "proofread_base_url",
-                          "key_anthropic", "key_gemini", "key_openrouter"):
+                # Built from the step and service lists rather than typed
+                # out. The typed-out version was wrong the day a fourth AI
+                # step existed: `find_key` was not in it, so that one key
+                # alone kept its trailing newline.
+                for k in (list(project_mod.secret_keys())
+                          + ["clean_url", "base_url"]
+                          + [f"{st}_base_url" for st in AI_STEPS]):
                     if isinstance(new.get(k), str):
                         new[k] = new[k].strip().strip('"').strip("'").strip()
+                # ...and the mask is not a secret. It goes OUT in the same
+                # field the key lives in, so anything that hands a whole
+                # settings object back -- a .tct import, a restored snapshot,
+                # a script -- would save the word "set" over a working key.
+                # lee: *"the key it has ends set"*. It did.
+                masked = project_mod.drop_masked_secrets(new)
+                if masked:
+                    print("mangatl: ignoring masked value for "
+                          + ", ".join(masked), flush=True)
                 bad = []
                 for label, fp in ([("default", new.get("font"))]
                                   + list((new.get("fonts") or {}).items())):
@@ -3805,11 +4193,13 @@ class Handler(BaseHTTPRequestHandler):
                         if str(k).strip()}
                 p.save()
                 safe = dict(p.settings)
-                safe["api_key"] = "set" if safe.get("api_key") else ""
+                safe["api_key"] = project_mod.MASK if safe.get("api_key") else ""
                 for k in AI_STEPS:                    # per-step keys, masked
-                    safe[f"{k}_key"] = "set" if safe.get(f"{k}_key") else ""
+                    safe[f"{k}_key"] = (project_mod.MASK
+                                        if safe.get(f"{k}_key") else "")
                 for svc, _label in SERVICES:          # service keys, masked
-                    safe[f"key_{svc}"] = "set" if safe.get(f"key_{svc}") else ""
+                    safe[f"key_{svc}"] = (project_mod.MASK
+                                          if safe.get(f"key_{svc}") else "")
                 safe["clean_token"] = _token_state(safe.get("clean_token"))
                 return self._json({"ok": True, "settings": safe,
                                    "bad_fonts": bad})
@@ -3915,6 +4305,39 @@ class Handler(BaseHTTPRequestHandler):
                 _invalidate_renders()
                 _plate_cache.clear()
                 return self._json({"ok": True, "name": p.pages[i].name})
+
+            # Cutting a page in two, by hand, at a row the person picked.
+            # lee: *"add page splitter that allow the user to splite the pages
+            # manualy"*. The automatic re-cut is deliberately narrow — a
+            # sliced strip, untouched, and sure — and this is the way through
+            # for every long page that is none of those things.
+            m = re.fullmatch(r"/api/page/(\d+)/split", path)
+            if m:
+                i = int(m.group(1))
+                ok, why = p.split_page(i, int(body.get("at") or 0))
+                if not ok:
+                    return self._json({"error": why}, 400)
+                # Everything here is filed by page index, and every index from
+                # this one down has just moved.
+                _page_cache.clear()
+                _invalidate_renders()
+                _plate_cache.clear()
+                return self._json({"ok": True, "pages": len(p.pages),
+                                   "index": i})
+
+            # ...and putting two back together. lee: *"also add a page mergin
+            # feature"*.
+            m = re.fullmatch(r"/api/page/(\d+)/merge", path)
+            if m:
+                i = int(m.group(1))
+                ok, why = p.merge_pages(i, int(body.get("count") or 2))
+                if not ok:
+                    return self._json({"error": why}, 400)
+                _page_cache.clear()
+                _invalidate_renders()
+                _plate_cache.clear()
+                return self._json({"ok": True, "pages": len(p.pages),
+                                   "index": i})
 
             m = re.fullmatch(r"/api/pages/reorder", path)
             if m:
@@ -4061,7 +4484,7 @@ class Handler(BaseHTTPRequestHandler):
                 dest = os.path.join(d, _page_file_stem(p, i) + ".png")
                 with open(dest, "wb") as fh:
                     fh.write(raw)
-                if cv2.imread(dest) is None:
+                if imgio.imread(dest) is None:
                     os.remove(dest)
                     return self._json({"error": "not a readable image"}, 400)
                 p.pages[i].custom_clean = dest
@@ -4324,6 +4747,27 @@ class Handler(BaseHTTPRequestHandler):
                     r.dst_text = str(body.get("text") or "")
                     r.skip_clean = True               # type: ignore[attr-defined]
                     r.confidence = 1.0
+                # A sound effect is drawn along an axis of its own, and the
+                # English has to be set along the same one. `read_sfx_axis` is
+                # what reads it, and it ran at detection and when a box was
+                # RE-TYPED to sfx — never when a box ARRIVES as one, which is
+                # every box the Add-sound-effect tool puts down. Those reached
+                # the typesetter with `sfx_len` unset, took its "never
+                # measured" branch, and were set dead straight across the box.
+                # lee, on a leaning `티리스~`: *"i wnat you to have it also
+                # check fro the thext dircetion and copy that too"*.
+                #
+                # Read HERE, at the moment the box is drawn, for the reason
+                # detection reads it there: this is while the page still
+                # carries the Korean. By typeset time the effect is painted out
+                # and there is no angle left to take.
+                if _kinds.family_of(getattr(r, "kind", "")) == "sfx":
+                    try:
+                        _g = (cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                              if img.ndim == 3 else img)
+                        read_sfx_axis(r, _g)
+                    except Exception:
+                        pass      # straight is a worse answer, not a broken one
                 rec = region_record(r)
                 if own:
                     rec["own_text"] = True
@@ -4377,6 +4821,30 @@ class Handler(BaseHTTPRequestHandler):
                 rec["draw_box"] = [int(body["x"]), int(body["y"]),
                                    int(body["w"]), int(body["h"])]
                 p.pages[i].regions.append(rec)
+                # A box you just drew is not one you have put away.
+                #
+                # `active` — which is what the reply carries and what the
+                # client draws — leaves out every box whose GROUP is hidden. So
+                # drawing a sound effect on a page whose sound effects are put
+                # away appended the record, answered without it, and the box
+                # was simply not there. Nothing said so; the group switch is in
+                # another panel, and on these formats the detector makes no
+                # sound effects at all, so the group is routinely away and the
+                # only boxes in it are the ones drawn by hand. lee: *"i create
+                # a sfx but its visulay not there an i have to clcik trhe sfx
+                # button a lot for it to show up visulay"* — that button is the
+                # group switch, and clicking it is what brought the box back.
+                #
+                # Drawing a box is as plain a statement as there is that you
+                # want to see it, so it wins over a switch set earlier: the
+                # group comes back out, on this page.
+                if not p.pages[i].shown(rec):
+                    g = group_of(rec.get("kind") or "")
+                    if g:
+                        p.pages[i].hidden_kinds = [
+                            k for k in (p.pages[i].hidden_kinds or [])
+                            if k != g]
+                    invalidate_page(i)
                 reorder(p, i)
                 if own:
                     invalidate_page(i)
@@ -4473,12 +4941,19 @@ class Handler(BaseHTTPRequestHandler):
                     nr.manual = True                  # type: ignore[attr-defined]
                     keep = {k: rec.get(k) for k in
                             ("src_text", "dst_text", "dst_compact", "speaker",
-                             "draw_box", "link", "box_group")}
+                             "draw_box", "link", "box_group", "angle",
+                             "turn")}
                     new = region_record(nr)
                     new.update({k: v for k, v in keep.items() if v})
                     if not body.get("snap", True):
                         # an explicit manual box becomes the new reference
                         new["draw_box"] = [int(v) for v in bb]
+                    # Dragging a turned box's corner resizes it; it does not
+                    # straighten it. Its outline is DERIVED from the rectangle,
+                    # so it has to be derived again from the new one, or the box
+                    # would spring back upright the moment it was touched.
+                    if is_turned(new):
+                        new["polygon"] = turned_box(new["bbox"], new["turn"])
                     recs[recs.index(rec)] = new
                     rec = new
                 elif "polygon" in body:
@@ -4642,6 +5117,13 @@ class Handler(BaseHTTPRequestHandler):
                     if "skip_clean" in body:
                         rec["skip_clean"] = bool(body["skip_clean"])
                         _page_cache.clear()
+                    if "focus" in body:
+                        # Read this box's writing against its own local
+                        # background instead of the fixed ink levels. One box,
+                        # by hand — see `inpaint.focus_mask`. `_page_cache` goes
+                        # because the MASK changes, not just the plate.
+                        rec["focus"] = bool(body["focus"])
+                        _page_cache.clear()
                     if "hidden" in body:
                         # One box put away, or brought back. Same rule as a
                         # whole group: it stays in the record and stops being
@@ -4669,7 +5151,45 @@ class Handler(BaseHTTPRequestHandler):
                             89.0, float(body.get("angle") or 0.0)))
                         rec["sfx_len"] = rec.get("sfx_len") or 1.0
                         rec["sfx_wid"] = rec.get("sfx_wid") or 1.0
-                    elif rec.get("kind") == "sfx" and was_kind != "sfx" \
+                    if "turn" in body:
+                        # TURNING a box, which is a different thing from the
+                        # angle above and has its own field for that reason:
+                        # `angle` is a reading of the artwork and this is a
+                        # decision about the box, and a hand-drawn sound effect
+                        # has both.
+                        #
+                        # lee: *"alow me to rotate boxes, only teh ser shoud be
+                        # able to rotate them the detector boxes shoud be
+                        # normal"*. A detected box's outline came off the
+                        # artwork; turning it would be turning the drawing.
+                        if not rec.get("manual"):
+                            return self._json(
+                                {"error": "only a box you drew can be turned"})
+                        was_turn = float(rec.get("turn") or 0.0)
+                        rec["turn"] = max(-89.0, min(
+                            89.0, float(body.get("turn") or 0.0)))
+                        # The turn is also stored as GEOMETRY, which is what
+                        # makes the rest of the app follow it without being
+                        # told: `_is_a_box` answers False for a tilted
+                        # rectangle, so the region loads with a real placement
+                        # area, and that area is what the fitter sets text into.
+                        # `draw_box` keeps the upright original, so the turn can
+                        # always be taken back.
+                        rec["polygon"] = turned_box(rec["bbox"], rec["turn"])
+                        if _kinds.family_of(rec.get("kind") or "") == "sfx":
+                            # A sound effect's letters run along an axis of its
+                            # own rather than in a block, so the way to turn
+                            # them WITH the box — lee chose "the box and the
+                            # text together" — is to turn that axis by as much.
+                            rec["angle"] = max(-89.0, min(89.0, float(
+                                rec.get("angle") or 0.0) + rec["turn"] - was_turn))
+                        # No `invalidate_page` here: `reorder` at the end of
+                        # this endpoint drops the cached page for anything but
+                        # a layout-only edit, and a turn is not one.
+                    # ...and not when an angle came WITH the change: that is a
+                    # correction by hand, and reading the axis would undo it.
+                    if "angle" not in body \
+                            and rec.get("kind") == "sfx" and was_kind != "sfx" \
                             and not rec.get("sfx_len"):
                         # Calling a box a sound effect is the moment to read
                         # its angle — and the page still has the Japanese on
@@ -4771,6 +5291,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         p = PROJECT
         path = urllib.parse.urlparse(self.path).path
+
+        gone = self._no_such_page(p, path)
+        if gone:
+            return self._json({"error": gone}, 404)
 
         m = re.fullmatch(r"/api/page/(\d+)", path)
         if m:

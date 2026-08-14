@@ -452,8 +452,13 @@ def test_a_box_with_something_in_it_always_gets_a_method():
         regions.append(r)
     pg = Page(image=img.copy(), regions=regions)
     I.inpaint_page(pg, neural=None)
+    # "second pass" is not a route a box took INSTEAD of one of these — it is
+    # the cleaner going back over a box that still had writing on it — so it
+    # does not belong in a count of routes, the same as "core only". Nor does
+    # "redrawn", which is the step after both of them putting a line back.
     got = {k: v for k, v in pg.clean_stats.items()
-           if k not in ("skipped", "core only", "fell back")}
+           if k not in ("skipped", "core only", "fell back", "second pass",
+                        "redrawn")}
     assert sum(got.values()) == len(regions), \
         f"{len(regions)} boxes went in and {sum(got.values())} were cleaned: {pg.clean_stats}"
 
@@ -896,20 +901,48 @@ def test_the_thresholds_say_white_not_pale():
     assert inpaint.WHITE_STD < inpaint.FLAT_STD
 
 
-def test_the_algo_stamp_moved_with_the_white_only_rule():
+def test_the_stamp_is_bumped_when_the_cleaner_changes():
     """A plate is built once and reused for ever, and its name is made of the
     page, the boxes and the settings — none of which change when the CLEANING
     CODE does. `inpaint.ALGO` is the part that does, and it has to be bumped
     with every change to how a page is cleaned.
 
-    It was not bumped with the white-only routing, so every page already
-    cleaned kept a plate made under the old rule and the change arrived
-    invisible — on exactly the pages lee was looking at when he said the
-    cleaner *"just ignores some text"*. This is the third time that mistake has
-    been made; it is worth a test that names the change.
+    **This has now been forgotten four times.** The version that only asserted
+    `ALGO >= "2026-07-31-a"` named the mistake and could not catch it: it goes
+    on passing for ever no matter what happens to the file beside it. The
+    fourth time cost a day of cleaning fixes — the bays, the fence, the model's
+    padding, mid-tone ink — every one of them measured and correct and every
+    one invisible, because lee's pages already had plates. He sent back a gold
+    plate that had been fixed here and asked *"can you explain why its not
+    clening that text?"*
+
+    So: a fingerprint of `inpaint.py` with the stamp line taken out. Change how
+    a page is cleaned and this goes red until the stamp moves — which is the
+    whole discipline, enforced instead of described. Both values are updated
+    together, deliberately: the diff then SAYS that plates were retired.
     """
-    from mangatl import inpaint
-    assert inpaint.ALGO >= "2026-07-31-a", inpaint.ALGO
+    import hashlib
+    import pathlib
+    import re
+
+    from mangatl import inpaint, project
+    src = pathlib.Path(inpaint.__file__).read_text(encoding="utf-8")
+    body = re.sub(r'\nALGO = "[^"]*"', "", src)
+    # ...and `region_from_record`, which builds the mask the cleaner erases.
+    # It lives in another file the plate cache does not watch either, and the
+    # change that finally took gold text off is in it — so a fingerprint of
+    # `inpaint.py` alone would have let that one ship invisible as well.
+    other = pathlib.Path(project.__file__).read_text(encoding="utf-8")
+    i = other.index("def region_from_record")
+    fn = other[i:other.index("\ndef ", i + 1)]
+    got = (hashlib.sha1(body.encode("utf-8")).hexdigest()[:16],
+           hashlib.sha1(fn.encode("utf-8")).hexdigest()[:16])
+    assert (got, inpaint.ALGO) == (
+        ("a5d646736893dbdd", "20047fcb3df3dcf2"), "2026-08-13-e"), (
+        f"the cleaning code is {got} and the stamp says {inpaint.ALGO}.\n"
+        "If you changed how a page is cleaned: bump ALGO, then put both new "
+        "values here. If you only moved a comment: put the new fingerprints "
+        "here and leave the stamp alone.")
 
 
 # ------------------------------------------- a cloak is not a white bubble
@@ -980,7 +1013,10 @@ def test_outside_text_on_white_cloth_goes_to_the_model():
     and the white box he kept sending pictures of."""
     img, ink = _on_cloak()
     page, r = _clean(img, ink, "freefloat", neural=lambda sub, m: sub.copy())
-    assert r.clean_route == "neural", r.clean_route
+    # startswith, not equals: the stub model hands the crop straight back, so
+    # the writing is still standing afterwards and the second step correctly
+    # has a go at it. What this test is about is WHICH ROUTE the box took.
+    assert r.clean_route.startswith("neural"), r.clean_route
     assert not page.clean_stats.get("flat fill"), page.clean_stats
 
 

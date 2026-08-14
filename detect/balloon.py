@@ -313,6 +313,40 @@ def _give_back(crop, mask, glyph, seal, cfg, page_area):
     return kept
 
 
+def _no_bays_in_the_writing(r: TextRegion, mask: np.ndarray,
+                            outer: np.ndarray) -> np.ndarray:
+    """Fill the bites the seal took out of the region's OWN text box.
+
+    `_give_back` grows the sealed shape into paper and stops it against ink, so
+    any lettering the seal missed becomes a wall and the shape goes AROUND it.
+    On page 067 of lee's chapter that left two bays a hundred pixels wide,
+    exactly the shape of `스토리가` and `매력적인`, and the two words came back on
+    the cleaned page while the four lines above them came off.
+
+    A balloon interior does not have bays cut into it at the very place the
+    writing is. So: anything inside the shape's convex hull AND inside the
+    region's own text box is interior, whatever the seal thought. Both halves
+    are needed. The hull alone would step over the drawn outline on a crescent;
+    the box alone would swallow whatever the box overlaps at the balloon's rim.
+    Between them the fill can only ever reach places the writing is already in.
+
+    Measured over the chapter: one region in 124 gains more than 5% (067, at
+    7%), the rest gain a fraction of a percent, and not one pixel lands outside
+    the text box.
+    """
+    box = tuple(int(v) for v in (getattr(r, "bbox", None) or ()))
+    if len(box) != 4:
+        return mask
+    # No width/height guard: a box of no width slices to nothing a line below,
+    # so a guard for it would be a line no test could tell from its absence.
+    x, y, w, h = box
+    hull = np.zeros(mask.shape[:2], np.uint8)
+    cv2.fillPoly(hull, [cv2.convexHull(outer)], 255)
+    keep = np.zeros(mask.shape[:2], np.uint8)
+    keep[max(0, y):y + h, max(0, x):x + w] = 1
+    return ((mask > 0) | ((hull > 0) & (keep > 0))).astype(np.uint8) * 255
+
+
 def _apply(r: TextRegion, mask: np.ndarray) -> bool:
     """Hang a placement area on a region, as geometry the project can store."""
     cnts, _ = cv2.findContours((mask > 0).astype(np.uint8), cv2.RETR_EXTERNAL,
@@ -322,6 +356,10 @@ def _apply(r: TextRegion, mask: np.ndarray) -> bool:
     outer = max(cnts, key=cv2.contourArea)
     if cv2.contourArea(outer) < 24:
         return False
+    mask = _no_bays_in_the_writing(r, mask, outer)
+    cnts, _ = cv2.findContours((mask > 0).astype(np.uint8), cv2.RETR_EXTERNAL,
+                               cv2.CHAIN_APPROX_SIMPLE)
+    outer = max(cnts, key=cv2.contourArea)
     r.bubble_mask = (mask > 0).astype(np.uint8) * 255
     r.bubble_bbox = tuple(int(v) for v in cv2.boundingRect(outer))
     # Stored as a polygon, not a bitmap: this is what survives a save and gets
@@ -564,7 +602,30 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     the dark into strips and carries drawn edges the fill test refuses.
     """
     cfg = cfg or BalloonConfig()
-    up = _attach(gray, regions, cfg, ("bubble", "narration"))
+    # Free-floating blocks are offered the upright search too, and promoted if
+    # a balloon really is found round them.
+    #
+    # lee: *"when you lable a bubble i want you ta do a very quick text that
+    # try to find teh bubble if it fins teh bubble then lable it a bubble box
+    # if it cant fins it labble it a outsude test, te test need to be fast"*.
+    #
+    # Half of that is this line, and it was already the rule on the inverted
+    # pass below — a block turning out to be inside a balloon is better
+    # evidence than the ring test that called it free, whichever polarity found
+    # it. FAST: measured over 55 pages, offering the search to the free blocks
+    # as well costs 0.05s a page against 17.9s detecting them. 0.3%.
+    #
+    # THE OTHER HALF IS DELIBERATELY NOT HERE. Demoting a block when no balloon
+    # is found was measured on the same 55 pages and it fires on **54% of all
+    # dialogue boxes** — 73% of one chapter, 5% of the other. Cropping them
+    # says why: they are CAPTION PANELS, a pale rectangle filling the panel
+    # with the narration in it. This pass refuses those on purpose — such a
+    # rectangle touches the page edge, or fails `min_gain` because the text box
+    # already fills it — so "no balloon found" means "not a drawn balloon", not
+    # "loose on the artwork". A rule built on it would relabel half the
+    # dialogue in a chapter. lee, shown the measurement, picked promote only.
+    up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"),
+                 promote=True)
     # …and again on the negative, for the black balloons. A block the page
     # called free-floating is allowed in this time: on a black balloon the ring
     # of "is there paper round this?" reads as artwork, so a block inside one
@@ -573,7 +634,184 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     # turns out to be in a balloon is called what it is.
     dark = _attach(255 - gray, regions, cfg,
                    ("bubble", "narration", "freefloat"), promote=True)
+    _shut_in_a_round_wall(gray, regions, cfg)
     return up + dark
+
+
+# --------------------------------------------- a wall of sharp change, closed
+#
+# lee, after both of the obvious fixes had been measured and thrown out::
+#
+#     for detecting teh fuzy eadge can you make it si that it looks for a
+#     drasticaky high cang in color from teh backgorund its at right no and if
+#     teh change is in circularish shape it shoud be a ballon tetx
+#
+# He is right, and the reason he is right is exact. Everything above asks about
+# the balloon's FILL -- is it bright (`min_interior_brightness`), is it flat
+# (`max_interior_std`), is it free of drawing (`max_edge_density`). Page 023 of
+# his chapter 1 is a grey disc with a STARFIELD AND A PLANETARY RING DRAWN
+# ACROSS IT. Every fill question answers "artwork", and answers correctly. Its
+# fill measures 150 against a floor of 190, and its edge density 0.030 against
+# a bar of 0.018.
+#
+# Two fixes were measured before this one and both are dead:
+#
+#   lower the ring test's brightness bar -- killed by page 037. 부웅, a
+#       hand-drawn sound effect over pale buildings, has a ring median of 136
+#       against this balloon's 106. The effect is BRIGHTER than the balloon, so
+#       no brightness bar separates them.
+#   lower `min_interior_brightness` -- measured at 190, 160, 140, 120 and 100
+#       across 43 pages: **zero boxes change kind at any value**, because the
+#       edge-density guard refuses the disc anyway.
+#
+# lee's rule never looks at the fill. It asks whether there is a hard edge that
+# SHUTS around the writing, and whether the thing it shuts is roundish. A
+# starfield painted on the balloon does not disturb either question.
+#
+# MEASURED over 128 boxes on 43 pages of chapter 1:
+#
+#     kind         boxes   a closed wall   ...and elliptical
+#     bubble          60        47                45
+#     narration       16        14                14
+#     freefloat        3         1                 1     <- page 023, wanted
+#     sfx             49         5                 4
+#
+# Only free-floating blocks are renamed, so the only three boxes this can act
+# on are that column -- and exactly the right one of the three fires. 037 and
+# 004, the two that must not move, find no closed wall at all.
+
+# A DRASTIC change, in lee's words, is Canny's high bar. 60/150 was tried first
+# and misses: the outer side of a furry outline fades into a dark sky and never
+# reaches it, so the wall has holes and the inside leaks out to the page. At
+# 30/90 the same wall closes. Stable from 30/90 to 40/110.
+WALL_LO, WALL_HI = 30, 90
+# A furry outline is a band of spikes, not a line. Sealing by this much joins
+# the spikes into one wall. Stable from 11 to 21.
+WALL_SEAL = 15
+# How far out to look for it, as a multiple of the longer side of the box.
+WALL_LOOK = 2.6
+# ...and how round the thing it shuts has to be. `fit` is the region's area
+# over the area of the ellipse least-squares fitted through it -- page 023's
+# balloon comes back at 1.00, which is to say the wall really is an ellipse.
+WALL_FIT = 0.85
+WALL_CIRC = 0.50          # 4*pi*A/P^2: 1.0 a circle, 0.79 a square
+WALL_SLACK = 1.2          # and bigger than the writing, or it is the writing
+
+
+def _round_wall_around(gray: np.ndarray, bbox, roundish: bool = True,
+                       lo: int = None, hi: int = None,
+                       seal: int = None, bounds: bool = False):
+    """Is this box shut inside a roundish wall of sharp colour change?
+
+    `roundish=False` asks the same question with the last two gates left off:
+    shut inside a wall of ANY shape. That is a different question, asked from
+    a different place. A balloon is round, and this function's job here is to
+    rescue one drawn on a starfield; "is anything at all drawn round this
+    writing" is what `comictext`'s paper-is-not-a-balloon demotion wants, and
+    a caption plate — a rectangle — has to answer yes to it.
+
+    Measured on chapter 8's 33 no-balloon dialogue boxes, dropping the two
+    gates moves exactly two: 022#2, a caption in a ruled frame (circularity
+    0.25, and right to keep), and 020#1, a gold 어쩜 in a panel (0.14, and a
+    loss). Nothing else in the chapter changes hands.
+
+    `lo`, `hi` and `seal` override the Canny thresholds and the gap the wall
+    may have in it. The defaults are the balloon numbers; the enclosure
+    question is asked with gentler ones (see `comictext.ENCLOSE_LO`), because
+    the walls it has to see are drawn fainter than a balloon's: lee's pale
+    thought-circles read nothing at 30/90 and his ornate caption frame has
+    ornament gaps wider than 15px. Measured over every no-balloon box on the
+    chapter, 20/60 with a 25px seal moves exactly the three that should move
+    and none of the bursts, credits or bare-paper captions.
+    """
+    no = None if bounds else False
+    x, y, w, h = [int(v) for v in bbox]
+    lo = WALL_LO if lo is None else lo
+    hi = WALL_HI if hi is None else hi
+    seal = WALL_SEAL if seal is None else seal
+    H, W = gray.shape[:2]
+    m = int(WALL_LOOK * max(w, h))
+    ax0, ay0 = max(0, x - m), max(0, y - m)
+    ax1, ay1 = min(W, x + w + m), min(H, y + h + m)
+    sub = gray[ay0:ay1, ax0:ax1]
+    if sub.size == 0:
+        return no
+    e = cv2.Canny(cv2.GaussianBlur(sub, (5, 5), 0), lo, hi)
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (seal, seal))
+    e = cv2.morphologyEx(e, cv2.MORPH_CLOSE, k)
+    # ...and one pixel thicker, which is not cosmetic. Canny returns a curve
+    # that is 8-connected, and a 4-connected fill walks straight through the
+    # diagonal steps of one: on a clean drawn oval the wall came back 987
+    # pixels for a 940-pixel perimeter -- a single thin line -- and the inside
+    # joined the outside through it, so a perfectly closed balloon read as
+    # open. It only worked on lee's page by luck, because fur is thick.
+    e = cv2.dilate(e, np.ones((3, 3), np.uint8))
+    # The WRITING is a wall of sharp change too, and it is not the one being
+    # looked for. Left in, it chops the inside of the balloon into one piece
+    # per gap between two letters and the piece holding the text is a sliver.
+    ey0, ex0 = max(0, y - ay0 - 4), max(0, x - ax0 - 4)
+    ey1, ex1 = y - ay0 + h + 4, x - ax0 + w + 4
+    e[ey0:ey1, ex0:ex1] = 0
+    # What that erasure is measured against, below. On hatched or heavily
+    # textured artwork EVERYTHING is wall once the gaps are sealed, so the only
+    # clear ground left is the rectangle just wiped — a perfectly shut, roundish
+    # region that is not a balloon but the hole this function punched itself.
+    # `test_typesetting_on_textured_dark_art_gets_nothing` is that case.
+    hole = float(max(1, (ey1 - ey0)) * max(1, (ex1 - ex0)))
+    n, lab = cv2.connectedComponents((e == 0).astype(np.uint8), 4)
+    if n <= 1:
+        return no
+    cy, cx = (y - ay0) + h // 2, (x - ax0) + w // 2
+    if not (0 <= cy < lab.shape[0] and 0 <= cx < lab.shape[1]):
+        return no
+    me = int(lab[cy, cx])
+    if me == 0:
+        return no
+    comp = (lab == me).astype(np.uint8)
+    # SHUT. A piece that runs off the window is the open page, not a balloon.
+    if (comp[0].any() or comp[-1].any() or comp[:, 0].any()
+            or comp[:, -1].any()):
+        return no
+    cnts, _ = cv2.findContours(comp, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not cnts:
+        return no
+    c = max(cnts, key=cv2.contourArea)
+    a = float(cv2.contourArea(c))
+    if a < WALL_SLACK * hole or len(c) < 5:
+        return no
+    if not roundish:
+        if bounds:
+            # The INTERIOR the wall shuts -- as a page-sized mask, glyph hole
+            # filled back in, plus its rectangle. This is what "give the box
+            # the frame it sits in" needs: the room inside the enclosure is a
+            # balloon in everything but roundness.
+            interior = np.zeros(gray.shape[:2], np.uint8)
+            cv2.drawContours(interior, [c], -1, 255, cv2.FILLED,
+                             offset=(ax0, ay0))
+            bx, by, bw, bh = cv2.boundingRect(c)
+            return interior, (ax0 + bx, ay0 + by, bw, bh)
+        return True
+    p = float(cv2.arcLength(c, True))
+    if 4 * np.pi * a / max(1.0, p * p) < WALL_CIRC:
+        return False
+    (_ctr, (ew, eh), _ang) = cv2.fitEllipse(c)
+    ea = np.pi * (ew / 2.0) * (eh / 2.0)
+    return ea > 0 and (a / ea) >= WALL_FIT
+
+
+def _shut_in_a_round_wall(gray, regions, cfg) -> None:
+    """Rename free-floating blocks that are shut inside a roundish wall.
+
+    The LABEL only. No `bubble_mask` is set, so the typesetter lays the English
+    out in the text box exactly as it does today — this says what the box IS,
+    which is what lee asked for, and does not quietly change where the words
+    go on the strength of a shape nothing has measured for that job yet.
+    """
+    for r in regions:
+        if r.kind != "freefloat" or r.bubble_mask is not None:
+            continue
+        if _round_wall_around(gray, r.bbox):
+            r.kind = "bubble"
 
 
 def _attach(gray: np.ndarray, regions: list[TextRegion], cfg: BalloonConfig,
@@ -817,4 +1055,115 @@ def give_room(gray: np.ndarray, regions: list[TextRegion],
         if room_around(gray, r, regions, cfg, taken):
             taken |= (r.bubble_mask > 0).astype(np.uint8)
             done += 1
+    return done
+
+
+# Two lobes of one balloon: how close their paper has to come, and how bright
+# that paper has to be.
+#
+# lee, with three screenshots of what he wants linked and one of what he does
+# not: *"here are exmaole of what i want withh teh link it shoud only be bubble
+# text and only be bubbles so the ;ast screenshot shoud not be conected"*.
+#
+# MEASURED on all four of his examples. The gap is not a close call:
+#
+#   029  "영혼의 문?" + "영혼 상태로 통과할 수 있다고?"        5 px   <- link
+#   049  "하지만 이건…" + "사실상 사망 상태잖아…?"             5 px   <- link
+#   049  "영혼이 존재하지 않아" + "몇 시간 뒤면…"              5 px   <- link
+#   every other pair of balloons on those two pages     658 - 2144 px
+#
+# ...and the one he does NOT want linked is thrown out before the geometry is
+# even asked. Page 029's "[초월] 영혼의 문" and the lines under it sit in a dark
+# system panel, not a balloon: their interiors measure **33 and 67** where a
+# speech balloon measures **255**. `TOUCH_PAPER` is that difference, and it is
+# the whole of "only be bubbles".
+TOUCH_GAP = 12
+TOUCH_PAPER = 200
+
+
+def _paper_inside(gray: np.ndarray, mask: np.ndarray) -> float:
+    v = gray[mask]
+    return float(np.median(v)) if v.size else 0.0
+
+
+def link_touching_bubbles(gray: np.ndarray, regions, gap: float = TOUCH_GAP,
+                          paper: float = TOUCH_PAPER) -> int:
+    """Join the boxes of a multi-lobe balloon. Returns how many pairs joined.
+
+    A balloon drawn as two overlapping rounds holds one person saying one
+    thing, and the two halves of it were arriving as two unrelated boxes.
+
+    This is NOT the guess `detect_comictext` refuses to make. That one is about
+    a block of text a clusterer chopped in two, where the question is whether
+    the WORDS run on and the picture cannot answer it. This one is about the
+    drawn shape: the two lobes touch, so the artist drew them as one balloon,
+    and that is a fact about the page rather than about the grammar.
+
+    Only ever links boxes that are:
+      * `bubble` -- narration panels, outside text and sound effects are out
+      * sitting in a balloon the fitter actually found
+      * sitting in a balloon whose inside is PAPER, so a dark system panel with
+        two lines in it is not two balloons
+      * within `gap` pixels of each other
+
+    A box that already carries a link -- somebody joined it by hand, or the
+    reader's `link_sections` did -- is left exactly as it is.
+    """
+    lobes = []
+    for r in regions:
+        if r.kind != "bubble" or r.bubble_mask is None:
+            continue
+        if int(getattr(r, "link", 0) or 0):
+            continue
+        m = np.asarray(r.bubble_mask)
+        # A mask that is not the shape of the page is not a balloon on it.
+        # Nothing in the app makes one, but a caller that hands over a stub —
+        # `tests/test_the_sky_is_not_a_balloon.py` patches the fitter with one
+        # — must not take the whole run down with an index error.
+        if m.shape[:2] != gray.shape[:2]:
+            continue
+        m = m > 0
+        if not m.any() or _paper_inside(gray, m) < paper:
+            continue
+        lobes.append((r, m))
+    if len(lobes) < 2:
+        return 0
+
+    # Union-find over "their paper touches", so a balloon of three lobes comes
+    # out as one group rather than two overlapping pairs.
+    parent = list(range(len(lobes)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    k = int(max(1, round(gap)))
+    grown = [cv2.dilate(m.astype(np.uint8),
+                        cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                                  (2 * k + 1, 2 * k + 1)))
+             for _r, m in lobes]
+    for i in range(len(lobes)):
+        for j in range(i + 1, len(lobes)):
+            if (grown[i] & lobes[j][1].astype(np.uint8)).any():
+                a, b = find(i), find(j)
+                if a != b:
+                    parent[a] = b
+
+    groups: dict = {}
+    for i in range(len(lobes)):
+        groups.setdefault(find(i), []).append(i)
+    used = max([int(getattr(r, "link", 0) or 0) for r in regions] or [0])
+    done = 0
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        used += 1
+        done += 1
+        for i in members:
+            lobes[i][0].link = used
+            # A fact about the PICTURE. Not "one sentence" — see
+            # `models.TextRegion.link_kind`, and page 049.
+            lobes[i][0].link_kind = "balloon"
     return done

@@ -169,7 +169,7 @@ def test_an_old_project_on_a_gone_service_is_still_priced():
         assert coins.rate_for(m) != coins.UNKNOWN, m
 
 
-# --------------------------------------------------------- the ten OpenRouter slugs
+# ----------------------------------------------------------- the OpenRouter slugs
 
 def test_openrouter_costs_what_the_provider_costs():
     """OpenRouter does not mark tokens up — the slug's rate is the provider's
@@ -192,8 +192,24 @@ def test_the_anthropic_slugs_are_written_out_and_not_guessed():
         coins.rate_for("claude-haiku-4-5")
 
 
-def test_ten_of_them():
-    assert len(coins.models_for("openrouter")) == 10
+def test_every_openrouter_slug_is_written_out_and_every_vendor_is_stocked():
+    """This used to be `len(...) == 10`, and every model lee asked for broke
+    it without anything being wrong. A count is not a decision; these two are.
+
+    First: the slug is an EXACT key, never prefix-matched. `qwen/qwen3.7-max`
+    would happily land on a `qwen/qwen3.7` entry and be priced by luck, and
+    the day the two prices part it is wrong and quiet — the same trap the
+    Anthropic dotted slugs are held to just above.
+
+    Second: every prefix in the openrouter family list actually stocks
+    something. A vendor whose models are all dropped leaves a prefix behind
+    that matches nothing, and the menu just gets quietly shorter.
+    """
+    slugs = coins.models_for("openrouter")
+    for slug in slugs:
+        assert slug in coins.RATES, slug
+    for vendor in coins.FAMILIES["openrouter"]:
+        assert any(s.startswith(vendor) for s in slugs), vendor
 
 
 # ------------------------- and the bug lee found: a menu with one model in it
@@ -333,8 +349,16 @@ def test_the_line_is_read_off_the_price_table_not_off_a_date():
     with_four = dict(coins.RATES)
     with_four["gemini-4-pro"] = coins.RATES["gemini-3.1-pro"]
     import unittest.mock as mock
+    # Which 3.x survives is read off the table as well, rather than written
+    # down here — the day a 3.8 lands this test follows it instead of failing
+    # for a reason that has nothing to do with what it is asking.
+    last3 = max(coins._version(k)[2] for k in with_four
+                if coins._version(k) and coins._version(k)[:2] == ("gemini", 3))
     with mock.patch.object(coins, "RATES", with_four):
-        assert coins.current_enough("gemini-3.6-flash")
+        assert coins.current_enough("gemini-3.%d-flash" % last3)
+        # ...and the minor below it goes. That is the half of the rule that
+        # actually retires anything, and nothing else here was asking for it.
+        assert not coins.current_enough("gemini-3.%d-flash" % (last3 - 1))
         assert not coins.current_enough("gemini-2.5-pro")
 
 
@@ -427,6 +451,85 @@ def test_only_openrouter_subtracts(monkeypatch):
     _reach(monkeypatch, ["gemini-3.6-flash"])
     assert editor.model_menu("gemini", "u", "KEY", "translate",
                              ["gemini-3.6-flash"]) == ["gemini-3.6-flash"]
+
+
+# -------------------------------------------- the range lee asked to be added
+
+def test_gemini_3_7_flash_is_on_both_of_its_menus():
+    """lee: *"google 3.7 flash is availbel add that to the list of goodle
+    ais"*. It is sold two ways — straight from Google and resold through
+    OpenRouter — and a model added to one menu and not the other is a model
+    half the app cannot be pointed at."""
+    assert "gemini-3.7-flash" in coins.offered("gemini")
+    assert "google/gemini-3.7-flash" in coins.offered("openrouter")
+    assert coins.rate_for("google/gemini-3.7-flash") == \
+        coins.rate_for("gemini-3.7-flash"), "the reseller does not mark it up"
+
+
+def test_the_launch_rate_is_not_what_gets_written_down():
+    """lee: *"no promotianal rate us teh normal rate"*.
+
+    Gemini 3.7 Flash opened at half price through 2026. Writing the discount
+    down means every estimate in the app is half of what the chapter will
+    actually cost from the day the promotion ends — and nothing would tell
+    anybody, because the number would not change.
+    """
+    r = coins.rate_for("gemini-3.7-flash")
+    assert (r.inp, r.out) == (1.50, 7.50)
+    assert (r.inp, r.out) != (0.75, 3.75), "that is the introductory rate"
+
+
+def test_3_7_takes_the_price_band_off_3_6():
+    """They cost exactly the same, so `one_per_price` keeps whichever it meets
+    first and the table's order is what decides. This is the one place in that
+    block where the order of two lines carries a decision, which is why it is
+    asked out loud rather than left to be noticed."""
+    assert coins.rate_for("gemini-3.7-flash") == coins.rate_for("gemini-3.6-flash")
+    assert "gemini-3.6-flash" not in coins.offered("gemini")
+    assert "google/gemini-3.6-flash" not in coins.offered("openrouter")
+    # ...but it is still PRICED. Somebody may have had it set since yesterday,
+    # and an unpriced model is billed at the top of the range.
+    assert coins.priced("gemini-3.6-flash")
+    assert coins.rate_for("gemini-3.6-flash") != coins.UNKNOWN
+
+
+def test_the_openai_and_qwen_ranges_reached_the_openrouter_menu():
+    """lee: *"add some open ai and quen models to teh open router lsit"*.
+
+    OpenAI is not one of this app's three services — there is no OpenAI key
+    box on the settings screen — so OpenRouter is the only door these come
+    through, and the slugs have to be written down for them to be priced.
+    """
+    menu = coins.offered("openrouter", "translate")
+    for m in ("openai/gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/gpt-5.6-luna",
+              "qwen/qwen3.7-max", "qwen/qwen3.7-plus", "qwen/qwen3.7-flash"):
+        assert m in menu, m
+        assert coins.rate_for(m) != coins.UNKNOWN, m
+
+
+def test_the_one_of_them_that_cannot_see_is_kept_off_the_read_text_menu():
+    """lee: *"make sure only taht suport iage eai show up in the red etx
+    list"*.
+
+    Qwen 3.7 Max is the trap in this batch: its two smaller siblings take
+    pictures and it does not, so a rule written per-VENDOR would have offered
+    it. `NO_SIGHT` names the model, not the maker.
+    """
+    assert not coins.sees("qwen/qwen3.7-max")
+    assert coins.sees("qwen/qwen3.7-plus") and coins.sees("qwen/qwen3.7-flash")
+    ocr = coins.offered("openrouter", "ocr")
+    assert "qwen/qwen3.7-max" not in ocr
+    assert "qwen/qwen3.7-plus" in ocr and "qwen/qwen3.7-flash" in ocr
+    # ...and it is still offered for the steps that are only ever handed text.
+    assert "qwen/qwen3.7-max" in coins.offered("openrouter", "translate")
+
+
+def test_nothing_at_all_on_the_read_text_menu_is_blind():
+    """The whole menu, not the models this batch happened to add — a slug put
+    in tomorrow is caught by this and by nothing else."""
+    for back in ("gemini", "anthropic", "openrouter"):
+        for m in coins.offered(back, "ocr"):
+            assert coins.sees(m), (back, m)
 
 
 # ------------------------------------------------- the maker menu, on screen

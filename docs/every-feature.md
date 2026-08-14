@@ -343,7 +343,6 @@ as well as after one.
 | `←` `→` | Previous / next page | Anywhere but a text field |
 | `Delete` `Backspace` | Delete the selected paint layer if one is picked, else the selected box(es) | Anywhere but a text field |
 | `1` `2` `3` | Set the box to family 1, 2 or 3 | Translation view, a box selected |
-| `4`-`8` | Set the box to the 4th-8th sub-type **of the family it is already in** | Translation view, a box selected |
 | `S` | Mark the box as SFX | A box selected |
 | `L` | Link mode: the next box you click joins to this one | A box selected |
 | `H` | Hand tool | Anywhere |
@@ -504,9 +503,22 @@ a project that had it on keeps it. Capitals are a per-block decision now.
 | Label | Key | Type | Default | Options | What it changes |
 |---|---|---|---|---|---|
 | Source material | `medium` | menu | `manga` | manga, manhwa, manhua | The prompt's medium. **Changing it refills the next two**: manga → Japanese, right to left; manhwa → Korean, left to right; manhua → Chinese, left to right |
-| Re-cut webtoon strips when a chapter is loaded | `restitch_strips` | checkbox | **on** | | A sliced webtoon is re-joined and cut at the gutters on upload. Skipped entirely if any page already has work on it |
-| Page height | `strip_target` | number, min 600 | 2400 | | The page height the re-cut aims for |
-| Never taller than | `strip_max` | number, min 1000 | 6000 | | The ceiling. Past it the page is cut at the quietest row and reported |
+| Re-cut webtoon strips when a chapter is loaded | `restitch_strips` | checkbox | **on** | | A sliced webtoon is re-joined and cut at the gutters on upload. Skipped entirely if any page already has work on it. The same switch is on the File tab |
+| Page height | `strip_tall` | number, x the width | 3.5 | | How tall a page should come out, as a multiple of its width. On a 690px chapter that is about 2,400px |
+| Tell me when a page passes | `strip_tall_max` | number, x the width | 8.5 | | Not a wall. A page runs past it to reach a real gap rather than be cut through the artwork; anything that ends up past it is named for you afterwards |
+
+**The three rows above are only shown when Source material is manhwa or
+manhua.** A manga chapter is never re-cut, so on manga they were controls for
+something that could not happen. lee: *"this setting shoud only be a thing for
+manhwa and manhua"*.
+
+Both heights are **multiples of the page width**, not pixels. lee: *"change teh
+value to be a more understandable metrics"*. It reads as a shape rather than a
+measurement, it means the same thing on a 690px strip and a 1600px one, and for
+the second one it is the correct unit as well as the friendlier one: the
+detector letterboxes a whole page into 1024px, so what costs you text is how
+many times taller than wide a page is, not how many pixels it has. What they
+come to in pixels on the open chapter is printed underneath the boxes.
 | Reading direction | `direction` | menu | `rtl` | rtl, ltr | The order boxes and pages are read in |
 | Written in | `source` | menu | `ja` | ja, ko, zh, en, es, pt, fr | The source language for reading and for the prompts |
 | Translate into | `target` | menu | `en` | en, es, pt, fr | The target language |
@@ -516,6 +528,7 @@ a project that had it on keeps it. Capitals are a per-block decision now.
 | Label | Key | Type | Default | Options | What it changes |
 |---|---|---|---|---|---|
 | Reading detail | `ocr_detail` | menu | `auto` | **Whole page at once** (1 request a page), **Cut the page up** (up to 4), **Finest** (up to 9) | How many labelled tiles the page is cut into before the vision reader sees it. Each tile is one billed request |
+| Find text with | `find_with` | menu | `measured` | **Measured** (free, offline), **AI** | Whether the boxes are measured or asked for — see below |
 | Text detector | `detector` | menu, one option | `comictext` | comic-text-detector | Which box finder runs |
 | Model path | `weights` | text | empty | | The detector's weights file. Empty falls back to the classical detector |
 | Label box types | `auto_kind` | checkbox | **on** | | Each found block is labelled by family rather than all being called a bubble |
@@ -539,6 +552,7 @@ that writes the English**, **PROOFREAD - the model that checks it**.
 | Claude API | `key_anthropic` | password | empty | One key per service, not one per step |
 | Google AI Studio | `key_gemini` | password | empty | |
 | OpenRouter | `key_openrouter` | password | empty | |
+| FIND TEXT provider / model / address | `find_backend` / `find_model` / `find_base_url` | | `gemini` / `gemini-3.5-flash-lite` / empty | Only shown while Find text is set to AI. Must be vision-capable |
 | (read) provider | `ocr_backend` | menu | `gemini` | Claude API, Google AI Studio, OpenRouter |
 | (read) provider within it | - | menu, usually hidden | - | The **vendor** menu. See below |
 | (read) model | `ocr_model` | menu, written to a hidden field | `gemini-3.5-flash-lite` | Vision-capable models only |
@@ -616,6 +630,111 @@ There is no free-text box: the menu is the only way to set a model.
 | Cleaner endpoint URL | `clean_url` | text | empty | |
 | Cleaner token | `clean_token` | password | empty | Shown as "set", or in red as "placeholder" if it is still the example value |
 | Test cleaner | button | | | One real call, and the answer in words |
+
+**A refused token is said once.** 401 and 403 are not flakes — they are the
+endpoint reading the token and rejecting it, and nothing about cleaning the
+next box changes the token. So the first refusal **latches for the run**: every
+later box goes straight to the local fill without a round trip, and one line is
+printed saying it will not ask again. Anything else — 429, 503, a network drop —
+keeps being retried, because those are the endpoint being busy rather than the
+token being wrong.
+
+The latch is keyed on the exact address **and** token, so pasting a new token
+asks again immediately; so does saving a new URL, or the Test cleaner button,
+both of which already clear the warning. Redeploying with the same token is
+covered by the same save.
+
+The traceback is printed only for a failure that has no message written for it.
+A refused token has one — `clean_warning` names the setting to change and why —
+and before this, a chapter with eight boxes on it printed eight stack traces
+and nothing else, burying it. The count is still kept: the warning still says
+how many spots were filled in locally.
+
+### Find text with AI
+
+**The model finds and labels. The pixels measure.** There was an AI box pass
+here before and lee removed it — *"nvm remove it its pretty bad remove the
+ai"* — and the mode he removed is the one being asked for now:
+*"habe an ai detect the text and send back cordinates for boxes"*. The
+difference is that single rule, and everything in `detect/aidetect.py` exists
+to hold it.
+
+A vision model asked for a rectangle on a 720-wide page answers to within about
+ten to thirty pixels, and it does not know whether the tail of a brush stroke
+belongs to the word. So its rectangle is never a box. It is a **question** —
+"is there writing about here, and what sort" — and the box that comes back is
+the union of the marks measured inside it. The measurer is CRAFT, which covers
+82% of the sound-effect ink on the page comic-text-detector's mask is black on.
+
+What each half is good at: a model that can tell a sound effect from a caption
+and two touching balloons from one, and a detector that knows to the pixel
+where a stroke starts.
+
+| defect reported | what fixes it |
+|---|---|
+| two boxes on one sound effect | one question, one union |
+| one box over two balloons | two questions, two unions |
+| a box not covering the whole effect | the union takes every mark inside |
+| a third box covering two boxes | the model does not ask for it |
+| a sound effect labelled Outside text | the model says which it is |
+
+**The rules where the two meet.** A mark counts by its CENTRE and is then taken
+entire — a long stroke leaving the rectangle is still one stroke, a neighbour
+merely touching it is not. A snap that comes back more than three times the
+size of the question did not tighten anything, so the model's rectangle stands
+and the box is given a confidence below the editor's red/green line: an
+unmeasured box reads as the one to look at. A tall page goes up in overlapping
+1,600px windows, because a 720×7,000 page sent whole arrives with the writing a
+few pixels high — the same fault that blinds the measured detector at scale
+0.14. A balloon described by two windows is merged, not counted twice.
+
+**It cannot leave a page empty, and it says when it did not run.** No key, no
+service, a refused call, a reply that is not JSON — every one of them falls
+through to the measured detector that was there before, so the worst case of
+choosing AI is the old behaviour.
+
+That fallback was **silent** for one turn, and it should not have been: a page
+of measured boxes looks exactly like a page the model found badly. lee: *"is
+the ai accualy finding the tetx whe i put find with ai?"* — a question nothing
+on the screen could answer. It now writes one sentence into the same warning
+bar the cleaner uses, naming which half is missing: no key for that service,
+easyocr not installed so nothing could measure the boxes, the call refused, or
+the model found nothing on this page.
+
+What comes back rejoins the **same tail** every other detector's boxes go
+through — the box-type filter, the three default types, the sections, the
+numbering, `measure_sfx`, the scoring, the reading order, and the commit that
+saves the page. It was an early `return` for one turn, which skipped all nine
+of those including the save, so the first page the model actually found text on
+would have raised before writing anything. Nobody hit it, because a page with
+no key falls through earlier and looks fine — which is exactly why it took a
+test that stubs the socket rather than the function to find.
+
+**Which model, and what it costs.** Find text is now a **fourth AI step** with
+its own service and model boxes, alongside Read text, Translate and Proofread.
+The menu appears under Settings ▸ *FIND TEXT — the model that finds the boxes*,
+and only while Find text is set to AI.
+
+It borrowed the reader's service for one turn, on the reasoning that the reader
+is already a vision step on a vision-capable model and a fourth menu is a
+fourth thing to leave set wrong. lee's first question on seeing the new
+option — *"what ai is it asking ?"* — is the answer to that reasoning: a step
+whose service you cannot see is a step whose price you cannot check.
+
+It defaults to the same cheap vision model the reader defaults to. One call per
+page, and the rectangle is measured again against the ink either way, so the
+dearest model on the list would be paying a lot for something about to be
+thrown away. The model must be able to look at a picture.
+
+Priced and paid before the first page, like Read text, and quoted against
+**its own** model — the price and the call read the same box, or a chapter
+costs three hundred coins after an estimate of thirty.
+
+`tests/test_ai_boxes.py` is the guard that was written when the old pass was
+removed, and it says re-adding one means coming and saying so out loud. It now
+carries that sentence, and guards this pass by its promise rather than by a
+list of names — which is what let a new pass under new names walk straight past
+it.
 
 ## 4.10 Settings with no control
 
@@ -804,6 +923,180 @@ one balloon and the balloon is divided between them **by nearness**, per pixel,
 not by horizontal bands; every sound effect's axis is measured **now**, off the
 still-Japanese page, because by typeset time the ink is gone; then the boxes are
 scored and ordered.
+
+### It is tuned per format
+
+Five numbers decide how hard the detector looks: the confidence the block head
+must reach (`0.4`), how much two blocks may overlap (`0.35`), how sure a pixel
+of the mask must be (`0.30`), and the two gaps that end one block of writing
+(`1.8` each).
+
+Every one of them was measured on manga, by cropping and looking at each box
+the gates dropped across 39 pages. They live in `comictext.TUNING`, one entry
+per format, and **manhwa and manhua hold their own copies of them** - identical
+today, so a webtoon page is found exactly as it always was, and separate, so
+tuning a webtoon can never move a manga chapter. lee: *"save what we ahve for
+find text for manga and now we will modify it for manhwa"*.
+
+A format nobody has tuned is read as manga: the measured numbers are a better
+answer than none.
+
+**The webtoons' first pass.** lee, with all three box types ticked: *"its still
+missing a lot of sfx"*, and the ones it did find came back in pieces — one
+hand-drawn 촤악 as two boxes. Three of the five moved:
+
+| | manga | manhwa / manhua | why |
+|---|---|---|---|
+| `conf_thresh` | 0.40 | 0.40 | it was **0.22** here for one turn; lee's own chapter took it back — see *What the confidence cannot buy* below |
+| `mask_thresh` | 0.30 | **0.20** | so the coverage pass, which re-reads the mask for ink the block head missed, has ink to find. A thin brush stroke on white is the weakest thing on the mask |
+| `split_gap` | 1.8 | **3.5** | both gaps are multiples of the median mark in the block. Hangul is written as separate syllable blocks with daylight between them, so the median mark is small and the gaps are large next to it — the arithmetic that cut one effect into two |
+| `split_height` | 1.8 | **3.5** | as above, across lines |
+| `nms_thresh` | 0.35 | 0.35 | nothing reported was two boxes ON TOP OF one another; they were side by side |
+| `join_x` / `join_y` | circle | **1.8 / 0.9** | how far one leftover mark reaches for another, as an ellipse instead of a circle - see below |
+
+**The reach, measured on chapter 227.** The coverage pass groups the marks the
+block head left behind, and two marks join when the gap between them is small
+next to the SMALLER of the two. That test was a CIRCLE: straight-line gap within
+0.6 smaller-marks.
+
+On 36 pages of a Korean webtoon, the strokes that have to join inside one sound
+effect are at most **1.72** smaller-marks apart sideways and **0.6** vertically.
+The closest two marks belonging to DIFFERENT sound effects are **1.02** apart
+vertically. No circle separates those: widening it to 2.0 does join one 퍽써!
+back together and also merges two unrelated effects on page 28 into one box
+covering 17% of the page.
+
+An ellipse does separate them, because **writing runs along a line**: marks of
+one effect are beside each other, different effects are stacked. `1.8` sideways
+by `0.9` vertically sits between the two measurements with room on both sides.
+Across all 36 pages it leaves the group COUNT unchanged (21) and produces no box
+over 5% of a page — it only makes the right groups bigger.
+
+Manga keeps the circle: `join_x` and `join_y` are `None` there, and `_harvest`
+falls back to `LEFT_NEAR` and the straight-line gap exactly as measured.
+
+**What the confidence cannot buy.** `conf_thresh` went to 0.22 for the webtoons
+on the reasoning in the table above, and that reasoning is right about *why* the
+block head misses Korean sound effects and wrong about what lowering the bar
+does. lee ran the diagnostic on his own chapter:
+
+```
+=== 028.png  720x2770
+blocks: conf>0.05: 0   conf>0.10: 0   conf>0.22: 0
+mask:   keep>0.20: 0.04% of the page   keep>0.05: 0.25% of the page
+```
+
+on a page whose sound effects cover something like a sixth of it. Page 021
+returns the same 2 blocks at 0.05 as it does at 0.40. The effects are not in
+that head's output at **any** score, so there is no bar low enough to catch
+them — while the lowered bar did put boxes on an eye and a jewel on page 026.
+It is back at the measured 0.40 on every format, and a mutant
+(`tune-the-webtoons-drop-the-confidence-again`) fails the suite if it moves.
+
+### A second pair of eyes
+
+Finding those effects is not this number's job, and it turned out not to be any
+of comic-text-detector's. Both its heads go blank on the same thing — **a
+coloured brush-drawn shape laid over artwork** — and that one fact is three of
+the four defects reported:
+
+| what was reported | what it actually is |
+|---|---|
+| sound effects not found at all | the mask is black there |
+| sound effects only half found | the mask holds the half that crosses white |
+| one effect as many small boxes | the grouping guessing at those fragments |
+
+Page 026 of chapter 227 is eight 하아 in red brush across a blue panel, roughly a
+sixth of the page. The mask returns `keep>0.05: 0.254%`, and the specks it does
+hold do not sit on any of the eight. Find text returns **one box, in a corner,
+on nothing**. Page 018 is the same shapes on white: the mask fires at 1.15% and
+the box covers the left half of the effect.
+
+Two things that did not fix it, both measured rather than assumed. Lowering
+`conf_thresh` — above. And showing the model less of the page at a time: it
+letterboxes the whole page into 1024², so a 720×7,179 page arrives at scale
+**0.14** and a 40px syllable reaches it 5 pixels tall. Re-run in 720px windows,
+page 018 goes from 3 boxes to 7 and every one is a smaller fragment.
+
+**CRAFT** is easyocr's detector — already installed here for Korean OCR, so no
+new dependency, and detection only, so no recognition cost. It is trained on
+scene text: writing photographed on signs and shopfronts. Coloured writing on a
+busy background is the case it exists for.
+
+Only the first of easyocr's two stages is used. `Reader.detect` runs CRAFT and
+then `group_text_box`, which merges characters into a line for the reader; on
+page 026 that merged three 하아 spread across a panel into one box covering a
+third of the page, at every setting tried. `get_textbox` is the stage before it
+— one box per character group — and those go through **the same reach the mask's
+own marks go through**, `comictext.reach_groups`, rather than a second copy of
+the rule.
+
+Its own numbers, swept on page 026 against how much sound-effect ink is covered
+and how big the biggest box is:
+
+| `low_text` | `link` | pieces | biggest | ink covered |
+|---|---|---|---|---|
+| 0.40 | 0.4 | 8 | 41.7% | 93.7% |
+| 0.45 | 0.8 | 24 | 6.7% | 89.1% |
+| **0.50** | **0.8** | **30** | **1.8%** | **82.1%** |
+| 0.55 | 0.8 | 33 | 1.6% | 73.9% |
+
+`canvas_size`, `mag_ratio` and `text_threshold` moved nothing — every row of
+that sweep identical — so they are constants with the measurement written next
+to them, not tuning. Coverage bought by swallowing a panel is not coverage: at
+`low_text 0.30` one box covers 46% of the page and "covers 94% of the ink".
+
+**The reach for its pieces is not the mask's.** The mask's marks are stroke
+fragments, often a fraction of one syllable, so `join_x 1.8` is a fraction of a
+syllable; CRAFT's pieces are whole character groups, so the same 1.8 is 1.8
+syllables — and it swept all eight 하아 into one box covering 26% of the page.
+Measured again on the same 36 pages:
+
+| `craft_x` / `craft_y` | groups on 026 | chapter groups |
+|---|---|---|
+| 0.20 / 0.20 | 8 | 525 |
+| 0.25 / 0.10 | 8 | 571 |
+| **0.30 / 0.05** | **8** | **548** |
+| 0.50 / 0.10 | 5 | 452 |
+
+Page 026 holds eight effects, so eight is the answer and 0.50 undershoots. Of
+the two that reach eight, 0.30/0.05 fragments the chapter less, and on page 018
+— where the right answer is known — the two are identical. The ratio being 6:1
+rather than the mask's 2:1 is the same fact, sharper: CRAFT's pieces are whole
+syllables sharing a baseline, so two of one effect have almost no vertical gap.
+
+**Three rules where the two detectors meet.** A group over nothing becomes a new
+`sfx` region. A group over a BLOCK-HEAD region is dropped — CTD finds black
+balloons with white typesetting, which nothing looking for dark ink can, so
+where they disagree about a balloon the block head is right. A group over a
+COVERAGE-PASS region grows it to the union of both, which is the half-box fix;
+growing and not replacing, because the region carries the text mask the cleaner
+paints out.
+
+**And a group the size of a panel falls back to the pieces it was made of.** Not
+tuning — no reach avoids this. The bottom of page 026 is four 하아 cascading
+diagonally down a dress, and every consecutive pair of their nine syllables has
+**gx = 0 and gy = 0**: the bounding boxes overlap, because the cascade is
+diagonal. Zero gap is zero gap at every threshold. Nine boxes on nine syllables
+beats a box that paints out a quarter of the page, and joining boxes by hand
+takes a second while finding a silently vanished effect does not.
+
+End to end on real pages, with the tuning table as a chapter gets it:
+
+| page | CTD alone | both | biggest box |
+|---|---|---|---|
+| 026 | 1 box | **16** | 4.7% |
+| 018 | 3 boxes | **7** | 5.6% |
+| 022 | 0 boxes | **6** | 0.7% |
+
+About 9s a page on CPU, on top of CTD's own time. Off unless the format asks for
+it, and off if easyocr is not installed — `craft_x` and `craft_y` are `None` for
+manga, so a manga chapter never calls it and cannot be made to.
+
+**`mask_thresh` is the one number in the webtoon column still unmeasured** —
+reasoned from what the knob does. It is kept because it feeds the coverage pass,
+which is the pass that works. Manga cannot move while it is being tried, which
+is what the table is for.
 
 **Find text replaces the page's boxes.** Boxes it supersedes do not come back.
 
@@ -1460,6 +1753,12 @@ when a chapter finishes loading.
 **It only triggers if all of these hold:**
 
 * the setting is on;
+* **Source material is manhwa or manhua**. Manga is delivered as pages and is
+  never re-cut, however much the files look like a strip. This is the one test
+  the pixels cannot make: a chapter scanned in one sitting has the same width
+  and the same height to the pixel for the same reason a sliced strip does, and
+  lee's manga chapter came back in forty pieces because of it. Asking for the
+  re-cut by hand still works on any format;
 * **no page has any work on it** - having a chapter you had found boxes on,
   cleaned and typeset rearranged underneath you is worse than the problem;
 * it is **sure** the images are a sliced strip. All four tests must pass: more
@@ -1485,16 +1784,115 @@ Cuts are taken at the gutter **nearest** the target height, not the first one
 past it: first-past overshoots where gutters are sparse, and a chapter of
 3,500px pages when you asked for 2,400 is not what was asked for.
 
-**When there is no gutter**, it runs on to the next one after the window if it is
-still under the ceiling. Failing that it cuts at the **quietest row** - the middle
-of the longest run of empty rows in the window, even if that run is too short to
-be a gutter, because a two-pixel gap between panels is not a gutter and is a far
-better place to cut than the middle of a face. Every forced cut is recorded and
-**the page is reported by name** so you can look at it.
+**When there is no gutter**, the page runs on to the next one - however far away
+it is, and past the limit if that is what it takes. Where there is no gutter
+left at all, the rest of the strip stays as one page. **Every cut is a gutter.**
+Any page that ends up past the limit is recorded and **reported by name** so you
+can go and look at it.
 
-The ceiling exists for a concrete reason: the detector letterboxes a whole page
-into one 1024px square, so on a 10,000px page the typesetting arrives about 70px
-tall and it starts missing text.
+It used to cut at the quietest row it could find inside the limit and report
+that. lee: *"when it reaches teh max lenght it still crops teh text box, if
+posiboe can you have a way of not to do that"*. The quietest row available
+inside a panel of solid artwork is still the middle of a balloon, which is the
+exact thing the re-cut exists to undo.
+
+The limit exists for a concrete reason and it has not gone away: the detector
+letterboxes a whole page into one 1024px square, so on a page ten times taller
+than it is wide the typesetting arrives about a tenth the size and it starts
+missing text. That is the price of running over, and it is smaller than half a
+sentence - which is why running over is now something you are told about rather
+than something the page pays for.
+
+## 8.1 Cutting a page by hand, and joining two
+
+The automatic re-cut above is deliberately narrow: it runs only on a chapter
+that ARRIVED as a sliced strip, only before any work has been done, and only
+when all four tests agree. Every one of those rules is worth keeping, and
+between them they leave every other too-long page exactly as it is. So there is
+also a knife.
+
+**Where.** `Cut / join` in the top bar, in the **Translation** view only, and
+only on a **manhwa or manhua** chapter. In the Image view the boxes are placed
+against the page and the server refuses to cut it, so the button would only ever
+offer a refusal; and a manga chapter arrives as pages somebody already decided
+the boundaries of, while a webtoon arrives as a strip a slicer cut by counting.
+
+**Cut.** The **whole** page is shown, fitted to the box - you are picking one
+row out of a page you can see, and you cannot pick it out of a page you cannot,
+so nothing scrolls. **Click where you want it cut and the line is drawn on the
+pixel you clicked.** Nothing moves it: it turns green when the row it landed on happens to be a gap between
+panels, and that is a readout rather than a hand on the wheel.
+
+It got there in three steps, all lee's: it used to snap to the nearest gap
+within 60 rows on every click - *"the cut line shoud be where my mouse is when
+i clcick it"*; that became a `Snap to the nearest gap` button - *"and removethe
+cut a the nearst gap button"*; and it was a drag rather than a click -
+*"remoeve teh click and drag and allow me to clci where i want it to cut"*. A
+line that moves away from the pointer is a line you are arguing with.
+
+A cut in the top or bottom sixteen rows is still refused - a sliver is not a
+page - but by the **Cut** button going off with the reason beside it, never by
+moving the line.
+
+The line is placed in **pixels off the picture**, not as a percentage. A
+percentage `top` on an absolutely positioned box resolves against the height of
+its containing block, which is the preview window rather than the page, so on a
+tall page "40% of the way down the page" was drawn 40% of the way down the
+WINDOW ONTO the page - perfect on a short page, thousands of rows out on a
+6,000-row webtoon. lee: *"use the mouse cordinate to draw the line"*.
+
+**Join.** Two buttons, `Join with previous` and `Join with next`, each off at
+the end of the chapter where there is nothing to join to. Pages of different
+widths are
+joined as wide as the widest, with the narrower ones **centred** on paper the
+colour of their own top-left corner - stretching would change the artwork,
+jamming them left would put a step down one edge.
+
+**The work on the page comes with it.** lee: *"also alow me to cut teh page
+after ive done so steps it"*. Boxes are geometry and geometry moves: each one
+goes to the half its CENTRE is in, measured from that half's own top edge —
+the box, its outline, and the typesetting frame if it has one. The reading, the
+translation, the speaker, the type and whether it is hidden all travel with it.
+A box straddling the cut goes whole to the half holding most of it, clipped to
+fit rather than left hanging off the end. Joining is the same shift the other
+way, so a mis-placed cut costs one click and nothing else.
+
+**The cleaned plate and the laid-out text are dropped**, on both halves. They
+are page-sized pictures of a page that no longer exists, and they are the two
+things the app can simply make again from the boxes that just moved.
+
+**Both refuse a PAINTED page**, and say so before you have chosen a row. Touch-up
+strokes and a clean plate of your own are pictures the size of the page, and
+re-cutting those is a different job from re-cutting a list of rectangles.
+
+**Nothing is deleted.** The page you cut moves into `split/` beside the chapter
+and the pages you joined into `merged/` - the same promise the re-cut makes
+about the tiles it replaces. Both folders are inside the folder the pages are
+in, which on a project pointed at your own folder means your own folder.
+
+**Both renumber the chapter afterwards**, `001`, `002`, ... in order, keeping
+each page's extension. `012a` and `012b` sort where `012` sorted, which is right
+and is also how a chapter comes to be called 011, 012a, 012b, 013. lee: *"wheni
+clcik splite it shoud rename every file from 1 - whatever so teh pages are
+properly numbered, only if teh tool is used"*. **Only from the knife** - nothing
+else in the app ever renames your files.
+
+## 8.2 The chapter before this one
+
+Every chapter uploads into the same `input/` folder beside the project. Starting
+a new one moves whatever is in there into **`input-previous`** first - one
+generation, replacing the one before it.
+
+Without that, `clear()` forgot the pages while every file stayed on disk, and
+anything that listed the folder afterwards - reopening the project, a re-cut, a
+rescan - called all of them pages. lee, loading a folder of manga: *"soem pages
+that wrere not i the folder are showing uo when i upload teh foler"*, with a run
+of `page0xx` files in the list that the webtoon re-cut had written for the
+chapter before.
+
+Moved, not deleted: the re-cut pages and the halves of anything you split exist
+nowhere else. One generation only: a webtoon chapter is a third of a gigabyte
+and this runs every time you start a chapter.
 
 **Your tiles are kept, never deleted.** In our own upload folder the new pages
 replace the tiles where they stand and the tiles move into `input/tiles/` - the

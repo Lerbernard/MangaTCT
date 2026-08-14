@@ -1084,7 +1084,7 @@ def test_what_you_can_do_with_a_finished_chapter_is_in_the_top_bar():
         # The middle one was called "Download JSON" until lee pointed out
         # that a file format is not a description of what is in the file:
         # *"replace everywhere it say json with story context"*.
-        assert got["order"] == ["Start a new project", "Download story context",
+        assert got["order"] == ["Start a new project", "Export story context",
                                 "Download all as .zip"], got
         assert not got["inBody"], "they are still drawn above the pages too"
     _serve(check, exported=2)
@@ -1165,3 +1165,39 @@ def test_exporting_is_what_makes_it_this_project_s_results(tmp_path):
         editor.PROJECT = was
         srv.shutdown()
         _sh.rmtree(root, ignore_errors=True)
+
+
+def test_turning_to_a_smaller_page_does_not_keep_the_last_ones_size():
+    """lee, third report of a page not being framed, and the one that named
+    it:
+
+        wheni swith to the next page its still keeping the old pages size,
+        meanin that if the next page is smaller it gts stuck on top
+
+    `fitScale` and `applyZoom` both asked the <img> element how big the page
+    is. The element lags: while the next picture is on the wire it still
+    reports the size of the page you just left, so the fit is a fit for the
+    wrong page and the stage stays as tall as the old one -- which puts the
+    middle of the scroll range below a shorter picture, and the picture at the
+    top. `pageW`/`pageH` come from the server with the page's own record and
+    are the authority; the element is the fallback.
+
+    `tests/ui/next_page_is_not_the_last_ones_size.test.js` drives the real
+    functions in jsdom with the element and the server disagreeing on purpose.
+    It fails on the old precedence -- checked.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui",
+                              "next_page_is_not_the_last_ones_size.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=90)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "ok" in out.stdout

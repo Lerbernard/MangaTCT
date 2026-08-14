@@ -48,7 +48,7 @@ SHOW = [
      "A generation newer for not much more. A good default."),
     ("claude-haiku-4-5", "Claude Haiku 4.5", "anthropic",
      "Claude's small one. Better at holding a voice than its price suggests."),
-    ("gemini-3.6-flash", "Gemini 3.6 Flash", "gemini",
+    ("gemini-3.7-flash", "Gemini 3.7 Flash", "gemini",
      "Fast, and it thinks before it answers. The usual choice for translating."),
     ("claude-sonnet-5", "Claude Sonnet 5", "anthropic",
      "The one most people proofread with. Catches what the others miss."),

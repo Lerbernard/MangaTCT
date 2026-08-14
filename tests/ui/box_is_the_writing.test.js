@@ -96,18 +96,26 @@ setTimeout(()=>{
        boxes()[0].style.left);
     w.eval("scale=1");
 
-    // Sections of one balloon already get a single group frame drawn round the
-    // union of them. Adding a balloon outline per section on top of that is
-    // three outlines over one piece of paper.
+    // Sections of one balloon used to get a solid frame drawn round the union
+    // of them as well. lee, finding one on a burst holding two speeches:
+    // *"there a big box with no label or anything"*, then *"hide teh big box
+    // afterware it dosnt need to be visibel"*. It was the only thing on the
+    // page with no number chip and nothing to click, and it said what the
+    // sections' own dashed outlines already say. The GROUPING stays — it is
+    // what dashes them — and the frame is gone, the same end the balloon
+    // hint came to.
     put([{id:0,kind:'bubble',bbox:[400,200,60,120],
           bubble_bbox:[300,150,300,200],box_group:1},
          {id:1,kind:'bubble',bbox:[400,400,60,120],
           bubble_bbox:[300,380,300,200],box_group:1}]);
-    ok('a two-section balloon gets one group frame',
-       d.querySelectorAll('.gbox').length===1,
+    ok('a two-section balloon draws no frame round the pair',
+       d.querySelectorAll('.gbox').length===0,
        d.querySelectorAll('.gbox').length);
     ok('and still no balloon outlines', hints().length===0, hints().length);
     ok('each section still gets its own box', boxes().length===2, boxes().length);
+    ok('and the sections are still marked as sections',
+       [...boxes()].every(b=>b.classList.contains('section')),
+       [...boxes()].map(b=>b.className).join(' | '));
 
     // Hide boxes hides the balloon outlines too. They were being left painted
     // over the page with nothing to explain them.

@@ -46,11 +46,11 @@ async function loadProject(){
     syncManualMode(); }
   { const g=$('gemini_safety_off');
     if(g) g.checked=!!proj.settings.gemini_safety_off; }
-  // The story switches. Read with `!==false` rather than `!!`, because these
-  // four default ON and a project.json written before they existed has no key
-  // at all — `!!undefined` would switch the story off for every chapter that
+  // The switches that default ON. Read with `!==false` rather than `!!`,
+  // because a project.json written before one of them existed has no key at
+  // all — `!!undefined` would switch the story off for every chapter that
   // predates the setting.
-  STORY_SWITCHES.forEach(k=>{
+  ON_SWITCHES.forEach(k=>{
     const el=$(k); if(el) el.checked = proj.settings[k] !== false; });
   syncStory();
   const _md=mediumDefaults($('medium').value=proj.settings.medium||'manga');
@@ -60,7 +60,9 @@ async function loadProject(){
                     ? proj.settings.source : _md.source;
   $('target').value=proj.settings.target||'en';
   if($('ocr_engine')) $('ocr_engine').value=proj.settings.ocr_engine||'auto';
-  if($('ocr_detail')) $('ocr_detail').value=proj.settings.ocr_detail||'auto';
+  // '' is a real choice here, not a missing one: it means "whatever this
+  // format wants". See `ocr.detail_for`.
+  if($('ocr_detail')) $('ocr_detail').value=proj.settings.ocr_detail||'';
   $('direction').value=(proj.settings.direction && proj.settings.direction!=='auto')
                        ? proj.settings.direction : _md.direction;
   $('detector').value='comictext';   // comic-text-detector is the only detector now
@@ -69,10 +71,19 @@ async function loadProject(){
   $('yolocfg').style.display='block';
   { const n=$('ctdcfg'); if(n) n.style.display='block'; }
   if($('auto_kind')) $('auto_kind').checked=(proj.settings.auto_kind!==false);
-  if($('restitch_strips'))
-    $('restitch_strips').checked=(proj.settings.restitch_strips!==false);
-  if($('strip_target')) $('strip_target').value=proj.settings.strip_target||2400;
-  if($('strip_max')) $('strip_max').value=proj.settings.strip_max||6000;
+  // On unless it was turned off. Both boxes, the one in Settings and the one
+  // on the File tab, are this same setting.
+  const recut=(proj.settings.restitch_strips!==false);
+  if($('restitch_strips')) $('restitch_strips').checked=recut;
+  if($('restitch_new')) $('restitch_new').checked=recut;
+  // Multiples of the page width, not pixels. A project saved before the change
+  // carries `strip_target`/`strip_max` in pixels; nothing reads them any more,
+  // and the two defaults are what those two numbers were on the chapter they
+  // were measured off.
+  if($('strip_tall')) $('strip_tall').value=proj.settings.strip_tall||3.5;
+  if($('strip_tall_max'))
+    $('strip_tall_max').value=proj.settings.strip_tall_max||8.5;
+  if(typeof stripSettings==='function') stripSettings();
   // An 'ai_boxes' menu stood here. The pass it drove is gone, and an old
   // project.json may still carry the key — nothing reads it.
   // A project-wide engine used to be loaded here — a "Claude model" menu and
@@ -217,7 +228,40 @@ function renderPages(){
               onclick="event.stopPropagation();removePage(${p.index})">&times;</span>
       </div>`).join('') +
     '';
+  keepCurrentPageInView();
   renderSteps();
+}
+
+/* The page list follows the page you are on.
+
+   lee: *"can you make teh side bar with th pages scroll so that teh current
+   0age is alwsy in teh frame"*. On a 46-page chapter the list is far longer
+   than the rail, so paging through with the arrow keys walked the highlight
+   straight off the bottom and the sidebar sat on page 1 while the canvas
+   showed page 30.
+
+   `block:'nearest'` and not `'center'`: nearest does NOTHING when the row is
+   already visible, so clicking a row you can see never jerks the list out
+   from under the pointer, and it moves the least it can when the row is off
+   the edge. The scroll is skipped entirely while a row is being renamed —
+   that row holds a focused field, and scrolling the list under a caret is
+   how a rename loses its place. */
+function keepCurrentPageInView(){
+  const list=$('pages');
+  if(!list || list.querySelector('.nmedit')) return;
+  const row=list.querySelector('.pg.on');
+  if(!row) return;
+  // After innerHTML, layout has not happened yet: measuring now gives zeroes
+  // and scrolls nowhere. `soon` is core.js's, which loads first.
+  //
+  // Guarded, for the same reason `soon` itself is: a missing method here
+  // throws inside the callback and everything after it in that frame stops.
+  // jsdom has no `scrollIntoView` at all, so an unguarded call turns the
+  // page list into a thrown error on every redraw under test.
+  soon(()=>{
+    if(typeof row.scrollIntoView==='function')
+      row.scrollIntoView({block:'nearest', inline:'nearest'});
+  });
 }
 
 /* One dot per STEP this view is about, filled in when that page has finished
@@ -672,16 +716,19 @@ async function saveSettings(){
     medium:$('medium').value, target:$('target').value,
     source:$('source').value,
     ocr_engine:($('ocr_engine')?$('ocr_engine').value:'ai'), direction:$('direction').value,
-    ocr_detail:($('ocr_detail')?$('ocr_detail').value:'auto'),
+    ocr_detail:($('ocr_detail')?$('ocr_detail').value:''),
     detector:$('detector').value, weights:$('weights').value,
     text_weights:$('text_weights').value,
     auto_kind:($('auto_kind')?$('auto_kind').checked:true),
-    restitch_strips:($('restitch_strips')?$('restitch_strips').checked:true),
-    strip_target:(+($('strip_target')||{}).value||2400),
-    strip_max:(+($('strip_max')||{}).value||6000),
+    // Either box. The Settings page may not have been built yet — the File
+    // tab is where a new chapter starts — so the one that exists speaks.
+    restitch_strips:($('restitch_strips') ? $('restitch_strips').checked
+                     : ($('restitch_new') ? $('restitch_new').checked : true)),
+    strip_tall:(+($('strip_tall')||{}).value||3.5),
+    strip_tall_max:(+($('strip_tall_max')||{}).value||8.5),
     gemini_safety_off:($('gemini_safety_off')
                        ? $('gemini_safety_off').checked : false),
-    ...STORY_SWITCHES.reduce((o,k)=>{
+    ...ON_SWITCHES.reduce((o,k)=>{
       // Absent from the screen is not the same as off: the settings page may
       // not have been built yet. Only send what is really there.
       const el=$(k); if(el) o[k]=el.checked; return o;
@@ -1072,6 +1119,15 @@ function pickModel(step){
    disables. */
 const STORY_SWITCHES = ['story', 'learn_characters', 'learn_terms',
                         'name_speakers'];
+
+/* Every OTHER tick that defaults ON. Being on this list buys the two things
+   those four already had, and that a bare `$('x').checked` cannot give a
+   default-on switch: it is READ with `!==false`, so a project.json written
+   before the setting existed is not switched off by `!!undefined`; and it is
+   OMITTED from the save when its box does not exist, so saving from a screen
+   that has not been built yet does not write an off nobody asked for. */
+const DEFAULT_ON = ['drop_symbol_only'];
+const ON_SWITCHES = [...STORY_SWITCHES, ...DEFAULT_ON];
 
 /* With no story kept there is nothing for the AI to fill in, so the three
    ticks below the master switch go dead rather than staying clickable and

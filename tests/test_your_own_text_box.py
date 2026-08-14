@@ -326,6 +326,14 @@ def test_it_survives_being_saved_and_read_back(stage):
     p.save()
     from mangatl.project import Project
     again = Project(None, p.output_dir)
+    # A reload with no pages at all is not "own_text was lost" — it is the
+    # whole chapter gone, and the message has to say which. It found this:
+    # a transient field set on the series context was written into
+    # project.json, `SeriesContext(**saved)` refused the key, `load` raised
+    # into a bare `except`, and `rescan` saved an empty project over the top.
+    assert again.pages, ("the reloaded project has no pages at all — the "
+                         "chapter did not survive the round trip: %r"
+                         % (p.output_dir,))
     rec = [r for r in again.pages[0].regions if r.get("own_text")]
     assert len(rec) == 1, "own_text did not survive the save"
     page = again.materialize(0)

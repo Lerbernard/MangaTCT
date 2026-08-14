@@ -55,6 +55,10 @@ const TOOLBOX = [
     {k:'addtext', name:'Add a text box', icon:'type',
      on:()=>window.toggleAddText && toggleAddText(),
      lit:()=>typeof addingText!=='undefined' && addingText},
+    // A sound-effect tool lived here for a turn. It is gone: 3 sets a box to
+    // a sound effect on the Translation view, and a mode that makes the next
+    // drag come out sfx is a second way to do that with a mode to forget
+    // about. lee: *"i dont want a button i wan to be able to clcik 3"*.
   ]},
   {slot:'paint', tools:[
     {k:'brush',  name:'Brush (B)', icon:'brush',
@@ -131,6 +135,9 @@ const TB_ICON = {
       +'-.7 1.8-.7-1.8-1.8-.7 1.8-.7z',
   // A T, with no foot. With one it was an I-beam.
   type:'M5.4 6h13.2M12 6v12.4',
+  sfx:'M12 3.2l1.9 3.6 4-1.1-1.1 4 3.6 1.9-3.6 1.9 1.1 4'
+     +'-4-1.1L12 20.8l-1.9-3.6-4 1.1 1.1-4L3.6 12.4l3.6-1.9'
+     +'-1.1-4 4 1.1Z',
   brush:'M4.5 19.5c1.6.4 3.4-.2 4.3-1.6.8-1.3.4-2.7-.6-3.4-1-.7-2.5-.5-3.2.6'
        +'-.6 1-.4 2.6-.5 4.4zM9.6 14.2 19 4.9c.6-.6 1.5-.6 2.1 0 .6.6.6 1.5 0 2.1'
        +'L11.8 16.4',

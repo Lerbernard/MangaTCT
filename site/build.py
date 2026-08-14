@@ -77,7 +77,7 @@ AIS = [
      "A generation newer for not much more. A good default."),
     ("Claude Haiku 4.5", "Anthropic", "Small and careful",
      "Claude's small one. Better at holding a voice than its price suggests."),
-    ("Gemini 3.6 Flash", "Google", "The usual choice",
+    ("Gemini 3.7 Flash", "Google", "The usual choice",
      "Fast, and it thinks before it answers. The usual choice for translating."),
     ("Claude Sonnet 5", "Anthropic", "For proofreading",
      "The one most people proofread with. Catches what the others miss."),
@@ -169,12 +169,14 @@ FORMATS = [
         "good": [
             ("A strip uploaded as tiles is re-cut into pages, on upload",
              "Six or more images of identical width and identical height is a "
-             "sliced strip, and it is re-cut at the gutters into pages near "
-             "2,400px. This exists for webtoons and has no manga equivalent."),
-            ("Cut at a gutter, or told you where it could not be",
+             "sliced strip, and it is re-cut at the gutters into pages about "
+             "three and a half times as tall as they are wide. This exists for "
+             "webtoons and has no manga equivalent."),
+            ("Every cut is a gutter, never through the artwork",
              "The cut goes to the gutter NEAREST the target, not the first one "
-             "past it. Where there is no gutter inside 6,000px it cuts at the "
-             "quietest row and reports that page as forced."),
+             "past it. Where the window holds none, the page runs on to the "
+             "next gutter there is, past the height limit if that is what it "
+             "takes, and you are told which pages ran over."),
             ("Your tiles are kept, never deleted",
              "They move into a folder beside the chapter. And nothing is re-cut "
              "on a chapter you have already started work on."),

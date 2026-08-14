@@ -8,6 +8,7 @@ that. Page-level translation can.
 """
 from __future__ import annotations
 
+import difflib
 import http.client
 import json
 import os
@@ -19,16 +20,37 @@ from .models import Page
 
 MODEL = "claude-sonnet-5"
 
+# How many times the reader asks for one piece of a page. Three, so a reply
+# that comes back malformed is asked again twice before its regions are given
+# up on — the same courtesy translating and proofreading already got, and the
+# reason one bad reply no longer ends a chapter.
+OCR_TRIES = 3
+
 # Marks that count as a long dash in the source. A SINGLE ー is the ordinary
 # long-vowel mark and appears in perfectly normal words, so it is not one; a run
 # of two or more is a drawn-out cry and is.
 _SRC_DASHES = "—–―─━〜～"
 
+# And the plain hyphen-minus, WHERE IT STANDS ALONE. A scan letters its dashes
+# with whatever the keyboard has: the title plate `- 대마법사 김진우 -` frames a
+# caption with two of them, and reading that page as having no dash on it cost
+# the plate its frame — the translator's "Arsilan — Archmage Kim Jinwoo" was
+# turned into "Arsilan, Archmage Kim Jinwoo", which says he IS Arsilan.
+# Inside a word the same character is a hyphen and means nothing here, so it
+# only counts with whitespace on both sides, or the end of the text. A bulleted
+# status window counts too, and that is the right answer for the same reason:
+# the page does print dashes there. No `re.M` — a newline IS whitespace, so a
+# plate on the third line of a caption is already reached from both sides, and
+# a flag that changes nothing is a line that lies about what the code does.
+_LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s|$)")
+
 
 def source_has_dash(src: str) -> bool:
     """Did the original punctuate with a long dash?"""
     s = src or ""
-    return any(ch in s for ch in _SRC_DASHES) or bool(re.search(r"ー{2,}", s))
+    return (any(ch in s for ch in _SRC_DASHES)
+            or bool(re.search(r"ー{2,}", s))
+            or bool(_LOOSE_HYPHEN.search(s)))
 
 
 # What a page looks like when it masks its OWN word. Japanese scans do it with
@@ -68,6 +90,31 @@ CENSOR_NOTE = ("the AI masked a word this page does not mask — "
                "it censored itself, check the line")
 
 
+# An ellipsis, however it is written. One … or ‥ is already one; ordinary
+# periods and the katakana middle dot need a run of two, because a single
+# period is a full stop and a single ・ separates the halves of a foreign name.
+_ELLIPSIS = r"(?=[…‥]|[.．・]{2})[.．・…‥]+"
+# What may stand in front of one and still leave it at the start of the line.
+_OPENERS = r"[\"'“”‘’«»「」『』（）()\[\]【】\s]*"
+
+# Where the EDGE of a line is, for a dash. Not the edge of the string: a quote
+# or a bracket can stand outside one, and so can an ellipsis, because
+# `strip_added_ellipsis` runs after this and is about to take that ellipsis
+# away. "...—The existence known as Kim Jinwoo" is a dash at the front of the
+# line the reader will be handed, and reading it as an INTERIOR dash turned it
+# into a comma and then left the comma behind: ", The existence known as...".
+# ...and the PLAIN HYPHEN counts as one of them here, which it does not in
+# `source_has_dash`. A line cannot begin with the hyphen of a hyphenated word,
+# so a hyphen at the front is a dash whatever the keyboard typed it with —
+# lee's page 4 came back "-Be resolute before pain." and walked straight past
+# a class that knew only `—` and `–`. At the TAIL it must have a space in
+# front of it, or "well-" — a word the speaker was cut off in the middle of —
+# would lose its hyphen.
+_EDGE_LEAD = re.compile(rf"^({_OPENERS}(?:{_ELLIPSIS})?{_OPENERS})[-—–]+\s*")
+_EDGE_TAIL = re.compile(
+    rf"(?:\s*[—–]+|\s+-+)({_OPENERS}(?:{_ELLIPSIS})?{_OPENERS})$")
+
+
 def strip_added_dashes(dst: str, src: str) -> str:
     """Take back dashes the translator put at the edges of a line unbidden.
 
@@ -82,21 +129,37 @@ def strip_added_dashes(dst: str, src: str) -> str:
     Dashes INSIDE a line are left alone. There the dash is doing a job that
     removing it would leave undone, and the source may well have earned it with
     punctuation of its own.
+
+    The LEADING one is the exception to that exemption, and it is the one lee
+    found: a dash at the front of a Korean or Japanese bubble is the page's
+    mark for speech arriving from off-panel, and English typesetting has
+    never used it — the balloon's own tail says the same thing, and so does the box
+    type. So it comes off whether or not the source has one, which is the same
+    rule `strip_added_ellipsis` already applies to a leading ellipsis. Without
+    that, whether the reader sees it comes down to whether the model felt like
+    typing one: lee's page 4 kept its dash and page 25 dropped it, from source
+    lines punctuated identically.
     """
     t = (dst or "").strip()
-    if not t or source_has_dash(src):
+    if not t:
         return dst
-    t = re.sub(r"^\s*[—–]+\s*", "", t)
-    t = re.sub(r"\s*[—–]+\s*$", "", t)
+    t = _EDGE_LEAD.sub(r"\1", t, count=1)
+    if source_has_dash(src):
+        return t.strip() or dst
+    t = _EDGE_TAIL.sub(r"\1", t, count=1)
+    # ...and one in the MIDDLE, which this used to leave alone on the grounds
+    # that it was doing a job. Measured over a chapter, the job it was doing
+    # was the model's own voice: "Legend of the Dragon 7—a game that earned the
+    # approval of..." and "a standard premise—become the hero", from Korean
+    # with no dash in it anywhere. A comma says the same thing and a comic font
+    # can draw it. The source having ANY dash still buys the whole line an
+    # exemption, because then the dash may well be the page's own.
+    t = re.sub(r"\s*[—–]+\s*", ", ", t)
+    t = re.sub(r",\s*,+", ",", t)
+    t = re.sub(r"\s+,", ",", t)
     return t.strip() or dst
 
 
-# An ellipsis, however it is written. One … or ‥ is already one; ordinary
-# periods and the katakana middle dot need a run of two, because a single
-# period is a full stop and a single ・ separates the halves of a foreign name.
-_ELLIPSIS = r"(?=[…‥]|[.．・]{2})[.．・…‥]+"
-# What may stand in front of one and still leave it at the start of the line.
-_OPENERS = r"[\"'“”‘’«»「」『』（）()\[\]【】\s]*"
 _LEADS = re.compile(rf"^({_OPENERS}){_ELLIPSIS}\s*")
 
 
@@ -130,6 +193,47 @@ def strip_added_ellipsis(dst: str, src: str) -> str:
         return dst
     t = _LEADS.sub(r"\1", dst, count=1)
     return t.strip() or dst
+
+
+# Punctuation that can only be standing in front of the words. A quote and a
+# bracket are not in this class: they WRAP the line rather than precede it, and
+# `¿`/`¡` open a sentence in Spanish, which is one of the targets — so all of
+# those are read past on both sides, exactly as `_LEADS` reads past them.
+# The hyphen is last because a `-` anywhere else in a character class is a range.
+_LEAD_MARKS = r"[,.;:!?…‥・·、。，；：！？—–ー~〜～\-]"
+_LEAD_ANY = re.compile(rf"^({_OPENERS})({_LEAD_MARKS}+\s*)")
+
+
+def leads_with_a_mark(t: str) -> bool:
+    """Is there punctuation in front of the first word?"""
+    return bool(_LEAD_ANY.match(t or ""))
+
+
+def strip_added_lead(dst: str, src: str) -> str:
+    """Nothing may stand in front of the line that does not stand in front of
+    the source.
+
+    lee, on a balloon that came back as *", The existence known as Kim Jinwoo
+    has probably ceased to exist."*: *"there isjat anything informt of th text
+    in the raw so there shoud be notjing in the transated"*.
+
+    That comma was not the model's. The model wrote `...—The existence known
+    as...`; `strip_added_dashes` read a dash with three periods in front of it
+    as an INTERIOR dash and made it a comma, and `strip_added_ellipsis`, which
+    runs straight after, then took the periods away and left the comma standing
+    on its own. Two cleaners, each correct about the thing it was looking at,
+    and a result neither of them was looking at.
+
+    So this one does not look at a step. It looks at the finished line, and it
+    is the last thing to run. Whatever a future cleaner leaves on the front of
+    a line, the rule holds: the source draws it or it goes.
+    """
+    if not (dst or "").strip() or leads_with_a_mark(src):
+        return dst
+    m = _LEAD_ANY.match(dst)
+    if not m:
+        return dst
+    return (m.group(1) + dst[m.end():]).strip() or dst
 
 # Any server speaking the OpenAI chat-completions shape works here: Ollama,
 # LM Studio, llama.cpp's server, vLLM, or a hosted free tier. What the model
@@ -275,6 +379,34 @@ Use the context you are given — this is what keeps chapters consistent:
 
 - previous_page_tail is the end of the previous page. Continue from it, so
   sentences and tone flow across the page break.
+- already_said, when present, is what THIS chapter has already used: the
+  speaker labels on earlier pages, the English you have already given
+  recurring source terms, and under `names` every proper name your own
+  earlier pages have spelled out. All three are there for one reason — to
+  stop the same thing being called two things.
+  * **A person the chapter has NAMED keeps the name.** Never coin a role
+    label for somebody who has one: Turiss was named on page 11 and came
+    back as "Assistant" on page 16, four pages into the same conversation,
+    which is two characters as far as the sheet is concerned. A role label
+    is for somebody the story has not named at all.
+  * A speaker already labelled gets that label again. One person, one name:
+    a grandfather who is "Jinwoo's Grandfather" on one page and "Osung Group
+    Chairman" four pages later reads as two characters, and the sheet then
+    carries both for ever. Pick the more specific of the two and keep it.
+  * A source term already rendered is rendered the same way, capitals and
+    all. "erosion" on one page and "Erosion" on the next are two terms; so
+    are "mana crystals" and "magic stones". If a term is going to come back,
+    put it in glossary_additions the FIRST time you use it, which is what
+    makes it settled rather than remembered.
+  * **A name in `names` is spelled exactly that way again.** This is the one
+    that catches people, because a person never goes in the glossary and so
+    a character's romanisation is written down in no sheet anywhere: the
+    only record of it is that you already used it. A surname you romanised
+    four pages ago is not open again — 크리서스 came back "Chrysos" once and
+    "Chryses" once, which is two men. If the name in front of you is a
+    near-miss of one in `names` — same sound, a letter or two apart — it is
+    that name, so use the spelling in the list rather than a new one. Only a
+    name that is genuinely somebody else gets a new spelling.
 
 Translate what is written. Read the context to understand the line, then say in
 {target} what the {source} says — no added adjectives, no invented names, no
@@ -306,6 +438,14 @@ Translation rules:
   bubbles — each bubble holds its own part, and read in order they form one
   sentence. Never translate a linked region as a self-contained line, and never
   repeat the whole sentence in each bubble.
+- A "balloon" number is a DIFFERENT thing and must not be treated the same
+  way. It means the artist drew those regions as two lobes of one balloon —
+  a fact about the picture, not about the words. A double balloon holds two
+  separate sentences as often as one. So translate each of them for what it
+  says, ending each as its own punctuation ends it, and only let them run on
+  into one another where the SOURCE runs on. Do not weld two complete
+  sentences together with a comma, and do not open the second one with "and"
+  or "but" unless the Korean does.
 - {source_note}
 - {target_note}
 - Work out WHO SPEAKS each line before translating it — from the reading
@@ -324,10 +464,26 @@ Translation rules:
 - Spell every character's name EXACTLY as the character sheet and glossary
   do — never invent an alternative romanization for a name that is already
   on the sheet.
-- Text must be SHORT — it has to fit inside the original speech bubble.
-  Prefer the tightest phrasing that keeps the meaning.
+- Text must be SHORT — it has to fit inside the original speech bubble, and
+  the bubble is the size the artist drew. Two numbers travel with each region:
+  * "src_char_count", how long the Korean is. Aim under about 1.6 times it.
+  * "fits_chars", where it is given: how many characters THAT balloon holds
+    at a comfortable reading size. It is measured off the shape on the page
+    rather than guessed from the language, and going over it is not a matter
+    of style — the typesetter must then shrink the line until the reader is
+    squinting, or let it run outside the balloon. This is the number that
+    matters. Where it is given, it OVERRULES the ratio above: a long line in a
+    big balloon is fine, and a short one in a small balloon is not.
+  What a long line costs is not a wrong translation, it is six-point type. Cut
+  the words that carry nothing: "It's no exaggeration to say that nearly 90%
+  of Arsilan's territory has already been destroyed" is "Nearly 90% of Arsilan
+  is already gone." Cut WORDS. Never punctuation — see the rule about runs.
 - Honorifics may be retained where they carry meaning the target language
   cannot.
+- A RUN of marks is part of the line and is copied as a run. "!!!" is three
+  and "?!!" is three, and they are drawn at the size the artist drew them:
+  `이건 기적이야!!!` cut down to "This is a miracle!" is a quieter line than the
+  one on the page. Shortening is about WORDS and never about punctuation.
 - Use plain punctuation that comic typesetting fonts can actually draw:
   straight apostrophes and quotes, three periods for an ellipsis, and a
   hyphen only inside a hyphenated word.
@@ -466,6 +622,9 @@ Rules:
 - Do NOT add a dash the {source} does not have — least of all at the start or
   end of a line to mark a sentence carried across bubbles. That is three
   periods at the END, not a dash. Remove any dash you find used that way.
+- A line that STARTS with a dash loses it even when the {source} line starts
+  with one. That mark means the speech is coming from off-panel, and English
+  typesetting says that with the balloon rather than with punctuation.
 - Remove an ellipsis at the START of a line unless the {source} line starts
   with one too. It is a pause the page does not have.
 - page_notes is for what you could NOT fix: a pronoun whose referent is
@@ -551,7 +710,8 @@ def proofread_page(
         client, model, kind = make_client(
             backend=ctx.backend, base_url=ctx.base_url,
             model=ctx.model, api_key=ctx.api_key,
-            safety=getattr(ctx, "safety", "") or "")
+            safety=getattr(ctx, "safety", "") or "",
+            step_name=getattr(ctx, "step_name", "") or "")
     elif isinstance(client, OpenAICompatClient):
         kind, model = "openai", client.model
 
@@ -594,10 +754,18 @@ def proofread_page(
             r = by_id[int(item["id"])]
             fixed = normalize_text(str(item.get("text") or "").strip())
             if fixed:
-                r.dst_text = strip_added_ellipsis(
-                    strip_added_dashes(fixed, r.src_text), r.src_text)
+                r.dst_text = strip_added_lead(
+                    strip_added_ellipsis(
+                        strip_added_dashes(fixed, r.src_text), r.src_text),
+                    r.src_text)
                 if added_masking(r.dst_text, r.src_text):
                     r.flagged = (r.flagged or "") + " " + CENSOR_NOTE
+                note = quieter(r.dst_text, r.src_text) or too_long(
+                    r.dst_text, r, comfort_size(
+                        getattr(ctx, "min_font", 12),
+                        getattr(ctx, "max_font", 34)))
+                if note:
+                    r.flagged = ((r.flagged or "") + " " + note).strip()
 
         # The model has had its say. Now check its spelling the way a style
         # sheet does — mechanically, against the sheet and glossary, on a page
@@ -649,6 +817,26 @@ class SeriesContext:
     # cast is off screen.
     characters: dict[str, str] = field(default_factory=dict)
     previous_page_tail: list[str] = field(default_factory=list)
+    # What this chapter has already called people and things — see
+    # `already_said`. Filled as a run goes and thrown away with it, which is
+    # the right lifetime: it is about one chapter being consistent with
+    # itself, and the sheet and the glossary are what carry across chapters.
+    # The type sizes this project will set between. Both are needed to say how
+    # much a balloon HOLDS: the budget is taken at `comfort_size`, a fraction
+    # of the full size and never below the floor. Carried here so `fits_chars`
+    # can put the number in the request; the typesetter's own copies are
+    # `TypesetConfig.min_font` and `.max_font`.
+    min_font: int = 12
+    max_font: int = 34
+    speakers_seen: list[str] = field(default_factory=list)
+    terms_seen: dict[str, str] = field(default_factory=dict)
+    # ...and the proper names this chapter's ENGLISH has already used. The
+    # other two do not cover it: a speaker label is what a box is tagged with
+    # and a term is something somebody proposed, while this is what the PROSE
+    # said. lee's chapter called one man Chrysos on page 41 and Chryses on
+    # page 45, in the body of two narration boxes, and nothing anywhere had
+    # ever written the name down. See `names_in`.
+    names_seen: list[str] = field(default_factory=list)
     # THE STORY SWITCHES. lee: *"add a story setting that allow the user ti
     # turn the story thing off, and to tun what the ai detects with check
     # boxes"*.
@@ -678,6 +866,17 @@ class SeriesContext:
     # defaults alone; "OFF" turns those four down as far as the API allows.
     # Google's core protections are not configurable and stay on either way.
     safety: str = ""
+    # Which STEP is about to call a model, for the message a provider's
+    # refusal turns into. Transient — it is set fresh on every step and means
+    # nothing between runs — but it is DECLARED, because the whole context is
+    # serialised into project.json by `Project._state` and read back with
+    # `SeriesContext(**saved)`. Setting an undeclared attribute on this
+    # dataclass wrote a key the constructor then refused, `load` raised,
+    # `_load_or_scan` swallowed it and `rescan` saved an empty project over
+    # the chapter. Caught by `test_your_own_text_box.py` within the hour;
+    # see `Project.load`, which no longer trusts this file to be a shape it
+    # understands.
+    step_name: str = ""
 
     def save(self, path: str) -> None:
         with open(path, "w", encoding="utf-8") as fh:
@@ -696,8 +895,268 @@ def build_payload(page: Page, ctx: SeriesContext,
     return _base_payload(page, ctx, chapter)
 
 
+_WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*")
+#: A capital after one of these is the start of a sentence, not a name.
+_SENT_END = ".!?…\"'“”\n"
+
+
+def _bare(w: str) -> str:
+    """`Lancaster's` -> `Lancaster`. A possessive is the same name."""
+    return re.sub(r"['’]s$", "", w)
+
+
+def names_in(texts) -> list[str]:
+    """The proper names in some finished English, in the order they appear.
+
+    A name is a word that is capitalised somewhere it is NOT starting a
+    sentence. That one rule does the whole job and needs no list of stop
+    words: "Still," and "There" and "The" are capitals the full stop put
+    there, and every one of them appears lower-case elsewhere in any real
+    page. Run over the whole of lee's chapter it returns exactly the fourteen
+    proper nouns in it and nothing else — Calliope, Canyon, Chryses, Chrysos,
+    Demarcus, Edel, House, Lancaster, Laszlo, Lord, Majesty, Phara, Tuberin.
+
+    That Chryses AND Chrysos are both in that list is the bug this exists for:
+    they are the same man, spelled two ways, four pages apart.
+
+    Possessives are folded in — `Lancaster's` is not a fifteenth name.
+    """
+    if isinstance(texts, str):
+        texts = [texts]
+    mid, lower, order = set(), set(), []
+    for t in texts:
+        t = t or ""
+        for m in _WORD.finditer(t):
+            w = m.group(0)
+            before = t[:m.start()].rstrip()
+            starts = (not before) or before[-1] in _SENT_END
+            if w[0].isupper():
+                if not starts:
+                    b = _bare(w)
+                    if len(b) > 2 and b not in mid:
+                        mid.add(b)
+                        order.append(b)
+            else:
+                lower.add(_bare(w).lower())
+    # A word that also turns up in lower case somewhere is an ordinary word
+    # that happened to follow a colon or a dash, not a name.
+    return [w for w in order if w.lower() not in lower]
+
+
+def name_drift(used, fresh, close: float = 0.72) -> list:
+    """Names in `fresh` that are near-misses of one already `used`.
+
+    Chryses against Chrysos: same first letter, 0.86 alike, and never once in
+    the same line. Two names that really are different — Edel and Ethel, if
+    the story has both — turn up together on a page sooner or later, and a
+    pair that has met is not drift.
+
+    Returns `(was, now)` pairs. This never rewrites anything: two similar
+    names CAN be two people, and a machine that quietly renamed somebody's
+    character would be a worse fault than the one it was fixing.
+    """
+    out = []
+    for now in fresh:
+        if now in used:
+            continue
+        for was in used:
+            if was[0].lower() != now[0].lower():
+                continue
+            if difflib.SequenceMatcher(None, was.lower(),
+                                       now.lower()).ratio() >= close:
+                out.append((was, now))
+                break
+    return out
+
+
+def remember_said(ctx: "SeriesContext", page, adds: dict | None = None) -> None:
+    """Note what this page called people and things, for the pages after it."""
+    who = getattr(ctx, "speakers_seen", None)
+    if who is None:
+        who = ctx.speakers_seen = []
+    low = {w.lower() for w in who}
+    for r in page.ordered():
+        n = (getattr(r, "speaker", "") or "").strip()
+        if n and n.lower() not in low:
+            low.add(n.lower())
+            who.append(n)
+    terms = getattr(ctx, "terms_seen", None)
+    if terms is None:
+        terms = ctx.terms_seen = {}
+    for k, v in (adds or {}).items():
+        k, v = str(k).strip(), str(v).strip()
+        # First rendering wins, the same rule the glossary itself uses: a
+        # second one is the drift this is here to stop.
+        if k and v and k not in terms:
+            terms[k] = v
+    # ...and the proper names the finished English on this page used. Read off
+    # the prose, because the prose is where they drifted: nobody proposes a
+    # surname and no speaker label carries one.
+    names = getattr(ctx, "names_seen", None)
+    if names is None:
+        names = ctx.names_seen = []
+    for n in names_in([r.dst_text or "" for r in page.ordered()]):
+        if n not in names:
+            names.append(n)
+
+
+# Roughly how much area one character of typeset English takes, as a multiple
+# of the type size squared. It was reasoned at 0.6 — half the size wide, 1.15
+# of it tall with the leading — and then MEASURED, by putting sentences of
+# growing length through `typeset._best` against the real balloon masks of a
+# 71-page chapter and asking where it stopped fitting. The answer is 1.05: the
+# reasoning left out the space between words, the ragged right of a wrapped
+# line, and the fact that a balloon is a round hole so the top and bottom lines
+# get a fraction of the width the middle ones do.
+CHAR_AREA = 1.05
+BALLOON_PACK = 0.55
+
+# The size to budget at, as a fraction of what the project calls a full-size
+# line. NOT `min_font`, which is what this used to use and is why the number
+# meant nothing: min_font is the floor below which a human gets flagged, and on
+# that chapter the typesetter never went near it — it set a median of 32px
+# against a floor of 11, and 18px was the smallest thing on 71 pages. A budget
+# of "what could be crammed in if we shrank the type to illegible" said the
+# median balloon held 634 characters when the median line was 43, and the note
+# fired zero times out of 134.
+#
+# 0.7 of max_font is where the flags line up with the pages: on that chapter it
+# raises 11 notes, and every one is a balloon the typesetter really did have to
+# squeeze (chosen sizes 21-29, against the chapter's median 32). At 0.75 it
+# starts calling out balloons that came out at 34px, which are fine.
+COMFORT_FONT = 0.7
+
+# How far past the estimate a line has to go before it is worth saying so. The
+# estimate is an estimate; a note on a line that is merely snug is a note
+# nobody will read twice.
+OVER_FITS = 1.25
+
+
+def comfort_size(min_font: int = 12, max_font: int = 34) -> int:
+    """The type size a balloon should be budgeted at.
+
+    A fraction of the project's full size, never below its floor — a project
+    whose two settings sit on top of each other gets the floor, which is the
+    only size it has.
+    """
+    lo = max(6, int(min_font or 12))
+    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))
+
+
+def fits_chars(region, size: int = 12) -> int:
+    """How many characters of English that balloon holds at `size`.
+
+    Zero when there is nothing to measure — no mask and no box — and the
+    caller leaves the number out rather than sending a guess.
+    """
+    px = 0
+    m = getattr(region, "bubble_mask", None)
+    if m is not None:
+        try:
+            px = int((m > 0).sum())
+        except Exception:
+            px = 0
+    if not px:
+        b = getattr(region, "bubble_bbox", None) or getattr(region, "bbox", None)
+        if b and len(b) == 4:
+            px = int(b[2]) * int(b[3])
+    size = max(6, int(size or 12))
+    n = int(px * BALLOON_PACK / (CHAR_AREA * size * size))
+    return n if n >= 4 else 0
+
+
+# A run is a run of MARKS, not of one mark: "?!!" is three.
+_RUN = re.compile(r"[!?！？]{2,}")
+
+
+def marks(t: str) -> int:
+    """The longest run of ! or ? in a line. 0 when there is none."""
+    return max((len(m.group(0)) for m in _RUN.finditer(t or "")), default=0)
+
+
+def quieter(dst: str, src: str) -> str:
+    """Did the line come back with its shout taken off?
+
+    `이건 기적이야!!!` came back "This is a miracle!" and `아이고, 진우야아!!!`
+    came back "Oh, Jinwoo...!". Four of those on one chapter, and all four
+    arrived the same week the prompt started asking for shorter lines — asked
+    to cut, the model cut punctuation, which is the one thing on the page that
+    is not words. A run of marks is drawn at the size the artist drew it.
+
+    A note and not a repair: adding the marks back would be writing the line,
+    and the person reading the flag can see the page.
+    """
+    was, now = marks(src), marks(dst)
+    if was >= 2 and now < was:
+        return "the source shouts %d marks and this has %d" % (was, now)
+    return ""
+
+
+def too_long(dst: str, region, size: int = 12) -> str:
+    """Did it come back longer than the balloon holds?
+
+    Only where there is a balloon to measure — see `fits_chars`, which is an
+    estimate and is treated as one: the note is only raised at OVER_FITS past
+    it, so a line that is merely snug says nothing.
+    """
+    room = fits_chars(region, size)
+    n = len((dst or "").strip())
+    if room and n > room * OVER_FITS:
+        return "about %d characters for a balloon that holds ~%d" % (n, room)
+    return ""
+
+
+def already_said(ctx: "SeriesContext") -> dict:
+    """The speaker labels and the term renderings this chapter has used.
+
+    One person, one name. A grandfather labelled "Jinwoo\'s Grandfather" on
+    page 46 and "Osung Group Chairman" on page 57 is two characters as far as
+    the sheet is concerned, and the sheet is what every later chapter starts
+    from. Same for a term: `침식` came back "erosion" five times and "Erosion"
+    twelve on one chapter, which is two terms.
+
+    The character sheet and the glossary already travel with the request and
+    are not enough on their own — a one-off speaker never reaches the sheet by
+    design (a guard, a bystander), and a term nobody proposed never reaches
+    the glossary. This is the rest of it: what was SAID, whether or not it was
+    written down.
+
+    `names` is the third of those gaps and the widest. A person NEVER goes in
+    the glossary — the prompt forbids it, so that nobody is listed twice — and
+    the glossary is the only place that binds a source spelling to an English
+    one. So a character's romanisation is written down NOWHERE: the sheet
+    holds "Laszlo" because that is the speaker label, and the surname in the
+    narration was invented fresh on page 41 and invented again on page 45.
+    This is the list of names the chapter's prose has actually used, which is
+    the only record of that decision there has ever been.
+    """
+    out = {}
+    who = [str(x).strip() for x in (getattr(ctx, "speakers_seen", None) or [])
+           if str(x).strip()]
+    seen, keep = set(), []
+    for w in who:
+        if w.lower() not in seen:
+            seen.add(w.lower())
+            keep.append(w)
+    if keep:
+        out["speakers"] = keep[:40]
+    terms = {str(k): str(v) for k, v in
+             (getattr(ctx, "terms_seen", None) or {}).items() if k and v}
+    if terms:
+        out["terms"] = dict(list(terms.items())[:60])
+    names = [str(x).strip() for x in (getattr(ctx, "names_seen", None) or [])
+             if str(x).strip()]
+    if names:
+        # The most recent, not the first: a chapter long enough to overrun
+        # this cap has moved on to a different cast, and the names that are
+        # about to come round again are the ones just used.
+        out["names"] = names[-60:]
+    return out
+
+
 def _base_payload(page: Page, ctx: SeriesContext,
                   chapter: list | None = None) -> dict:
+    said = already_said(ctx)
     # KEY ORDER IS THE CACHE.
     #
     # Every provider's prompt cache works on a PREFIX: the longest run of bytes
@@ -753,6 +1212,9 @@ def _base_payload(page: Page, ctx: SeriesContext,
         **({"characters": getattr(ctx, "characters", {}) or {}}
            if story else {}),
         "previous_page_tail": ctx.previous_page_tail[-6:],
+        # What this chapter has already called things. Page to page and not
+        # fixed, so it belongs down here below the cached prefix.
+        **({"already_said": said} if said else {}),
         "regions": [
             {
                 "id": r.id,
@@ -760,7 +1222,14 @@ def _base_payload(page: Page, ctx: SeriesContext,
                 "kind": r.kind,
                 "text": r.src_text,
                 "src_char_count": len(r.src_text),
-                **({"link": int(r.link)} if getattr(r, "link", 0) else {}),
+                **({"fits_chars": fits} if (fits := fits_chars(
+                    r, comfort_size(getattr(ctx, "min_font", 12),
+                                    getattr(ctx, "max_font", 34)))) else {}),
+                # Two different facts, and they used to be one key. See
+                # `models.TextRegion.link_kind`.
+                **({("balloon"
+                     if getattr(r, "link_kind", "") == "balloon" else "link"):
+                    int(r.link)} if getattr(r, "link", 0) else {}),
             }
             for r in page.ordered()
             if r.src_text.strip()
@@ -775,12 +1244,46 @@ def _repair_json(s: str) -> str:
     line left unescaped ('Expecting , delimiter'), literal newlines inside
     strings, smart quotes used as delimiters, and trailing commas. Walk the
     text tracking whether we are inside a string and fix each in place.
+
+    ...and the QUOTES AROUND A KEY, which is what took lee's chapter down. A
+    reply that opens ``{"regions":[{"id":0,translation:"..."`` — the key left
+    bare, or wrapped in single quotes — fails with *Expecting property name
+    enclosed in double quotes: line 1 column 21 (char 20)*, and that is his
+    error to the character. Two repairs, and the difference between them is
+    the point:
+
+    * **A single quote outside a string is a string delimiter.** Anywhere it
+      appears, key or value: ``'translation'`` and ``'네, 스승님.'`` are the
+      same slip and there is nothing to lose by fixing both.
+    * **A bareword is only quoted when a COLON follows it** — i.e. only where
+      it can be a key. A bareword anywhere else is `null`, `true`, or a
+      number, and every reply is full of those; quoting them would turn
+      ``"speaker":null`` into the string "null" on every page in the chapter.
+      A bareword that is a genuine mistake stays a mistake, and the reply is
+      asked for again, which is the better answer than believing it.
     """
     out: list[str] = []
     i, n, in_str = 0, len(s), False
     while i < n:
         c = s[i]
         if not in_str:
+            if c == "'":
+                j = s.find("'", i + 1)
+                if j != -1:
+                    out.append('"' + s[i + 1:j].replace('"', '\\"') + '"')
+                    i = j + 1
+                    continue
+            elif c not in "\"“”" and (c.isalnum() or c == "_"):
+                j = i
+                while j < n and (s[j].isalnum() or s[j] in "_-."):
+                    j += 1
+                k = j
+                while k < n and s[k] in " \t\r\n":
+                    k += 1
+                if k < n and s[k] == ":":
+                    out.append('"' + s[i:j] + '"')
+                    i = j
+                    continue
             if c == '"' or c in "“”":
                 in_str = True
                 out.append('"')
@@ -940,7 +1443,9 @@ def _model_error(what: str, model: str, code: int, body: str,
         return (f"the {what} step's key was refused by the provider "
                 f"(HTTP {code}) — {note}. Paste it again in Settings → "
                 f"Translation engine; a key copied with a space or a newline "
-                f"on the end fails exactly like a wrong one.")
+                f"on the end fails exactly like a wrong one, and so does the "
+                f"word \"set\", which is what the screen shows INSTEAD of a "
+                f"saved key and is never a key itself.")
     if code not in (400, 403, 404) or not any(w in low for w in _GONE):
         return f"{what} server returned {code}: {body[:200]}"
     have = [m for m in list_models(base_url, api_key) if "embed" not in m]
@@ -1074,6 +1579,13 @@ class OpenAICompatClient:
         # "" leaves Google's defaults alone; "OFF"/"BLOCK_NONE"/… is sent as
         # the threshold for the four configurable categories. Google only.
         self.safety = safety if is_google_endpoint(self.base_url) else ""
+        # Which STEP is holding this client, for the error message. It used
+        # to say "the OCR step's key was refused" whatever had actually
+        # called, so a refusal on Translate sent lee to look at Read text's
+        # settings. lee: *"the OCR step's key was refused"* -- when it wasn't.
+        # `make_client` fills it in from `ctx.step_name`, which `editor.
+        # _ctx_from_settings` sets from `STEP_LABEL`.
+        self.step_name = ""
 
     def complete(self, system: str, user: str, max_tokens: int = 8000,
                  temperature: float = 0.25) -> str:
@@ -1135,7 +1647,11 @@ class OpenAICompatClient:
                     delay *= 2
                     continue
                 raise RuntimeError(_model_error(
-                    "translation", self.model, e.code, body,
+                    # The step that is actually running, not the one this
+                    # method is usually used for. This said "translation" and
+                    # the vision one said "OCR", so a refusal on Proofread
+                    # named whichever method it happened to come through.
+                    self.step_name or "translation", self.model, e.code, body,
                     self.base_url, self.api_key)) from e
             except Exception as e:
                 # A request that went quiet is sent again. Separate from the
@@ -1216,7 +1732,7 @@ class OpenAICompatClient:
                     delay *= 2
                     continue
                 raise RuntimeError(_model_error(
-                    "OCR", self.model, e.code, body,
+                    self.step_name or "OCR", self.model, e.code, body,
                     self.base_url, self.api_key)) from e
             except Exception as e:
                 if _went_quiet(e):
@@ -1245,13 +1761,22 @@ class OpenAICompatClient:
 
 
 def make_client(backend: str = "anthropic", base_url: str = "",
-                model: str = "", api_key: str = "", safety: str = ""):
-    """Return (client, model, kind)."""
+                model: str = "", api_key: str = "", safety: str = "",
+                step_name: str = ""):
+    """Return (client, model, kind).
+
+    `step_name` is only ever read by the error message — see `_model_error`.
+    It is passed rather than looked up because the client does not know what
+    is holding it, and a refusal that names the wrong step sends somebody to
+    fix settings that were never the problem.
+    """
     if backend in LOCAL_PRESETS or backend == "openai":
         preset = LOCAL_PRESETS.get(backend, {})
         url = base_url or preset.get("base_url", "https://api.openai.com/v1")
         mdl = model or preset.get("model", "gpt-4o-mini")
-        return OpenAICompatClient(url, mdl, api_key, safety=safety), mdl, "openai"
+        cl = OpenAICompatClient(url, mdl, api_key, safety=safety)
+        cl.step_name = step_name or ""
+        return cl, mdl, "openai"
     import anthropic
     return anthropic.Anthropic(), (model or MODEL), "anthropic"
 
@@ -1381,15 +1906,22 @@ def _ask(client, kind: str, model: str, system: str, user: str,
 
 
 def _ask_vision(client, kind: str, model: str, system: str, user: str,
-                image_b64: str, media_type: str = "image/png") -> str:
-    """One vision turn: system + (page image, user text) -> model reply."""
+                image_b64, media_type: str = "image/png") -> str:
+    """One vision turn: system + (image(s), user text) -> model reply.
+
+    `image_b64` is one image or a list of them. Several go in one turn because
+    a page read as one crop per box is a dozen small pictures that all want the
+    same system prompt and the same page listing — sending them one at a time
+    would multiply that text by a dozen and spend the whole saving.
+    """
+    imgs = [image_b64] if isinstance(image_b64, str) else list(image_b64)
     if kind == "openai":
-        return client.complete_vision(system, user, image_b64, media_type)
-    content = [
-        {"type": "image", "source": {"type": "base64",
-         "media_type": media_type, "data": image_b64}},
-        {"type": "text", "text": user},
-    ]
+        # The OpenAI-shaped client takes one image. Several is an Anthropic
+        # path only, and `read_page_ocr` does not batch when it is not.
+        return client.complete_vision(system, user, imgs[0], media_type)
+    content = [{"type": "image", "source": {"type": "base64",
+                "media_type": media_type, "data": b}} for b in imgs]
+    content.append({"type": "text", "text": user})
     kwargs = dict(model=model, max_tokens=4000, system=_system_blocks(system),
                   messages=[{"role": "user", "content": content}])
     # OCR wants the flattest, most literal decoding we can get (temperature 0),
@@ -1434,11 +1966,42 @@ def build_ocr_system(source: str = "Japanese") -> str:
         "in the image is WRONG — prefer the empty string.\n"
         "- Preserve small kana (っ ゃ ゅ ょ) vs full kana, and dakuten / "
         "handakuten exactly (が vs か, で vs て, ば vs は).\n"
-        "- Write an ellipsis as three periods ... and a long-vowel mark as ー. "
-        "Do not add stray symbols.\n"
+        # This used to say "write an ellipsis as three periods ...", which was
+        # written for Japanese and is an instruction to CHANGE the page. lee's
+        # chapter 1 prints "거, 취향 참…." and "흐음…." — an ellipsis glyph and
+        # then a full stop, which is ordinary Korean typesetting — and the read
+        # came back "참...", losing the stop and spelling the ellipsis a way the
+        # page does not. Measured over the chapter: 8 lines rewritten to ASCII
+        # dots, and 6 of the 8 printed "…." dropped their stop. Three periods
+        # belong in the ENGLISH, where a comic font has to draw them; that rule
+        # is in the translation prompt and stays there. The transcription is
+        # meant to be what is on the paper.
+        "- Copy the punctuation EXACTLY as printed, character for character: "
+        "an ellipsis is … where the page prints … and ... where it prints ..., "
+        "a full stop after an ellipsis (….) is part of the line, and a "
+        "long-vowel mark is ー. Do not tidy, normalise, or add stray symbols.\n"
+        # ...and the shape of the line, which the crops were flattening: page
+        # 013's narration is printed as three lines and arrived as one.
+        "- Keep the LINE BREAKS as printed. A run of writing set as three lines "
+        "comes back as three lines separated by \\n, broken in the same places. "
+        "Do not re-wrap it, and do not join it into one line.\n"
         "- Two regions almost never hold the SAME text. If you are about to "
         "give two regions identical text, look again — one of them says "
-        "something else, or is empty.\n\n"
+        "something else, or is empty.\n"
+        # The 011 failure. "하이엘프 티리스" came back "하이엘프 타라스": a name
+        # the model had never seen, normalised into one that sounds more like a
+        # name. The glyphs were 57px and perfectly legible; nothing in this
+        # prompt told it not to. lee: *"especialy page 11"*.
+        "- A NAME YOU DO NOT RECOGNISE IS STILL THE NAME THAT IS PRINTED. Copy "
+        "the syllables you can see. Never replace an unfamiliar name with a "
+        "more familiar-sounding one, and never regularise its spelling toward "
+        "a name you know. Most names in a comic are invented; being unable to "
+        "place one is normal and is not a reason to change it.\n"
+        # ...and the dashes the same page lost, which were sitting ON the
+        # outline because the box was drawn a few pixels too tight.
+        "- Dashes, brackets and quotation marks printed as part of a line are "
+        "part of that line: \u201c- 하이엘프 -\u201d keeps both dashes. Include "
+        "them even where the outline passes over or beside them.\n\n"
         "You may be given names and terms that have already appeared in this "
         "series. Use them ONLY to settle a glyph you are unsure of — if the "
         "shapes fit a known name, prefer the known spelling. Never insert a "
@@ -1723,10 +2286,55 @@ def link_sections(regions) -> int:
             done += 1
         for r in members:
             r.link = used if joined else 0
+            r.link_kind = "sentence" if joined else ""
     return done
 
 
-def merge_glossary(sheet: dict, adds: dict) -> list:
+def is_a_person(rendering: str, characters) -> str:
+    """Which character this glossary rendering is, if it is one at all.
+
+    The prompt is already clear that **a person NEVER goes in
+    glossary_additions** — a named character belongs on the character sheet
+    and nowhere else, so that no one is listed twice. Nothing enforced it, and
+    lee's chapter came back with
+
+        이델 캐니언 -> "Edel Canyon (the canyon location)"
+
+    which is the heroine's maiden name filed as a place, because 캐니언 reads
+    as the English word. The glossary is what every LATER chapter starts from,
+    so a wrong entry there outlives the chapter that made it.
+
+    The test is narrow on purpose, and the entry it must NOT catch is the one
+    sitting beside it on lee's own sheet: `랭카스터 -> "Lancaster (the ducal
+    house and family name)"`, which is a real place-ish term that happens to
+    share a word with Edel Lancaster. So:
+
+    * the rendering is exactly TWO name-shaped words — the shape of a personal
+      name, and not "Lancaster" (one) or "Edel Canyon Bridge" (three);
+    * no possessive and no lower-case word in it, so "Phara's Temple" and
+      "Hall of Mirrors" are left alone;
+    * and its FIRST word is the first word of a name on the character sheet.
+      A surname shared with a house is not enough — "Lancaster" is not Edel's
+      given name, so the ducal house passes. A GIVEN name is what a person is
+      re-introduced under: a maiden name, a title, a pen name.
+
+    Returns the sheet name it collided with, or "".
+    """
+    parts = str(rendering or "").split()
+    if len(parts) != 2:
+        return ""
+    if any(len(p) < 3 or not p[0].isupper() or _bare(p) != p
+           or not p.isalpha() for p in parts):
+        return ""
+    for who in (characters or {}):
+        first = str(who).split()
+        if first and first[0].lower() == parts[0].lower() \
+                and str(who).lower() != str(rendering).lower():
+            return str(who)
+    return ""
+
+
+def merge_glossary(sheet: dict, adds: dict, characters=None) -> list:
     """Fold proposed terms into the glossary. Returns what was refused.
 
     **Every term must say what it is.** lee, looking at a panel where nine of
@@ -1764,6 +2372,11 @@ def merge_glossary(sheet: dict, adds: dict) -> list:
             continue
         if not note:
             refused.append(f"{name} (no description — say what it is)")
+            continue
+        who = is_a_person(name, characters)
+        if who:
+            refused.append(f"{name} (that is {who} — a person belongs on the"
+                           " character sheet, not the glossary)")
             continue
         have = sheet.get(term)
         if have is not None:
@@ -2003,7 +2616,8 @@ def _ocr_context(page: "Page", ctx: "SeriesContext") -> str:
     joined = [g for g in groups.values() if len(g) > 1]
     if joined:
         bits.append(
-            "These region groups are ONE sentence split across several boxes: "
+            "These region groups belong together — either one sentence "
+            "carried across boxes or two lobes of one drawn balloon: "
             + "; ".join("+".join(str(i) for i in g) for g in joined)
             + ". Transcribe each box with only the characters printed inside "
             "THAT box — if a word or a name is broken across the split, do not "
@@ -2014,7 +2628,8 @@ def _ocr_context(page: "Page", ctx: "SeriesContext") -> str:
 
 
 def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "image/png",
-                  client=None, model: str = "", progress=None) -> dict:
+                  client=None, model: str = "", progress=None,
+                  batch: int = 1) -> dict:
     """Vision OCR. Transcribe every region from the labelled page image(s).
 
     `tiles` is either raw PNG bytes for the whole page, or a list of
@@ -2040,7 +2655,8 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
         client, model, kind = make_client(
             backend=ctx.backend, base_url=ctx.base_url,
             model=ctx.model or MODEL, api_key=ctx.api_key,
-            safety=getattr(ctx, "safety", "") or "")
+            safety=getattr(ctx, "safety", "") or "",
+            step_name=getattr(ctx, "step_name", "") or "")
     src = source_language(ctx.medium, ctx.source)
     system = build_ocr_system(src)
     order = sorted(regions, key=lambda r: getattr(r, "order", 0))
@@ -2048,26 +2664,69 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
     reference = _ocr_context(page, ctx)
 
     out: dict[int, str] = {}
-    for n, (img_bytes, ids) in enumerate(tiles, 1):
+    # How many pictures ride in one turn. One, unless the caller is sending a
+    # crop per box — a dozen small pictures that all want the same system
+    # prompt and the same page listing, and sending them separately would
+    # multiply that text by a dozen and spend the whole saving.
+    n_batch = max(1, int(batch or 1))
+    if kind == "openai":
+        n_batch = 1                      # that client takes one image a turn
+    groups = [tiles[i:i + n_batch] for i in range(0, len(tiles), n_batch)]
+    for n, group in enumerate(groups, 1):
         if progress:
             try:
-                progress(n, len(tiles))
+                progress(n, len(groups))
             except Exception:
                 pass
-        want = [i for i in ids] or [r.id for r in order]
+        want = [i for _b, ids in group for i in ids] or [r.id for r in order]
         scope = (f"The page has these regions (id: kind), in reading order:\n"
                  f"{listing}\n\n")
-        if len(tiles) > 1:
-            scope += (f"This image is piece {n} of {len(tiles)}, shown at higher "
+        if len(group) > 1:
+            scope += ("You are shown %d images from this page, one per region, "
+                      "each blown up so its writing is legible. In order they "
+                      "are the regions: %s. Each image has its own region "
+                      "outlined in RED and numbered; anything grey in it "
+                      "belongs to a neighbour. Transcribe ONLY those %d "
+                      "regions.\n\n"
+                      % (len(group), ", ".join(str(i) for i in want),
+                         len(want)))
+        elif len(tiles) > 1:
+            scope += (f"This image is piece {n} of {len(groups)}, shown at higher "
                       "resolution than the full page. Transcribe ONLY these "
                       "regions, which are the ones outlined in red: "
                       + ", ".join(str(i) for i in want) + ".\n\n")
         user = (scope + reference
                 + "Transcribe the text inside each numbered region and return "
                   "the JSON described.")
-        b64 = base64.b64encode(img_bytes).decode()
-        raw = _ask_vision(client, kind, model, system, user, b64, media_type)
-        data = _extract_json(raw)
+        b64 = [base64.b64encode(b).decode() for b, _ids in group]
+        # A reply that is not JSON gets asked again, the way translating and
+        # proofreading already do. This used to parse straight through, so ONE
+        # malformed reply on ONE piece raised out of the whole run and took the
+        # other 57 pages of the chapter with it. lee, reading a chapter a crop
+        # per box: *"JSONDecodeError: Expecting property name enclosed in
+        # double quotes"*. A crop per box is a dozen pictures in one turn and a
+        # dozen entries in one reply, so there is more of it to get wrong.
+        #
+        # And when it STILL will not parse, the piece is skipped rather than
+        # thrown: its regions come back unread, `do_ocr` flags them, and the
+        # rest of the chapter finishes. A page you have to fix a box on beats a
+        # run that stopped on page 12.
+        data, why = None, ""
+        for _try in range(OCR_TRIES):
+            ask = user if not why else (
+                user + "\n\nYour previous reply could not be read as JSON "
+                f"({why}). Return ONLY the JSON object — no prose, no markdown "
+                "fence, every key in double quotes, and every double quote "
+                "inside a transcription escaped as \\\".")
+            raw = _ask_vision(client, kind, model, system, ask,
+                              b64 if len(b64) > 1 else b64[0], media_type)
+            try:
+                data = _extract_json(raw)
+                break
+            except Exception as e:
+                why = str(e)[:120]
+        if data is None:
+            continue
         allowed = set(want)
         got: set[int] = set()
         for item in (data.get("regions") or []):
@@ -2121,7 +2780,8 @@ def translate_page(
         client, model, kind = make_client(
             backend=ctx.backend, base_url=ctx.base_url,
             model=ctx.model, api_key=ctx.api_key,
-            safety=getattr(ctx, "safety", "") or "")
+            safety=getattr(ctx, "safety", "") or "",
+            step_name=getattr(ctx, "step_name", "") or "")
     elif isinstance(client, OpenAICompatClient):
         kind, model = "openai", client.model
 
@@ -2174,13 +2834,23 @@ def translate_page(
             # normalize typographic characters at the door — comic fonts
             # can't draw most of them, and a tofu box in an export is worse
             # than a plain apostrophe
-            r.dst_text = strip_added_ellipsis(
-                strip_added_dashes(
-                    normalize_text(str(item.get("translation") or "").strip()),
+            r.dst_text = strip_added_lead(
+                strip_added_ellipsis(
+                    strip_added_dashes(
+                        normalize_text(str(item.get("translation") or "").strip()),
+                        r.src_text),
                     r.src_text),
                 r.src_text)
             if added_masking(r.dst_text, r.src_text):
                 r.flagged = (r.flagged or "") + " " + CENSOR_NOTE
+            # ...and the two the last chapter needed: a shout cut down to one
+            # mark, and a line the balloon will not hold.
+            note = quieter(r.dst_text, r.src_text) or too_long(
+                r.dst_text, r, comfort_size(
+                    getattr(ctx, "min_font", 12),
+                    getattr(ctx, "max_font", 34)))
+            if note:
+                r.flagged = ((r.flagged or "") + " " + note).strip()
             # Who said it, unless nobody asked for that. A speaker the
             # model was told not to return but returned anyway is still
             # dropped here — the switch is about the SHEET's contents, and a
@@ -2200,7 +2870,8 @@ def translate_page(
             # Every term must say what it is — see `merge_glossary`. A bare
             # name comes back refused, and is shown the same way a refused
             # character is.
-            gl_refused = merge_glossary(ctx.glossary, gl)
+            gl_refused = merge_glossary(ctx.glossary, gl,
+                                        getattr(ctx, "characters", None))
             if gl_refused:
                 data["glossary_refused"] = gl_refused
 
@@ -2236,6 +2907,22 @@ def translate_page(
                              + f" speaker \"{r.speaker}\" is not named anywhere"
                              ).strip()
 
+        # ...and the same question asked of the PROSE, which is where lee's
+        # Chrysos/Chryses happened — in the body of two narration boxes, four
+        # pages apart, with no speaker and no glossary term anywhere near it.
+        #
+        # NOT gated on the story switch: this is about one chapter agreeing
+        # with itself, not about a sheet anybody is keeping, and `already_said`
+        # travels whether the sheets do or not. Reads `names_seen` BEFORE
+        # `remember_said` adds this page to it, so a name is never a near-miss
+        # of itself.
+        was_said = list(getattr(ctx, "names_seen", None) or [])
+        for r in page.ordered():
+            for was, now in name_drift(was_said, names_in(r.dst_text or "")):
+                r.flagged = ((r.flagged or "")
+                             + f" \"{now}\" was \"{was}\" earlier in this"
+                               " chapter").strip()
+
         adds = data.get("character_additions") or {}
         if story and getattr(ctx, "learn_characters", True) and isinstance(adds, dict):
             # first sighting wins: the sheet is canon, later pages only extend
@@ -2251,6 +2938,10 @@ def translate_page(
             (f"{r.speaker}: {r.dst_text}" if r.speaker else r.dst_text)
             for r in page.ordered() if r.dst_text
         ][-6:]
+        # ...and who and what this chapter has now called things. Unlike the
+        # tail, this does not fall off after six lines: page 57 has to be able
+        # to see what page 46 called the grandfather.
+        remember_said(ctx, page, data.get("glossary_additions") or {})
         return data
 
     raise RuntimeError(f"translation failed after {max_retries + 1} attempts: {last_err}")

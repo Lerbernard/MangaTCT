@@ -197,18 +197,29 @@ function growBox(t){
 /* The region editor lives INSIDE the selected row (an accordion), so clicking a
    text on the page or in the list expands it in place rather than popping up a
    separate panel above the list. Clicks inside must not bubble to the row's
-   select() — that would rebuild the list and drop focus mid-edit. */
+   select() — that would rebuild the list and drop focus mid-edit.
+
+   The two boxes said "Japanese" and "English". On a Korean webtoon translated
+   into English the first of those is simply wrong, and lee asked for what they
+   actually are: *"make this say input text and output text"*. Whatever the
+   languages happen to be, these are the two ends of the pipeline, and WHICH
+   languages is a question already answered on the Settings page. The undo list
+   named the same two fields the same wrong way — see `upd` in region-ops.js.
+
+   (A note like this belongs here and not in the template below: an HTML
+   comment inside the string is rendered into the panel, and this one would
+   have put the word "Japanese" back into the DOM it is removing it from.) */
 function regionInlineEditor(r){
   return `<div class="rinline" onclick="event.stopPropagation()">
       ${selMulti.size>1
         ? `<p class="help" style="margin:0 0 7px"><b>${selMulti.size} boxes selected</b></p>`
         : ''}
       ${kindSelects(r)}
-      <label>Japanese</label>
+      <label>Input text</label>
       <textarea rows="1"
                 oninput="noteEdit(${r.id},'src_text',this.value);growBox(this)"
                 onchange="flushEdit()">${esc(r.src_text)}</textarea>
-      <label>English</label>
+      <label>Output text</label>
       <textarea rows="1"
                 oninput="noteEdit(${r.id},'dst_text',this.value);growBox(this)"
                 onchange="flushEdit()">${esc(r.dst_text)}</textarea>
@@ -410,9 +421,20 @@ const BOX_GROUPS=KIND_FAMILIES.map(f=>[f, FAMILY_LABELS[f]]);
 function renderLegend(){
   const el=$('legend'); if(!el) return;
   const bits=[];
+  // ...and they are BUTTONS. lee: *"can you meke these 3 in the screenshoot
+  // buttons adn make them diactaet twhat box is beign draw by degault"*. The
+  // key already said what each colour means and what its number key is; now
+  // the one that is lit is also the kind a box you draw comes out as, so
+  // drawing three sound effects in a row is three drags rather than three
+  // drags and three keypresses. Bubble text is lit at startup.
   KIND_FAMILIES.forEach((f,i)=>{
-    bits.push(`<span class="lgmain"><i style="background:${KIND_COLORS[f]}"></i>`+
-              `${i+1} ${esc(FAMILY_LABELS[f])}</span>`);
+    const on = f===newBoxKind ? ' on' : '';
+    bits.push(`<button type="button" class="lgmain${on}" data-fam="${f}" `+
+              `onclick="setNewBoxKind('${f}')" `+
+              `title="Draw new boxes as ${esc(FAMILY_LABELS[f])}`+
+              ` — ${i+1} still sets the box you have selected">`+
+              `<i style="background:${KIND_COLORS[f]}"></i>`+
+              `${i+1} ${esc(FAMILY_LABELS[f])}</button>`);
   });
   // The three main types, and nothing under them. A row for every sub-type
   // as well made a paragraph of colour chips above the page that was longer
@@ -503,11 +525,16 @@ function cleanPanel(){
       <div class="lay ${r.id===sel?'on':''}" onclick="select(${r.id})">
         <i style="background:${r.skip_clean?'#555':'#9fe870'}"></i>
         <span>Region ${(r.order??0)+1}${r.skip_clean?' — not cleaned'
-          :(r.clean_route?' — '+esc(cleanRouteLabel(r.clean_route))
+          :(r.focus?' — focus':'')+(r.clean_route?' — '+esc(cleanRouteLabel(r.clean_route))
             +(r.clean_core?', strokes only':''):'')}</span>
         <span class="lx" title="${r.skip_clean?'Clean this bubble':'Leave the original text'}"
               onclick="event.stopPropagation();toggleClean(${r.id})">
           ${r.skip_clean?'&#8709;':'&#128065;'}</span>
+        <span class="lx" title="${r.focus?'Read this box the ordinary way'
+            :'Focus clean \u2014 read the writing against its own background, for gold '
+             +'text or a see-through bubble the ordinary reading misses'}"
+              style="${r.focus?'color:#ffd166':''}"
+              onclick="event.stopPropagation();toggleFocus(${r.id})">&#9678;</span>
       </div>`).join('')}
     </div>
   </div>` : '';

@@ -136,7 +136,9 @@ def test_the_legend_is_the_three_main_types(ed):
     pg.evaluate("setView('original')")
     browserpool.settled(pg)
     chips = pg.evaluate(
-        "[...document.querySelectorAll('#legend > span')].map(s=>s.textContent.trim())")
+        "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
+    # The three main types are BUTTONS now — see
+    # `tests/ui/the_legend_draws_the_box.test.js`. Still the same words.
     assert chips == ["1 Bubble text", "2 Outside text", "3 Sound effect",
                      "unsure"], chips
     assert not errs, errs[:2]

@@ -45,6 +45,35 @@ function toggleGroupEye(which){
   repaintAll(); renderLayers();
 }
 
+/* Read this box's writing against its own local background instead of the
+   fixed ink levels — for gold text, or a see-through bubble, where the
+   ordinary reading describes the BACKGROUND and not the words.
+
+   One box at a time, deliberately: every attempt to fix gold for the whole
+   chapter moved something else. See `inpaint.focus_mask`. */
+async function toggleFocus(id){
+  const r=regions.find(x=>x.id===id); if(!r) return;
+  if(toggleFocus._busy) return;
+  toggleFocus._busy=true;
+  const next=!r.focus;
+  r.focus=next; renderList();
+  try{
+    const j=await api(`/api/page/${cur}/region/${id}`,'POST',{focus:next});
+    if(j&&j.error) throw new Error(j.error);
+    if(j&&j.region&&!!j.region.focus!==next){
+      throw new Error('the server ignored it — restart the editor from the '+
+                      'new zip and hard-refresh (Ctrl+Shift+R)');
+    }
+    record('clean', `Region ${(r.order??0)+1}: focus clean turned ${next?'on':'off'}`,
+      async ()=>{ await api(`/api/page/${cur}/region/${id}`,'POST',{focus:!next});
+                  showPage(cur); });
+    await showPage(cur);
+  }catch(e){
+    r.focus=!next; renderList();
+    toast('Could not change the cleaning: '+e.message);
+  }finally{ toggleFocus._busy=false; }
+}
+
 async function toggleClean(id){
   const r=regions.find(x=>x.id===id); if(!r) return;
   if(toggleClean._busy) return;                    // one flip at a time

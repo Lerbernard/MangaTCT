@@ -424,7 +424,7 @@ def test_a_key_is_stored_the_way_it_was_meant(given):
 
 def test_the_reading_step_comes_set_up_for_google():
     """lee: *"these shoud be teh default"*, of Google AI Studio with
-    gemini-3.5-flash-lite reading and gemini-3.6-flash translating."""
+    gemini-3.5-flash-lite reading and gemini-3.7-flash translating."""
     import shutil as _sh
     from mangatl.project import Project
     root = scratch("_tmp_defaults")
@@ -434,7 +434,7 @@ def test_the_reading_step_comes_set_up_for_google():
         assert p.settings["ocr_backend"] == "gemini"
         assert p.settings["ocr_model"] == "gemini-3.5-flash-lite"
         assert p.settings["translate_backend"] == "gemini"
-        assert p.settings["translate_model"] == "gemini-3.6-flash"
+        assert p.settings["translate_model"] == "gemini-3.7-flash"
     finally:
         _sh.rmtree(root, ignore_errors=True)
 

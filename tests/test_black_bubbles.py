@@ -205,17 +205,32 @@ def test_the_block_in_it_stops_being_called_outside_text():
     assert r.kind == "bubble", r.kind
 
 
-def test_the_upright_pass_never_renames_anything():
-    """Promotion belongs to the inverted pass alone. A free-floating block on
-    a white page is free-floating — it is not even looked at upright — and a
-    caption keeps its own kind whichever pass finds it."""
+def test_the_upright_pass_promotes_too_now():
+    """Promotion used to belong to the inverted pass alone, and a free-floating
+    block on a WHITE page was not even looked at.
+
+    lee: *"when you lable a bubble i want you ta do a very quick text that try
+    to find teh bubble if it fins teh bubble then lable it a bubble box"*. The
+    rule was already here for black balloons; a block turning out to be inside
+    a balloon is better evidence than the ring test that called it free,
+    whichever polarity found it. See `test_the_balloon_may_name_the_box.py` for
+    the measurement, and for the half of his sentence that is NOT here."""
     page, r = _white_case(kind="freefloat")
-    attach_balloons(page, [r])
-    assert r.kind == "freefloat"                # never eligible upright
-    page, r = _black_case(kind="narration")
+    assert attach_balloons(page, [r]) == 1
+    assert r.kind == "bubble", r.kind
+
+
+def test_a_caption_keeps_its_name_either_way():
+    """Promotion renames free text and nothing else. A caption found in a
+    balloon is still a caption — the person said what it was."""
+    page, r = _white_case(kind="narration")
     assert attach_balloons(page, [r]) == 1
     assert r.bubble_mask is not None            # it still gets its shape...
     assert r.kind == "narration"                # ...and keeps its name
+    page, r = _black_case(kind="narration")
+    assert attach_balloons(page, [r]) == 1
+    assert r.bubble_mask is not None
+    assert r.kind == "narration"
 
 
 # ---------------------------------------------------------- and when it must not
@@ -326,14 +341,23 @@ def test_the_black_balloon_typesets_bigger_and_in_white():
 def test_the_two_passes_share_one_set_of_rules():
     """No second, looser set of numbers for dark balloons.
 
-    Proved by loosening them: a flat MID-GREY enclosed blob with white
-    typesetting on it is not a balloon, and the only thing that says so is
+    Proved by loosening them: a flat MID-GREY enclosed blob does not get a
+    balloon SHAPE, and the only thing that says so is
     `min_interior_brightness` — 255 minus 112 is 143, and the rule wants 190.
-    Drop the rule to 120 and the same blob comes back as a balloon.
+    Drop the rule to 120 and the same blob comes back with a shape.
 
     So if the inverted pass is ever given its own gentler config to make lee's
     page work, this test fails, which is the point: that is exactly how
-    artwork starts becoming balloons."""
+    artwork starts becoming balloons.
+
+    THE LABEL IS A SEPARATE QUESTION AND IT DOES CHANGE HERE. This blob is
+    flat, enclosed and round, so `_shut_in_a_round_wall` calls it a bubble —
+    see `test_a_wall_of_sharp_change.py`. That is not this test being sanded
+    down to fit: the two are different claims and both are still checked below.
+    A grey ellipse with writing in it really is a balloon nine times out of
+    ten, the cost of being wrong about the name is one keypress, and no shape
+    is handed to the typesetter on the strength of it — which is the thing this
+    test was written to protect."""
     import copy
 
     def _grey_blob():
@@ -344,8 +368,7 @@ def test_the_two_passes_share_one_set_of_rules():
 
     page, r = _grey_blob()
     assert attach_balloons(page, [r], BalloonConfig()) == 0
-    assert r.bubble_mask is None
-    assert r.kind == "freefloat"
+    assert r.bubble_mask is None, "no SHAPE may come from a grey blob"
 
     loose = copy.copy(BalloonConfig())
     loose.min_interior_brightness = 120

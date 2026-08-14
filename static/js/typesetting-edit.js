@@ -144,32 +144,52 @@ function setTypesetLines(id, lines){
     .then(j=>{ if(j&&j.regions) setRegions(j.regions); });
 }
 
+/* Is the Typesetting panel even about THIS block?
+
+   `currentPatch` builds a save out of the panel's fields, which is right when
+   the panel is showing the block being saved and wrong when it is not: it
+   posts one block's size and line breaks onto another. The panel is only ever
+   built for the SELECTED block, so that is the whole of the question.
+
+   The other half of keeping these two in step is in frames.js: a drag that
+   re-fits the text writes the answer onto the layout, and
+   `panelSaysWhatTheLayoutSays` puts it into the panel at the same moment. Both
+   are needed. Without the sync the panel is behind and posts a stale size back
+   over the dragged one; without this guard the panel is about somebody else
+   entirely. */
+function panelIsAbout(r){
+  return typeof sel==='undefined' || sel===null || sel===r.id;
+}
+
 function currentPatch(r){
   const ov=r.layout_override||{};
-  return {align:$('lyAlign')?$('lyAlign').value:(ov.align||'center'),
-          caps:$('lyCaps')?!!$('lyCaps').checked:!!ov.caps,
-          lines:($('lyLines')?lyLinesNow():(r.layout?r.layout.lines:[])),
-          font_size:$('lySize')?+$('lySize').value:(r.layout?r.layout.font_size:14),
+  const L=r.layout||{};
+  const mine=panelIsAbout(r);
+  const el=(id)=>mine ? $(id) : null;
+  return {align:el('lyAlign')?$('lyAlign').value:(ov.align||'center'),
+          caps:el('lyCaps')?!!$('lyCaps').checked:!!ov.caps,
+          lines:(el('lyLines')?lyLinesNow():(L.lines||[])),
+          font_size:el('lySize')?+$('lySize').value:(L.font_size||14),
           dx:+ov.dx||0,          // set by dragging the text, not by a field
           dy:+ov.dy||0,
-          rotate:$('lyRot')?+$('lyRot').value:(+ov.rotate||0),
-          font:$('lyFont')?$('lyFont').value:(ov.font||''),
-          fg:$('lyFg')?$('lyFg').value:(ov.fg||''),
-          edge:$('lyEdge')?$('lyEdge').value:(ov.edge||''),
-          fg1:$('lyFg1')?$('lyFg1').value:(ov.fg1||''),
-          fg2:$('lyFg2')?$('lyFg2').value:(ov.fg2||''),
-          grad_angle:$('lyGrad')?+$('lyGrad').value||0:(+ov.grad_angle||0),
-          edge1:$('lyEdge1')?$('lyEdge1').value:(ov.edge1||''),
-          edge2:$('lyEdge2')?$('lyEdge2').value:(ov.edge2||''),
-          edge_angle:$('lyEdgeG')?+$('lyEdgeG').value||0:(+ov.edge_angle||0),
-          shadow:$('lySh')?$('lySh').value:(ov.shadow||''),
-          sh_dist:$('lyShD')?+$('lyShD').value||0:(+ov.sh_dist||2),
-          sh_blur:$('lyShB')?+$('lyShB').value||0:(+ov.sh_blur||3),
-          curve:$('lyCurve')?+$('lyCurve').value||0:(+ov.curve||0),
-          glow:$('lyGlow')?$('lyGlow').value:(ov.glow||''),
-          glow_size:$('lyGlowS')?+$('lyGlowS').value||0:(+ov.glow_size||6),
-          iglow:$('lyIGlow')?$('lyIGlow').value:(ov.iglow||''),
-          iglow_size:$('lyIGlowS')?+$('lyIGlowS').value||0:(+ov.iglow_size||5),
+          rotate:el('lyRot')?+$('lyRot').value:(+ov.rotate||0),
+          font:el('lyFont')?$('lyFont').value:(ov.font||''),
+          fg:el('lyFg')?$('lyFg').value:(ov.fg||''),
+          edge:el('lyEdge')?$('lyEdge').value:(ov.edge||''),
+          fg1:el('lyFg1')?$('lyFg1').value:(ov.fg1||''),
+          fg2:el('lyFg2')?$('lyFg2').value:(ov.fg2||''),
+          grad_angle:el('lyGrad')?+$('lyGrad').value||0:(+ov.grad_angle||0),
+          edge1:el('lyEdge1')?$('lyEdge1').value:(ov.edge1||''),
+          edge2:el('lyEdge2')?$('lyEdge2').value:(ov.edge2||''),
+          edge_angle:el('lyEdgeG')?+$('lyEdgeG').value||0:(+ov.edge_angle||0),
+          shadow:el('lySh')?$('lySh').value:(ov.shadow||''),
+          sh_dist:el('lyShD')?+$('lyShD').value||0:(+ov.sh_dist||2),
+          sh_blur:el('lyShB')?+$('lyShB').value||0:(+ov.sh_blur||3),
+          curve:el('lyCurve')?+$('lyCurve').value||0:(+ov.curve||0),
+          glow:el('lyGlow')?$('lyGlow').value:(ov.glow||''),
+          glow_size:el('lyGlowS')?+$('lyGlowS').value||0:(+ov.glow_size||6),
+          iglow:el('lyIGlow')?$('lyIGlow').value:(ov.iglow||''),
+          iglow_size:el('lyIGlowS')?+$('lyIGlowS').value||0:(+ov.iglow_size||5),
           // 0 is a real answer here — a fully transparent block — so this one
           // cannot be written with `||`.
           opacity:($('lyOpacity') ? Math.max(0,Math.min(100,+$('lyOpacity').value||0))
@@ -177,9 +197,9 @@ function currentPatch(r){
           // Falls back to the layout's own leading, not to 1.12: the panel is
           // only built in the typeset view, so saving from anywhere else used
           // to reset the line spacing to the default.
-          leading:$('lyLead')?+$('lyLead').value||1.12
+          leading:el('lyLead')?+$('lyLead').value||1.12
                             :(+ov.leading||(r.layout&&r.layout.leading)||undefined),
-          lspace:$('lyLspace')?+$('lyLspace').value||0:(+ov.lspace||0),
+          lspace:el('lyLspace')?+$('lyLspace').value||0:(+ov.lspace||0),
           // ONLY a frame the person actually dragged. Echoing back the frame
           // the server just computed turned every save into a hand placement,
           // and the dx/dy baked into it were then added a second time — so
@@ -193,7 +213,7 @@ function currentPatch(r){
                    &&r.layout.origins.length===((r.layout.lines||[]).length))
                   ? r.layout.origins.map(o=>[Math.round(o[0]),
                                              Math.round(o[1])]) : null,
-          stroke:$('lyStroke')?+$('lyStroke').value:(ov.stroke??null)};
+          stroke:el('lyStroke')?+$('lyStroke').value:(ov.stroke??null)};
 }
 
 function onTypesetEdit(id){

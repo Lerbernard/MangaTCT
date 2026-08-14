@@ -122,10 +122,14 @@ def test_the_key_names_the_types_this_project_actually_has(ed):
     pg, _p, errs = ed
     _original(pg)
     said = pg.evaluate(
-        "[...document.querySelectorAll('#legend span')].map(s=>s.textContent.trim())")
+        "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
     # The three main types and nothing under them — lee, later: *"this shoud
     # only show the 3 main type"*. A chip for every sub-type made a paragraph
     # of colour above the page longer than anything it explained.
+    # The three main types are BUTTONS now — clicking one sets what a box
+    # you draw comes out as. See
+    # `tests/ui/the_legend_draws_the_box.test.js`. The key still reads
+    # the same, which is what this pins.
     assert said == ["1 Bubble text", "2 Outside text", "3 Sound effect",
                     "unsure"], said
     # nothing from the old flat list survives

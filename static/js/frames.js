@@ -151,6 +151,14 @@ async function showPage(i){
     else centerPageSoon();     // keeps trying until the centre actually sticks
   };
   img.onload=fit;
+  // ...and when the picture never arrives. `fit` is where the page is centred,
+  // and hanging it on `onload` alone meant that a page whose image 404s — one
+  // deleted underneath us, one from a chapter that has been put down — left
+  // the view exactly where it was booted: scrolled to 0,0, which is deep
+  // inside the stage's 46vmax margin and therefore a screen of nothing but
+  // background. It reads as a broken editor. It is a missing page, and it is
+  // supposed to look like an empty middle with the page list still beside it.
+  img.onerror=()=>{ pageW=pageW||1; pageH=pageH||1; fit(); };
   // Build the query properly: the original view has no other parameters, so
   // it needs "?" not "&". Getting that wrong 404s silently and leaves a blank
   // page with the boxes still drawn over it.
@@ -242,7 +250,7 @@ function prefetchAround(i){
 }
 function drawBoxes(){
   if(typeof syncMulti==='function') syncMulti();
-  document.querySelectorAll('.box,.tagf,.gbox,.bhint').forEach(e=>e.remove());
+  document.querySelectorAll('.box,.tagf,.bhint').forEach(e=>e.remove());
   const st=$('stage');
   // Hide boxes hides everything overlaid on the page — the link connectors too.
   if(boxesHidden()){
@@ -250,30 +258,23 @@ function drawBoxes(){
     drawText(); return;
   }
   // One balloon, one box. Regions carrying the same box_group are SECTIONS of
-  // one balloon — the sentence up the right of it and the small あっ！ below —
-  // so a single frame is drawn round the group and each section is drawn
-  // inside it dashed. Both are still separate regions with their own reading,
-  // their own translation and their own typesetting; what changes is only what
-  // the page LOOKS like, which is where lee's complaint was: "the boxes shoud
-  // be around the bubbles no 2 of them split randomly".
+  // one balloon — the sentence up the right of it and the small あっ！ below.
+  // Both are still separate regions with their own reading, their own
+  // translation and their own typesetting; what the grouping changes is only
+  // how the page LOOKS, which was lee's complaint: "the boxes shoud be around
+  // the bubbles no 2 of them split randomly".
+  //
+  // It used to draw a solid frame round the pair as well. lee, finding one on
+  // a burst holding two speeches and not knowing what it was — *"there a big
+  // box with no label or anything"*, then *"hide teh big box afterware it
+  // dosnt need to be visibel"*. It was the only thing on the page with no
+  // number chip and nothing to click, and what it says is already said by the
+  // sections' own dashed outlines. So the GROUPING stays and the frame goes,
+  // in the editor and in the exported sheet alike — the sheet shows what the
+  // screen shows. This is the same end the balloon hint came to below.
   const bg={};
   regions.forEach(r=>{ const g=+(r.box_group||0);
     if(g>0){ (bg[g]=bg[g]||[]).push(r); } });
-  Object.keys(bg).forEach(g=>{
-    const mem=bg[g];
-    if(mem.length<2) return;
-    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
-    mem.forEach(r=>{ const [x,y,w,h]=r.bubble_bbox||r.bbox;
-      x0=Math.min(x0,x); y0=Math.min(y0,y);
-      x1=Math.max(x1,x+w); y1=Math.max(y1,y+h); });
-    const d=document.createElement('div');
-    d.className='gbox';
-    d.style.cssText=`left:${x0*scale}px;top:${y0*scale}px;`
-      +`width:${(x1-x0)*scale}px;height:${(y1-y0)*scale}px`;
-    const kc=kindColor(mem[0].kind);
-    d.style.borderColor=kc; d.style.background=kc+'12';
-    st.appendChild(d);
-  });
   const sectioned=r=>{ const g=+(r.box_group||0); return g>0 && bg[g] && bg[g].length>1; };
   // The balloon behind each box used to be drawn here as a faint dashed
   // rectangle — a label saying "this is the room the English may use". lee, on
@@ -306,6 +307,12 @@ function drawBoxes(){
       +(sectioned(r)?' section':'')
       +(r.id===linkPick?' linkpick':'');
     d.style.cssText=`left:${x*scale}px;top:${y*scale}px;width:${w*scale}px;height:${h*scale}px`;
+    // A box that has been turned leans on screen too. CSS turns about the
+    // element's centre by default, which is the same centre `turned_box` on
+    // the server turns the rectangle about — so the outline drawn here and the
+    // outline the cleaner erases inside are the same four corners.
+    const deg=turnOf(r);
+    if(deg) d.style.transform=`rotate(${deg}deg)`;
     // Border + faint fill come from the text TYPE. Link grouping is shown by
     // the connector lines (drawLinks), so it no longer recolours the box.
     const kc=kindColor(r.kind);
@@ -447,6 +454,26 @@ function addHandles(box){
     const h=document.createElement('div');
     h.className='hd '+c; h.dataset.c=c; box.appendChild(h);
   });
+  // ...and the turn handle, on a box somebody DREW and nothing else.
+  // lee: *"alow me to rotate boxes, only teh ser shoud be able to rotate them
+  // the detector boxes shoud be normal"*. A detected box's outline came off
+  // the artwork — it is a reading of where the writing is, and turning it
+  // would be turning the drawing rather than the box.
+  const r=(typeof regions!=='undefined'&&regions||[])
+            .find(q=>q.id==box.dataset.id);
+  if(r&&r.manual){
+    const h=document.createElement('div');
+    h.className='hd rot'; h.dataset.c='rot'; box.appendChild(h);
+  }
+}
+/* How far a box has been turned, in degrees clockwise — 0 on anything the
+   detector put down, which cannot be turned at all.
+
+   `turn`, not `angle`: a sound effect drawn by hand is given an angle the
+   moment it is drawn (the axis its artwork runs along), and reading that as a
+   turn would draw every one of them leaning. */
+function turnOf(r){
+  return (r&&r.manual) ? (+(r.turn||0)||0) : 0;
 }
 /* The translated view is the CLEANED page plus typesetting drawn here in the
    browser. Editing then costs nothing — no round trip, no re-render — and the
@@ -806,6 +833,36 @@ function dragWords(r){
   return (fdrag&&fdrag.words&&fdrag.words.length) ? fdrag.words
     : r.layout.lines.join(' ').split(/\s+/).filter(Boolean);
 }
+/* The panel says what the page says.
+
+   Dragging a corner re-fits the text locally and writes the answer onto the
+   LAYOUT. The size box and the line box in the Typesetting panel were left
+   holding what they held before the drag - and `currentPatch` builds every
+   save out of those two fields. So the next save that is not itself a fit -
+   a nudge, a colour, a click on another control - posted the stale size back
+   over the one that had just been dragged, and the text sprang back to what
+   it was.
+
+   lee: *"wheni move it a little bit it reverts to the bigger size and teh
+   after cliking off it revest back t teh samler text"*. Both halves of that
+   are this: big is the layout, small is the panel, and whichever spoke last
+   won.
+
+   `livePreview` already does exactly this from the SERVER's answer when a fit
+   or a wrap comes back. This is the same sync for the local one, which is the
+   copy that exists while the mouse is still down.
+
+   Never while somebody is typing in the field: a value replaced under the
+   caret is a value they were halfway through changing. */
+function panelSaysWhatTheLayoutSays(r){
+  if(typeof sel!=='undefined' && sel!==null && sel!==r.id) return;
+  const L=r.layout; if(!L) return;
+  const sz=$('lySize');
+  if(sz && document.activeElement!==sz && L.font_size) sz.value=L.font_size;
+  const la=$('lyLines');
+  if(la && document.activeElement!==la && L.lines) la.value=L.lines.join('\n');
+}
+
 function localWrap(r, snug){
   const L=r.layout; if(!L||!L.lines) return;
   unfix(r);
@@ -814,7 +871,7 @@ function localWrap(r, snug){
   const [fx,fy,fw]=frameOf(r);
   const size=L.font_size, lead=L.leading||1.12;
   const lines=wrapLocal(dragWords(r),fam,size,Math.max(8,fw-2*PADL));
-  if(lines.length){ L.lines=lines; L.dirty=true; }
+  if(lines.length){ L.lines=lines; L.dirty=true; panelSaysWhatTheLayoutSays(r); }
   if(snug){
     const nh=Math.round(L.lines.length*size*lead+2*PADL);
     L.frame=[fx,fy,fw,nh];
@@ -839,7 +896,10 @@ function localFit(r){
       && Math.max(...ls.map(t=>textW(fam,mid,t)))<=aw;
     if(ok){ best=[mid,ls]; lo=mid+1; } else hi=mid-1;
   }
-  if(best){ L.font_size=best[0]; L.lines=best[1]; L.dirty=true; }
+  if(best){
+    L.font_size=best[0]; L.lines=best[1]; L.dirty=true;
+    panelSaysWhatTheLayoutSays(r);
+  }
 }
 
 function endFrame(){

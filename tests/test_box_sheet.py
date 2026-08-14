@@ -120,18 +120,26 @@ def test_the_balloon_is_not_drawn_at_all():
     assert np.array_equal(b[20, 30:160], img[20, 30:160])
 
 
-def test_two_sections_of_one_balloon_get_one_frame_round_the_pair():
+def test_two_sections_of_one_balloon_are_dashed_and_not_framed():
+    """The frame round the pair is gone. lee, finding one on a burst holding
+    two speeches: *"there a big box with no label or anything"*, then *"hide
+    teh big box afterware it dosnt need to be visibel"*. The sheet shows what
+    the screen shows, so it went from both — and what it said is still said,
+    by the sections' own dashed outlines."""
     img = _page()
     solo = render.box_sheet(img, [_rec(0, (60, 50, 60, 90)),
                                   _rec(1, (60, 150, 60, 60))])
     pair = render.box_sheet(img, [_rec(0, (60, 50, 60, 90), box_group=3),
                                   _rec(1, (60, 150, 60, 60), box_group=3)])
-    assert not np.array_equal(solo, pair)
-    # The frame spans both boxes, so the gap between them is now drawn on.
-    # Clear of the lower box's own number badge, which hangs above its corner.
+    # Nothing is drawn in the gap BETWEEN the boxes any more — that band is
+    # where the frame used to run. Clear of the lower box's number badge.
     band = np.s_[143:148], np.s_[80:118]
     assert np.array_equal(solo[band[0], band[1]], img[band[0], band[1]])
-    assert not np.array_equal(pair[band[0], band[1]], img[band[0], band[1]])
+    assert np.array_equal(pair[band[0], band[1]], img[band[0], band[1]]), \
+        "the frame round the pair is back"
+    # ...and the grouping still shows: the outlines go dashed, so the two
+    # renders are not identical either.
+    assert not np.array_equal(solo, pair), "the sections are not marked at all"
 
 
 def test_a_line_split_across_two_balloons_is_joined_by_a_connector():
@@ -232,19 +240,23 @@ def test_the_sheet_uses_the_editor_s_own_colours():
 
 
 def test_the_sheet_uses_the_editor_s_own_opacities():
-    """`.box` fills at 0x22 and `.gbox` at 6%. Those numbers are the difference
-    between a sheet that looks like the screen and one that merely has boxes on
-    it — and the balloon hint, which used to be the third of them, must stay
-    gone from both."""
+    """`.box` fills at 0x22, which is the difference between a sheet that
+    looks like the screen and one that merely has boxes on it.
+
+    Two things that used to be drawn are gone from BOTH and may not come back
+    to either: the balloon hint, and the frame round two sections of one
+    balloon. The sheet shows what the screen shows — that rule is what made
+    each removal happen in two files at once."""
     js = (JS / "frames.js").read_text(encoding="utf8")
-    assert "kc+'22'" in js and "kc+'12'" in js
+    assert "kc+'22'" in js
     assert abs(render.BOX_FILL - 0x22 / 255) < 1e-9
     css = (CSS / "editor.css").read_text(encoding="utf8")
-    assert "rgba(255,59,48,.06)" in css        # .gbox
-    assert abs(render.GROUP_FILL - 0.06) < 1e-9
     # the balloon hint is gone from both, so neither may draw it again
     assert ".bhint{" not in css and "kindColor(r.kind)+'88'" not in js
     assert "className='bhint'" not in js
+    # ...and the group frame likewise
+    assert ".gbox{" not in css and "className='gbox'" not in js
+    assert "GROUP_FILL)" not in (PKG / "render.py").read_text(encoding="utf8")
 
 
 # ----------------------------------------------------------------- the export

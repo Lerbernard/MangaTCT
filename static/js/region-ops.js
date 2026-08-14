@@ -296,16 +296,63 @@ function syncMulti(){
    once you know which family is being asked about — and the answer is the one
    the box is in. `kindLabel` lives in panels.js and reads for a sub-type too,
    so a toast never says "ck_angry". */
+/* 1, 2, 3 and nothing else. lee: *"only 1,2,3 shud work to swith box types"*.
+
+   4 upwards used to reach into the SELECTED box's family and pick a sub-type
+   out of it by position, which means the same key did a different thing
+   depending on what was already selected — 4 on a bubble and 4 on a caption
+   were two different types, and there was nothing on screen numbering them.
+   The three families are the three you can name, and they are numbered the
+   same way in the legend and in the Kind menu. Sub-types are still a menu
+   away, where they are written out. */
 function kindForKey(n){
-  if(n<=3) return KIND_FAMILIES[n-1];
-  const r=regions.find(x=>x.id===sel);
-  const subs=subsOf(familyOf(r?r.kind:'bubble'));
-  return (subs[n-4]||{}).key || null;
+  return (n >= 1 && n <= 3) ? KIND_FAMILIES[n - 1] : null;
 }
+/* What a box you DRAW comes out as. Bubble text until told otherwise, which
+   is what almost every hand-drawn box is. Set by clicking one of the three
+   keys in the legend; see `renderLegend`. Held in memory only — it is a
+   this-session preference like the zoom, not a property of the chapter. */
+let newBoxKind = 'bubble';
+
+function setNewBoxKind(kind){
+  if(!KIND_FAMILIES.includes(kind)) return;
+  newBoxKind = kind;
+  if(typeof renderLegend==='function') renderLegend();
+  // A kind you are about to draw and cannot see is a box that vanishes the
+  // moment you finish the drag. Same reasoning as `setKindSelected`.
+  if((hiddenKinds||[]).includes(kind) && typeof setKindShown==='function')
+    setKindShown(kind, true);
+  toast(`New boxes: ${kindLabel(kind)}.`);
+}
+
 async function setKindSelected(kind){
   const ids=selIds();
-  if(!ids.length){ toast('Select a box first.'); return; }
+  if(!ids.length){
+    // Nothing selected. The keypress used to be answered with "Select a box
+    // first", which is true and useless; now it sets what the NEXT box you
+    // draw will be, which is the only thing 1/2/3 could sensibly mean with no
+    // box under them.
+    const fam = (typeof familyOf==='function') ? familyOf(kind) : kind;
+    if(KIND_FAMILIES.includes(fam)){ setNewBoxKind(fam); return; }
+    toast('Select a box first.');
+    return;
+  }
   for(const id of ids) await upd(id,{kind});
+  // A box set to a kind whose GROUP is put away disappears at that moment, and
+  // the person who just pressed 3 sees the box vanish with no explanation.
+  //
+  // That is what lee was hitting: *"still cant make manual sfx boxes"*, on a
+  // chapter whose pages all carry `hidden_kinds: ["sfx"]`. He pressed the key,
+  // the box became a sound effect, the sound effects were hidden, and it went.
+  // Nothing was broken and nothing said so.
+  //
+  // Asking for a box of a kind is asking to SEE it, so the group comes back
+  // out. Its own switch is still there to put it away again on purpose.
+  const fam = (typeof familyOf==='function') ? familyOf(kind) : kind;
+  if((hiddenKinds||[]).includes(fam)){
+    await setKindShown(fam, true);
+    return;
+  }
   toast(ids.length>1
     ? `${ids.length} boxes set to ${kindLabel(kind)}.`
     : `Set to ${kindLabel(kind)}.`);
@@ -420,7 +467,10 @@ async function upd(id,patch){
   if(r0 && !upd._undoing){
     const keys=Object.keys(patch);
     const prev={}; keys.forEach(k=>prev[k]=r0[k]);
-    const what=keys.map(k=>({src_text:'Japanese',dst_text:'English',
+    // Named the way the side panel names them — see `regionInlineEditor`. The
+    // undo list saying "Japanese changed" on a Korean chapter was the same
+    // wrong word in a second place.
+    const what=keys.map(k=>({src_text:'Input text',dst_text:'Output text',
       kind:'kind'}[k]||k)).join(', ');
     record('edit', `Region ${(r0.order??0)+1}: ${what} changed`,
       async ()=>{
@@ -637,6 +687,26 @@ function toggleAddText(on){
 }
 function stopAddText(){ if(addingText) toggleAddText(false); }
 
+/* A SOUND-EFFECT BOX BY HAND -- and there is no tool for it, on purpose.
+
+   There was one, twice. First as the second tool in the toolbox's text slot,
+   behind a right-click, on a view the toolbox does not appear on; lee: *"still
+   cant make manual sfx boxes"*. Then as a `+ Sound effect` button beside Hide
+   boxes, which he could see and did not want: *"i dont want a button i wan to
+   be able to clcik 3 to st teh button to a sond affct like the manga
+   version"*.
+
+   He is right, and the second attempt was the sillier of the two: **the manga
+   way already worked here.** Draw a box on the Translation view, and press 3 —
+   `kindForKey` has meant balloon / outside text / sound effect on 1, 2 and 3
+   since he asked for those keys. A tool that arms a mode so the NEXT drag
+   comes out as a sound effect is a second way to do a thing one key already
+   does, and a mode you can leave armed by accident.
+
+   What was actually stopping him is in `setKindSelected`: a box set to a kind
+   whose group is hidden disappears, and the sound effects are hidden on his
+   pages. That is fixed where it lives, not with a tool. */
+
 let boxPrefBeforeText=null;
 function boxesHidden(){
   // On the Translated tab the region boxes stay out of the way unless you
@@ -646,7 +716,7 @@ function boxesHidden(){
 
 $('stage').addEventListener('mousedown',e=>{
   if(e.button!==0) return;
-  const hd=e.target.closest('.hd'), box=e.target.closest('.box');
+  const hd=e.target.closest('.hd,.rotz'), box=e.target.closest('.box');
 
   if(!box){
     // A shape is picked up by clicking it, the same as a text box.
@@ -674,7 +744,8 @@ $('stage').addEventListener('mousedown',e=>{
     // in the right spot. Everywhere else an empty-space drag was too easy to
     // do by accident, so the ordinary new-bubble drag stays on Original.
     if(view!=='original' && !addingText) return;
-    const p=pt(e); drag={mode:'new',x0:p.x,y0:p.y,own:addingText};
+    const p=pt(e);
+    drag={mode:'new',x0:p.x,y0:p.y,own:addingText};
     const rb=$('rubber');
     rb.style.cssText=`display:block;left:${p.x}px;top:${p.y}px;width:0;height:0`;
     e.preventDefault(); return;
@@ -712,6 +783,18 @@ $('stage').addEventListener('mousedown',e=>{
     renderList();
   }
   const p=pt(e);
+  if(hd && hd.dataset.c==='rot'){
+    // Turning the box, from any of the four corner zones. The centre it turns
+    // about is the box's own centre, on screen and on the server both, so the
+    // angle is simply where the pointer stands relative to it — which is why
+    // all four corners can drive the same drag without any of them needing to
+    // know which corner it is.
+    const [bx,by,bw,bh]=(r.bbox||r.bubble_bbox);
+    drag={mode:'rotate', id:r.id, a0:(+(r.turn||0)||0),
+          cx:(bx+bw/2)*scale, cy:(by+bh/2)*scale};
+    drag.grab=Math.atan2(p.y-drag.cy, p.x-drag.cx)*180/Math.PI;
+    e.preventDefault(); e.stopPropagation(); return;
+  }
   if(inText() && r.layout){
     // In the translated view a drag moves the typesetting inside its bubble,
     // which is what you actually want to adjust at this stage.
@@ -738,6 +821,19 @@ window.addEventListener('mousemove',e=>{
     return;
   }
   const el=document.querySelector(`.box[data-id="${drag.id}"]`); if(!el) return;
+  if(drag.mode==='rotate'){
+    const now=Math.atan2(p.y-drag.cy, p.x-drag.cx)*180/Math.PI;
+    let a=drag.a0+(now-drag.grab);
+    // Shift snaps to fifteens, for the angles you actually want: level, a
+    // quarter, and the eighths in between.
+    if(e.shiftKey) a=Math.round(a/15)*15;
+    a=Math.max(-89, Math.min(89, Math.round(a*10)/10));
+    drag.live=a;
+    el.style.transform=`rotate(${a}deg)`;
+    $('modehint').textContent=`Turning  ${a.toFixed(1)}\u00b0`;
+    $('modehint').style.display='block';
+    return;
+  }
   const dx=(p.x-drag.x0)/scale, dy=(p.y-drag.y0)/scale;
   if(drag.mode==='text'){
     drag.live=[Math.round(drag.dx0+dx), Math.round(drag.dy0+dy)];
@@ -786,7 +882,10 @@ window.addEventListener('mouseup',async e=>{
     const j=await api(`/api/page/${cur}/region`,'POST',{
       x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h),
       snap: false,
-      ...(d.own?{own_text:true, kind:'freefloat', text:'TEXT'}:{})});
+      // The legend's lit key. An "own text" box is its own thing and is not
+      // one of the three.
+      ...(d.own ? {own_text:true, kind:'freefloat', text:'TEXT'}
+                : {kind:newBoxKind})});
     if(d.own){
       stopAddText();
       // Lay it out at once. A box with no layout shows "not laid out yet"
@@ -813,6 +912,14 @@ window.addEventListener('mouseup',async e=>{
     }
     $('modehint').textContent='';
     $('modehint').style.display='none';
+    return;
+  }
+
+  if(d.mode==='rotate'){
+    $('modehint').textContent=''; $('modehint').style.display='none';
+    if(d.live==null || d.live===d.a0) return;
+    const j=await api(`/api/page/${cur}/region/${d.id}`,'POST',{turn:d.live});
+    if(j.regions) setRegions(j.regions);
     return;
   }
 
@@ -846,13 +953,22 @@ window.addEventListener('keydown',e=>{
       e.preventDefault(); deleteLayer(layerSel);
     } else if(sel!=null){ e.preventDefault(); delSelected(); }
   }
-  // 1–6 retype the selected box(es) — the same six types, in the same order,
-  // as the legend and the Kind menu. Original tab only: on the other tabs
-  // those keys belong to painting and typesetting.
-  else if(view==='original' && !e.altKey && e.key>='1' && e.key<='8' && sel!=null){
+  // 1, 2, 3 retype the selected box(es) — the three families, in the order the
+  // legend and the Kind menu put them in. Translation view only: on the other
+  // one those keys belong to painting and typesetting.
+  // lee: *"only 1,2,3 shud work to swith box types"*. It went to 8, and 4
+  // upwards picked a sub-type by position out of whatever family the box was
+  // already in — the same key doing a different thing depending on what was
+  // selected, with nothing on screen numbering them.
+  //
+  // WHICH keys is `kindForKey`'s answer and nothing else's. The range used to
+  // be written out here as well, so there were two places that had to agree
+  // about it and one of them could be widened without doing anything — a key
+  // swallowed by `preventDefault` and then dropped.
+  else if(view==='original' && !e.altKey && sel!=null
+          && kindForKey(+e.key)){
     e.preventDefault();
-    const k=kindForKey(+e.key);
-    if(k) setKindSelected(k);
+    setKindSelected(kindForKey(+e.key));
   }
   else if(e.key==='s'&&sel!=null) setKindSelected('sfx');
   // `l` arms the link: the next box you click is joined to this one. The

@@ -356,13 +356,19 @@ def test_the_type_is_named_once():
 def test_one_two_and_three_are_the_three_main_types():
     """lee: *"the 1,2,3 shodu be the deahut shortcuts with teh defaut
     bubble"*. They are the only keys that mean the same thing on every page of
-    every project, which is what makes them worth learning; 4 upwards are the
-    sub-types of the family the box is already in."""
+    every project, which is what makes them worth learning.
+
+    4 upwards used to be the sub-types of the family the box was already in,
+    and are now nothing at all: the same key did a different thing depending on
+    what was selected, and nothing on screen numbered them. lee: *"only 1,2,3
+    shud work to swith box types"*. Sub-types are still a menu away, written
+    out. See `test_box_type_families.py`."""
     from pathlib import Path
     root = PKG / "static" / "js"
     ops = (root / "region-ops.js").read_text(encoding="utf8")
-    assert "if(n<=3) return KIND_FAMILIES[n-1];" in ops
-    assert "subsOf(familyOf(" in ops
+    assert "return (n >= 1 && n <= 3) ? KIND_FAMILIES[n - 1] : null;" in ops
+    assert "subsOf(familyOf(" not in ops, \
+        "picking a sub-type by key number is gone"
     panels = (root / "panels.js").read_text(encoding="utf8")
     assert "const KIND_ORDER = KIND_FAMILIES;" in panels
 

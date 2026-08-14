@@ -162,6 +162,18 @@ RATES: dict[str, Rate] = {
     "claude-3-5-haiku": _anthropic(0.80, 4.0),
     "claude-3-haiku": _anthropic(0.25, 1.25),
     # ---- Google
+    #
+    # 3.7 Flash at $1.50/$7.50, which is the rate from 1 January 2027 and NOT
+    # the $0.75/$3.75 Google is running until the end of 2026. Same call as
+    # the Anthropic one above and lee's own rule: *"no promotianal rate us teh
+    # normal rate"*. A discount somebody else can withdraw is a price that
+    # changes under you on a date you do not control.
+    #
+    # It costs what 3.6 Flash costs, so `one_per_price` keeps only one of the
+    # two — and because the table is read newest-first, the one it keeps is
+    # 3.7. That is the rule working, not a model going missing: 3.6 stays
+    # priced for anybody already set on it.
+    "gemini-3.7-flash": _google(1.50, 7.50),
     "gemini-3.6-flash": _google(1.50, 7.50),
     "gemini-3.5-flash-lite": _google(0.30, 2.50),
     "gemini-3.5-flash": _google(1.50, 9.00),
@@ -193,11 +205,29 @@ RATES: dict[str, Rate] = {
     "google/gemini-2.5-pro": _google(1.25, 10.00),
     "google/gemini-3.1-flash-lite": _google(0.25, 1.50),
     "google/gemini-3.5-flash": _google(1.50, 9.00),
+    # 3.7 before 3.6, and the ONE place in this block where the order carries
+    # a decision: they cost the same, so `one_per_price` keeps whichever it
+    # meets first. Everything else in the group has a price of its own and
+    # sits in whatever order it was added in.
+    "google/gemini-3.7-flash": _google(1.50, 7.50),
     "google/gemini-3.6-flash": _google(1.50, 7.50),
     "anthropic/claude-haiku-4.5": _anthropic(1.0, 5.0),
     "anthropic/claude-sonnet-5": _anthropic(3.0, 15.0),
     "deepseek/deepseek-v4-flash": Rate(0.084, 0.168),
     "deepseek/deepseek-v3.2": Rate(0.2072, 0.3108),
+    # OpenAI's current generation, reached the same way. The three 5.6 tiers
+    # and no more: Sol is the flagship, Terra the workhorse, Luna the cheap
+    # one, and every Pro variant costs the same as its plain sibling for a
+    # difference this app cannot use.
+    "openai/gpt-5.6-sol": Rate(5.00, 30.00),
+    "openai/gpt-5.6-terra": Rate(1.00, 6.00),
+    "openai/gpt-5.6-luna": Rate(0.10, 0.60),
+    # ...and Qwen, which is the cheapest sighted model on the menu by an
+    # order of magnitude — 3.7 Flash reads a page for a fortieth of what
+    # Gemini's cheapest asks.
+    "qwen/qwen3.7-max": Rate(1.475, 4.425),
+    "qwen/qwen3.7-plus": Rate(0.32, 1.28),
+    "qwen/qwen3.7-flash": Rate(0.03, 0.13),
     # ---- OpenAI, reached through the OpenAI-compatible route
     "gpt-4o-mini": Rate(0.15, 0.60),
     "gpt-4o": Rate(2.50, 10.0),
@@ -237,7 +267,7 @@ FREE_BACKENDS = ("ollama", "llamacpp", "llama.cpp", "lmstudio", "local",
 FAMILIES = {
     "anthropic": ("claude-",),
     "gemini": ("gemini-",),
-    "openrouter": ("google/", "anthropic/", "deepseek/"),
+    "openrouter": ("google/", "anthropic/", "deepseek/", "openai/", "qwen/"),
 }
 
 # The models that cannot look at a picture. Reading text off a page is a vision
@@ -247,7 +277,17 @@ FAMILIES = {
 # Matched with the vendor off, so the DeepSeek that arrives as
 # `deepseek/deepseek-v4-flash` and the one that arrives bare are the same
 # blind model.
-NO_SIGHT = ("deepseek-",)
+# ...and Qwen is the reason this list can no longer be one prefix per maker.
+# Its range is MIXED: 3.7 Flash and 3.7 Plus are vision-language models and
+# read a page perfectly well, while 3.7 Max is text-only. So the blind one is
+# named on its own, and the sighted ones are simply absent.
+#
+# lee: *"make sure only taht suport iage eai show up in the red etx list"*.
+# The cost is asymmetric and decides which way an uncertain model goes: a
+# sighted model wrongly listed here loses one row from the Read text menu and
+# still translates, while a blind one left out is a chapter that dies on page
+# one. Uncertain means blind.
+NO_SIGHT = ("deepseek-", "qwen3.7-max")
 
 
 def sees(model: str) -> bool:
@@ -1147,6 +1187,33 @@ def note(what: str, page: str = "", model: str = "", **facts) -> None:
         _write(w)
 
 
+# The editor may put coins in when this is set, and only then. lee: *"i ran
+# out of coins to test stuff"* and *"just add coins to the editor not teh
+# website"*.
+#
+# It is an environment variable and not a switch on the screen, and that is
+# the whole of the design. `account.py` says the editor never writes a
+# balance, because the editor runs on the CUSTOMER'S machine and anything it
+# can do they can do — a Top up button on a screen is a Top up button on their
+# screen. An environment variable is not a hole in that: the person who can
+# set one on the machine the purse lives on is the person who could edit the
+# purse file with a text editor.
+#
+# So it tops up the LOCAL purse only. On an account it does nothing, because
+# the account's balance lives behind a Cloud Function and the only thing that
+# adds to it is a payment. Running the editor with
+#
+#     MANGATL_TEST_PURSE=1
+#
+# and signed out gives a purse on this machine with an Add button beside it.
+TEST_PURSE = "MANGATL_TEST_PURSE"
+
+
+def can_top_up() -> bool:
+    """True when this editor is allowed to put coins in its own purse."""
+    return bool(os.environ.get(TEST_PURSE)) and not remote()
+
+
 def state() -> dict:
     """Everything the screen needs, in one read.
 
@@ -1158,10 +1225,11 @@ def state() -> dict:
     if remote():
         got = account.state()
         got["buy_url"] = BUY_URL
+        got["can_top_up"] = False       # never, on an account
         return got
     with _LOCK:
         return {"balance": int(_read().get("balance") or 0),
-                "buy_url": BUY_URL,
+                "buy_url": BUY_URL, "can_top_up": can_top_up(),
                 "configured": account.configured(), "signed_in": False}
 
 

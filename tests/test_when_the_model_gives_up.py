@@ -79,7 +79,10 @@ def test_a_blank_answer_over_artwork_is_refused():
     page, r = _run(False, _white)
     assert page.clean_stats.get("fell back") == 1, page.clean_stats
     assert not page.clean_stats.get("neural"), page.clean_stats
-    assert r.clean_route == "fell back", r.clean_route
+    # startswith, not equals: the model gave nothing, so the writing is still
+    # standing afterwards and the second step correctly has a go at it. What
+    # this test is about is that the refusal was RECOGNISED as one.
+    assert r.clean_route.startswith("fell back"), r.clean_route
 
 
 def test_a_real_answer_over_the_same_artwork_is_kept():

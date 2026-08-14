@@ -79,6 +79,12 @@ T_CTX = ["tests/test_pipeline.py", "tests/test_what_it_costs_in_coins.py"]
 T_GLOSS = ["tests/test_every_term_says_what_it_is.py"]
 T_LEARN = ["tests/test_the_estimate_learns.py"]
 T_MENU = ["tests/test_a_menu_you_can_trust.py"]
+T_NAME = ["tests/test_one_name_one_spelling.py",
+          "tests/test_the_story_switches.py"]
+T_DASH2 = ["tests/test_em_dash_source.py",
+           "tests/test_one_name_one_spelling.py"]
+T_MARKS = ["tests/test_a_box_of_nothing_but_marks.py",
+           "tests/test_what_is_on_the_paper.py"]
 T_KEYS = ["tests/test_one_key_per_service.py"]
 T_BAR = ["tests/test_the_bar_holds_its_width.py"]
 T_WORD = ["tests/test_the_word_is_typesetting.py"]
@@ -103,7 +109,11 @@ T_SEED = ["tests/test_the_website.py"]
 # The four pages a customer sees, and the numbers on them. `T_LOOK` runs the
 # browser file as well as the source one: half of what matters here is only
 # true once a browser has painted it.
-ACC = "site/account.html"
+# NOT `ACC` -- that is account.py, defined above, and naming both the same
+# thing silently repointed every `acct-` mutant at the website. One of them
+# reported SKIP, which is a mutant that measured nothing; the rest were
+# quietly measuring the wrong file.
+ACCHTML = "site/account.html"
 SCSS = "site/style.css"
 APPJS = "site/app.js"
 COSTS = "site/costs.js"
@@ -117,12 +127,125 @@ T_SLOW = ["tests/test_when_the_answer_never_comes.py"]
 # one sentence. Both travel: the order is what the reader is handed and what a
 # linked sentence is split across.
 BALL = "detect/balloon.py"
+T_WALL = ["tests/test_a_wall_of_sharp_change.py",
+          "tests/test_black_bubbles.py"]
+T_NAMEBOX = ["tests/test_the_balloon_may_name_the_box.py",
+             "tests/test_black_bubbles.py"]
 T_BALL = ["tests/test_two_things_in_one_balloon.py",
           "tests/test_one_box_per_bubble.py"]
 CTD = "detect/comictext.py"
 
+# The Typesetting panel and the page holding two different answers about one
+# block, and the block flipping between them on every touch.
+FR = "static/js/frames.js"
+TSE = "static/js/typesetting-edit.js"
+T_SPRING = ["tests/test_the_block_that_springs_back.py"]
+
+# The strip re-cut, and the two File-tab words beside it.
+IO = "static/js/project-io.js"
+T_STRIP = ["tests/test_the_strip_is_not_a_page.py"]
+
+# The knife: cutting a page in two by hand and joining two back into one,
+# and where the strip settings live.
+T_CUT = ["tests/test_cutting_a_page_by_hand.py"]
+JS_CUT = "static/js/pagecut.js"
+# (`CTD` is defined above.)
+RO = "static/js/region-ops.js"
+T_TUNE = ["tests/test_find_text_is_tuned_per_format.py"]
+# One piece of writing, one box — the join, the empty-box sweep and the pair
+# of passes with two answers about one piece of ink; and paper is not a
+# balloon, which is the same message from lee and a different mechanism.
+BALLN = "detect/balloon.py"
+T_ONEBOX = ["tests/test_one_piece_of_writing_one_box.py",
+            "tests/test_comic_text_detector.py",
+            "tests/test_find_text_is_tuned_per_format.py"]
+T_TOGETHER = ["tests/test_one_piece_of_writing_one_box.py"]
+CRA = "detect/craft.py"
+PJ = "static/js/project.js"
+FR2 = "static/js/frames.js"
+RND = "render.py"
+T_FOLLOW = ["tests/test_pipeline.py"]
+T_NOGBOX = ["tests/test_pipeline.py", "tests/test_box_sheet.py"]
+T_CAGED = ["tests/test_one_piece_of_writing_one_box.py"]
+T_FIVE = ["tests/test_one_piece_of_writing_one_box.py"]
+T_HOLDS = ["tests/test_a_second_pair_of_eyes.py"]
+T_OWNTEXT = ["tests/test_one_piece_of_writing_one_box.py",
+             "tests/test_find_text_is_tuned_per_format.py"]
+T_CHARS = ["tests/test_one_piece_of_writing_one_box.py",
+           "tests/test_find_text_is_tuned_per_format.py"]
+T_PAPERBALL = ["tests/test_one_piece_of_writing_one_box.py",
+               "tests/test_the_sky_is_not_a_balloon.py",
+               "tests/test_a_wall_of_sharp_change.py"]
+T_DRAWN = ["tests/test_too_empty_to_be_type.py",
+           "tests/test_find_text_is_tuned_per_format.py"]
+T_SKY = ["tests/test_the_sky_is_not_a_balloon.py",
+         "tests/test_find_text_is_tuned_per_format.py"]
+T_COVER = ["tests/test_the_writing_the_block_head_missed.py",
+           "tests/test_find_text_is_tuned_per_format.py"]
+T_LOBES = ["tests/test_two_lobes_two_boxes.py",
+           "tests/test_find_text_is_tuned_per_format.py"]
+T_CROP = ["tests/test_a_crop_per_box.py"]
+T_BADREPLY = ["tests/test_one_bad_reply_is_not_the_chapter.py",
+              "tests/test_a_crop_per_box.py"]
+T_PAPER = ["tests/test_what_is_on_the_paper.py",
+           "tests/test_no_pause_the_page_never_drew.py"]
+T_INK = ["tests/test_what_colour_the_letters_are.py"]
+T_LOBESAY = ["tests/test_two_sentences_in_one_balloon.py",
+             "tests/test_two_lobes_two_boxes.py"]
+T_SAID = ["tests/test_one_person_one_name.py"]
+T_FIT = ["tests/test_the_line_has_to_fit.py",
+         "tests/test_no_pause_the_page_never_drew.py"]
+T_HOLD = ["tests/test_the_line_the_page_can_hold.py"]
+T_SIZE = ["tests/test_the_size_the_reader_gets.py",
+          "tests/test_em_dash_source.py"]
+T_BAYS = ["tests/test_no_bays_in_the_writing.py"]
+T_DRAW = ["tests/test_asking_the_model_to_draw_it_again.py",
+          "tests/test_the_sfx_gets_cleaned.py",
+          "tests/test_which_box_was_cleaned_how.py"]
+T_SLAB = ["tests/test_a_balloon_you_can_see_through.py",
+          "tests/test_clean_routing.py"]
+T_GRAIN = ["tests/test_a_second_pass_for_the_hard_spots.py",
+           "tests/test_clean_says_when_it_fails.py"]
+T_ONLY = ["tests/test_only_the_text_and_only_inside.py"]
+T_DREW = ["tests/test_a_sound_effect_you_just_drew.py"]
+T_TURN = ["tests/test_a_box_you_turned.py"]
+IN = "inpaint.py"
+T_FRONT = ["tests/test_nothing_in_front_of_the_line.py",
+           "tests/test_em_dash_source.py"]
+T_SAYS = ["tests/test_the_cleaner_says_what_it_did.py",
+          "tests/test_which_box_was_cleaned_how.py"]
+T_PURSE = ["tests/test_a_purse_you_can_top_up.py"]
+INK = "inkstyle.py"
+T_GROW = ["tests/test_the_whole_run_of_writing.py",
+          "tests/test_the_box_covers_the_whole_effect.py"]
+T_HANDSFX = ["tests/test_a_sound_effect_box_by_hand.py"]
+T_TALL = ["tests/test_a_page_too_long_to_read.py"]
+T_SFXTICK = ["tests/test_the_sound_effect_tick_is_live.py"]
+CRF = "detect/craft.py"
+ED = "editor.py"
+AID = "detect/aidetect.py"
+T_FAST = ["tests/test_find_text_is_faster.py"]
+T_FRAME = ["tests/test_centred_pages.py"]
+T_REAL = ["tests/test_is_the_ai_really_finding_it.py"]
+T_AI = ["tests/test_ai_boxes.py"]
+T_EDGE = ["tests/test_a_black_page_still_looks_like_a_page.py"]
+T_TOK = ["tests/test_a_refused_token_is_said_once.py"]
+T_EYES = ["tests/test_a_second_pair_of_eyes.py"]
+T_FAM = ["tests/test_box_type_families.py"]
+JS_VW = "static/js/view.js"
+T_WEB = ["tests/test_the_strip_settings_belong_to_webtoons.py"]
+T_LAST = ["tests/test_the_chapter_before_this_one.py"]
+JS_IO = "static/js/project-io.js"
+JS_PJ = "static/js/project.js"
+HTM = "static/editor.html"
+
 CARD = "tools/adcard.py"
 T_CARD = ["tests/test_the_card_at_the_end.py"]
+
+# A chapter named in Korean, and a page that is not there any more.
+IMG = "imgio.py"
+T_KOREAN = ["tests/test_a_korean_filename_is_a_filename.py"]
+T_GONE = ["tests/test_a_page_that_is_not_there.py"]
 
 MUTANTS = [
     # ---- the file that goes out
@@ -218,10 +341,10 @@ MUTANTS = [
      "  ;", T_MAN),
 
     # ---- the substitutes round, re-measured
-    ("substitutes-on-in-the-library-default", "mangatl/typeset.py",
+    ("substitutes-on-in-the-library-default", "typeset.py",
      "\n    substitutes: bool = False\n",
      "\n    substitutes: bool = True\n", T_FONT),
-    ("settings-default-substitutes-off", "mangatl/project.py",
+    ("settings-default-substitutes-off", "project.py",
      '"substitutes": True,', '"substitutes": False,', T_FONT),
 
     # ---- the courtesy re-typeset after new words arrive
@@ -243,66 +366,66 @@ MUTANTS = [
      "    if own:",
      "    own = [r for r in p.pages[i].regions if r.get(\"own_text\")]\n"
      "    reset = False\n    if own:", T_MAN),
-    ("sanitise-substitutes-always", "mangatl/typeset.py",
+    ("sanitise-substitutes-always", "typeset.py",
      "    cov = _font_coverage(font_path) if font_path and substitutes else None",
      "    cov = _font_coverage(font_path) if font_path else None", T_FONT),
-    ("no-flag-when-a-glyph-is-missing", "mangatl/typeset.py",
+    ("no-flag-when-a-glyph-is-missing", "typeset.py",
      '        if missing:\n            region.flagged = ',
      '        if False:\n            region.flagged = ', T_FONT),
     ("cfg-ignores-the-setting", PY,
      'substitutes=bool(s.get("substitutes"))', "substitutes=True", T_FONT),
 
     # ---- outside text and sfx running past the box (2026-08-04)
-    ("spill-never-happens", "mangatl/typeset.py",
+    ("spill-never-happens", "typeset.py",
      '    if _kinds.family_of(region.kind) == "freefloat":\n'
      '        lay = _spill_fit(text, m, cfg)',
      '    if False:\n        lay = _spill_fit(text, m, cfg)', T_SPILL),
-    ("spill-for-bubbles-too", "mangatl/typeset.py",
+    ("spill-for-bubbles-too", "typeset.py",
      '    if _kinds.family_of(region.kind) == "freefloat":',
      '    if True:', T_SPILL),
-    ("spill-below-the-minimum", "mangatl/typeset.py",
+    ("spill-below-the-minimum", "typeset.py",
      "    path, size = cfg.font_path, cfg.min_font",
      "    path, size = cfg.font_path, cfg.absolute_floor", T_SPILL),
-    ("spill-not-marked", "mangatl/typeset.py",
+    ("spill-not-marked", "typeset.py",
      "                      fit_ok=True, spills=True)",
      "                      fit_ok=True, spills=False)", T_SPILL),
-    ("spill-hung-off-the-corner", "mangatl/typeset.py",
+    ("spill-hung-off-the-corner", "typeset.py",
      "    cx, cy = bx + bw / 2.0, by + bh / 2.0\n"
      "    top = cy - len(lines) * lh / 2.0",
      "    cx, cy = bx, by\n    top = cy - len(lines) * lh / 2.0", T_SPILL),
-    ("sfx-sweep-goes-under-the-minimum", "mangatl/typeset.py",
+    ("sfx-sweep-goes-under-the-minimum", "typeset.py",
      "    lay = fit_sfx(frame, text, measure, lo=cfg.min_font, hi=160)",
      "    lay = fit_sfx(frame, text, measure, lo=cfg.absolute_floor, hi=160)",
      T_SPILL),
-    ("clamp-shrinks-past-the-minimum", "mangatl/typeset.py",
+    ("clamp-shrinks-past-the-minimum", "typeset.py",
      "    floor = cfg.min_font\n    want = int(lay.font_size * scale)",
      "    floor = cfg.absolute_floor\n    want = int(lay.font_size * scale)",
      T_SPILL),
-    ("clamp-grows-a-tiny-effect", "mangatl/typeset.py",
+    ("clamp-grows-a-tiny-effect", "typeset.py",
      "    if size >= lay.font_size:\n        return lay",
      "    if False:\n        return lay", T_SPILL),
-    ("spilling-block-is-clamped-into-its-region", "mangatl/typeset.py",
+    ("spilling-block-is-clamped-into-its-region", "typeset.py",
      '    if getattr(lay, "spills", False):\n        return lay',
      "    if False:\n        return lay", T_SPILL),
-    ("render-clips-the-spill-back-to-the-box", "mangatl/render.py",
+    ("render-clips-the-spill-back-to-the-box", "render.py",
      "        free = free or bool(getattr(lay, \"spills\", False))",
      "        free = free or False", T_SPILL),
-    ("render-clips-nothing-at-all", "mangatl/render.py",
+    ("render-clips-nothing-at-all", "render.py",
      "        free = free or bool(getattr(lay, \"spills\", False))",
      "        free = True", T_SPILL),
-    ("spill-runs-off-the-page", "mangatl/typeset.py",
+    ("spill-runs-off-the-page", "typeset.py",
      "            if r.layout and getattr(r.layout, \"spills\", False):\n"
      "                r.layout = keep_on_page(r.layout, cfg, page.image.shape)",
      "            if False:\n"
      "                r.layout = keep_on_page(r.layout, cfg, page.image.shape)",
      T_SPILL),
-    ("keep-on-page-runs-before-the-frame-is-settled", "mangatl/typeset.py",
+    ("keep-on-page-runs-before-the-frame-is-settled", "typeset.py",
      "                r.layout = anchor_to_frame(r.layout, cfg)\n"
      "            # Out of the box is allowed; off the page is not. AFTER",
      "                pass\n"
      "            # Out of the box is allowed; off the page is not. AFTER",
      T_SPILL),
-    ("keep-on-page-shoves-a-block-wider-than-the-page", "mangatl/typeset.py",
+    ("keep-on-page-shoves-a-block-wider-than-the-page", "typeset.py",
      "    if right - left <= W:\n        dx = ", "    if True:\n        dx = ",
      T_SPILL),
 
@@ -322,7 +445,7 @@ MUTANTS = [
     ("heal-not-strict", PY,
      "neural, _all = _make_cleaner(p, strict=True)",
      "neural, _all = _make_cleaner(p, strict=False)", T_HEAL),
-    ("two-brushes-back-on-the-toolbar", "mangatl/static/js/toolbar.js",
+    ("two-brushes-back-on-the-toolbar", "static/js/toolbar.js",
      "    {k:'heal',   name:'Healing brush', icon:'healai',",
      "    {k:'healai', name:'AI healing brush', icon:'healai',", T_HEAL),
 
@@ -340,9 +463,6 @@ MUTANTS = [
      "    return [int((a + b) // 2) for a, b in zip(starts, ends) if b - a >= min_band]",
      "    return [int(a) for a, b in zip(starts, ends) if b - a >= min_band]",
      T_STRIP),
-    ("strip-quietest-takes-the-first-gap-not-the-longest", STR,
-     "    k = int(np.argmax(b - a))",
-     "    k = 0", T_STRIP),
     ("strip-first-gutter-past-the-target", STR,
      "            cuts.append(int(near[np.argmin(abs(near - (at + target)))]))",
      "            cuts.append(int(near[np.argmax(near >= at + target)]))",
@@ -350,12 +470,36 @@ MUTANTS = [
     ("strip-first-gutter-in-the-window", STR,
      "            cuts.append(int(near[np.argmin(abs(near - (at + target)))]))",
      "            cuts.append(int(near[0]))", T_STRIP),
-    ("strip-runs-on-past-the-ceiling", STR,
-     "        if len(after) and after[0] - at <= ceiling:",
-     "        if len(after):", T_STRIP),
-    ("strip-forced-cut-not-reported", STR,
-     "        cuts.append(int(cut))\n        forced.append(int(cut))",
-     "        cuts.append(int(cut))\n        forced = forced", T_STRIP),
+    ("strip-a-page-is-cut-short-of-the-gap-again", STR,
+     "        if not len(after):\n"
+     "            break                  # none left: everything below here is one page\n"
+     "        cuts.append(int(after[0]))\n",
+     "        if not len(after) or after[0] - at > ceiling:\n"
+     "            break\n"
+     "        cuts.append(int(after[0]))\n", T_STRIP),
+    ("strip-running-over-is-not-reported", STR,
+     "        if after[0] - at > ceiling:\n            over.append(int(after[0]))",
+     "        if False:\n            over.append(int(after[0]))", T_STRIP),
+    ("strip-a-chapter-left-in-one-piece-passes-silently", STR,
+     "    if len(cuts) > 1 and H - cuts[-2] > ceiling:\n        over.append(H)\n",
+     "", T_STRIP),
+    ("strip-page-height-setting-ignored", PRJ,
+     '        tall = float(self.settings.get("strip_tall") or 0) or 3.5',
+     "        tall = 3.5", T_STRIP),
+    ("strip-ceiling-setting-ignored", PRJ,
+     '        top = float(self.settings.get("strip_tall_max") or 0) or 8.5',
+     "        top = 8.5", T_STRIP),
+    ("strip-the-height-is-not-scaled-by-the-width", PRJ,
+     "        return max(600, int(round(w * tall))), max(1000, int(round(w * top)))",
+     "        return max(600, int(round(tall))), max(1000, int(round(top)))",
+     T_STRIP),
+    ("strip-a-ceiling-under-the-target-is-taken-literally", PRJ,
+     "        top = max(top, tall)\n", "", T_STRIP),
+    ("strip-a-page-of-no-width-is-measured-from", PRJ,
+     "        for pg in self.pages:\n            if pg.width:\n"
+     "                return int(pg.width)",
+     "        for pg in self.pages:\n            if True:\n"
+     "                return int(pg.width)", T_STRIP),
     ("strip-a-handful-of-files-is-a-strip", STR,
      "    if len(sizes) < 6:",
      "    if len(sizes) < 2:", T_STRIP),
@@ -386,12 +530,6 @@ MUTANTS = [
      "        if any(pg.detected or pg.regions or pg.typeset or pg.cleaned\n"
      "               for pg in self.pages):",
      "        if False:", T_STRIP),
-    ("strip-page-height-setting-ignored", PRJ,
-     '        target = int(self.settings.get("strip_target") or _strip.TARGET_H)',
-     "        target = _strip.TARGET_H", T_STRIP),
-    ("strip-ceiling-setting-ignored", PRJ,
-     '        ceiling = int(self.settings.get("strip_max") or _strip.MAX_H)',
-     "        ceiling = _strip.MAX_H", T_STRIP),
     ("strip-writes-into-somebody-elses-folder", PRJ,
      '        own = os.path.abspath(self.input_dir or "") == os.path.abspath(',
      '        own = True or os.path.abspath(self.input_dir or "") == os.path.abspath(',
@@ -589,7 +727,7 @@ MUTANTS = [
      "                         ).astype(np.int32)",
      "    return cv2.boxPoints(((cx, cy), (rw, rh), ang)).astype(np.int32)",
      T_BOX),
-    ("box-reader-not-told-the-closer-fit-wins", "mangatl/translate.py",
+    ("box-reader-not-told-the-closer-fit-wins", TR,
      '        "one outline, it belongs to the outline that fits it most closely, not "',
      '        "one outline, it belongs to whichever you like, not "', T_BOX),
     ("box-a-speck-is-a-shape", OCR,
@@ -628,7 +766,7 @@ MUTANTS = [
      "    tx, ty = _tag_spot(vis, pts, bw, bh)",
      "    tx, ty = int(pts[:, 0].min()), max(0, int(pts[:, 1].min()) - bh)",
      T_BOX),
-    ("box-reader-not-told-about-slanted-outlines", "mangatl/translate.py",
+    ("box-reader-not-told-about-slanted-outlines", "translate.py",
      '        "An outline follows the SHAPE of the words it holds, so a line of text "',
      '        "" or (', T_BOX),
     ("box-number-ignores-the-ink-under-it", OCR,
@@ -1404,6 +1542,1651 @@ MUTANTS = [
     ("site-nobody-is-told-what-is-still-wanted", SITE,
      "    WANTED.append((name, want or alt))\n",
      "", T_SITE),
+    # ---- the re-cut that is only for strips
+    ("strip-a-manga-chapter-is-re-cut-too", PRJ,
+     "        if not force and not STRIP_MEDIA.intersection({self.medium}):\n"
+     "            return {}\n", "", T_STRIP),
+    ("strip-manga-is-quietly-included", PRJ,
+     'STRIP_MEDIA = {"manhwa", "manhua"}',
+     'STRIP_MEDIA = {"manhwa", "manhua", "manga"}', T_STRIP),
+    ("strip-manhua-is-quietly-dropped", PRJ,
+     'STRIP_MEDIA = {"manhwa", "manhua"}', 'STRIP_MEDIA = {"manhwa"}', T_STRIP),
+    ("strip-manhwa-is-quietly-dropped", PRJ,
+     'STRIP_MEDIA = {"manhwa", "manhua"}', 'STRIP_MEDIA = {"manhua"}', T_STRIP),
+    ("strip-nothing-is-ever-re-cut", PRJ,
+     'STRIP_MEDIA = {"manhwa", "manhua"}', 'STRIP_MEDIA = set()', T_STRIP),
+    ("strip-asking-by-hand-is-refused-as-well", PRJ,
+     "        if not force and not STRIP_MEDIA.intersection({self.medium}):",
+     "        if not STRIP_MEDIA.intersection({self.medium}):", T_STRIP),
+    # ---- a chapter named in Korean
+    ("korean-the-flags-are-dropped", IMG,
+     "        return cv2.imdecode(np.frombuffer(data, np.uint8), flags)",
+     "        return cv2.imdecode(np.frombuffer(data, np.uint8))", T_KOREAN),
+    ("korean-a-missing-file-raises-instead-of-answering-None", IMG,
+     "    try:\n        with open(path, \"rb\") as fh:\n"
+     "            data = fh.read()\n    except OSError:\n        return None\n",
+     "    with open(path, \"rb\") as fh:\n        data = fh.read()\n", T_KOREAN),
+    ("korean-a-decoder-that-throws-takes-the-run-with-it", IMG,
+     "    try:\n        return cv2.imdecode(np.frombuffer(data, np.uint8),"
+     " flags)\n",
+     "    if True:\n        return cv2.imdecode(np.frombuffer(data,"
+     " np.uint8), flags)\n", T_KOREAN),
+    ("korean-an-encoder-that-throws-takes-the-run-with-it", IMG,
+     "    try:\n        ok, buf = cv2.imencode(ext, img, params or [])\n"
+     "    except cv2.error:\n        return False\n",
+     "    ok, buf = cv2.imencode(ext, img, params or [])\n", T_KOREAN),
+    ("korean-the-write-always-claims-it-worked", IMG,
+     "    try:\n        with open(path, \"wb\") as fh:\n"
+     "            fh.write(buf.tobytes())\n    except OSError:\n"
+     "        return False\n    return True\n",
+     "    try:\n        with open(path, \"wb\") as fh:\n"
+     "            fh.write(buf.tobytes())\n    except OSError:\n"
+     "        pass\n    return True\n", T_KOREAN),
+    ("korean-every-write-is-a-png-whatever-it-is-called", IMG,
+     '    ext = os.path.splitext(path)[1] or ".png"',
+     '    ext = ".png"', T_KOREAN),
+    ("korean-an-upload-is-checked-with-imread-again", PRJ,
+     "        img = imgio.imread(dest)\n        if img is None:",
+     "        img = cv2.imread(dest)\n        if img is None:", T_KOREAN),
+    ("korean-a-rescan-measures-with-imread-again", PRJ,
+     "            img = imgio.imread(p)\n"
+     "            h, w = (img.shape[:2] if img is not None else (0, 0))",
+     "            img = cv2.imread(p)\n"
+     "            h, w = (img.shape[:2] if img is not None else (0, 0))",
+     T_KOREAN),
+    ("korean-the-strip-profile-reads-with-imread-again", "strip.py",
+     "    g = imgio.imread(path, cv2.IMREAD_GRAYSCALE)\n    if g is None:\n"
+     "        return np.zeros((0, 3), np.float32)",
+     "    g = cv2.imread(path, cv2.IMREAD_GRAYSCALE)\n    if g is None:\n"
+     "        return np.zeros((0, 3), np.float32)", T_KOREAN),
+
+    # ---- a page that is not there any more
+    ("gone-a-missing-page-is-a-traceback-again", PY,
+     "            gone = self._no_such_page(p, path)\n"
+     "            if gone:\n"
+     "                return self._json({\"error\": gone}, 404)\n"
+     "            if path in (\"/\", \"/index.html\"):",
+     "            if path in (\"/\", \"/index.html\"):", T_GONE),
+    ("gone-a-post-to-a-missing-page-still-runs", PY,
+     "            gone = self._no_such_page(p, path)\n"
+     "            if gone:\n"
+     "                return self._json({\"error\": gone}, 404)\n"
+     "            if path == \"/api/project_upload\":",
+     "            if path == \"/api/project_upload\":", T_GONE),
+    ("gone-a-delete-on-a-missing-page-still-runs", PY,
+     "        gone = self._no_such_page(p, path)\n        if gone:\n"
+     "            return self._json({\"error\": gone}, 404)\n\n"
+     "        m = re.fullmatch(r\"/api/page/(\\d+)\", path)",
+     "        m = re.fullmatch(r\"/api/page/(\\d+)\", path)", T_GONE),
+    ("gone-the-last-page-is-called-missing", PY,
+     "        if 0 <= i < len(p.pages):", "        if 0 <= i < len(p.pages) - 1:",
+     T_GONE),
+    ("gone-the-message-does-not-say-which-page", PY,
+     'return (f"page {i + 1} is not in this project any more "\n'
+     '                f"(there are {len(p.pages)})")',
+     'return "page missing"', T_GONE),
+    ("gone-a-region-number-is-read-as-the-page", PY,
+     '    _NUMBERED = re.compile(r"/(?:api/page|img|render)/(\\d+)(?:/.*)?")',
+     '    _NUMBERED = re.compile(r"/(?:api/page|img|render)/.*?(\\d+)$")',
+     T_GONE),
+    # ---- the chapter before this one, and the numbering
+    ("last-the-upload-folder-is-never-emptied", PY,
+     "                p.put_the_last_chapter_away()\n", "", T_LAST),
+    ("last-the-old-files-are-deleted-not-kept", PRJ,
+     "        prev = os.path.join(self.output_dir, \"input-previous\")\n"
+     "        shutil.rmtree(prev, ignore_errors=True)\n"
+     "        try:\n            shutil.move(d, prev)\n",
+     "        prev = os.path.join(self.output_dir, \"input-previous\")\n"
+     "        try:\n            shutil.rmtree(d)\n", T_LAST),
+    ("last-every-generation-is-kept-for-ever", PRJ,
+     "        shutil.rmtree(prev, ignore_errors=True)\n        try:",
+     "        try:", T_LAST),
+    ("last-an-empty-folder-is-still-moved-aside", PRJ,
+     "        if not os.path.isdir(d) or not os.listdir(d):\n            return 0",
+     "        if not os.path.isdir(d):\n            return 0", T_LAST),
+    ("last-the-new-folder-is-not-made-again", PRJ,
+     "        os.makedirs(d, exist_ok=True)\n"
+     "        return sum(len(f) for _r, _dirs, f in os.walk(prev))",
+     "        return sum(len(f) for _r, _dirs, f in os.walk(prev))", T_LAST),
+    ("num-a-split-does-not-renumber", PRJ,
+     "        # `012a` and `012b` sort where `012` sorted, which is right and is also\n"
+     "        # how a chapter ends up called 011, 012a, 012b, 013. lee asked for the\n"
+     "        # numbering to be put straight, and only ever from here.\n"
+     "        self.renumber_pages()\n", "", T_LAST),
+    ("num-a-join-does-not-renumber", PRJ,
+     "        self._img_cache.clear()\n        self.save()\n"
+     "        self.renumber_pages()\n        return True, \"\"\n\n    def remove_page",
+     "        self._img_cache.clear()\n        self.save()\n"
+     "        return True, \"\"\n\n    def remove_page", T_LAST),
+    ("num-the-numbering-starts-at-nought", PRJ,
+     "        for n, pg in enumerate(self.pages, 1):",
+     "        for n, pg in enumerate(self.pages):", T_LAST),
+    ("num-every-page-keeps-a-png-extension", PRJ,
+     "            ext = os.path.splitext(pg.path)[1] or \".png\"\n"
+     "            want = os.path.join(os.path.dirname(pg.path), f\"{n:03d}{ext}\")",
+     "            ext = \".png\"\n"
+     "            want = os.path.join(os.path.dirname(pg.path), f\"{n:03d}{ext}\")",
+     T_LAST),
+    ("num-renaming-goes-straight-over-a-name-in-use", PRJ,
+     "            tmp = os.path.join(os.path.dirname(pg.path), f\".renum{k}.tmp\")",
+     "            tmp = want", T_LAST),
+    ("num-the-page-keeps-pointing-at-the-old-file", PRJ,
+     "            pg.path = want\n            pg.name = os.path.basename(want)",
+     "            pg.name = os.path.basename(want)", T_LAST),
+    ("num-the-rescan-renumbers-too", PRJ,
+     "        known = {p.path: p for p in self.pages}",
+     "        self.renumber_pages()\n"
+     "        known = {p.path: p for p in self.pages}", T_LAST),
+    # ---- the sound-effect tick, live again on every format
+    #
+    # The nine `sfxoff-` mutants that were here all defended the OVERRIDE —
+    # `NO_SFX_MEDIA`, `detectable_kinds`, `sfxIsDetectable`, the Coming soon
+    # pill. Every one of them mutated code that no longer exists. They are
+    # replaced rather than deleted: the same defence, pointed at the thing
+    # that carries the decision now, which is the tick and `only_kinds`.
+    ("sfxtick-the-format-gets-a-vote-again", PRJ,
+     '        kinds = list(kinds or ["bubble"])',
+     '        kinds = [k for k in (kinds or ["bubble"])\n'
+     '                 if k != "sfx" or self.medium == "manga"]', T_SFXTICK),
+    ("sfxtick-the-tick-stops-being-what-decides", PRJ,
+     "    want = {k for k in (kinds or []) if k in _kinds.FAMILIES}\n"
+     "    if not want:\n"
+     "        return found",
+     "    want = {k for k in (kinds or []) if k in _kinds.FAMILIES}\n"
+     "    if True:\n"
+     "        return found", T_SFXTICK),
+    ("sfxtick-the-row-starts-ticked", HTM,
+     '    <label class="opt"><input type="checkbox" id="kSfx">',
+     '    <label class="opt"><input type="checkbox" id="kSfx" checked>',
+     T_SFXTICK),
+    ("sfxtick-ticking-it-asks-for-nothing", JS,
+     "  if($('kSfx').checked)    k.push('sfx');",
+     "  if(false)                k.push('sfx');", T_SFXTICK),
+    # AFTER the loop that clears `disabled` on all three, not before it —
+    # before it, the loop undoes the mutation and the mutant measures nothing.
+    ("sfxtick-the-row-is-greyed-out-again", JS,
+     "  // The three ticks are alike, on every format.",
+     "  const _s=$('kSfx');\n"
+     "  if(_s){ _s.checked=false; _s.disabled=true;\n"
+     "          _s.closest('label').classList.add('disabled'); }\n"
+     "  // The three ticks are alike, on every format.", T_SFXTICK),
+    ("sfxtick-the-coming-soon-pill-comes-back", HTM,
+     "      <span><b>Sound effects</b><br>",
+     '      <span><b>Sound effects</b><span id="kSfxSoon" class="pill">'
+     "Coming soon</span><br>", T_SFXTICK),
+    ("sfxtick-nobody-is-told-they-can-draw-one", HTM,
+     "      <i>Typeset with the SFX font and left out of the cleaning pass. You"
+     " can\n      also draw one by hand: a box on the Translation view, then"
+     " <b>3</b>.</i>",
+     "      <i>Typeset with the SFX font and left out of the cleaning pass.</i>",
+     T_SFXTICK),
+    # ---- a wall of sharp change, closed and roundish
+    ("wall-the-rule-is-not-there-at-all", BALL,
+     "    _shut_in_a_round_wall(gray, regions, cfg)\n", "", T_WALL),
+    ("wall-the-canny-bar-is-the-strict-one-again", BALL,
+     "WALL_LO, WALL_HI = 30, 90", "WALL_LO, WALL_HI = 60, 150", T_WALL),
+    ("wall-the-seal-does-not-close-fur", BALL,
+     "WALL_SEAL = 15", "WALL_SEAL = 1", T_WALL),
+    ("wall-one-pixel-thin-so-the-fill-leaks", BALL,
+     "    e = cv2.dilate(e, np.ones((3, 3), np.uint8))\n", "", T_WALL),
+    ("wall-anything-shut-counts-however-shapeless", BALL,
+     "WALL_CIRC = 0.50", "WALL_CIRC = 0.0", T_WALL),
+    ("wall-it-need-not-be-an-ellipse", BALL,
+     "WALL_FIT = 0.85", "WALL_FIT = 0.0", T_WALL),
+    ("wall-the-hole-it-punched-counts-as-a-balloon", BALL,
+     "    if a < WALL_SLACK * hole or len(c) < 5:",
+     "    if len(c) < 5:", T_WALL),
+    ("wall-a-shape-you-can-walk-out-of-counts", BALL,
+     "    if (comp[0].any() or comp[-1].any() or comp[:, 0].any()\n"
+     "            or comp[:, -1].any()):\n        return False\n", "", T_WALL),
+    ("wall-the-writing-is-left-in-the-edge-map", BALL,
+     "    e[ey0:ey1, ex0:ex1] = 0\n", "", T_WALL),
+    ("wall-it-renames-sound-effects-too", BALL,
+     '        if r.kind != "freefloat" or r.bubble_mask is not None:',
+     "        if r.bubble_mask is not None:", T_WALL),
+    # ---- The balloon it is in may say what it is
+    ("namebox-the-free-blocks-are-not-searched-upright", BALL,
+     '    up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"),\n'
+     '                 promote=True)',
+     '    up = _attach(gray, regions, cfg, ("bubble", "narration"))', T_NAMEBOX),
+    ("namebox-found-but-not-renamed", BALL,
+     '    up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"),\n'
+     '                 promote=True)',
+     '    up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"))',
+     T_NAMEBOX),
+    ("namebox-a-caption-is-renamed-too", BALL,
+     '            if r.kind == "freefloat" and r.bubble_mask is not None:',
+     "            if r.bubble_mask is not None:", T_NAMEBOX),
+    ("namebox-renamed-without-finding-anything", BALL,
+     '            if r.kind == "freefloat" and r.bubble_mask is not None:',
+     '            if r.kind == "freefloat":', T_NAMEBOX),
+    ("namebox-the-page-is-labelled-twice", BALL,
+     "    if not todo:\n        return 0\n\n    n, labels = _free_labels(gray, cfg)",
+     "    if not todo:\n        return 0\n\n    _free_labels(gray, cfg)\n"
+     "    n, labels = _free_labels(gray, cfg)",
+     T_NAMEBOX),
+    # ---- A page too long for the 1024 letterbox
+    ("tall-the-limit-is-not-the-measured-one", CTD,
+     "TALL_ASPECT = 6.0", "TALL_ASPECT = 10.0", T_TALL),
+    ("tall-it-warns-about-every-webtoon", CTD,
+     "TALL_ASPECT = 6.0", "TALL_ASPECT = 2.0", T_TALL),
+    ("tall-it-measures-the-height-and-not-the-shape", CTD,
+     "    return bool(w) and bool(h) and (max(w, h) / float(min(w, h) or 1)\n"
+     "                                    > TALL_ASPECT)",
+     "    return bool(w) and bool(h) and h > 4140", T_TALL),
+    ("tall-a-page-with-no-size-is-warned-about", CTD,
+     "    return bool(w) and bool(h) and (max(w, h) / float(min(w, h) or 1)\n"
+     "                                    > TALL_ASPECT)",
+     "    return (max(w, h) / float(min(w, h) or 1) > TALL_ASPECT)", T_TALL),
+    ("tall-the-browser-keeps-its-own-copy-of-the-limit", JS,
+     "  const lim = (proj && proj.tall_aspect) || 0;",
+     "  const lim = 6;", T_TALL),
+    ("tall-the-warning-never-shows", JS,
+     "  if(!tall.length){ el.style.display='none'; return; }",
+     "  { el.style.display='none'; return; }", T_TALL),
+    ("tall-the-warning-does-not-say-what-to-do", JS,
+     "    + `shorter page. Cut / join, on the Translation view, splits a "
+     "strip up. `",
+     "    + `shorter page. `", T_TALL),
+    ("tall-nobody-asks-the-question-before-a-run", JS,
+     "  syncTallWarning();\n}", "}", T_TALL),
+    # ---- Sound effects: off by default, and still pressable
+    ("threekey-a-hidden-group-swallows-the-box", RO,
+     "  const fam = (typeof familyOf==='function') ? familyOf(kind) : kind;\n"
+     "  if((hiddenKinds||[]).includes(fam)){\n"
+     "    await setKindShown(fam, true);\n"
+     "    return;\n"
+     "  }\n",
+     "", T_HANDSFX),
+    ("threekey-every-group-is-turned-back-on", RO,
+     "  if((hiddenKinds||[]).includes(fam)){",
+     "  if(true){", T_HANDSFX),
+    ("threekey-three-is-not-the-sound-effect", "static/js/frames.js",
+     "const KIND_FAMILIES=['bubble','freefloat','sfx'];",
+     "const KIND_FAMILIES=['bubble','sfx','freefloat'];", T_HANDSFX),
+    # ---- ...and a loose box may be a drawn effect rather than outside text
+    ("sky-a-huge-hollow-shout-stays-dialogue", CTD,
+     "            if effect_fill and \\\n"
+     "                    _glyph_share(gray, r.bbox, r.text_mask) >= LOOSE_HUGE and \\\n"
+     "                    _looks_hand_drawn(gray, r.bbox, r.text_mask, effect_fill):\n"
+     "                r.kind = \"sfx\"\n"
+     "                continue\n",
+     "", T_SKY),
+    ("sky-the-size-gate-is-gone-so-the-credits-go-too", CTD,
+     "                    _glyph_share(gray, r.bbox, r.text_mask) >= LOOSE_HUGE and \\\n",
+     "", T_SKY),
+    ("sky-the-size-bar-is-not-the-measured-one", CTD,
+     "LOOSE_HUGE = 0.15", "LOOSE_HUGE = 0.10", T_SKY),
+    ("sky-the-size-is-measured-against-the-box", CTD,
+     "    return float(np.median(hs)) / float(max(1, W))",
+     "    return float(np.median(hs)) / float(max(1, x1 - x0))", T_SKY),
+    # ---- a tall box of outside text is one drawn shape
+    ("tallfx-the-tall-case-is-gone", CTD,
+     "            if _looks_hand_drawn(gray, r.bbox, r.text_mask, effect_fill) or \\\n"
+     "                    _taller_than_wide(r.bbox):",
+     "            if _looks_hand_drawn(gray, r.bbox, r.text_mask, effect_fill):",
+     T_DRAWN),
+    ("tallfx-every-box-out-there-is-tall-enough", CTD,
+     "TALL_EFFECT = 1.15", "TALL_EFFECT = 0.5", T_DRAWN),
+    ("tallfx-the-shape-is-read-the-wrong-way-round", CTD,
+     "    return bool(w) and h > TALL_EFFECT * w",
+     "    return bool(h) and w > TALL_EFFECT * h", T_DRAWN),
+    # ---- a crop per box instead of the page
+    ("crop-scaled-by-the-crop-and-not-the-glyphs", "ocr.py",
+     "        s = float(glyph_px) / _glyph_px(page, r)",
+     "        s = float(glyph_px) / max(1, min(ch, cw) / 3.0)", T_CROP),
+    ("crop-the-glyph-target-is-not-the-measured-one", "ocr.py",
+     "BOX_GLYPH = 64", "BOX_GLYPH = 16", T_CROP),
+    ("crop-there-is-no-padding-round-the-box", "ocr.py",
+     "BOX_PAD = 0.25", "BOX_PAD = 0.0", T_CROP),
+    ("crop-a-tiny-box-stays-tiny", "ocr.py",
+     "        s = max(s, BOX_MIN / max(1, max(cw, ch)))", "", T_CROP),
+    # (No mutant for the max_side clamp inside the scale. Taking it out
+    #  changes no output: `_encode` clamps to the same number on the way to
+    #  PNG. It is there so a 12x scale-up is not allocated and then thrown
+    #  away, which is a speed and memory guard rather than a behaviour, and an
+    #  equivalent mutant is not a hole in the tests.)
+    ("crop-the-setting-does-not-reach-it", "ocr.py",
+     '        return page_box_crops(page, max_side=max_side)\n',
+     "        pass\n", T_CROP),
+    ("crop-the-crops-are-not-in-reading-order", "ocr.py",
+     '    for r in sorted(regions, key=lambda r: (getattr(r, "order", 0), r.id)):',
+     "    for r in regions:", T_CROP),
+    ("crop-every-picture-is-its-own-turn-again", TR,
+     "    n_batch = max(1, int(batch or 1))", "    n_batch = 1", T_CROP),
+    ("crop-the-reader-is-not-told-which-image-is-which", TR,
+     '        if len(group) > 1:\n', "        if False:\n", T_CROP),
+    # ---- the reader copies the page, it does not tidy it
+    ("paper-the-ellipsis-is-rewritten-again", TR,
+     '        "- Copy the punctuation EXACTLY as printed, character for character: "',
+     '        "- Write an ellipsis as three periods ... "', T_PAPER),
+    ("paper-the-stop-after-an-ellipsis-is-not-named", TR,
+     '"a full stop after an ellipsis (….) is part of the line, and a "',
+     '"and a "', T_PAPER),
+    ("paper-the-long-vowel-mark-is-dropped-in-the-edit", TR,
+     '"long-vowel mark is ー. Do not tidy, normalise, or add stray symbols.\\n"',
+     '"Do not tidy, normalise, or add stray symbols.\\n"', T_PAPER),
+    ("paper-nobody-asks-for-the-line-breaks", TR,
+     '        "- Keep the LINE BREAKS as printed. A run of writing set as three lines "\n'
+     '        "comes back as three lines separated by \\\\n, broken in the same places. "\n'
+     '        "Do not re-wrap it, and do not join it into one line.\\n"',
+     '        ""', T_PAPER),
+    ("paper-re-wrapping-is-allowed", TR,
+     '"Do not re-wrap it, and do not join it into one line.\\n"',
+     '"Do not join it into one line.\\n"', T_PAPER),
+    ("paper-the-english-loses-its-three-periods", TR,
+     "  straight apostrophes and quotes, three periods for an ellipsis, and a",
+     "  straight apostrophes and quotes, an ellipsis, and a", T_PAPER),
+    # ---- a double balloon is one balloon, not one sentence
+    ("say-a-balloon-goes-as-a-sentence-link", TR,
+     '                **({("balloon"\n'
+     '                     if getattr(r, "link_kind", "") == "balloon" else "link"):\n'
+     '                    int(r.link)} if getattr(r, "link", 0) else {}),',
+     '                **({"link": int(r.link)} if getattr(r, "link", 0) else {}),',
+     T_LOBESAY),
+    ("say-an-old-link-with-no-kind-becomes-a-balloon", TR,
+     'if getattr(r, "link_kind", "") == "balloon" else "link"',
+     'if getattr(r, "link_kind", "") != "sentence" else "link"', T_LOBESAY),
+    ("say-the-lobes-are-not-marked-as-lobes", "detect/balloon.py",
+     '            lobes[i][0].link_kind = "balloon"', "            pass",
+     T_LOBESAY),
+    ("say-reads-on-does-not-mark-its-own", TR,
+     '            r.link_kind = "sentence" if joined else ""', "            pass",
+     T_LOBESAY),
+    ("say-unlinking-leaves-the-kind-behind", TR,
+     '            r.link_kind = "sentence" if joined else ""',
+     '            r.link_kind = "sentence"', T_LOBESAY),
+    ("say-the-kind-is-never-written-to-disk", "project.py",
+     '        "link_kind": str(getattr(r, "link_kind", "") or ""),', "", T_LOBESAY),
+    ("say-the-kind-is-never-read-back", "project.py",
+     '        link_kind=str(rec.get("link_kind", "") or ""),', "", T_LOBESAY),
+    # ---- one person, one name
+    ("said-the-chapter-remembers-nothing", TR,
+     "        remember_said(ctx, page, data.get(\"glossary_additions\") or {})",
+     "        pass", T_SAID),
+    ("said-nothing-is-sent-with-the-page", TR,
+     '        **({"already_said": said} if said else {}),', "", T_SAID),
+    ("said-an-empty-one-is-sent-anyway", TR,
+     '        **({"already_said": said} if said else {}),',
+     '        "already_said": said,', T_SAID),
+    ("said-the-same-speaker-is-listed-again-and-again", TR,
+     "        if w.lower() not in seen:", "        if True:", T_SAID),
+    ("said-a-second-rendering-overwrites-the-first", TR,
+     "        if k and v and k not in terms:", "        if k and v:", T_SAID),
+    ("said-the-whole-cast-is-sent-for-ever", TR,
+     '        out["speakers"] = keep[:40]', '        out["speakers"] = keep',
+     T_SAID),
+    # ---- the line has to fit, and the dashes come off
+    ("fit-there-is-no-budget-on-a-line", TR,
+     '  * "src_char_count", how long the Korean is. Aim under about 1.6 times it.',
+     '  * "src_char_count", how long the Korean is.', T_FIT),
+    ("fit-a-dash-in-the-middle-stays", TR,
+     '    t = re.sub(r"\\s*[—–]+\\s*", ", ", t)', "    t = t", T_FIT),
+    ("fit-the-dash-becomes-nothing-instead-of-a-comma", TR,
+     '    t = re.sub(r"\\s*[—–]+\\s*", ", ", t)',
+     '    t = re.sub(r"\\s*[—–]+\\s*", "", t)', T_FIT),
+    ("fit-a-double-comma-is-left-behind", TR,
+     '    t = re.sub(r",\\s*,+", ",", t)', "    t = t", T_FIT),
+    # The anchor moved when the LEADING dash stopped being covered by this
+    # exemption: `if not t or source_has_dash(src)` became two separate tests,
+    # and this mutant's old replacement — `if not t:` — is now what the
+    # CORRECT source says, which the leftover check rightly read as a mutant
+    # left on disk. Same claim, against the shape the exemption has now.
+    ("fit-a-source-with-a-dash-loses-its-own", TR,
+     "    if source_has_dash(src):\n        return t.strip() or dst",
+     "    if False:\n        return t.strip() or dst", T_FIT),
+    # ---- a purse you can top up
+    ("purse-anybody-can-top-up", "coins.py",
+     '    return bool(os.environ.get(TEST_PURSE)) and not remote()',
+     "    return True", T_PURSE),
+    ("purse-an-account-can-be-topped-up-too", "coins.py",
+     '    return bool(os.environ.get(TEST_PURSE)) and not remote()',
+     "    return bool(os.environ.get(TEST_PURSE))", T_PURSE),
+    ("purse-the-screen-is-not-told", "coins.py",
+     '                "buy_url": BUY_URL, "can_top_up": can_top_up(),',
+     '                "buy_url": BUY_URL, "can_top_up": False,', T_PURSE),
+    ("purse-an-account-is-told-it-can", "coins.py",
+     '        got["can_top_up"] = False       # never, on an account',
+     '        got["can_top_up"] = True', T_PURSE),
+    ("purse-the-button-is-always-drawn", "static/js/coins.js",
+     "  if(!w.can_top_up) return '';", "  if(false) return '';", T_PURSE),
+    # ---- the line the page can hold, and the shout on it
+    ("hold-a-round-balloon-is-measured-as-its-box", TR,
+     "    m = getattr(region, \"bubble_mask\", None)\n    if m is not None:",
+     "    m = None\n    if m is not None:", T_HOLD),
+    ("hold-a-box-with-nothing-in-it-still-promises-room", TR,
+     "    return n if n >= 4 else 0", "    return n", T_HOLD),
+    ("hold-the-type-size-does-not-come-into-it", TR,
+     "    n = int(px * BALLOON_PACK / (CHAR_AREA * size * size))",
+     "    n = int(px * BALLOON_PACK / (CHAR_AREA * 144))", T_HOLD),
+    ("hold-a-balloon-is-packed-to-its-edges", TR,
+     "BALLOON_PACK = 0.55", "BALLOON_PACK = 1.0", T_HOLD),
+    ("hold-the-number-is-never-sent", TR,
+     '                **({"fits_chars": fits} if (fits := fits_chars(\n'
+     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
+     '                                    getattr(ctx, "max_font", 34)))) else {}),',
+     "", T_HOLD),
+    ("hold-a-guess-is-sent-as-a-measurement", TR,
+     '                **({"fits_chars": fits} if (fits := fits_chars(\n'
+     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
+     '                                    getattr(ctx, "max_font", 34)))) else {}),',
+     '                "fits_chars": fits_chars(r, 12),', T_HOLD),
+    ("hold-the-project-minimum-is-ignored", ED,
+     '        p.ctx.min_font = int(s.get("min_font") or 12)',
+     "        p.ctx.min_font = 12", T_HOLD),
+    ("hold-the-project-full-size-is-ignored", ED,
+     '        p.ctx.max_font = int(s.get("max_font") or 34)',
+     "        p.ctx.max_font = 34", T_SIZE),
+    ("hold-a-snug-line-is-nagged-about", TR,
+     "OVER_FITS = 1.25", "OVER_FITS = 1.0", T_HOLD),
+    ("hold-nothing-is-ever-too-long", TR,
+     "    if room and n > room * OVER_FITS:", "    if False:", T_HOLD),
+    ("shout-a-single-mark-counts-as-a-run", TR,
+     '_RUN = re.compile(r"[!?！？]{2,}")', '_RUN = re.compile(r"[!?！？]{1,}")',
+     T_HOLD),
+    ("shout-only-a-run-of-one-mark-counts", TR,
+     '_RUN = re.compile(r"[!?！？]{2,}")',
+     '_RUN = re.compile(r"([!?！？])\\1{1,}")', T_HOLD),
+    ("shout-a-quieter-line-is-not-mentioned", TR,
+     "    if was >= 2 and now < was:", "    if False:", T_HOLD),
+    ("shout-a-louder-line-is-mentioned-too", TR,
+     "    if was >= 2 and now < was:", "    if was >= 2 and now != was:",
+     T_HOLD),
+    ("shout-the-note-never-reaches-the-region", TR,
+     "            note = quieter(r.dst_text, r.src_text) or too_long(\n"
+     "                r.dst_text, r, comfort_size(\n"
+     "                    getattr(ctx, \"min_font\", 12),\n"
+     "                    getattr(ctx, \"max_font\", 34)))",
+     "            note = \"\"", T_HOLD),
+    # ---- the size the reader gets, and the two dashes that got there first
+    #
+    # A hyphen-minus standing alone is a dash the page printed. Page 002's
+    # title plate is framed with two of them, and reading it as no-dash cost
+    # the plate its frame.
+    ("size-a-typed-hyphen-is-not-a-dash", TR,
+     "            or bool(_LOOSE_HYPHEN.search(s)))", "            )", T_SIZE),
+    ("size-a-hyphen-inside-a-word-counts-too", TR,
+     r'_LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s|$)")',
+     r'_LOOSE_HYPHEN = re.compile(r"-+")', T_SIZE),
+    ("size-only-a-hyphen-at-the-very-start-counts", TR,
+     r'_LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s|$)")',
+     r'_LOOSE_HYPHEN = re.compile(r"^-+(?=\s|$)")', T_SIZE),
+    ("size-a-hyphen-at-the-end-of-a-plate-is-not-one", TR,
+     r'_LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s|$)")',
+     r'_LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s)")', T_SIZE),
+    # An ellipsis in front of a dash still leaves the dash at the edge of the
+    # line, because `strip_added_ellipsis` runs next and takes the ellipsis
+    # away. Page 039 came back opening with a comma.
+    ("size-a-dash-behind-an-ellipsis-is-an-interior-dash", TR,
+     'rf"^({_OPENERS}(?:{_ELLIPSIS})?{_OPENERS})[-—–]+\s*"',
+     'rf"^({_OPENERS})[-—–]+\s*"', T_SIZE),
+    ("size-the-openers-are-eaten-with-the-dash", TR,
+     "    t = _EDGE_LEAD.sub(r\"\\1\", t, count=1)",
+     "    t = _EDGE_LEAD.sub(\"\", t, count=1)", T_SIZE),
+    ("size-only-the-front-of-a-line-has-an-edge", TR,
+     "    t = _EDGE_TAIL.sub(r\"\\1\", t, count=1)", "", T_SIZE),
+    # Two mutants that stood here are gone as EQUIVALENT, not as caught. `^`
+    # and `$` outside `re.M` match once, so dropping `count=1` cannot change a
+    # thing; and `hi = max(lo, ...)` was held by the `max(lo, ...)` on the way
+    # out, so the inner one was dead and has been removed from the code.
+    #
+    # The budget is taken at a size the typesetter will actually set. It used
+    # to be taken at min_font, which on the measured chapter was 11 against a
+    # median chosen size of 32 — the note fired zero times in 134 regions.
+    ("size-the-budget-is-taken-at-the-floor", TR,
+     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
+     "    return lo", T_SIZE),
+    ("size-the-budget-is-taken-at-the-ceiling", TR,
+     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
+     "    return max(lo, int(max_font or lo))", T_SIZE),
+    ("size-the-comfortable-size-may-fall-below-the-floor", TR,
+     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
+     "    return int(round(int(max_font or lo) * COMFORT_FONT))", T_SIZE),
+    ("size-a-project-with-no-full-size-is-budgeted-at-a-guess", TR,
+     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
+     "    return max(lo, int(round(int(max_font or 34) * COMFORT_FONT)))",
+     T_SIZE),
+    ("size-the-reasoned-character-area-is-kept", TR,
+     "CHAR_AREA = 1.05", "CHAR_AREA = 0.6", T_SIZE),
+    ("size-the-comfortable-size-is-the-full-one", TR,
+     "COMFORT_FONT = 0.7", "COMFORT_FONT = 1.0", T_SIZE),
+    ("size-the-request-still-budgets-at-the-floor", TR,
+     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
+     '                                    getattr(ctx, "max_font", 34)))) else {}),',
+     '                    r, getattr(ctx, "min_font", 12))) else {}),', T_SIZE),
+    ("size-the-prompt-still-says-the-smallest-type", TR,
+     "    at a comfortable reading size. It is measured off the shape on the page",
+     "    at the smallest type this project allows. It is measured off the page",
+     T_SIZE),
+    ("size-the-ratio-still-outranks-the-balloon", TR,
+     "    matters. Where it is given, it OVERRULES the ratio above: a long line in a",
+     "    matters. Where it is given, it agrees with the ratio above: a long line in a",
+     T_SIZE),
+    # ---- the cleaner says what it did
+    #
+    # `inpaint_page` names a route on every box and flags the ones it is not
+    # sure about. None of it reached the project: 134 regions of lee's chapter
+    # came back with an empty route and not one clean flag, on a chapter with
+    # three boxes that still had their Korean on them.
+    ("says-the-report-is-thrown-away-with-the-page", ED,
+     "    _keep_the_clean_report(p, i, page)\n    p.pages[i].cleaned = True",
+     "    p.pages[i].cleaned = True", T_SAYS),
+    ("says-cleaning-writes-the-whole-page-back", ED,
+     "    _keep_the_clean_report(p, i, page)\n    p.pages[i].cleaned = True",
+     "    _commit_keep_proofread(p, i, page)\n    p.pages[i].cleaned = True",
+     T_SAYS),
+    ("says-a-box-the-page-never-carried-is-blanked", ED,
+     "        if got is None:\n            continue",
+     '        if got is None:\n            got = ("", None)', T_SAYS),
+    ("says-only-the-route-is-kept", ED,
+     '        rec["clean_route"], rec["flagged"] = got',
+     '        rec["clean_route"] = got[0]', T_SAYS),
+    ("says-the-route-is-not-written-to-the-record", "project.py",
+     '        "clean_route": str(getattr(r, "clean_route", "") or ""),',
+     '        "clean_route": "",', T_SAYS),
+    ("says-a-note-is-not-written-to-the-record", "project.py",
+     '        "flagged": r.flagged, "manual": bool(getattr(r, "manual", False)),',
+     '        "flagged": None, "manual": bool(getattr(r, "manual", False)),',
+     T_SAYS),
+    # ---- nothing in front of the line
+    #
+    # A check on the FINISHED line and not on a step, because the comma lee
+    # found was made by two steps that were each right on their own.
+    ("front-whatever-is-on-the-front-stays", TR,
+     "    m = _LEAD_ANY.match(dst)\n    if not m:\n        return dst",
+     "    return dst", T_FRONT),
+    ("front-the-source-does-not-get-a-say", TR,
+     '    if not (dst or "").strip() or leads_with_a_mark(src):',
+     '    if not (dst or "").strip():', T_FRONT),
+    ("front-a-line-of-nothing-but-marks-is-emptied", TR,
+     "    return (m.group(1) + dst[m.end():]).strip() or dst",
+     "    return (m.group(1) + dst[m.end():]).strip()", T_FRONT),
+    ("front-the-quote-round-the-line-is-taken-with-the-mark", TR,
+     "    return (m.group(1) + dst[m.end():]).strip() or dst",
+     "    return dst[m.end():].strip() or dst", T_FRONT),
+    ("front-a-quote-counts-as-being-in-front-of-the-words", TR,
+     'rf"^({_OPENERS})({_LEAD_MARKS}+\s*)"', 'rf"^()({_LEAD_MARKS}+\s*)"',
+     T_FRONT),
+    ("front-only-the-first-mark-of-a-run-comes-off", TR,
+     'rf"^({_OPENERS})({_LEAD_MARKS}+\s*)"', 'rf"^({_OPENERS})({_LEAD_MARKS}\s*)"',
+     T_FRONT),
+    ("front-a-comma-is-not-a-mark", TR,
+     r'_LEAD_MARKS = r"[,.;:!?…‥・·、。，；：！？—–ー~〜～\-]"',
+     r'_LEAD_MARKS = r"[.;:!?…‥・·、。，；：！？—–ー~〜～\-]"', T_FRONT),
+    ("front-spanish-opens-a-sentence-and-loses-it", TR,
+     r'_LEAD_MARKS = r"[,.;:!?…‥・·、。，；：！？—–ー~〜～\-]"',
+     r'_LEAD_MARKS = r"[,.;:!?…‥・·、。，；：！？—–ー~〜～¿¡\-]"', T_FRONT),
+    ("front-the-translator-never-asks", TR,
+     "                r.dst_text = strip_added_lead(\n"
+     "                    strip_added_ellipsis(\n"
+     "                        strip_added_dashes(fixed, r.src_text), r.src_text),\n"
+     "                    r.src_text)",
+     "                r.dst_text = strip_added_ellipsis(\n"
+     "                    strip_added_dashes(fixed, r.src_text), r.src_text)",
+     T_FRONT),
+    ("front-the-proofreader-never-asks", TR,
+     "            r.dst_text = strip_added_lead(\n"
+     "                strip_added_ellipsis(\n"
+     "                    strip_added_dashes(\n"
+     '                        normalize_text(str(item.get("translation") or "").strip()),\n'
+     "                        r.src_text),\n"
+     "                    r.src_text),\n"
+     "                r.src_text)",
+     "            r.dst_text = strip_added_ellipsis(\n"
+     "                strip_added_dashes(\n"
+     '                    normalize_text(str(item.get("translation") or "").strip()),\n'
+     "                    r.src_text),\n"
+     "                r.src_text)", T_FRONT),
+    ("front-a-pasted-file-is-taken-as-it-comes", ED,
+     "    rec[\"dst_text\"] = strip_added_lead(\n"
+     "        strip_added_ellipsis(\n"
+     "            typeset_mod.normalize_text(str(text or \"\").strip()), src),\n"
+     "        src)",
+     "    rec[\"dst_text\"] = strip_added_ellipsis(\n"
+     "        typeset_mod.normalize_text(str(text or \"\").strip()), src)",
+     T_FRONT),
+    # ---- a sound effect you just drew
+    ("drew-a-box-can-be-drawn-into-a-group-that-is-away", ED,
+     "                if not p.pages[i].shown(rec):", "                if False:",
+     T_DREW),
+    ("drew-drawing-one-box-unhides-every-group", ED,
+     "                        p.pages[i].hidden_kinds = [\n"
+     "                            k for k in (p.pages[i].hidden_kinds or [])\n"
+     "                            if k != g]",
+     "                        p.pages[i].hidden_kinds = []", T_DREW),
+    ("drew-the-axis-is-never-read-at-draw-time", ED,
+     "                        read_sfx_axis(r, _g)", "                        pass",
+     T_DREW),
+    ("drew-every-box-is-read-as-a-sound-effect", ED,
+     '                if _kinds.family_of(getattr(r, "kind", "")) == "sfx":',
+     "                if True:", T_DREW),
+    # ---- a box you turned
+    ("turn-the-corners-turn-the-other-way", "models.py",
+     "        out.append([int(round(cx + dx * ca - dy * sa)),\n"
+     "                    int(round(cy + dx * sa + dy * ca))])",
+     "        out.append([int(round(cx + dx * ca + dy * sa)),\n"
+     "                    int(round(cy - dx * sa + dy * ca))])", T_TURN),
+    ("turn-the-box-turns-about-its-own-corner", "models.py",
+     "    cx, cy = x + w / 2.0, y + h / 2.0\n"
+     "    a = math.radians(float(turn or 0.0))",
+     "    cx, cy = x, y\n"
+     "    a = math.radians(float(turn or 0.0))", T_TURN),
+    ("turn-the-angle-is-read-as-radians", "models.py",
+     "    a = math.radians(float(turn or 0.0))", "    a = float(turn or 0.0)",
+     T_TURN),
+    ("turn-a-detector-box-counts-as-turned", PRJ,
+     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return abs(float(rec.get("turn") or 0.0)) > 0.01', T_TURN),
+    ("turn-a-straight-box-counts-as-turned", PRJ,
+     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return bool(rec.get("manual"))', T_TURN),
+    ("turn-a-measured-axis-is-read-as-a-turn", PRJ,
+     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return bool(rec.get("manual")) and abs(float(rec.get("angle") or 0.0)) > 0.01',
+     T_TURN),
+    ("turn-the-turn-is-not-kept-on-the-record", PRJ,
+     '        "turn": round(float(getattr(r, "turn", 0.0) or 0.0), 2),', "",
+     T_TURN),
+    ("turn-the-turn-is-not-read-back-off-the-record", PRJ,
+     '        turn=float(rec.get("turn") or 0.0),', "", T_TURN),
+    ("turn-a-sound-effects-letters-stay-put", ED,
+     '                            rec["angle"] = max(-89.0, min(89.0, float(\n'
+     '                                rec.get("angle") or 0.0) + rec["turn"] - was_turn))',
+     "                            pass", T_TURN),
+    ("turn-the-axis-is-moved-to-the-turn-not-by-it", ED,
+     '                            rec["angle"] = max(-89.0, min(89.0, float(\n'
+     '                                rec.get("angle") or 0.0) + rec["turn"] - was_turn))',
+     '                            rec["angle"] = rec["turn"]', T_TURN),
+    ("turn-every-box-moves-its-axis", ED,
+     '                        if _kinds.family_of(rec.get("kind") or "") == "sfx":',
+     "                        if True:", T_TURN),
+    ("turn-any-box-may-be-turned", ED,
+     '                        if not rec.get("manual"):\n'
+     '                            return self._json(\n'
+     '                                {"error": "only a box you drew can be turned"})',
+     "                        pass", T_TURN),
+    ("turn-the-outline-is-left-upright", ED,
+     '                        rec["polygon"] = turned_box(rec["bbox"], rec["turn"])',
+     "                        pass", T_TURN),
+    ("turn-the-turn-is-taken-as-given", ED,
+     '                        rec["turn"] = max(-89.0, min(\n'
+     '                            89.0, float(body.get("turn") or 0.0)))',
+     '                        rec["turn"] = float(body.get("turn") or 0.0)',
+     T_TURN),
+    ("turn-the-cleaned-plate-is-kept", ED,
+     '                reorder(p, i, stale=("layout" not in body))',
+     "                reorder(p, i, stale=False)", T_TURN),
+    ("turn-a-resize-straightens-the-box", ED,
+     "                    if is_turned(new):\n"
+     '                        new["polygon"] = turned_box(new["bbox"], new["turn"])',
+     "                    pass", T_TURN),
+    ("turn-a-resize-drops-the-turn", ED,
+     '                             "draw_box", "link", "box_group", "angle",\n'
+     '                             "turn")}',
+     '                             "draw_box", "link", "box_group", "angle")}',
+     T_TURN),
+    ("turn-the-fence-shaves-the-turned-corners", IN,
+     "        room = _own_area(r, gray.shape, GLYPH_REACH)\n"
+     "        if room is None:\n"
+     "            room = np.zeros(gray.shape, bool)",
+     "        room = None\n"
+     "        if room is None:\n"
+     "            room = np.zeros(gray.shape, bool)", T_TURN),
+    ("turn-the-erase-mask-is-cut-back-to-the-upright-box", IN,
+     "        own = _own_area(r, gray.shape, DILATE_PX)",
+     "        own = None", T_TURN),
+    ("turn-a-detector-box-is-its-own-fence", IN,
+     '    if not getattr(region, "manual", False):\n        return False',
+     "    pass", T_TURN),
+    ("turn-the-cleaner-reads-the-measured-axis", IN,
+     '    return abs(float(getattr(region, "turn", 0.0) or 0.0)) > 0.01',
+     '    return abs(float(getattr(region, "angle", 0.0) or 0.0)) > 0.01',
+     T_TURN),
+    ("turn-the-outline-is-not-grown-by-the-doorstep", IN,
+     "    return cv2.dilate(m, np.ones((2 * pad + 1,) * 2, np.uint8)) > 0",
+     "    return m > 0", T_TURN),
+    ("turn-the-block-is-fitted-into-the-leaning-shape", TS,
+     '    if (getattr(region, "manual", False) and abs(turn) > 0.01 and mask is None\n'
+     '            and _kinds.family_of(getattr(region, "kind", "") or "") != "sfx"):',
+     "    if False:", T_TURN),
+    ("turn-a-sound-effect-is-re-laid-as-a-block", TS,
+     '            and _kinds.family_of(getattr(region, "kind", "") or "") != "sfx"):',
+     "            and True):", T_TURN),
+    ("turn-the-fitter-reads-the-measured-axis", TS,
+     '    turn = float(getattr(region, "turn", 0.0) or 0.0)',
+     '    turn = float(getattr(region, "angle", 0.0) or 0.0)', T_TURN),
+    ("turn-the-block-is-fitted-straight-and-left-straight", TS,
+     "            lay.rotate = turn", "            pass", T_TURN),
+    ("turn-a-turned-block-is-clipped-back-to-its-mask", "render.py",
+     '        free = free or (getattr(r, "manual", False)\n'
+     '                        and abs(float(getattr(r, "turn", 0.0) or 0.0)) > 0.01)',
+     "        pass", T_TURN),
+    # ---- only the text, and only inside the bubble
+    ("only-the-balloon-box-is-left-on-the-old-page", "project.py",
+     '        bb = r.get("bubble_bbox")', "        bb = None", T_ONLY),
+    ("only-a-balloon-off-this-half-is-clamped-to-a-sliver", "project.py",
+     '            out["bubble_bbox"] = ([bx, btop, bw, bbot - btop]\n'
+     "                                  if bbot - btop >= 2 else None)",
+     '            out["bubble_bbox"] = [bx, btop, bw, bbot - btop]', T_ONLY),
+    ("only-an-empty-placement-area-is-shipped-as-is", "project.py",
+     "    if not bubble.any():\n"
+     "        x, y, w, h = (int(v) for v in rec[\"bbox\"])\n"
+     "        bubble[max(0, y):y + h, max(0, x):x + w] = 255", "", T_ONLY),
+    ("only-the-fence-is-the-box-alone", IN,
+     "        if bm is not None and getattr(bm, \"shape\", None)[:2] == gray.shape[:2]:\n"
+     "            room &= cv2.dilate((bm > 0).astype(np.uint8), reach_k) > 0",
+     "        pass", T_ONLY),
+    ("only-the-fence-is-the-balloon-with-no-doorstep", IN,
+     "            room &= cv2.dilate((bm > 0).astype(np.uint8), reach_k) > 0",
+     "            room &= (bm > 0)", T_ONLY),
+    ("only-the-model-gets-the-old-generous-padding", IN,
+     "MODEL_PAD = 2          # ...and on the one the MODEL is given",
+     "MODEL_PAD = 6          # ...and on the one the MODEL is given",
+     T_ONLY + ["tests/test_pipeline.py::"
+               "test_the_widened_mask_does_not_eat_the_screentone_around_it"]),
+    ("only-the-local-seed-is-cut-down-too", IN,
+     "DILATE_PX = 3          # anti-aliased glyph edges leave grey haze otherwise",
+     "DILATE_PX = 1          # anti-aliased glyph edges leave grey haze otherwise",
+     T_ONLY),
+    # ---- the last step: asking the model to draw it again
+    ("draw-the-redraw-never-runs", IN,
+     "    drawn = redraw(page, out, neural, again)", "    drawn = []", T_DRAW),
+    ("draw-it-runs-with-no-model-to-ask", IN,
+     "    if neural is None or page.image is None or page.image.ndim != 3:",
+     "    if page.image is None or page.image.ndim != 3:", T_DRAW),
+    ("draw-every-box-is-asked-again", IN,
+     "    drawn = redraw(page, out, neural, again)",
+     "    drawn = redraw(page, out, neural, page.regions)", T_DRAW),
+    ("draw-a-few-pixels-are-worth-a-call", IN,
+     "REDRAW_LEAST = 200", "REDRAW_LEAST = 1", T_DRAW),
+    ("draw-it-is-asked-about-the-second-pass-part-only", IN,
+     "        job = {\"win\": box, \"mask\": _dilated(_u8(patch), MODEL_PAD),\n"
+     "               \"tight\": _u8(patch)}",
+     "        job = {\"win\": box, \"mask\": _dilated(_u8(r.text_mask[box]), MODEL_PAD),\n"
+     "               \"tight\": _u8(r.text_mask[box])}", T_DRAW),
+    ("draw-it-is-asked-on-the-plate-instead-of-the-page", IN,
+     "        keep = out[ctx].copy()\n"
+     "        try:\n"
+     "            _run_neural(out, job, neural, again=page.image)",
+     "        keep = out[ctx].copy()\n"
+     "        try:\n"
+     "            _run_neural(out, job, neural)", T_DRAW),
+    ("draw-a-refused-answer-is-left-on-the-neighbours", IN,
+     "            out[ctx] = keep                # it drew the words back, or refused",
+     "            out[box] = keep", T_DRAW),
+    ("draw-the-words-may-come-back", IN,
+     "        if job.get(\"fell_back\") or _away(out[box]) < REDRAW_GHOST * had:\n"
+     "            out[ctx] = keep                # it drew the words back, or refused\n"
+     "            continue",
+     "        pass", T_DRAW),
+    ("draw-a-refusal-is-kept", IN,
+     "        if job.get(\"fell_back\") or _away(out[box]) < REDRAW_GHOST * had:",
+     "        if _away(out[box]) < REDRAW_GHOST * had:", T_DRAW),
+    # ---- the fill that is marked, and the patch that is refused
+    ("slab-the-fill-is-never-checked", IN,
+     "            if _slab_worked(page.image[w], tried, ink):\n"
+     "                slab = (wide, level)\n"
+     "            else:\n"
+     "                mine = False",
+     "            slab = (wide, level)", T_SLAB),
+    ("slab-a-failed-fill-is-used-anyway", IN,
+     "            if _slab_worked(page.image[w], tried, ink):",
+     "            if True or _slab_worked(page.image[w], tried, ink):", T_SLAB),
+    ("slab-every-fill-is-thrown-away", IN,
+     "            if _slab_worked(page.image[w], tried, ink):",
+     "            if False and _slab_worked(page.image[w], tried, ink):",
+     T_SLAB),
+    ("slab-the-check-looks-at-the-page-instead-of-the-fill", IN,
+     "            if _slab_worked(page.image[w], tried, ink):",
+     "            if _slab_worked(page.image[w], page.image[w], ink):", T_SLAB),
+    ("slab-the-line-is-loose-enough-to-let-024-through", IN,
+     "SLAB_LEFT = 0.10", "SLAB_LEFT = 0.30", T_SLAB),
+    ("slab-the-line-is-tight-enough-to-refuse-every-fill", IN,
+     "SLAB_LEFT = 0.10", "SLAB_LEFT = 0.001", T_SLAB),
+    ("slab-the-check-reads-the-bare-strokes-and-not-their-edges", IN,
+     "    look = _dilated(_u8(ink), DILATE_PX + 1) > 0",
+     "    look = _u8(ink) > 0", T_SLAB),
+    ("slab-an-unrecorded-box-is-called-a-failure", IN,
+     "    if look.sum() < 60:\n"
+     "        return True                      # nothing recorded to check against",
+     "    if look.sum() < 60:\n"
+     "        return False", T_SLAB),
+    ("slab-a-blank-box-is-called-a-failure", IN,
+     "    if was < 1.0:\n"
+     "        return True                      # there was nothing there to remove",
+     "    if was < 1.0:\n"
+     "        return False", T_SLAB),
+    ("grain-a-median-is-painted-over-texture", IN,
+     "        if around.sum() > 200 and float(held[around].std()) >= SECOND_GRAIN:\n"
+     "            continue",
+     "        pass", T_GRAIN),
+    ("grain-the-line-lets-hatching-through", IN,
+     "SECOND_GRAIN = 22.0", "SECOND_GRAIN = 90.0", T_GRAIN),
+    ("grain-the-line-refuses-plain-paper", IN,
+     "SECOND_GRAIN = 22.0", "SECOND_GRAIN = 1.0", T_GRAIN),
+    ("grain-the-writing-is-measured-as-if-it-were-texture", IN,
+     "        writing = ref | (_letterlike(focus_ink(page.image[box])) > 0)",
+     "        writing = ref", T_GRAIN),
+    ("grain-it-is-measured-through-the-writing-as-well", IN,
+     "        around = ~(_dilated(_u8(writing), MODEL_PAD) > 0)",
+     "        around = np.ones(ref.shape, bool)", T_GRAIN),
+    ("grain-the-model-is-refused-the-same-boxes", IN,
+     "        if neural is not None:\n"
+     "            job = {\"win\": box, \"mask\": wide, \"tight\": _u8(ink)}",
+     "        if False:\n"
+     "            job = {\"win\": box, \"mask\": wide, \"tight\": _u8(ink)}",
+     T_GRAIN),
+    ("bays-the-shape-keeps-its-bites", BALL,
+     "    return ((mask > 0) | ((hull > 0) & (keep > 0))).astype(np.uint8) * 255",
+     "    return mask", T_BAYS),
+    ("bays-the-hull-alone-decides", BALL,
+     "    return ((mask > 0) | ((hull > 0) & (keep > 0))).astype(np.uint8) * 255",
+     "    return ((mask > 0) | (hull > 0)).astype(np.uint8) * 255", T_BAYS),
+    ("bays-the-text-box-alone-decides", BALL,
+     "    return ((mask > 0) | ((hull > 0) & (keep > 0))).astype(np.uint8) * 255",
+     "    return ((mask > 0) | (keep > 0)).astype(np.uint8) * 255", T_BAYS),
+    ("bays-a-region-with-no-box-is-filled-to-its-hull", BALL,
+     "    if len(box) != 4:\n        return mask",
+     "    if len(box) != 4:\n        box = (0, 0, mask.shape[1], mask.shape[0])",
+     T_BAYS),
+    # (`bays-a-box-of-no-width-still-counts` stood here and was EQUIVALENT: a
+    # box of no width slices to nothing anyway. The guard it mutated has been
+    # taken out of the code rather than left as a line no test can see.)
+    ("bays-the-finder-stores-the-shape-it-had", BALL,
+     "    mask = _no_bays_in_the_writing(r, mask, outer)", "", T_BAYS),
+    ("bays-the-stored-bbox-is-taken-from-the-old-shape", BALL,
+     "    mask = _no_bays_in_the_writing(r, mask, outer)\n"
+     "    cnts, _ = cv2.findContours((mask > 0).astype(np.uint8), cv2.RETR_EXTERNAL,\n"
+     "                               cv2.CHAIN_APPROX_SIMPLE)\n"
+     "    outer = max(cnts, key=cv2.contourArea)",
+     "    mask = _no_bays_in_the_writing(r, mask, outer)", T_BAYS),
+    ("bays-a-project-already-on-disk-keeps-them", "project.py",
+     "            bubble = _no_bays_in_the_writing(\n"
+     "                _Box(), bubble, max(cnts, key=cv2.contourArea))", "", T_BAYS),
+    ("bays-the-reload-repairs-a-plain-box-too", "project.py",
+     "    if not boxy:\n"
+     "        cv2.drawContours(bubble, [poly.reshape(-1, 1, 2)], -1, 255, cv2.FILLED)",
+     "    if True:\n"
+     "        cv2.drawContours(bubble, [poly.reshape(-1, 1, 2)], -1, 255, cv2.FILLED)",
+     T_BAYS),
+    # ---- what colour the letters are
+    ("ink-the-block-is-taken-for-the-letters", INK,
+     "    ink = glyph_ink(img, block, paper)",
+     "    ink = block > 0", T_INK),
+    ("ink-the-rim-of-a-glyph-is-measured-too", INK,
+     "    core = cv2.erode(ink.astype(np.uint8), np.ones((3, 3), np.uint8))",
+     "    core = ink.astype(np.uint8)", T_INK),
+    ("ink-a-flat-fill-is-called-a-gradient", INK,
+     "GRAD_FIT = 0.45", "GRAD_FIT = 0.0", T_INK),
+    ("ink-a-real-gradient-is-called-flat", INK,
+     "GRAD_FIT = 0.45", "GRAD_FIT = 0.99", T_INK),
+    ("ink-shading-counts-as-a-gradient", INK,
+     "GRAD_SPAN = 45", "GRAD_SPAN = 5", T_INK),
+    ("ink-only-one-of-the-two-gates-has-to-clear", INK,
+     "    if r2 >= GRAD_FIT and span >= GRAD_SPAN:",
+     "    if r2 >= GRAD_FIT or span >= GRAD_SPAN:", T_INK),
+    ("ink-the-gradient-angle-is-measured-the-other-way-round", INK,
+     "            float(np.degrees(np.arctan2(gx, gy))) % 360.0, 1)",
+     "            float(np.degrees(np.arctan2(gy, gx))) % 360.0, 1)", T_INK),
+    ("ink-the-two-stops-come-back-swapped", INK,
+     '        style["fg1"], style["fg2"] = _hex(lo), _hex(hi)',
+     '        style["fg1"], style["fg2"] = _hex(hi), _hex(lo)', T_INK),
+    ("ink-the-angle-goes-out-as-numpys-float", INK,
+     "        style[\"grad_angle\"] = round(\n"
+     "            float(np.degrees(np.arctan2(gx, gy))) % 360.0, 1)",
+     "        style[\"grad_angle\"] = np.round(\n"
+     "            np.degrees(np.arctan2(gx, gy)) % 360.0, 1)", T_INK),
+    ("ink-a-glow-is-typeset-as-an-outline", INK,
+     "            if band and float(np.abs(c - band[0]).max()) > EDGE_FLAT:\n"
+     "                break                    # a falloff, not a ring",
+     "            if False:\n                pass", T_INK),
+    ("ink-anything-a-shade-off-the-paper-is-an-outline", INK,
+     "EDGE_STEP = 40", "EDGE_STEP = 5", T_INK),
+    ("ink-one-ring-is-enough-to-be-an-outline", INK,
+     "        if wide >= 2:", "        if wide >= 1:", T_INK),
+    ("ink-the-letters-keep-their-ring-stuck-to-them", INK,
+     "                float(far.mean() - near.mean()) >= INK_SPLIT:",
+     "                float(far.mean() - near.mean()) >= 9999:", T_INK),
+    ("ink-a-gradient-is-split-like-a-ring", INK,
+     "            if float((side & inner).sum()) <= NEAR_INSIDE * max(1, side.sum()):",
+     "            if True:", T_INK),
+    # (No mutant for `>` vs `>=` against Otsu's threshold. OpenCV returns the
+    #  value BELOW the cut, so `>=` keeps a ring whose distance lands exactly
+    #  on it — and the second split then takes that ring off again and hands
+    #  back the same answer. The two cover for each other, which makes it an
+    #  equivalent mutant rather than a hole; the strict form is kept because
+    #  it is what OpenCV means, not because a test can see it.)
+    ("ink-a-colour-somebody-chose-is-overwritten", INK,
+     "        fresh = {k: v for k, v in got.items()\n"
+     "                 if ov.get(k) in (None, \"\", 0)}",
+     "        fresh = dict(got)", T_INK),
+    ("ink-a-speck-of-dust-gets-a-colour", INK,
+     "MIN_GLYPH = 120", "MIN_GLYPH = 1", T_INK),
+    ("ink-the-read-step-never-measures-them", ED,
+     "        measure_page(page, p.ink_seen)", "        int(0)", T_INK),
+    ("ink-a-bad-measurement-takes-the-read-down", ED,
+     "    try:\n        measure_page(page)\n    except Exception:\n"
+     "        pass                     # a colour is a nicety; the words are the job",
+     "    measure_page(page)", T_INK),
+    ("ink-a-glow-is-never-reported", INK,
+     "            style.update(_glow(img, ink_rings, beyond))", "            pass", T_INK),
+    ("ink-the-blended-rim-counts-as-the-glow", INK,
+     "    tail = steps[1:]", "    tail = steps[0:]", T_INK),
+    # (No mutant for a rising profile — an outline's shape — being read as a
+    #  glow. It cannot happen: a profile that rises is one the outline test has
+    #  already claimed, and the glow is only asked when that test found
+    #  nothing. The guard that used to be here was unreachable on all six
+    #  pages and has been taken out rather than left in untested.)
+    ("ink-one-faint-ring-is-a-glow", INK,
+     "GLOW_BANDS = 4", "GLOW_BANDS = 2", T_INK),
+    ("ink-the-faintest-tail-is-a-glow", INK,
+     "GLOW_MIN = 15", "GLOW_MIN = 1", T_INK),
+    ("ink-a-shadow-is-never-reported", INK,
+     "    style.update(_shadow(img, ink, paper))", "    pass", T_INK),
+    ("ink-anything-dark-nearby-is-a-shadow", INK,
+     "    if best < SHADOW_HIT:", "    if False:", T_INK),
+    # (No mutant for the search running only over positive offsets. Opening it
+    #  to negative ones finds nothing: the two lines that blank the wrapped
+    #  edge of a rolled mask wipe almost all of it when the shift is negative,
+    #  so the candidate never has enough area to be scored. The renderer can
+    #  only draw a shadow down and to the right anyway.)
+    ("ink-a-symmetric-halo-counts-as-a-shadow", INK,
+     "SHADOW_OFF = 1.5", "SHADOW_OFF = 0.0", T_INK),
+    ("ink-every-page-keeps-its-own-black", INK,
+     "        for k in (\"fg\", \"fg1\", \"fg2\", \"edge\", \"glow\", \"shadow\"):\n"
+     "            if k in got:\n                got[k] = _snap(seen, got[k])",
+     "        pass", T_INK),
+    ("ink-two-colours-that-differ-are-snapped-together", INK,
+     "SNAP = 8", "SNAP = 80", T_INK),
+    ("ink-the-colour-walks-across-the-chapter", INK,
+     "        if _dist(c, value) <= SNAP and (best is None or n > seen[best]):",
+     "        if _dist(c, value) <= SNAP:", T_INK),
+    ("ink-the-read-step-keeps-no-tally", ED,
+     "        measure_page(page, p.ink_seen)", "        measure_page(page)", T_INK),
+    # ---- one malformed reply is not the chapter
+    ("bad-the-reader-parses-straight-through-again", TR,
+     "            except Exception as e:\n                why = str(e)[:120]",
+     "            except Exception:\n                raise", T_BADREPLY),
+    ("bad-it-asks-once-and-gives-up", TR,
+     "OCR_TRIES = 3", "OCR_TRIES = 1", T_BADREPLY),
+    ("bad-it-asks-forever", TR, "OCR_TRIES = 3", "OCR_TRIES = 9", T_BADREPLY),
+    ("bad-the-retry-repeats-itself-word-for-word", TR,
+     "            ask = user if not why else (", "            ask = user if True else (",
+     T_BADREPLY),
+    ("bad-a-piece-that-never-parses-takes-the-page-with-it", TR,
+     "        if data is None:\n            continue",
+     "        if data is None:\n            raise ValueError(why)", T_BADREPLY),
+    ("bad-a-bare-key-is-left-bare", TR,
+     "                if k < n and s[k] == \":\":",
+     "                if False:", T_BADREPLY),
+    ("bad-any-bareword-at-all-is-made-a-string", TR,
+     "                if k < n and s[k] == \":\":",
+     "                if True:", T_BADREPLY),
+    ("bad-a-single-quote-is-not-a-quote", TR,
+     "            if c == \"'\":", "            if False:", T_BADREPLY),
+    # ---- ...and it is what the webtoons get by default
+    #
+    # (The six `fill-` mutants that were here are gone with the setting they
+    #  guarded. It was measured over a whole chapter read four ways and never
+    #  won: nothing at all under a crop per box, and +50% for the worst of the
+    #  four runs on tiles. `crop-a-piece-is-blown-up-again` below is what is
+    #  left of them — the one thing worth pinning is that nothing grows.)
+    ("crop-a-piece-is-blown-up-again", "ocr.py",
+     "    H, W = vis.shape[:2]\n    m = max(H, W)\n    if m > max_side:",
+     "    H, W = vis.shape[:2]\n    m = max(H, W)\n    if m != max_side:", T_CROP),
+    ("fmt-the-webtoons-do-not-get-the-crops", "ocr.py",
+     '    return "boxes" if str(medium or "").lower() in ("manhwa", "manhua") else "auto"',
+     '    return "auto"', T_CROP),
+    ("fmt-manga-gets-them-too", "ocr.py",
+     '    return "boxes" if str(medium or "").lower() in ("manhwa", "manhua") else "auto"',
+     '    return "boxes"', T_CROP),
+    ("fmt-only-manhwa-and-manhua-is-forgotten", "ocr.py",
+     '("manhwa", "manhua")', '("manhwa",)', T_CROP),
+    ("fmt-the-read-step-does-not-ask-the-format", ED,
+     '    detail = (p.settings.get("ocr_detail")\n'
+     '              or detail_for(p.settings.get("medium")))',
+     '    detail = p.settings.get("ocr_detail") or "auto"', T_CROP),
+    ("fmt-a-choice-made-by-hand-is-overruled", ED,
+     '    detail = (p.settings.get("ocr_detail")\n'
+     '              or detail_for(p.settings.get("medium")))',
+     '    detail = detail_for(p.settings.get("medium"))', T_CROP),
+    ("fmt-the-project-pins-a-word-instead", "project.py",
+     '            "ocr_detail": "",', '            "ocr_detail": "auto",',
+     T_CROP),
+    # ---- two lobes of one balloon are one balloon
+    ("lobes-the-reach-is-not-the-measured-one", "detect/balloon.py",
+     "TOUCH_GAP = 12", "TOUCH_GAP = 400", T_LOBES),
+    ("lobes-a-dark-panel-counts-as-paper", "detect/balloon.py",
+     "TOUCH_PAPER = 200", "TOUCH_PAPER = 30", T_LOBES),
+    ("lobes-anything-joins-not-just-dialogue", "detect/balloon.py",
+     '        if r.kind != "bubble" or r.bubble_mask is None:',
+     '        if r.bubble_mask is None:', T_LOBES),
+    # (There is no "a box with no balloon joins too" mutant. Taking the
+    #  `bubble_mask is None` test out changes nothing: `np.asarray(None)` is a
+    #  0-d array, its shape is not the page's, and the shape guard on the next
+    #  line drops it exactly as the None test would. An equivalent mutant is
+    #  not a hole in the tests and chasing it would mean writing a test for a
+    #  difference that does not exist.)
+    ("lobes-the-paper-is-never-looked-at", "detect/balloon.py",
+     "        if not m.any() or _paper_inside(gray, m) < paper:",
+     "        if not m.any():", T_LOBES),
+    ("lobes-a-hand-set-link-is-overwritten", "detect/balloon.py",
+     '        if int(getattr(r, "link", 0) or 0):\n            continue\n',
+     "", T_LOBES),
+    ("lobes-manga-picks-up-a-number-measured-on-a-webtoon", CTD,
+     '        "link_touching": None,', '        "link_touching": 12,', T_LOBES),
+    ("lobes-the-webtoons-never-run-it", CTD,
+     "                        link_touching=_BL.TOUCH_GAP)",
+     "                        link_touching=None)", T_LOBES),
+    ("lobes-the-detector-never-calls-it", CTD,
+     "    if link_touching:\n"
+     "        _BL.link_touching_bubbles(gray, regions, link_touching)\n",
+     "", T_LOBES),
+    # ---- writing the block head missed is not a sound effect
+    ("cover-everything-the-coverage-pass-finds-is-an-effect-again", CTD,
+     "    if cover_text:\n        for r in regions:",
+     "    if False:\n        for r in regions:", T_COVER),
+    ("cover-manga-picks-up-a-number-measured-on-a-webtoon", CTD,
+     '        "cover_text": None,', '        "cover_text": 0.25,', T_COVER),
+    ("cover-the-ink-bar-is-not-the-measured-one", CTD,
+     "                        cover_text=0.25)",
+     "                        cover_text=0.15)", T_COVER),
+    ("cover-the-character-bar-lets-a-shout-through", CTD,
+     "COVER_CHAR = 0.10", "COVER_CHAR = 0.40", T_COVER),
+    ("cover-the-size-question-is-never-asked", CTD,
+     "                    _glyph_share(gray, r.bbox, r.text_mask) >= COVER_CHAR:",
+     "                    False:", T_COVER),
+    ("cover-a-tall-shape-is-called-writing", CTD,
+     "            if _looks_hand_drawn(gray, r.bbox, r.text_mask, cover_text) or \\\n"
+     "                    _taller_than_wide(r.bbox) or \\\n",
+     "            if _looks_hand_drawn(gray, r.bbox, r.text_mask, cover_text) or \\\n",
+     T_COVER),
+    ("cover-a-block-head-box-is-renamed-too", CTD,
+     '            if r.kind != "sfx" or id(r) not in from_cover:',
+     '            if r.kind != "sfx":', T_COVER),
+    ("reach-the-marks-reach-as-far-down-as-they-used-to", CTD,
+     "                        join_x=1.8, join_y=0.6,",
+     "                        join_x=1.8, join_y=0.9,", T_COVER),
+    ("reach-the-sideways-reach-was-cut-with-it", CTD,
+     "                        join_x=1.8, join_y=0.6,",
+     "                        join_x=1.2, join_y=0.6,", T_TUNE),
+    # ---- the paper under the letters is the second opinion
+    ("floor-the-floor-is-never-asked", CTD,
+     "            elif _paper_under(gray, r.bbox, r.text_mask) >= UNDER_PAPER:\n"
+     "                continue\n",
+     "", T_SKY),
+    ("floor-the-bar-is-not-the-measured-one", CTD,
+     "UNDER_PAPER = 210", "UNDER_PAPER = 180", T_SKY),
+    ("floor-the-floor-is-read-the-wrong-way-round", CTD,
+     "            elif _paper_under(gray, r.bbox, r.text_mask) >= UNDER_PAPER:",
+     "            elif _paper_under(gray, r.bbox, r.text_mask) < UNDER_PAPER:",
+     T_SKY),
+    ("floor-the-letters-are-counted-as-their-own-paper", CTD,
+     "    grown = cv2.dilate(ink, np.ones((5, 5), np.uint8)) > 0",
+     "    grown = ink > 0", T_SKY),
+    # ---- the margin is read close in, and a demoted box stays set type
+    ("ring-the-margin-is-read-far-out-again", CTD,
+     "RING_LOOK = 0.08", "RING_LOOK = 0.40", T_SKY),
+    ("ring-the-floor-is-gone-so-a-small-box-has-no-margin", CTD,
+     "RING_FLOOR = 4", "RING_FLOOR = 0", T_SKY),
+    ("ring-a-demoted-box-is-judged-as-an-effect-too", CTD,
+     '            if r.kind != "freefloat" or id(r) in demoted:',
+     '            if r.kind != "freefloat":', T_SKY),
+    # ---- Writing on a pale sky is not dialogue
+    ("sky-the-margin-bar-is-not-the-measured-one", CTD,
+     "LOOSE_RING = 230", "LOOSE_RING = 260", T_SKY),
+    ("sky-the-sky-passes-as-paper", CTD,
+     "LOOSE_RING = 230", "LOOSE_RING = 200", T_SKY),
+    ("sky-manga-picks-up-a-number-measured-on-a-webtoon", CTD,
+     '        "loose_bubble": None,', '        "loose_bubble": 230,', T_SKY),
+    ("sky-the-demotion-never-runs", CTD,
+     "    if loose_bubble:\n        from .balloon import _round_wall_around",
+     "    if False:\n        from .balloon import _round_wall_around", T_SKY),
+    ("sky-a-box-with-a-balloon-under-it-is-demoted-too", CTD,
+     '            if r.kind != "bubble" or r.bubble_mask is not None:',
+     '            if r.kind != "bubble":', T_SKY),
+    ("sky-the-wall-no-longer-saves-a-balloon", CTD,
+     "            if _round_wall_around(gray, r.bbox):\n                continue\n",
+     "", T_SKY),
+    ("sky-the-margin-is-read-the-wrong-way-round", CTD,
+     "            if _ring_paper(gray, r.bbox) >= loose_bubble:",
+     "            if _ring_paper(gray, r.bbox) < loose_bubble:", T_SKY),
+    ("sky-the-margin-includes-the-writing-it-is-measuring-round", CTD,
+     "    frame[max(0, y - ay0):max(0, y - ay0 + h),\n"
+     "          max(0, x - ax0):max(0, x - ax0 + w)] = False\n"
+     "    v = sub[frame]",
+     "    v = sub.reshape(-1)", T_SKY),
+    # ---- An outside-text box too empty to be printed type
+    ("drawn-the-comparison-is-the-wrong-way-round", CTD,
+     "    return fill < thresh",
+     "    return fill > thresh", T_DRAWN),
+    ("drawn-every-box-is-asked-including-the-dialogue", CTD,
+     '            if r.kind == "freefloat" and \\\n',
+     '            if r.kind in ("freefloat", "bubble") and \\\n', T_DRAWN),
+    ("drawn-the-rule-never-runs", CTD,
+     "    if effect_fill:\n        for r in regions:",
+     "    if False:\n        for r in regions:", T_DRAWN),
+    ("drawn-the-line-is-drawn-through-the-real-writing", CTD,
+     "                        effect_fill=0.28)",
+     "                        effect_fill=0.35)", T_DRAWN),
+    ("drawn-manga-picks-up-a-number-measured-on-a-webtoon", CTD,
+     '        "effect_fill": None,\n    },',
+     '        "effect_fill": 0.20,\n    },', T_DRAWN),
+    ("drawn-one-mark-is-enough-to-judge-a-box-on", CTD,
+     "           if int(st[i, cv2.CC_STAT_AREA]) >= DRAWN_PIECE) < 2:",
+     "           if int(st[i, cv2.CC_STAT_AREA]) >= DRAWN_PIECE) < 0:", T_DRAWN),
+    ("drawn-it-reads-the-artwork-instead-of-the-mask", CTD,
+     "    if mask is not None:\n"
+     "        ink = (np.asarray(mask)[y0:y1, x0:x1] > 0).astype(np.uint8)\n"
+     "    else:\n"
+     "        ink = (sub < INK).astype(np.uint8)",
+     "    ink = (sub < INK).astype(np.uint8)", T_DRAWN),
+    ("drawn-writing-with-no-dark-ink-reads-as-empty", CTD,
+     "    if int(ink.sum()) < DRAWN_MIN_INK:\n"
+     "        ink = (sub > 200).astype(np.uint8)\n",
+     "", T_DRAWN),
+    # ---- The box covers the whole of the writing, dialogue included
+    ("grow-the-dialogue-is-left-clipped", CTD,
+     "                        sfx_grow=0.40, text_grow=0.70,",
+     "                        sfx_grow=0.40,", T_TUNE),
+    ("grow-the-dialogue-runs-on-the-effects-loose-share", CTD,
+     "                        sfx_grow=0.40, text_grow=0.70,",
+     "                        sfx_grow=0.40, text_grow=0.40,", T_TUNE),
+    ("grow-manga-picks-up-a-number-measured-on-a-webtoon", CTD,
+     '        "text_grow": None,\n        # How empty an OUTSIDE TEXT box',
+     '        "text_grow": 0.70,\n        # How empty an OUTSIDE TEXT box',
+     T_TUNE),
+    ("grow-every-box-is-an-effect-again", CTD,
+     '        share = sfx_grow if r.kind == "sfx" else text_grow',
+     '        share = sfx_grow', T_GROW),
+    ("grow-the-effects-are-held-to-the-printed-bar", CTD,
+     '        share = sfx_grow if r.kind == "sfx" else text_grow',
+     '        share = text_grow', T_GROW),
+    ("grow-the-two-shares-are-swapped", CTD,
+     '        share = sfx_grow if r.kind == "sfx" else text_grow',
+     '        share = text_grow if r.kind == "sfx" else sfx_grow', T_GROW),
+    ("grow-the-dialogue-gets-a-second-helping-of-pad", CTD,
+     '                                       pad=PAD if r.kind == "sfx" else 0)',
+     "                                       pad=PAD)", T_GROW),
+    ("tune-manhua-is-an-alias-of-manhwa", CTD,
+     'TUNING["manhua"] = dict(TUNING["manhwa"])',
+     'TUNING["manhua"] = TUNING["manhwa"]', T_TUNE),
+    ("tune-the-webtoons-look-no-harder-than-manga", CTD,
+     'TUNING["manhwa"] = dict(TUNING["manga"], mask_thresh=0.20,\n'
+     '                        split_gap=3.5, split_height=3.5,\n'
+     '                        join_x=1.8, join_y=0.9)',
+     'TUNING["manhwa"] = dict(TUNING["manga"])', T_TUNE),
+    # The bar was dropped to 0.22 for one turn and lee's own chapter said the
+    # head returns nothing at any score. Dropping it again has to fail.
+    ("tune-the-webtoons-drop-the-confidence-again", CTD,
+     'TUNING["manhwa"] = dict(TUNING["manga"], mask_thresh=0.20,',
+     'TUNING["manhwa"] = dict(TUNING["manga"], conf_thresh=0.22,'
+     ' mask_thresh=0.20,', T_TUNE),
+    ("tune-manhua-is-left-on-mangas-numbers", CTD,
+     'TUNING["manhua"] = dict(TUNING["manhwa"])',
+     'TUNING["manhua"] = dict(TUNING["manga"])', T_TUNE),
+    ("tune-the-gaps-were-narrowed-not-widened", CTD,
+     "                        split_gap=3.5, split_height=3.5,",
+     "                        split_gap=1.0, split_height=1.0,", T_TUNE),
+    ("tune-the-overlap-was-moved-too", CTD,
+     'TUNING["manhwa"] = dict(TUNING["manga"], mask_thresh=0.20,',
+     'TUNING["manhwa"] = dict(TUNING["manga"], mask_thresh=0.20,\n'
+     '                        nms_thresh=0.5,', T_TUNE),
+    ("tune-the-webtoons-reach-in-a-circle-like-manga", CTD,
+     "                        join_x=1.8, join_y=0.9)",
+     "                        join_x=None, join_y=None)", T_TUNE),
+    ("tune-the-reach-is-round-and-not-flat", CTD,
+     "                        join_x=1.8, join_y=0.9)",
+     "                        join_x=1.8, join_y=1.8)", T_TUNE),
+    ("tune-the-sideways-reach-is-too-short-for-one-effect", CTD,
+     "                        join_x=1.8, join_y=0.9)",
+     "                        join_x=0.9, join_y=0.9)", T_TUNE),
+    ("tune-the-ellipse-is-never-used", CTD,
+     "            if (gx <= near_x * s and gy <= near_y * s) if near_x and near_y \\\n"
+     "                    else ((gx * gx + gy * gy) ** 0.5 <= near * s):",
+     "            if ((gx * gx + gy * gy) ** 0.5 <= near * s):", T_TUNE),
+    ("tune-the-ellipse-takes-either-gap-not-both", CTD,
+     "            if (gx <= near_x * s and gy <= near_y * s) if near_x and near_y \\\n"
+     "                    else ((gx * gx + gy * gy) ** 0.5 <= near * s):",
+     "            if (gx <= near_x * s or gy <= near_y * s) if near_x and near_y \\\n"
+     "                    else ((gx * gx + gy * gy) ** 0.5 <= near * s):", T_TUNE),
+    ("tune-the-two-reaches-are-swapped", CTD,
+     "            if (gx <= near_x * s and gy <= near_y * s) if near_x and near_y \\\n"
+     "                    else ((gx * gx + gy * gy) ** 0.5 <= near * s):",
+     "            if (gx <= near_y * s and gy <= near_x * s) if near_x and near_y \\\n"
+     "                    else ((gx * gx + gy * gy) ** 0.5 <= near * s):", T_TUNE),
+    ("tune-the-reach-never-reaches-the-harvest", CTD,
+     "    for (x0, y0, x1, y1), sub, ink in _harvest(\n"
+     "            tmask, claimed, near_x=join_x, near_y=join_y):",
+     "    for (x0, y0, x1, y1), sub, ink in _harvest(tmask, claimed):", T_TUNE),
+    ("tune-the-table-is-handed-out-by-reference", CTD,
+     '    return dict(TUNING.get(medium or "manga") or TUNING["manga"])',
+     '    return TUNING.get(medium or "manga") or TUNING["manga"]', T_TUNE),
+    ("tune-an-unknown-format-gets-nothing", CTD,
+     '    return dict(TUNING.get(medium or "manga") or TUNING["manga"])',
+     '    return dict(TUNING.get(medium or "manga") or {})', T_TUNE),
+    ("tune-the-mask-floor-drifts-from-SEG_KEEP", CTD,
+     '        "mask_thresh": SEG_KEEP,  # how sure a pixel of the mask must be',
+     '        "mask_thresh": 0.25,', T_TUNE),
+    ("tune-the-confidence-is-not-the-measured-one", CTD,
+     '        "conf_thresh": 0.4,      # how sure the block head must be',
+     '        "conf_thresh": 0.5,', T_TUNE),
+    ("tune-the-chapter-is-found-on-mangas-numbers-whatever-it-is", PRJ,
+     "                **comictext.tuning_for(self.medium))",
+     '                **comictext.tuning_for("manga"))', T_TUNE),
+    ("tune-the-format-never-reaches-the-detector", PRJ,
+     ",\n                **comictext.tuning_for(self.medium))", ")", T_TUNE),
+    ("tune-the-second-detector-is-switched-off", CTD,
+     "                        craft_x=0.30, craft_y=0.05)",
+     "                        craft_x=None, craft_y=None)", T_TUNE),
+    ("tune-the-second-detector-reuses-the-masks-reach", CTD,
+     "                        craft_x=0.30, craft_y=0.05)",
+     "                        craft_x=1.8, craft_y=0.9)", T_TUNE),
+    ("tune-the-second-detectors-reach-is-round-and-not-flat", CTD,
+     "                        craft_x=0.30, craft_y=0.05)",
+     "                        craft_x=0.30, craft_y=0.30)", T_TUNE),
+    ("tune-the-second-detector-reaches-too-far-for-one-effect", CTD,
+     "                        craft_x=0.30, craft_y=0.05)",
+     "                        craft_x=0.50, craft_y=0.10)", T_TUNE),
+    ("tune-manga-gets-the-second-detector-too", CTD,
+     '        "craft_x": None,\n        "craft_y": None,',
+     '        "craft_x": 0.6,\n        "craft_y": 0.3,', T_TUNE),
+    # ---- the model finds, the pixels measure
+    ("fast-the-morphology-runs-on-the-whole-page-again", CTD,
+     "    small = ink[y0:y1, x0:x1]", "    small = ink", T_FAST),
+    ("fast-the-crop-has-no-margin-for-the-kernel", CTD,
+     "    pad = max(hgap, vgap) + 2", "    pad = 0", T_FAST),
+    ("fast-a-big-kernel-is-run-at-full-scale-again", CTD,
+     "    f = max(1, int(round(k / float(COARSE))))", "    f = 1", T_FAST),
+    ("fast-the-coarse-pass-loses-the-ink-it-is-labelling", CTD,
+     "        closed = ((closed > 0) | (ink > 0)).astype(np.uint8)",
+     "        closed = (closed > 0).astype(np.uint8)", T_FAST),
+    ("fast-the-kernel-does-not-shrink-with-the-page", CTD,
+     "        sk = max(3, int(round(k / float(f))))",
+     "        sk = max(3, int(round(k)))", T_FAST),
+    ("fast-the-parts-are-never-put-back-on-the-page", CTD,
+     "        full[y0:y1, x0:x1] = p", "        full[:p.shape[0], :p.shape[1]] = p",
+     T_FAST),
+    # ---- the next page is not the last one's size
+    ("frame-the-element-outranks-the-server-again", JS_VW,
+     "  const pw=pageW||d.naturalWidth||1, ph=pageH||d.naturalHeight||1;",
+     "  const pw=d.naturalWidth||pageW||1, ph=d.naturalHeight||pageH||1;",
+     T_FRAME),
+    ("frame-the-drawn-width-comes-from-the-element-again", JS_VW,
+     "  const nw=pageW||img.naturalWidth;",
+     "  const nw=img.naturalWidth;", T_FRAME),
+    ("frame-the-scale-and-the-width-describe-different-pages", JS_VW,
+     "  scale=w/nw;", "  scale=w/pageW;", T_FRAME),
+    # ---- a black page still looks like a page
+    ("edge-a-black-page-has-no-edge", CSS,
+     " box-shadow:0 0 0 1px var(--line),0 10px 34px rgba(0,0,0,.55)}\n"
+     "/* the reference pane",
+     "}\n/* the reference pane", T_EDGE),
+    ("edge-the-edge-is-a-glow-not-a-hairline", CSS,
+     "#stage img{display:block;max-width:none;border-radius:4px;\n"
+     " box-shadow:0 0 0 1px var(--line)",
+     "#stage img{display:block;max-width:none;border-radius:4px;\n"
+     " box-shadow:0 0 0 6px var(--line)", T_EDGE),
+    ("edge-the-edge-moves-the-boxes-off-the-writing", CSS,
+     "#stage img{display:block;max-width:none;border-radius:4px;\n"
+     " box-shadow:0 0 0 1px var(--line)",
+     "#stage img{display:block;max-width:none;border-radius:4px;\n"
+     " border:1px solid var(--line);box-shadow:0 0 0 1px var(--line)", T_EDGE),
+    ("edge-the-reference-pane-is-left-unframed", CSS,
+     "#refImg{display:block;max-width:none;border-radius:4px;opacity:.96;\n"
+     " box-shadow:0 0 0 1px var(--line),0 10px 34px rgba(0,0,0,.55)}",
+     "#refImg{display:block;max-width:none;border-radius:4px;opacity:.96}",
+     T_EDGE),
+    # ---- a refused token is said once
+    ("token-a-refusal-is-asked-about-again-every-box", ED,
+     "    if _refused_for_good(url, token):\n"
+     "        _AI_CLEAN_FAIL[\"n\"] += 1",
+     "    if False:\n        _AI_CLEAN_FAIL[\"n\"] += 1", T_TOK),
+    ("token-a-busy-cleaner-is-latched-too", ED,
+     "CLEAN_FATAL = (401, 403)", "CLEAN_FATAL = (401, 403, 429, 500, 503)",
+     T_TOK),
+    ("token-only-401-latches-and-403-does-not", ED,
+     "CLEAN_FATAL = (401, 403)", "CLEAN_FATAL = (401,)", T_TOK),
+    ("token-the-latch-ignores-which-token-was-refused", ED,
+     "        (url + \"\\x00\" + token).encode(\"utf-8\")).hexdigest()[:16]",
+     "        url.encode(\"utf-8\")).hexdigest()[:16]", T_TOK),
+    ("token-the-latch-ignores-which-address-was-refused", ED,
+     "        (url + \"\\x00\" + token).encode(\"utf-8\")).hexdigest()[:16]",
+     "        token.encode(\"utf-8\")).hexdigest()[:16]", T_TOK),
+    ("token-clearing-the-warning-leaves-the-latch-on", ED,
+     "    _AI_CLEAN_FAIL.update(n=0, msg=\"\", url=\"\", used=0, cached=0,"
+     " refused=\"\")",
+     "    _AI_CLEAN_FAIL.update(n=0, msg=\"\", url=\"\", used=0, cached=0)",
+     T_TOK),
+    ("token-a-refusal-still-prints-a-stack", ED,
+     "        if not fatal:\n            traceback.print_exc()\n        else:",
+     "        if True:\n            traceback.print_exc()\n        if fatal:",
+     T_TOK),
+    ("token-the-latch-is-never-set", ED,
+     "        if fatal:\n"
+     "            _AI_CLEAN_FAIL[\"refused\"] = _refusal_key(url, token)",
+     "        if False:\n"
+     "            _AI_CLEAN_FAIL[\"refused\"] = _refusal_key(url, token)",
+     T_TOK),
+    ("token-an-undiagnosed-failure-goes-quiet-too", ED,
+     "        if not fatal:\n            traceback.print_exc()\n        else:",
+     "        if False:\n            traceback.print_exc()\n        else:",
+     T_TOK),
+    ("token-the-skipped-boxes-are-not-counted", ED,
+     "    if _refused_for_good(url, token):\n"
+     "        _AI_CLEAN_FAIL[\"n\"] += 1",
+     "    if _refused_for_good(url, token):", T_TOK),
+    ("token-a-latched-refusal-quietly-downgrades-heal", ED,
+     "        if strict:\n"
+     "            raise RuntimeError(_AI_CLEAN_FAIL[\"msg\"]\n"
+     "                               or \"the cleaner refused the token\")",
+     "        if False:\n            raise RuntimeError(\"x\")", T_TOK),
+    ("token-the-raised-refusal-says-nothing-useful", ED,
+     "            raise RuntimeError(_AI_CLEAN_FAIL[\"msg\"]\n"
+     "                               or \"the cleaner refused the token\")",
+     "            raise RuntimeError(\"\")", T_TOK),
+    # ---- the second detector: what the mask goes black on
+    ("craft-the-low-text-floor-drifts", CRF,
+     "LOW_TEXT = 0.50", "LOW_TEXT = 0.30", T_EYES),
+    ("craft-the-link-threshold-drifts", CRF,
+     "LINK_THRESH = 0.80", "LINK_THRESH = 0.40", T_EYES),
+    ("craft-the-reach-never-reaches-the-grouping", CRF,
+     "    for members in reach_groups(mk, near_x=near_x, "
+     "near_y=near_y).values():",
+     "    for members in reach_groups(mk).values():", T_EYES),
+    ("craft-a-group-forgets-what-it-was-made-of", CRF,
+     '                    "pieces": mine})', '                    "pieces": []})',
+     T_EYES),
+    ("craft-a-panel-sized-group-is-dropped-instead-of-split", CRF,
+     "        for b in (item.get(\"pieces\") or []):\n"
+     "            if b != box and (b[2] - b[0]) * (b[3] - b[1]) <= limit:\n"
+     "                out.append(b)",
+     "        continue", T_EYES),
+    ("craft-the-fallback-is-a-way-round-the-cap", CRF,
+     "            if b != box and (b[2] - b[0]) * (b[3] - b[1]) <= limit:",
+     "            if b != box:", T_EYES),
+    ("craft-a-group-under-the-cap-is-traded-for-its-pieces-anyway", CRF,
+     "        if (box[2] - box[0]) * (box[3] - box[1]) <= limit:\n"
+     "            out.append(box)\n            continue",
+     "        if False:\n            out.append(box)\n            continue",
+     T_EYES),
+    ("craft-the-pieces-are-grouped-by-a-second-copy-of-the-rule", CRF,
+     "    from .comictext import reach_groups\n",
+     "    def reach_groups(m, near_x=None, near_y=None):\n"
+     "        return {i: [i] for i in range(len(m))}\n", T_EYES),
+    ("craft-a-piece-reaches-by-the-bigger-of-the-two", CRF,
+     '             "sz": max(b[2] - b[0], b[3] - b[1])} for b in boxes]',
+     '             "sz": 10 ** 6} for b in boxes]', T_EYES),
+    ("craft-a-panel-sized-group-still-becomes-a-region", CRF,
+     "    for g in _under_cap(groups, limit):",
+     "    for g in [i[\"box\"] for i in groups]:", T_EYES),
+    ("craft-the-cap-is-taken-against-the-box-not-the-page", CRF,
+     "    limit = cap * page_w * page_h",
+     "    limit = cap * 720 * 2770", T_EYES),
+    ("craft-it-overrules-the-block-head", CRF,
+     "            if id(r) in from_block:\n"
+     "                hit_block = True\n"
+     "                break",
+     "            if False:\n"
+     "                hit_block = True\n"
+     "                break", T_EYES),
+    ("craft-a-half-found-effect-is-left-half-found", CRF,
+     "        if grow is not None:", "        if False:", T_EYES),
+    ("craft-growing-replaces-the-box-instead-of-uniting-it", CRF,
+     "            nx0 = max(0, min(x, g[0] - pad))\n"
+     "            ny0 = max(0, min(y, g[1] - pad))\n"
+     "            nx1 = min(page_w, max(x + w, g[2] + pad))\n"
+     "            ny1 = min(page_h, max(y + h, g[3] + pad))",
+     "            nx0 = g[0]; ny0 = g[1]; nx1 = g[2]; ny1 = g[3]", T_EYES),
+    ("craft-the-bubble-box-is-left-on-the-half-that-was-found", CRF,
+     "            if grow.bubble_bbox is not None:\n"
+     "                grow.bubble_bbox = grow.bbox",
+     "            pass", T_EYES),
+    ("craft-a-region-with-no-bubble-box-is-handed-one", CRF,
+     "            if grow.bubble_bbox is not None:\n"
+     "                grow.bubble_bbox = grow.bbox",
+     "            grow.bubble_bbox = grow.bbox", T_EYES),
+    ("craft-easyocr-missing-is-a-traceback", CRF,
+     "    try:\n        import easyocr  # noqa: F401\n"
+     "    except Exception:\n        return False\n    return True",
+     "    import easyocr  # noqa: F401\n    return True", T_EYES),
+    # ---- 1, 2, 3 and nothing else
+    ("keys-four-still-picks-a-sub-type", RO,
+     "  return (n >= 1 && n <= 3) ? KIND_FAMILIES[n - 1] : null;",
+     "  if(n<=3) return KIND_FAMILIES[n-1];\n"
+     "  const r=regions.find(x=>x.id===sel);\n"
+     "  const subs=subsOf(familyOf(r?r.kind:'bubble'));\n"
+     "  return (subs[n-4]||{}).key || null;", T_FAM),
+    ("keys-a-letter-key-retypes-the-box", RO,
+     "  else if(view==='original' && !e.altKey && sel!=null\n"
+     "          && kindForKey(+e.key)){",
+     "  else if(view==='original' && !e.altKey && sel!=null\n"
+     "          && (kindForKey(+e.key)||KIND_FAMILIES[0])){", T_FAM),
+    # ---- cutting a page by hand
+    ("cut-the-boxes-are-left-behind", PRJ,
+     "            clipped += self._carry_regions(pg, half, at if k else 0,\n"
+     "                                           half.height)\n", "", T_CUT),
+    ("cut-the-second-halfs-boxes-keep-the-old-page-s-coordinates", PRJ,
+     "            clipped += self._carry_regions(pg, half, at if k else 0,",
+     "            clipped += self._carry_regions(pg, half, 0,", T_CUT),
+    ("cut-a-box-goes-to-the-half-its-top-is-in", PRJ,
+     "        mid = y + h / 2 - dy", "        mid = y - dy", T_CUT),
+    ("cut-a-straddling-box-hangs-off-the-end", PRJ,
+     '        out["bbox"] = [x, top, w, bot - top]',
+     '        out["bbox"] = [x, y - dy, w, h]', T_CUT),
+    ("cut-the-typeset-frame-stays-where-it-was", PRJ,
+     '                lay["frame"] = [fx, fy - dy, fw, fh]',
+     '                lay["frame"] = [fx, fy, fw, fh]', T_CUT),
+    ("cut-a-hidden-box-comes-back-visible", PRJ,
+     '            if r.get("id") in (src.hidden_ids or []):\n'
+     '                dst.hidden_ids.append(r["id"])\n', "", T_CUT),
+    ("cut-the-stale-plate-is-carried-over", PRJ,
+     "            half.cleaned = half.typeset = half.exported = False",
+     "            half.cleaned, half.typeset = pg.cleaned, pg.typeset", T_CUT),
+    ("join-the-second-pages-boxes-are-not-pushed-down", PRJ,
+     "            self._carry_regions(pg, one, -y, one.height)\n"
+     "            one.detected = one.detected or pg.detected",
+     "            self._carry_regions(pg, one, 0, one.height)\n"
+     "            one.detected = one.detected or pg.detected", T_CUT),
+    ("join-a-painted-page-is-joined-anyway", PRJ,
+     "        painted = [pg.name for pg in run if self._painted(pg)]",
+     "        painted = []", T_CUT),
+    ("cut-painting-is-not-what-stops-it", PRJ,
+     "        return bool(pg.paint_overlay or pg.paint_over or pg.paint_layers\n"
+     "                    or pg.custom_clean)",
+     "        return bool(pg.custom_clean)", T_CUT),
+    ("cut-a-painted-page-is-cut-anyway", PRJ,
+     "        if self._painted(pg):\n"
+     "            return False, (\"there are touch-up strokes or a clean plate of \"",
+     "        if False:\n"
+     "            return False, (\"there are touch-up strokes or a clean plate of \"",
+     T_CUT),
+    ("cut-a-page-with-boxes-on-it-is-refused-again", PRJ,
+     "        if self._painted(pg):\n"
+     "            return False, (\"there are touch-up strokes or a clean plate of \"",
+     "        if pg.regions or self._painted(pg):\n"
+     "            return False, (\"there are touch-up strokes or a clean plate of \"",
+     T_CUT),
+    ("cut-the-edges-are-fair-game", PRJ,
+     "        if not (16 <= at <= h - 16):",
+     "        if not (0 <= at <= h):", T_CUT),
+    ("cut-the-halves-are-the-wrong-way-round", PRJ,
+     "        for k, part in enumerate((img[:at], img[at:])):",
+     "        for k, part in enumerate((img[at:], img[:at])):", T_CUT),
+    ("cut-the-second-half-starts-a-row-late", PRJ,
+     "        for k, part in enumerate((img[:at], img[at:])):",
+     "        for k, part in enumerate((img[:at], img[at + 1:])):", T_CUT),
+    ("cut-the-new-pages-are-appended-not-inserted", PRJ,
+     "        self.pages[i:i + 1] = halves",
+     "        self.pages[i:i + 1] = []\n        self.pages += halves", T_CUT),
+    ("cut-the-page-you-split-is-deleted", PRJ,
+     "            shutil.move(pg.path, os.path.join(keep, os.path.basename(pg.path)))",
+     "            os.remove(pg.path)", T_CUT),
+    ("cut-a-second-split-writes-over-the-first", PRJ,
+     "            while os.path.exists(os.path.join(folder, name)):\n"
+     "                name = f\"{stem}{'ab'[k]}{n}{ext}\"\n"
+     "                n += 1\n",
+     "", T_CUT),
+    ("cut-the-halves-report-the-old-size", PRJ,
+     "            made.append((name, part.shape[1], part.shape[0]))",
+     "            made.append((name, img.shape[1], img.shape[0]))", T_CUT),
+    # ---- joining two back into one
+    ("join-the-boxes-are-left-behind", PRJ,
+     "            self._carry_regions(pg, one, -y, one.height)\n",
+     "", T_CUT),
+    ("join-runs-off-the-end-of-the-chapter", PRJ,
+     "        if not (0 <= i and i + n <= len(self.pages)):",
+     "        if not (0 <= i and i < len(self.pages)):", T_CUT),
+    ("join-a-narrow-page-is-put-flush-left", PRJ,
+     "            off = (w - a.shape[1]) // 2",
+     "            off = 0", T_CUT),
+    ("join-the-padding-is-black-whatever-the-paper-is", PRJ,
+     "            pad = np.full((a.shape[0], w, 3), a[0, 0], np.uint8)",
+     "            pad = np.zeros((a.shape[0], w, 3), np.uint8)", T_CUT),
+    ("join-only-ever-takes-two", PRJ,
+     "        n = max(2, int(count))", "        n = 2", T_CUT),
+    ("join-the-pages-you-joined-are-deleted", PRJ,
+     "                shutil.move(pg.path, os.path.join(keep,\n"
+     "                                                  os.path.basename(pg.path)))",
+     "                os.remove(pg.path)", T_CUT),
+    ("cut-the-gaps-are-not-offered", PRJ,
+     "        return _strip.gutters(flat)", "        return []", T_CUT),
+    ("cut-a-refusal-comes-back-as-a-200", PY,
+     "                ok, why = p.split_page(i, int(body.get(\"at\") or 0))\n"
+     "                if not ok:\n"
+     "                    return self._json({\"error\": why}, 400)",
+     "                ok, why = p.split_page(i, int(body.get(\"at\") or 0))\n"
+     "                if False:\n"
+     "                    return self._json({\"error\": why}, 400)", T_CUT),
+    ("cut-the-browser-is-not-told-the-page-is-painted", PY,
+     '                                   "busy": Project._painted(p.pages[i])})',
+     '                                   "busy": False})', T_CUT),
+    ("knife-the-preview-asks-for-the-same-url-every-time", JS_CUT,
+     "  $('cutImg').src = '/img/' + i + '?v=' + encodeURIComponent(g.key || 'x');",
+     "  $('cutImg').src = '/img/' + i;", T_CUT),
+    ("knife-the-preview-key-is-not-the-pictures-own", PY,
+     '                                   "key": _scan_key(p, i),',
+     '                                   "key": str(i),', T_CUT),
+    ("knife-the-line-is-drawn-as-a-percentage-again", JS_CUT,
+     "  line.style.top = (img.offsetTop + at * img.offsetHeight) + 'px';",
+     "  line.style.top = (at * 100) + '%';", T_CUT),
+    ("knife-the-line-ignores-where-the-picture-starts", JS_CUT,
+     "  line.style.top = (img.offsetTop + at * img.offsetHeight) + 'px';",
+     "  line.style.top = (at * img.offsetHeight) + 'px';", T_CUT),
+    ("knife-the-preview-scrolls-instead-of-fitting", CSS,
+     "#cutImg{display:block;max-width:100%;max-height:52vh;width:auto;height:auto}",
+     "#cutImg{display:block;width:100%;height:auto}", T_CUT),
+    ("knife-the-line-snaps-away-from-the-pointer-again", JS_CUT,
+     "  row = Math.round(row);\n  const line = $('cutLine');",
+     "  const near=_cutGaps.filter(g=>Math.abs(g-row)<=60);\n"
+     "  if(near.length) row=near[0];\n"
+     "  row = Math.round(row);\n  const line = $('cutLine');", T_CUT),
+    ("knife-the-edges-are-pulled-back-from-again", JS_CUT,
+     "  row = Math.round(row);\n  const line = $('cutLine');",
+     "  row = Math.max(16, Math.min(_cutH - 16, Math.round(row)));\n"
+     "  const line = $('cutLine');", T_CUT),
+    ("knife-a-cut-in-the-top-sixteen-rows-is-offered", JS_CUT,
+     "  const tight = (row < EDGE || row > _cutH - EDGE);",
+     "  const tight = false;", T_CUT),
+    ("knife-the-drag-comes-back", JS_CUT,
+     "  wrap.addEventListener('click', cutFromEvent);",
+     "  wrap.addEventListener('pointermove', cutFromEvent);", T_CUT),
+    ("knife-the-gap-readout-is-always-on", JS_CUT,
+     "  const on = _cutGaps.some(g => Math.abs(g - row) <= 2);",
+     "  const on = true;", T_CUT),
+    ("knife-joining-backwards-joins-forwards", JS_CUT,
+     "  doCut('/api/page/' + (cur - 1) + '/merge', {count: 2},",
+     "  doCut('/api/page/' + cur + '/merge', {count: 2},", T_CUT),
+    ("knife-the-first-page-is-offered-a-page-before-it", JS_CUT,
+     "  $('cutPrev').disabled = i < 1;", "  $('cutPrev').disabled = false;",
+     T_CUT),
+    ("knife-the-last-page-is-offered-a-page-after-it", JS_CUT,
+     "  $('cutNext').disabled = i + 1 >= proj.pages.length;",
+     "  $('cutNext').disabled = false;", T_CUT),
+    ("knife-the-button-is-there-on-manga-too", JS_VW,
+     "  const strip = (typeof stripMedium === 'function') ? stripMedium() : true;",
+     "  const strip = true;", T_CUT),
+    ("knife-the-button-never-follows-the-format-menu", JS_IO,
+     "  if(typeof syncViewChrome==='function') syncViewChrome();\n"
+     "  stripPixels();", "  stripPixels();", T_CUT),
+    # ---- and where the strip settings live
+    ("web-the-settings-are-shown-on-manga-too", JS_IO,
+     "  if(box) box.style.display = stripMedium() ? 'block' : 'none';",
+     "  if(box) box.style.display = 'block';", T_WEB),
+    ("web-the-settings-are-never-shown", JS_IO,
+     "  if(box) box.style.display = stripMedium() ? 'block' : 'none';",
+     "  if(box) box.style.display = 'none';", T_WEB),
+    ("web-changing-the-format-does-not-move-them", JS_IO,
+     "  else if(typeof saveSettings==='function') saveSettings();\n"
+     "  stripSettings();\n}",
+     "  else if(typeof saveSettings==='function') saveSettings();\n}", T_WEB),
+    ("web-the-pixels-are-not-scaled-by-the-width", JS_IO,
+     "      + `${Math.round(w*tall).toLocaleString()}px a page, and anything past `",
+     "      + `${Math.round(tall).toLocaleString()}px a page, and anything past `",
+     T_WEB),
+    ("web-the-two-switches-can-disagree", JS_IO,
+     "  const a=$('restitch_strips'), b=$('restitch_new');\n"
+     "  if(a) a.checked=on;\n  if(b) b.checked=on;",
+     "  const a=$('restitch_strips'), b=$('restitch_new');\n"
+     "  if(a) a.checked=on;", T_WEB),
+    ("web-the-file-tab-switch-starts-off", HTM,
+     '<input type="checkbox" id="restitch_new" checked',
+     '<input type="checkbox" id="restitch_new"', T_WEB),
+    ("web-the-multiple-is-saved-as-a-pixel-count", JS_PJ,
+     "    strip_tall:(+($('strip_tall')||{}).value||3.5),",
+     "    strip_tall:2400,", T_WEB),
+    ("web-the-bar-never-goes-away", JS_IO,
+     "  if(at===false){ box.style.display='none'; return; }",
+     "  if(at===false){ return; }", T_WEB),
+    ("web-the-bar-invents-a-number-for-the-re-cut", JS_IO,
+     "  if(at===null){ outer.classList.add('wait'); fill.style.width=''; return; }",
+     "  if(at===null){ fill.style.width='90%'; return; }", T_WEB),
+    ("strip-closing-a-project-does-not-ask", IO,
+     "  const yes=await ask(`Close ${name}?`,", "  const yes=true; ({}(",
+     T_STRIP),
+    ("strip-closing-a-project-clears-the-story", IO,
+     "  await api('/api/reset','POST',{keep_settings:true});\n"
+     "  _seenPages=new Set(); selPages=new Set();\n"
+     "  sel=null; cur=0; lastExportDir=''; setRegions([]);\n"
+     "  $('results').innerHTML='';\n"
+     "  await loadProject();\n"
+     "  if(typeof refreshExports==='function') await refreshExports();\n"
+     "  staged=[]; renderStaged();\n"
+     "  $('pkmsg').textContent='';\n"
+     "  setTab('new');",
+     "  await api('/api/reset','POST',{keep_settings:false});\n"
+     "  _seenPages=new Set(); selPages=new Set();\n"
+     "  sel=null; cur=0; lastExportDir=''; setRegions([]);\n"
+     "  $('results').innerHTML='';\n"
+     "  await loadProject();\n"
+     "  if(typeof refreshExports==='function') await refreshExports();\n"
+     "  staged=[]; renderStaged();\n"
+     "  $('pkmsg').textContent='';\n"
+     "  setTab('new');", T_STRIP),
+    ("strip-the-story-context-is-downloaded-again", HTML,
+     '            onclick="exportSettings()">Export story context</button>',
+     '            onclick="exportSettings()">Download story context</button>',
+     T_STRIP),
+
+    # ---- a block that springs back
+    ("spring-a-local-refit-never-reaches-the-panel", FR,
+     "  if(best){\n    L.font_size=best[0]; L.lines=best[1]; L.dirty=true;\n"
+     "    panelSaysWhatTheLayoutSays(r);\n  }",
+     "  if(best){ L.font_size=best[0]; L.lines=best[1]; L.dirty=true; }",
+     T_SPRING),
+    ("spring-a-local-rewrap-never-reaches-the-panel", FR,
+     "  if(lines.length){ L.lines=lines; L.dirty=true; panelSaysWhatTheLayoutSays(r); }",
+     "  if(lines.length){ L.lines=lines; L.dirty=true; }", T_SPRING),
+    ("spring-the-sync-writes-over-what-is-being-typed", FR,
+     "  if(sz && document.activeElement!==sz && L.font_size) sz.value=L.font_size;",
+     "  if(sz && L.font_size) sz.value=L.font_size;", T_SPRING),
+    ("spring-the-panel-answers-for-any-block", TSE,
+     "  const el=(id)=>mine ? $(id) : null;", "  const el=(id)=>$(id);",
+     T_SPRING),
+    ("spring-the-panel-answers-for-no-block", TSE,
+     "  const el=(id)=>mine ? $(id) : null;", "  const el=(id)=>null;",
+     T_SPRING),
+
     # ---- two things said in one balloon
     ("ball-side-by-side-is-decided-by-the-top-edge", BALL,
      "        if side_by_side(a, b):\n"
@@ -1541,16 +3324,16 @@ MUTANTS = [
     #
     # The first of these is the bug that started the rewrite: lee refunded a
     # live $4.99 purchase and the page told him he had been GIVEN 500 coins.
-    ("look-a-clawback-is-shown-as-money-coming-in", ACC,
+    ("look-a-clawback-is-shown-as-money-coming-in", ACCHTML,
      "const IN = new Set(['credit', 'refund']);",
      "const IN = new Set(['credit', 'refund', 'clawback']);", T_LOOK),
-    ("look-a-clawback-is-shown-with-no-sign-at-all", ACC,
+    ("look-a-clawback-is-shown-with-no-sign-at-all", ACCHTML,
      "const plus = IN.has(r.kind);",
      "const plus = r.kind !== 'spend';", T_LOOK),
-    ("look-the-ledger-says-pack-pack1", ACC,
+    ("look-the-ledger-says-pack-pack1", ACCHTML,
      "    (m, id) => (PACKS[id] ? 'the ' + PACKS[id] + ' pack' : m));",
      "    (m, id) => m);", T_LOOK),
-    ("look-the-refunded-tag-is-read-out-twice", ACC,
+    ("look-the-refunded-tag-is-read-out-twice", ACCHTML,
      "  what = what.replace(/\\s*[-|\\u2013\\u2014]\\s*refunded\\s*$/i, '');",
      "", T_LOOK),
     ("look-links-are-underlined-again", SCSS,
@@ -1726,6 +3509,547 @@ MUTANTS = [
     # one find-and-replace and moving a block of markup is not — every version
     # of it was an attribute change that moved nothing, and a mutant that
     # cannot express the fault proves only that the suite survives a no-op.
+
+    # ---- One piece of writing, one box; and paper is not a balloon.
+    ("onebox-two-boxes-over-one-shout-stay-two", CTD,
+     "    regions = _join_overlapping(regions, join_over)",
+     "    regions = _join_overlapping(regions, None)", T_ONEBOX),
+    ("onebox-the-join-runs-on-every-format", CTD,
+     '        "join_over": None,\n',
+     '        "join_over": 0.05,\n', T_ONEBOX),
+    ("onebox-boxes-that-only-graze-are-joined-too", CTD,
+     "JOIN_OVER = 0.05",
+     "JOIN_OVER = 0.005", T_ONEBOX),
+    ("onebox-the-overlap-is-measured-against-the-bigger-box", CTD,
+     "            if ox * oy < share * min(aw * ah, bw * bh):",
+     "            if ox * oy < share * max(aw * ah, bw * bh):", T_ONEBOX),
+    ("onebox-two-families-are-joined-into-one-answer", CTD,
+     "            if _kinds.family_of(a.kind) != _kinds.family_of(b.kind):\n"
+     "                continue\n",
+     "", T_ONEBOX),
+    ("onebox-a-balloon-is-joined-to-its-neighbour", CTD,
+     "    live = [r for r in regions if r.bubble_mask is None]",
+     "    live = list(regions)", T_ONEBOX),
+    ("onebox-only-the-pairs-join-not-the-chain", CTD,
+     "            ra, rb = find(id(a)), find(id(b))\n"
+     "            if ra != rb:\n"
+     "                parent[rb] = ra",
+     "            parent[find(id(b))] = find(id(b))", T_ONEBOX),
+    ("onebox-the-join-drops-the-other-pieces-ink", CTD,
+     "            head.text_mask = masks[0].copy()\n"
+     "            for m in masks[1:]:\n"
+     "                head.text_mask = np.maximum(head.text_mask, m)",
+     "            head.text_mask = masks[0].copy()", T_ONEBOX),
+    ("onebox-the-smallest-piece-becomes-the-box", CTD,
+     "        head = max(members, key=lambda q: q.bbox[2] * q.bbox[3])",
+     "        head = min(members, key=lambda q: q.bbox[2] * q.bbox[3])",
+     T_ONEBOX),
+    # ...the boxes with nothing written in them
+    ("onebox-the-empty-boxes-are-never-thrown-out", CTD,
+     "    if stray_fill:\n        regions = [r for r in regions\n",
+     "    if False:\n        regions = [r for r in regions\n", T_ONEBOX),
+    ("onebox-the-sweep-runs-on-every-format", CTD,
+     '        "stray_fill": None,\n    },',
+     '        "stray_fill": 0.115,\n    },', T_ONEBOX),
+    ("onebox-the-line-is-drawn-through-the-real-fragments", CTD,
+     "STRAY_FILL = 0.115",
+     "STRAY_FILL = 0.20", T_ONEBOX),
+    ("onebox-a-line-of-writing-counts-as-a-stray-mark", CTD,
+     "STRAY_PIECES = 2",
+     "STRAY_PIECES = 9", T_ONEBOX),
+    ("onebox-a-speck-of-dirt-counts-as-a-mark", CTD,
+     "STRAY_MARK = 25",
+     "STRAY_MARK = 1", T_ONEBOX),
+    ("onebox-the-comparison-is-the-wrong-way-round", CTD,
+     "    return fill < fill_under",
+     "    return fill > fill_under", T_ONEBOX),
+    ("onebox-the-marks-are-counted-the-wrong-way-round", CTD,
+     "    if marks > STRAY_PIECES:\n        return False",
+     "    if marks < STRAY_PIECES:\n        return False", T_ONEBOX),
+    ("onebox-it-reads-the-artwork-instead-of-the-mask", CTD,
+     "    if mask is not None:\n"
+     "        ink = (np.asarray(mask)[y0:y1, x0:x1] > 0).astype(np.uint8)\n"
+     "    else:\n"
+     "        sub = gray[y0:y1, x0:x1]\n",
+     "    if False:\n"
+     "        ink = None\n"
+     "    else:\n"
+     "        sub = gray[y0:y1, x0:x1]\n", T_ONEBOX),
+    ("onebox-the-join-runs-before-the-sweep", CTD,
+     "    if stray_fill:\n"
+     "        regions = [r for r in regions\n"
+     "                   if not _a_stray_mark(gray, r.bbox, r.text_mask,"
+     " stray_fill)]\n"
+     "    regions = _join_overlapping(regions, join_over)",
+     "    regions = _join_overlapping(regions, join_over)\n"
+     "    if stray_fill:\n"
+     "        regions = [r for r in regions\n"
+     "                   if not _a_stray_mark(gray, r.bbox, r.text_mask,"
+     " stray_fill)]", T_ONEBOX),
+    # ...two passes with two answers about one piece of ink
+    ("onebox-two-answers-about-one-piece-of-ink-stay-two-boxes", CTD,
+     "            if _kinds.family_of(r.kind) != _kinds.family_of(k.kind)"
+     " and \\",
+     "            if False and \\", T_ONEBOX),
+    ("onebox-a-small-effect-inside-a-big-balloon-is-eaten", CTD,
+     "DUP_UNEVEN = 0.10",
+     "DUP_UNEVEN = 0.0", T_ONEBOX),
+    ("onebox-containment-is-read-against-the-bigger-box", CTD,
+     "                    inter >= DUP_INSIDE * min(w * h, c * d) and \\",
+     "                    inter >= DUP_INSIDE * max(w * h, c * d) and \\",
+     T_ONEBOX),
+    # ...paper is not a balloon
+    ("paper-a-bright-margin-is-still-proof-of-a-balloon", CTD,
+     "            if _ring_paper(gray, r.bbox) >= loose_bubble:\n"
+     "                if _round_wall_around(gray, r.bbox, roundish=False,\n"
+     "                                      lo=ENCLOSE_LO, hi=ENCLOSE_HI,\n"
+     "                                      seal=ENCLOSE_SEAL):\n"
+     "                    continue",
+     "            if _ring_paper(gray, r.bbox) >= loose_bubble:\n"
+     "                continue", T_PAPERBALL),
+    ("paper-the-wall-is-asked-for-roundness-it-cannot-have", BALLN,
+     "    if not roundish:\n        return True",
+     "    if False:\n        return True", T_PAPERBALL),
+    ("paper-every-wall-answers-yes-whatever-shape-it-is", BALLN,
+     "def _round_wall_around(gray: np.ndarray, bbox, roundish: bool = True)"
+     " -> bool:",
+     "def _round_wall_around(gray: np.ndarray, bbox, roundish: bool = False)"
+     " -> bool:", T_PAPERBALL),
+    # ---- a word space is not the end of a line
+    ("nextto-the-gap-is-never-asked", CTD,
+     "                    and not _next_to(a.bbox, b.bbox):",
+     "                    and True:", T_ONEBOX),
+    ("nextto-a-word-space-ends-the-line", CTD,
+     "NEAR_SIDE = 0.75",
+     "NEAR_SIDE = 0.05", T_ONEBOX),
+    ("nextto-the-whole-page-is-one-paragraph", CTD,
+     "NEAR_STACK = 0.35",
+     "NEAR_STACK = 5.0", T_ONEBOX),
+    ("nextto-boxes-that-do-not-line-up-join-anyway", CTD,
+     "NEAR_PERP = 0.80",
+     "NEAR_PERP = 0.0", T_ONEBOX),
+    ("nextto-the-sideways-gap-is-measured-like-the-stacked-one", CTD,
+     "        return (rows >= NEAR_PERP * short\n"
+     "                and gx <= NEAR_SIDE * short)",
+     "        return (rows >= NEAR_PERP * short\n"
+     "                and gx <= NEAR_STACK * short)", T_ONEBOX),
+    # ---- letters against drawings, both directions
+    ("chars-a-box-with-nothing-in-it-is-kept", CTD,
+     "            if art_veto and n == 0:\n                continue",
+     "            if False:\n                continue", T_CHARS),
+    ("chars-the-veto-runs-on-every-format", CTD,
+     '        "art_veto": False,\n',
+     '        "art_veto": True,\n', T_CHARS),
+    ("chars-a-big-shout-is-left-as-outside-text", CTD,
+     "            if fx_chars and n <= fx_chars and cover >= FX_COVER \\\n"
+     '                    and _kinds.family_of(r.kind) != "sfx":\n'
+     '                r.kind = "sfx"',
+     "            if False:\n"
+     '                r.kind = "sfx"', T_CHARS),
+    ("chars-two-small-syllables-become-a-shout", CTD,
+     "FX_COVER = 0.30",
+     "FX_COVER = 0.0", T_CHARS),
+    ("chars-a-whole-line-of-type-becomes-a-shout", CTD,
+     "FX_CHARS = 2",
+     "FX_CHARS = 9", T_CHARS),
+    ("chars-the-swallowed-writing-is-never-given-back", CTD,
+     '            elif fx_chars and _kinds.family_of(r.kind) == "sfx" \\\n'
+     "                    and n >= SFX_TEXT_CHARS and med_h <= SFX_TEXT_H * im_w:\n"
+     '                r.kind = "freefloat"',
+     "            elif False:\n"
+     '                r.kind = "freefloat"', T_CHARS),
+    ("chars-five-big-characters-are-given-back-too", CTD,
+     "SFX_TEXT_CHARS = 6",
+     "SFX_TEXT_CHARS = 5", T_CHARS),
+    ("chars-tall-characters-count-as-small-ones", CTD,
+     "SFX_TEXT_H = 0.09",
+     "SFX_TEXT_H = 0.5", T_CHARS),
+    ("chars-a-box-in-a-balloon-is-asked-anyway", CTD,
+     "            if r.bubble_mask is not None:\n"
+     "                kept.append(r)\n"
+     "                continue",
+     "            if False:\n"
+     "                kept.append(r)\n"
+     "                continue", T_CHARS),
+    # ---- outside text shut inside a frame
+    ("frame-enclosed-writing-on-paper-stays-outside-text", CTD,
+     '                r.kind = "bubble"',
+     '                pass', T_CHARS),
+    ("frame-the-enclosure-is-asked-at-the-balloon-thresholds", CTD,
+     "ENCLOSE_LO = 20",
+     "ENCLOSE_LO = 30", T_CHARS),
+    ("frame-the-seal-cannot-bridge-an-ornament-gap", CTD,
+     "ENCLOSE_SEAL = 25",
+     "ENCLOSE_SEAL = 15", T_CHARS),
+    ("frame-writing-on-dark-ground-is-promoted-too", CTD,
+     "            if (_ring_paper(gray, r.bbox) >= loose_bubble\n"
+     "                    or _paper_under(gray, r.bbox, r.text_mask) >= UNDER_PAPER) \\",
+     "            if True \\", T_CHARS),
+    # ---- each text gets its own box
+    ("owntext-two-texts-stay-one-box", CTD,
+     "    if split_texts:\n"
+     "        regions = _each_text_its_own_box(regions)",
+     "    if False:\n"
+     "        regions = _each_text_its_own_box(regions)", T_OWNTEXT),
+    ("owntext-the-split-runs-on-every-format", CTD,
+     '        "split_texts": False,\n',
+     '        "split_texts": True,\n', T_OWNTEXT),
+    ("owntext-a-paragraph-is-split-too", CTD,
+     "DIAG_ROWCOL = 0.30",
+     "DIAG_ROWCOL = 3.0", T_OWNTEXT),
+    ("owntext-a-line-of-leading-splits-a-text", CTD,
+     "STACK_SPLIT = 0.80",
+     "STACK_SPLIT = 0.10", T_OWNTEXT),
+    ("owntext-the-stacked-band-is-never-asked", CTD,
+     "    if len(bands) >= 2:",
+     "    if False:", T_OWNTEXT),
+    ("owntext-a-droplet-mark-is-half-a-text", CTD,
+     "DIAG_BALANCE = 0.15",
+     "DIAG_BALANCE = 0.0", T_OWNTEXT),
+    ("owntext-a-drawn-effect-is-split-like-dialogue", CTD,
+     '        if _kinds.family_of(r.kind) == "sfx" or r.text_mask is None:\n'
+     "            out.append(r)\n"
+     "            continue",
+     "        if r.text_mask is None:\n"
+     "            out.append(r)\n"
+     "            continue", T_OWNTEXT),
+    ("owntext-the-split-stops-after-one-pass", CTD,
+     "            piece.confidence = getattr(r, \"confidence\", 0.0)\n"
+     "            todo.append(piece)",
+     "            piece.confidence = getattr(r, \"confidence\", 0.0)\n"
+     "            out.append(piece)", T_OWNTEXT),
+    ("owntext-the-halves-share-the-whole-mask", CTD,
+     "            m = (np.isin(lab, [p[5] for p in side])\n"
+     "                 & (full > 0)).astype(np.uint8) * 255",
+     "            m = (full > 0).astype(np.uint8) * 255", T_OWNTEXT),
+    # ---- the shout label defers to a wall, a burst is not bare paper,
+    #      the box of a writing region is the writing
+    ("shelter-a-shout-in-a-thought-circle-is-deleted-again", CTD,
+     '                    and not _sheltered(gray, r.bbox, r.text_mask):',
+     '                    and True:', T_FIVE),
+    ("shelter-the-paper-gate-is-dropped", CTD,
+     "    if not (_ring_paper(gray, bbox) >= LOOSE_RING\n"
+     "            or _paper_under(gray, bbox, mask) >= UNDER_PAPER):\n"
+     "        return False",
+     "    if False:\n"
+     "        return False", T_FIVE),
+    ("rays-a-burst-reads-as-bare-paper-again", CTD,
+     "                if _ring_rays(gray, r.bbox) >= RAYS_DENS:\n"
+     "                    continue",
+     "                if False:\n"
+     "                    continue", T_FIVE),
+    ("rays-the-bar-is-under-the-credits", CTD,
+     "RAYS_DENS = 0.04",
+     "RAYS_DENS = 0.01", T_FIVE),
+    ("rays-the-bar-is-over-the-bursts", CTD,
+     "RAYS_DENS = 0.04",
+     "RAYS_DENS = 0.10", T_FIVE),
+    ("shave-the-sword-stays-in-the-box", CTD,
+     "            m = np.where(near, m, 0).astype(m.dtype)",
+     "            continue\n"
+     "            m = np.where(near, m, 0).astype(m.dtype)", T_FIVE),
+    ("shave-a-legitimate-fringe-shaves-the-box", CTD,
+     "SHAVE_BLOB = 1500",
+     "SHAVE_BLOB = 100", T_FIVE),
+    ("shave-an-effects-strokes-are-shaved-off", CTD,
+     "            if r.bubble_mask is not None or r.text_mask is None \\\n"
+     '                    or _kinds.family_of(r.kind) == "sfx":\n'
+     "                continue\n"
+     "            x, y, w, h = [int(v) for v in r.bbox]\n"
+     "            m = np.asarray(r.text_mask)",
+     "            if r.bubble_mask is not None or r.text_mask is None:\n"
+     "                continue\n"
+     "            x, y, w, h = [int(v) for v in r.bbox]\n"
+     "            m = np.asarray(r.text_mask)", T_FIVE),
+    ("rescue-display-type-is-priced-out-again", CTD,
+     "SFX_TEXT_H = 0.15",
+     "SFX_TEXT_H = 0.09", T_FIVE),
+    ("secondjoin-the-title-stays-two-boxes", CTD,
+     "        regions = _join_overlapping(regions, join_over)\n"
+     "        for n, r in enumerate(regions):\n"
+     "            r.id = n",
+     "        for n, r in enumerate(regions):\n"
+     "            r.id = n", T_FIVE),
+    ("holds-a-fragment-vetoes-the-title-again", CRA,
+     "                if ox > 0 and oy > 0 and ox * oy >= BLOCK_HOLDS * ga:\n"
+     "                    hit_block = True\n"
+     "                    break\n"
+     "                continue",
+     "                hit_block = True\n"
+     "                break", T_HOLDS),
+    ("holds-a-balloon-loses-its-veto", CRA,
+     "BLOCK_HOLDS = 0.5",
+     "BLOCK_HOLDS = 0.99", T_HOLDS),
+    # ---- the page list follows the page you are on
+    ("follow-the-list-stops-following-the-page", PJ,
+     "  keepCurrentPageInView();",
+     "  ;", T_FOLLOW),
+    ("follow-the-list-jumps-on-every-redraw", PJ,
+     "      row.scrollIntoView({block:'nearest', inline:'nearest'});",
+     "      row.scrollIntoView({block:'center', inline:'nearest'});", T_FOLLOW),
+    ("follow-a-rename-is-scrolled-away-from", PJ,
+     "  if(!list || list.querySelector('.nmedit')) return;",
+     "  if(!list) return;", T_FOLLOW),
+    ("follow-a-missing-method-throws-the-frame-away", PJ,
+     "    if(typeof row.scrollIntoView==='function')\n"
+     "      row.scrollIntoView({block:'nearest', inline:'nearest'});",
+     "    row.scrollIntoView({block:'nearest', inline:'nearest'});", T_FOLLOW),
+    # ---- the frame round two sections of one balloon is gone
+    ("nogbox-the-editor-draws-the-frame-again", FR2,
+     "  const sectioned=r=>{ const g=+(r.box_group||0);"
+     " return g>0 && bg[g] && bg[g].length>1; };",
+     "  Object.keys(bg).forEach(g=>{ const mem=bg[g];\n"
+     "    if(mem.length<2) return;\n"
+     "    const dd=document.createElement('div');\n"
+     "    dd.className='gbox'; st.appendChild(dd); });\n"
+     "  const sectioned=r=>{ const g=+(r.box_group||0);"
+     " return g>0 && bg[g] && bg[g].length>1; };", T_NOGBOX),
+    ("nogbox-the-sheet-draws-the-frame-again", RND,
+     "    groups = {g: m for g, m in groups.items() if len(m) > 1}\n"
+     "    sectioned = {id(r) for m in groups.values() for r in m}",
+     "    groups = {g: m for g, m in groups.items() if len(m) > 1}\n"
+     "    sectioned = {id(r) for m in groups.values() for r in m}\n"
+     "    for _g, _mem in sorted(groups.items()):\n"
+     "        _xs = [balloon_of(r) for r in _mem]\n"
+     "        _x0 = min(b[0] for b in _xs); _y0 = min(b[1] for b in _xs)\n"
+     "        _x1 = max(b[0] + b[2] for b in _xs)\n"
+     "        _y1 = max(b[1] + b[3] for b in _xs)\n"
+     "        ink.rect((_x0, _y0, _x1 - _x0, _y1 - _y0),\n"
+     "                 _bgr(kind_colour(_mem[0].get('kind', 'bubble'),\n"
+     "                                  custom_kinds)), GROUP_FILL)", T_NOGBOX),
+    ("nogbox-the-sections-stop-being-marked", RND,
+     "    sectioned = {id(r) for m in groups.values() for r in m}",
+     "    sectioned = set()", T_NOGBOX),
+    # ---- the frame a caption sits in is its balloon; the late grow
+    ("caged-the-frame-is-never-taken-as-the-balloon", CTD,
+     "            r.bubble_mask = interior\n"
+     "            r.bubble_bbox = tuple(int(v) for v in fb)",
+     "            continue\n"
+     "            r.bubble_mask = interior", T_CAGED),
+    ("caged-a-shared-frame-is-handed-to-both-boxes", CTD,
+     "            if shared:\n"
+     "                continue\n"
+     "            r.bubble_mask = interior",
+     "            if False:\n"
+     "                continue\n"
+     "            r.bubble_mask = interior", T_CAGED),
+    ("caged-the-balloon-does-not-persist", CTD,
+     "            if cs:\n"
+     "                big = max(cs, key=cv2.contourArea)\n"
+     "                r.polygon = [[int(a), int(b)] for a, b in"
+     " big.reshape(-1, 2)]",
+     "            if False:\n"
+     "                big = None\n"
+     "                r.polygon = None", T_CAGED),
+    # There is deliberately NO mutant for the late grow being skipped. The
+    # main grow covers every fixture simple enough to build -- the late one
+    # only decides for a box whose share of a mark GREW by joining, and a
+    # fixture arranging that is a page built to the shape of the answer. The
+    # real evidence is the chapter run: 042's joined title measures
+    # (35,92,571,210) without the late grow and (35,45,637,337) with it, the
+    # difference being the outline contour lee circled. The ORDER (grow, then
+    # shave, then join) is pinned by test_the_grow_runs_before_the_shave.
+    # ...and the two detectors starting together
+    ("fast-the-second-detector-waits-for-the-first-again", CTD,
+     "            craft_job = _POOL.submit(_craft.pieces, img)",
+     "            craft_job = None\n"
+     "            _craft_now = _craft.pieces(img)", T_TOGETHER),
+    ("fast-a-page-at-a-time-becomes-a-fleet", CTD,
+     'ThreadPoolExecutor(max_workers=1, thread_name_prefix="craft")',
+     'ThreadPoolExecutor(max_workers=4, thread_name_prefix="craft")', T_TOGETHER),
+    ("paper-the-margin-is-read-the-wrong-way-round", CTD,
+     "            if _ring_paper(gray, r.bbox) >= loose_bubble:\n"
+     "                if _round_wall_around(gray, r.bbox, roundish=False):",
+     "            if _ring_paper(gray, r.bbox) < loose_bubble:\n"
+     "                if _round_wall_around(gray, r.bbox, roundish=False):",
+     T_PAPERBALL),
+    # ---- the models lee asked to be added: Gemini 3.7, the GPT-5.6 tiers and
+    # the Qwen 3.7 tiers, and the one of them that cannot be shown a page.
+    ("range-gemini-3-7-is-not-sold-direct", COIN,
+     '    "gemini-3.7-flash": _google(1.50, 7.50),',
+     '    "gemini-3.7-flash-NOPE": _google(1.50, 7.50),', T_MENU),
+    ("range-gemini-3-7-is-not-sold-through-the-reseller", COIN,
+     '    "google/gemini-3.7-flash": _google(1.50, 7.50),',
+     '    "google/gemini-3.7-flash-NOPE": _google(1.50, 7.50),', T_MENU),
+    ("range-the-launch-discount-is-written-down-instead", COIN,
+     '    "gemini-3.7-flash": _google(1.50, 7.50),',
+     '    "gemini-3.7-flash": _google(0.75, 3.75),', T_MENU),
+    ("range-3-6-is-met-before-3-7-and-keeps-the-band", COIN,
+     '    "google/gemini-3.7-flash": _google(1.50, 7.50),\n'
+     '    "google/gemini-3.6-flash": _google(1.50, 7.50),',
+     '    "google/gemini-3.6-flash": _google(1.50, 7.50),\n'
+     '    "google/gemini-3.7-flash": _google(1.50, 7.50),', T_MENU),
+    ("range-the-openai-tiers-are-not-on-the-menu", COIN,
+     '    "openai/gpt-5.6-sol": Rate(5.00, 30.00),',
+     '    "openai/gpt-5.6-sol-NOPE": Rate(5.00, 30.00),', T_MENU),
+    ("range-openai-is-not-a-maker-openrouter-carries", COIN,
+     '    "openrouter": ("google/", "anthropic/", "deepseek/", "openai/",'
+     ' "qwen/"),',
+     '    "openrouter": ("google/", "anthropic/", "deepseek/", "qwen/"),',
+     T_MENU),
+    ("range-qwen-is-not-a-maker-openrouter-carries", COIN,
+     '    "openrouter": ("google/", "anthropic/", "deepseek/", "openai/",'
+     ' "qwen/"),',
+     '    "openrouter": ("google/", "anthropic/", "deepseek/", "openai/"),',
+     T_MENU),
+    ("range-the-blind-one-is-offered-a-page-to-read", COIN,
+     'NO_SIGHT = ("deepseek-", "qwen3.7-max")',
+     'NO_SIGHT = ("deepseek-",)', T_MENU),
+    ("range-the-whole-maker-is-called-blind", COIN,
+     'NO_SIGHT = ("deepseek-", "qwen3.7-max")',
+     'NO_SIGHT = ("deepseek-", "qwen")', T_MENU),
+    ("range-the-default-is-left-on-a-model-off-the-menu", "editor.py",
+     '    "translate": ("gemini", "gemini-3.7-flash"),',
+     '    "translate": ("gemini", "gemini-3.6-flash"),', T_STEP),
+    ("range-the-two-copies-of-the-default-part", PRJ,
+     '"translate_model": "gemini-3.7-flash", "translate_backend": "gemini",',
+     '"translate_model": "gemini-3.6-flash", "translate_backend": "gemini",',
+     T_STEP),
+    # ---- a box with no writing in it, only marks
+    ("marks-nothing-is-ever-only-marks", OCR,
+     "        if (cat[0] == \"L\" and cat != \"Lm\") or cat[0] == \"N\":\n"
+     "            return False\n"
+     "    return True",
+     "        if (cat[0] == \"L\" and cat != \"Lm\") or cat[0] == \"N\":\n"
+     "            return False\n"
+     "    return False", T_MARKS),
+    ("marks-a-box-nothing-was-read-in-is-deleted-too", OCR,
+     "    t = (text or \"\").strip()\n"
+     "    if not t:\n"
+     "        return False",
+     "    t = (text or \"\").strip()\n"
+     "    if not t:\n"
+     "        return True", T_MARKS),
+    ("marks-a-lone-stretched-sound-counts-as-a-word", OCR,
+     'if (cat[0] == "L" and cat != "Lm") or cat[0] == "N":',
+     'if cat[0] == "L" or cat[0] == "N":', T_MARKS),
+    ("marks-a-number-on-a-sign-is-thrown-away", OCR,
+     'if (cat[0] == "L" and cat != "Lm") or cat[0] == "N":',
+     'if cat[0] == "L" and cat != "Lm":', T_MARKS),
+    ("marks-the-flag-goes-back-to-a-hand-written-list", OCR,
+     "    if only_symbols(visible):",
+     "    if re.fullmatch(r\"[。、,.!?！？…・\\-—ー~〜]+\", visible):", T_MARKS),
+    ("marks-somebodys-own-text-box-is-deleted", ED,
+     'if getattr(r, "own_text", False) or getattr(r, "locked", False):',
+     'if getattr(r, "locked", False):', T_MARKS),
+    ("marks-a-locked-box-is-deleted", ED,
+     'if getattr(r, "own_text", False) or getattr(r, "locked", False):',
+     'if getattr(r, "own_text", False):', T_MARKS),
+    ("marks-a-translated-box-is-deleted", ED,
+     '        if (getattr(r, "dst_text", "") or "").strip():\n'
+     "            continue",
+     "        if False:\n"
+     "            continue", T_MARKS),
+    ("marks-the-switch-defaults-off", ED,
+     'if p.settings.get("drop_symbol_only") is not False:',
+     'if p.settings.get("drop_symbol_only") is True:', T_MARKS),
+    ("marks-the-switch-is-not-read-at-all", ED,
+     'if p.settings.get("drop_symbol_only") is not False:',
+     "if True:", T_MARKS),
+    ("marks-the-sections-are-linked-before-the-drop", ED,
+     '    if p.settings.get("drop_symbol_only") is not False:',
+     "    link_sections(regs)\n"
+     '    if p.settings.get("drop_symbol_only") is not False:', T_MARKS),
+    ("marks-the-page-is-never-renumbered", ED,
+     "    if len(page.regions) != before:\n"
+     "        reorder(p, i)",
+     "    if False:\n"
+     "        reorder(p, i)", T_MARKS),
+    ("marks-every-read-pays-for-a-renumber", ED,
+     "    if len(page.regions) != before:\n"
+     "        reorder(p, i)",
+     "    if True:\n"
+     "        reorder(p, i)", T_MARKS),
+    ("marks-the-default-is-off-in-a-new-project", PRJ,
+     '            "drop_symbol_only": True,',
+     '            "drop_symbol_only": False,', T_MARKS),
+    ("marks-the-box-on-screen-starts-unticked", HTM,
+     '          <input type="checkbox" id="drop_symbol_only" checked',
+     '          <input type="checkbox" id="drop_symbol_only"', T_MARKS),
+    ("marks-the-switch-is-never-saved", JSP,
+     "    ...ON_SWITCHES.reduce((o,k)=>{",
+     "    ...STORY_SWITCHES.reduce((o,k)=>{", T_MARKS),
+    ("marks-the-switch-is-never-loaded", JSP,
+     "  ON_SWITCHES.forEach(k=>{",
+     "  STORY_SWITCHES.forEach(k=>{", T_MARKS),
+    # ---- one man, one spelling; and a person is not a glossary term
+    ("name-every-capital-is-a-name", TR,
+     '            if w[0].isupper():\n                if not starts:',
+     '            if w[0].isupper():\n                if True:', T_NAME),
+    ("name-a-word-used-in-lower-case-is-still-a-name", TR,
+     '    return [w for w in order if w.lower() not in lower]',
+     '    return list(order)', T_NAME),
+    ("name-a-possessive-is-a-second-name", TR,
+     '    return re.sub(r"[\'\u2019]s$", "", w)',
+     '    return w', T_NAME),
+    ("name-two-letter-words-are-names", TR,
+     '                    if len(b) > 2 and b not in mid:',
+     '                    if b not in mid:', T_NAME),
+    ("drift-a-different-initial-is-still-drift", TR,
+     '            if was[0].lower() != now[0].lower():\n                continue',
+     '            if False:\n                continue', T_NAME),
+    ("drift-a-name-drifts-from-itself", TR,
+     '        if now in used:\n            continue',
+     '        if False:\n            continue', T_NAME),
+    ("drift-nothing-is-ever-close-enough", TR,
+     'def name_drift(used, fresh, close: float = 0.72) -> list:',
+     'def name_drift(used, fresh, close: float = 0.999) -> list:', T_NAME),
+    ("drift-everything-is-close-enough", TR,
+     'def name_drift(used, fresh, close: float = 0.72) -> list:',
+     'def name_drift(used, fresh, close: float = 0.2) -> list:', T_NAME),
+    ("name-the-prose-is-never-remembered", TR,
+     '    for n in names_in([r.dst_text or "" for r in page.ordered()]):\n'
+     '        if n not in names:\n'
+     '            names.append(n)',
+     '    pass', T_NAME),
+    ("name-the-list-is-never-sent", TR,
+     '        out["names"] = names[-60:]', '        pass', T_NAME),
+    ("name-the-cap-keeps-the-oldest", TR,
+     '        out["names"] = names[-60:]',
+     '        out["names"] = names[:60]', T_NAME),
+    ("drift-the-prose-is-never-checked", TR,
+     '            for was, now in name_drift(was_said, names_in(r.dst_text or "")):',
+     '            for was, now in []:', T_NAME),
+    ("drift-it-is-read-after-this-page-is-folded-in", TR,
+     '        was_said = list(getattr(ctx, "names_seen", None) or [])',
+     '        remember_said(ctx, page, {})\n'
+     '        was_said = list(getattr(ctx, "names_seen", None) or [])', T_NAME),
+    ("drift-only-a-project-keeping-a-story-is-checked", TR,
+     '        was_said = list(getattr(ctx, "names_seen", None) or [])',
+     '        was_said = (list(getattr(ctx, "names_seen", None) or [])'
+     ' if story else [])', T_NAME),
+    ("person-any-length-of-name-is-a-person", TR,
+     '    if len(parts) != 2:\n        return ""',
+     '    if not parts:\n        return ""', T_NAME),
+    ("person-a-shared-surname-is-enough", TR,
+     '        if first and first[0].lower() == parts[0].lower() \\\n',
+     '        if first and parts[0].lower() in [x.lower() for x in first] \\\n',
+     T_NAME),
+    ("person-a-place-named-after-somebody-is-a-person", TR,
+     '    if any(len(p) < 3 or not p[0].isupper() or _bare(p) != p\n'
+     '           or not p.isalpha() for p in parts):\n'
+     '        return ""',
+     '    if False:\n        return ""', T_NAME),
+    ("person-the-glossary-takes-anybody", TR,
+     '        who = is_a_person(name, characters)\n        if who:',
+     '        who = is_a_person(name, characters)\n        if False:', T_NAME),
+    ("person-the-gate-is-never-told-who-the-cast-are", TR,
+     '            gl_refused = merge_glossary(ctx.glossary, gl,\n'
+     '                                        getattr(ctx, "characters", None))',
+     '            gl_refused = merge_glossary(ctx.glossary, gl)', T_NAME),
+    # ---- the dash at the front of a bubble
+    ("dash-a-plain-hyphen-is-not-a-dash-again", TR,
+     '{_OPENERS})[-\u2014\u2013]+\\s*"',
+     '{_OPENERS})[\u2014\u2013]+\\s*"', T_DASH2),
+    ("dash-the-source-having-one-keeps-the-leading-one", TR,
+     '    t = _EDGE_LEAD.sub(r"\\1", t, count=1)\n'
+     '    if source_has_dash(src):\n'
+     '        return t.strip() or dst',
+     '    if source_has_dash(src):\n'
+     '        return dst\n'
+     '    t = _EDGE_LEAD.sub(r"\\1", t, count=1)', T_DASH2),
+    ("dash-a-word-cut-off-mid-hyphen-loses-it", TR,
+     '(?:\\s*[\u2014\u2013]+|\\s+-+)(', '(?:\\s*[\u2014\u2013]+|\\s*-+)(', T_DASH2),
 ]
 
 
@@ -1763,10 +4087,20 @@ def main():
     #
     # So: before touching anything, look for a file that holds some mutant's
     # REPLACEMENT where its original should be, and refuse to start.
+    #
+    # ONCE, though. A leftover mutant put its replacement in exactly one place,
+    # because that is what `str.replace` on a once-only anchor does. Merely
+    # CONTAINING it proves nothing when the replacement is something like "}",
+    # and that false positive is worse than the thing being guarded against: a
+    # `pipeline.js` that had simply gone back to an older revision — anchor
+    # gone, `}` present a few hundred times — read as a leftover mutant and
+    # stopped every measurement in the project until someone read the tool.
+    def _left_behind(f, fi, rp):
+        src = (PKG / f).read_text(encoding="utf-8")
+        return fi not in src and src.count(rp) == 1
+
     stale = [(n, f) for n, f, fi, rp, _t in MUTANTS
-             if rp and (PKG / f).exists()
-             and fi not in (PKG / f).read_text(encoding="utf-8")
-             and rp in (PKG / f).read_text(encoding="utf-8")]
+             if rp and (PKG / f).exists() and _left_behind(f, fi, rp)]
     if stale:
         print("REFUSING TO RUN — a previous run left a mutant on disk:")
         for n, f in stale:
@@ -1777,6 +4111,13 @@ def main():
     survivors = []
     for name, rel, find, repl, tests in picked:
         f = PKG / rel
+        # A mutant naming a file that is not there is stale, the same as one
+        # whose anchor has moved — and it used to take the whole run down with
+        # a traceback, so `-k` on a prefix that happened to match one of them
+        # measured nothing at all.
+        if not f.is_file():
+            print(f"SKIP  {name}: no such file {rel}")
+            continue
         src = f.read_text(encoding="utf-8")
         if src.count(find) != 1:
             print(f"SKIP  {name}: anchor appears {src.count(find)}×")

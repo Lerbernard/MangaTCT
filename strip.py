@@ -33,6 +33,8 @@ import os
 import cv2
 import numpy as np
 
+from . import imgio
+
 # A row is a gutter when nothing is drawn on it. Both tests matter: `std`
 # catches texture and typesetting, and the range catches a hard edge in an
 # otherwise even row — a panel border crossing an empty margin.
@@ -46,9 +48,14 @@ MIN_GUTTER = 6
 # What a page should come out at, and the height past which one is no longer
 # worth having. The ceiling is not tidiness: the detector letterboxes a whole
 # page into one 1024px square, so on a 10,000px page the typesetting arrives
-# about 70px tall and it starts missing text. Where no gutter exists inside the
-# ceiling the strip is cut at the QUIETEST row instead, and that page is
-# reported so it can be looked at.
+# about 70px tall and it starts missing text.
+#
+# It is a LIMIT, not a wall. A page runs on past it to reach a real gutter,
+# however far that is, and is reported as having run over. lee, on a page cut
+# at the ceiling: *"when it reaches teh max lenght it still crops teh text box,
+# if posiboe can you have a way of not to do that"*. Nothing is worth cutting
+# through the words: a page too tall is a page you can still read, and a
+# balloon in halves is not.
 TARGET_H = 2400
 MAX_H = 6000
 
@@ -59,7 +66,7 @@ NEAR = (0.45, 1.9)
 
 def _rows(path: str) -> np.ndarray:
     """min, max and std of every row of one tile, as float32."""
-    g = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    g = imgio.imread(path, cv2.IMREAD_GRAYSCALE)
     if g is None:
         return np.zeros((0, 3), np.float32)
     return np.stack([g.min(1), g.max(1), g.std(1)], 1).astype(np.float32)
@@ -84,43 +91,38 @@ def gutters(flat: np.ndarray, min_band: int = MIN_GUTTER) -> list[int]:
     return [int((a + b) // 2) for a, b in zip(starts, ends) if b - a >= min_band]
 
 
-def quietest(flat: np.ndarray, lo: int, hi: int) -> int:
-    """The least-bad row to cut through when there is no gutter to use.
-
-    Least-bad is the middle of the longest run of empty rows in the window,
-    even if that run is shorter than a gutter — a two-pixel gap between panels
-    is not a gutter but it is a far better place to cut than the middle of a
-    face. With nothing empty at all it comes back with the middle of the
-    window, and the caller flags the page.
-    """
-    lo, hi = max(0, lo), min(len(flat), hi)
-    if hi <= lo:
-        return hi
-    win = flat[lo:hi]
-    if not win.any():
-        return (lo + hi) // 2
-    d = np.diff(np.concatenate([[0], win.view(np.int8), [0]]))
-    a, b = np.flatnonzero(d == 1), np.flatnonzero(d == -1)
-    k = int(np.argmax(b - a))
-    return lo + int((a[k] + b[k]) // 2)
-
-
 def plan_cuts(flat: np.ndarray, target: int = TARGET_H,
               ceiling: int = MAX_H) -> tuple[list[int], list[int]]:
-    """Where to cut the strip. Returns the cut rows and which ones hit ink.
+    """Where to cut the strip. Returns the cut rows, and which pages ran over.
 
     Walks down the strip taking the gutter NEAREST the target each time, not
     the first one past it: "first past" overshoots badly where gutters are
     sparse, and a chapter of 3,500px pages when you asked for 2,400 is not what
-    was asked for. Where the window holds no gutter at all the page is allowed
-    to run on to the next one — up to the ceiling, and then it is cut at the
-    quietest row available and reported.
+    was asked for.
+
+    **Every cut is a gutter.** Where the window holds none, the page runs on to
+    the next one however far away it is, and past the ceiling if that is what
+    it takes; where there is no gutter left at all, the rest of the strip is
+    one page. Nothing is ever cut through the artwork.
+
+    It used to cut at the quietest row it could find inside the ceiling, and
+    report the page. lee: *"when it reaches teh max lenght it still crops teh
+    text box, if posiboe can you have a way of not to do that"*. The quietest
+    row available in a panel of solid artwork is still the middle of a balloon,
+    and the reason the strip is being re-cut in the first place is that
+    somebody else's slicer did exactly that.
+
+    So the ceiling is a limit rather than a wall, and going past it is
+    something you are told about instead of something the page pays for. The
+    price is real and it is smaller: a very tall page reaches the detector
+    shrunk down, because it letterboxes the whole page into 1024px, so boxes on
+    it are harder to find. A page you can still read beats half a sentence.
     """
     H = len(flat)
     if H == 0:
         return [], []
     marks = np.array(gutters(flat), dtype=int)
-    cuts, forced = [0], []
+    cuts, over = [0], []
     while H - cuts[-1] > target * NEAR[1]:
         at = cuts[-1]
         lo, hi = at + int(target * NEAR[0]), at + int(target * NEAR[1])
@@ -128,17 +130,19 @@ def plan_cuts(flat: np.ndarray, target: int = TARGET_H,
         if len(near):
             cuts.append(int(near[np.argmin(abs(near - (at + target)))]))
             continue
-        # nothing in the window: run on to the next gutter, if one is close
-        # enough to still be a usable page
+        # Nothing in the window. Take the next gutter there is, wherever it is.
         after = marks[marks > hi] if len(marks) else np.array([])
-        if len(after) and after[0] - at <= ceiling:
-            cuts.append(int(after[0]))
-            continue
-        cut = quietest(flat, at + int(target * 0.7), at + ceiling)
-        cuts.append(int(cut))
-        forced.append(int(cut))
+        if not len(after):
+            break                  # none left: everything below here is one page
+        cuts.append(int(after[0]))
+        if after[0] - at > ceiling:
+            over.append(int(after[0]))
     cuts.append(H)
-    return cuts, forced
+    # The tail is normally a short page and not worth mentioning. After a break
+    # above it can be most of the chapter, and that is worth mentioning.
+    if len(cuts) > 1 and H - cuts[-2] > ceiling:
+        over.append(H)
+    return cuts, over
 
 
 def looks_sliced(sizes: list[tuple[int, int]]) -> bool:
@@ -179,15 +183,15 @@ def restitch(paths: list[str], out_dir: str, stem: str = "page",
     """
     paths = [p for p in paths if os.path.isfile(p)]
     if len(paths) < 2:
-        return {"pages": [], "forced": 0, "cuts": 0}
+        return {"pages": [], "over": 0, "cuts": 0}
     heights = []
     for p in paths:
-        g = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+        g = imgio.imread(p, cv2.IMREAD_GRAYSCALE)
         heights.append(0 if g is None else g.shape[0])
     flat = row_profile(paths)
-    cuts, forced = plan_cuts(flat, target, ceiling)
+    cuts, over = plan_cuts(flat, target, ceiling)
     if len(cuts) < 2:
-        return {"pages": [], "forced": 0, "cuts": 0}
+        return {"pages": [], "over": 0, "cuts": 0}
 
     # where each tile starts in the joined strip
     starts, run = [], 0
@@ -196,7 +200,7 @@ def restitch(paths: list[str], out_dir: str, stem: str = "page",
         run += h
     os.makedirs(out_dir, exist_ok=True)
 
-    written, forced_pages = [], []
+    written, over_pages = [], []
     for n, (a, b) in enumerate(zip(cuts[:-1], cuts[1:]), 1):
         if b <= a:
             continue
@@ -205,7 +209,7 @@ def restitch(paths: list[str], out_dir: str, stem: str = "page",
             e = s + h
             if e <= a or s >= b:
                 continue
-            im = cv2.imread(path)
+            im = imgio.imread(path)
             if im is None:
                 continue
             rows.append(im[max(0, a - s):min(h, b - s)])
@@ -213,10 +217,10 @@ def restitch(paths: list[str], out_dir: str, stem: str = "page",
             continue
         page = np.vstack(rows)
         name = f"{stem}{n:03d}{ext}"
-        cv2.imwrite(os.path.join(out_dir, name), page)
+        imgio.imwrite(os.path.join(out_dir, name), page)
         written.append(name)
-        if b in forced:
-            forced_pages.append(name)
-    return {"pages": written, "forced": len(forced_pages),
-            "forced_pages": forced_pages, "cuts": len(cuts) - 2,
+        if b in over:
+            over_pages.append(name)
+    return {"pages": written, "over": len(over_pages),
+            "over_pages": over_pages, "cuts": len(cuts) - 2,
             "height": int(len(flat))}

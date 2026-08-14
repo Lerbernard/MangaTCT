@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field, asdict
 from typing import Literal, Optional
 
@@ -12,6 +13,32 @@ from . import kinds as _kinds
 # made under one of them — so it is a string, not a closed set. `kinds.py` is
 # where a kind is turned into the family that decides how the box behaves.
 RegionKind = str
+
+
+def turned_box(bbox, turn: float) -> list:
+    """The four corners of `bbox` turned `turn` degrees about its own centre.
+
+    Turning a box somebody drew is stored as GEOMETRY and not as a setting off
+    to one side, and that is what makes the rest of the app follow it without
+    being told: `project._is_a_box` answers False for a tilted rectangle, so
+    the region loads with a real placement area, and that area is what the
+    cleaner erases inside and the fitter sets text into.
+
+    Clockwise, to match `TextRegion.angle` and the sound-effect reader. Here
+    with the region rather than with the project because it is read on the way
+    OUT as well — the cleaner rebuilds a turned box's own outline from it, and
+    the cleaner cannot import the project (the project imports the cleaner).
+    """
+    x, y, w, h = (float(v) for v in bbox)
+    cx, cy = x + w / 2.0, y + h / 2.0
+    a = math.radians(float(turn or 0.0))
+    ca, sa = math.cos(a), math.sin(a)
+    out = []
+    for px, py in ((x, y), (x + w, y), (x + w, y + h), (x, y + h)):
+        dx, dy = px - cx, py - cy
+        out.append([int(round(cx + dx * ca - dy * sa)),
+                    int(round(cy + dx * sa + dy * ca))])
+    return out
 
 
 @dataclass
@@ -33,6 +60,18 @@ class TextRegion:
     # dialogue split across bubbles. The translator is told to read them as a
     # single sentence in order; 0 means unlinked.
     link: int = 0
+    # WHY they are linked, which is two different facts that used to share one
+    # field. "sentence" is `translate.reads_on`: the words run on, so the halves
+    # are only correct read together. "balloon" is
+    # `detect.balloon.link_touching_bubbles`: the artist drew two lobes that
+    # touch, which is a fact about the PICTURE and says nothing about the words
+    # — a double balloon holds two sentences as often as one.
+    #
+    # They were both `link`, and the translation prompt reads a link as "one
+    # sentence split across bubbles", so page 049's two complete sentences came
+    # back welded with a comma: "His soul is completely gone, and in just a few
+    # hours, he'll stop breathing altogether."
+    link_kind: str = ""
     # Regions sharing the same positive `box_group` are SECTIONS of one
     # balloon. lee: "make it so that the bubbles can have 2 sections ... under
     # teh one box". A balloon can hold a sentence and a small あっ！ beneath it —
@@ -58,6 +97,32 @@ class TextRegion:
     sfx_vertical: bool = False
     sfx_len: float = 0.0
     sfx_wid: float = 0.0
+
+    # How far somebody TURNED this box, in degrees clockwise. Its own field and
+    # not `angle`, because the two say different things and a box can have
+    # both: `angle` is a reading of the artwork — the axis a sound effect was
+    # drawn along — while this is a decision about the box. Reading a turn out
+    # of `angle` would have turned every sound effect drawn by hand, since the
+    # axis reader gives each one an angle the moment it is drawn.
+    #
+    # Only a box somebody drew can carry one. lee: *"only teh ser shoud be
+    # able to rotate them the detector boxes shoud be normal"*.
+    turn: float = 0.0
+
+    # Read this box's writing by its own LOCAL BACKGROUND rather than by the
+    # fixed ink thresholds. Off by default and set per box, by hand.
+    #
+    # `gray <= 128` and `gray >= 200` describe a page of black-on-white and a
+    # page of white-on-black. They describe nothing else, and on lee's chapter
+    # they describe the BACKGROUND instead of the writing: gold on navy is 84%
+    # "dark ink", gold on cream is 91% "bright ink", and dark words on a
+    # translucent balloon with a beam of light crossing it are 54% "dark". Those
+    # three boxes are the three he keeps sending back.
+    #
+    # See `inpaint.focus_mask`. Kept per box because every attempt to fix gold
+    # for the whole chapter moved something else; a switch only moves the box it
+    # is on. lee: *"maybe add a focus cleening for special ares or something"*.
+    focus: bool = False
 
     dst_text: Optional[str] = None
     dst_compact: Optional[str] = None

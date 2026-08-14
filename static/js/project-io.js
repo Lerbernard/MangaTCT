@@ -107,6 +107,47 @@ async function newChapter(){
   showPicker(true);
 }
 
+/* Put the chapter down.
+
+   lee: *"add a close project button in the file tab"*.
+
+   Nothing is saved here because nothing needs to be: every step writes as it
+   finishes, and `save_soon` has already run. So this is not "save and quit",
+   it is "stop having this chapter open" - which is why it says what it is
+   about to close, by name, and why the wording is about the EDITOR forgetting
+   it rather than anything being cleared.
+
+   It is `newChapter` without the clearing: the same reset, keeping the
+   settings, and back to the File screen. The chapter itself is on disk in
+   `project.json` and in whatever `.tctp` was saved, and Open project brings it
+   back. The one way to lose work here is to close the wrong project, so it
+   names the one it is closing and asks. */
+async function closeProject(){
+  const name=(proj&&proj.context&&proj.context.title)
+    || (proj&&proj.settings&&proj.settings.project_file
+        ? proj.settings.project_file.split(/[\\/]/).pop() : '')
+    || 'this chapter';
+  const n=(proj&&proj.pages&&proj.pages.length)||0;
+  const yes=await ask(`Close ${name}?`,
+    `The editor stops holding ${n===1?'it':'its '+n+' pages'} and goes back to `+
+    'the File screen. Nothing is deleted and nothing is cleared: everything is '+
+    'already written to disk, and Open project brings it back exactly as it is '+
+    'now. Save it as a .tctp first if you want one file you can carry.',
+    'Close it', false);
+  if(!yes) return;
+  await api('/api/reset','POST',{keep_settings:true});
+  _seenPages=new Set(); selPages=new Set();
+  sel=null; cur=0; lastExportDir=''; setRegions([]);
+  $('results').innerHTML='';
+  await loadProject();
+  if(typeof refreshExports==='function') await refreshExports();
+  staged=[]; renderStaged();
+  $('pkmsg').textContent='';
+  setTab('new');
+  showPicker(true);
+  toast('Closed. Open project brings it back.');
+}
+
 async function downloadZip(){
   const r=await fetch(apiUrl('/api/export_zip'));
   if(!r.ok){toast('Nothing exported yet.');return;}
@@ -150,6 +191,72 @@ function mediumChosen(which){
   if($(id('direction'))) $(id('direction')).value = d.direction;
   if(p) mediumHint();
   else if(typeof saveSettings==='function') saveSettings();
+  stripSettings();
+}
+
+/* The formats that are DELIVERED as one long strip — the same set as
+   `STRIP_MEDIA` in project.py, and it has to stay the same set: this one
+   decides what is on screen and that one decides what actually happens.
+   lee: *"this setting shoud only be a thing for manhwa and manhua"*. */
+const STRIP_MEDIA=['manhwa','manhua'];
+
+/* `which` picks the menu to ask, because there are two and they are the same
+   question on two screens: `pkMedium` on the File tab, `medium` in Settings.
+   The File tab's switch has to follow the File tab's menu — that is the one
+   the person is looking at while they choose a folder. */
+function stripMedium(which){
+  const el=$(which==='pk' ? 'pkMedium' : 'medium');
+  // `typeof`, not `window.proj`: `proj` is declared with `let`, and a
+  // top-level `let` does not become a property of `window`.
+  const has=(typeof proj!=='undefined') && proj;
+  const m=(el && el.value) || (has && proj.settings && proj.settings.medium)
+        || 'manga';
+  return STRIP_MEDIA.indexOf(m)>=0;
+}
+
+/* Open or close the strip controls — both sets. On manga these are controls
+   for something that cannot happen: a manga chapter is never re-cut, however
+   much the files look like a strip. lee: *"the setting shoud not be there for
+   manga"*, said the second time about the File tab, which the first pass
+   missed. */
+function stripSettings(){
+  const box=$('stripSet');
+  if(box) box.style.display = stripMedium() ? 'block' : 'none';
+  const nb=$('restitchNewWrap');
+  if(nb) nb.style.display = stripMedium('pk') ? 'inline-flex' : 'none';
+  // Cut / join is gated on the format too, and lives in the top bar rather
+  // than in Settings, so it is the view chrome that has to be told.
+  if(typeof syncViewChrome==='function') syncViewChrome();
+  stripPixels();
+}
+
+/* What the two multiples come to in pixels on THIS chapter, said underneath
+   them. The multiple is the setting; the pixels are what it means today, and
+   somebody who has been reading these boxes as pixels for a year needs both
+   for one chapter at least. */
+function stripPixels(){
+  const el=$('stripPx'); if(!el) return;
+  const w=((typeof proj!=='undefined') && proj && proj.pages
+           && proj.pages.length && proj.pages[0].width) || 0;
+  const tall=+($('strip_tall')||{}).value||3.5;
+  const top=Math.max(+($('strip_tall_max')||{}).value||8.5, tall);
+  el.textContent = w
+    ? `On this chapter — ${w}px wide — that is about `
+      + `${Math.round(w*tall).toLocaleString()}px a page, and anything past `
+      + `${Math.round(w*top).toLocaleString()}px is reported.`
+    : 'Open a chapter to see what that comes to in pixels.';
+}
+
+/* The File tab's copy of the re-cut switch and the Settings one are the same
+   setting. lee: *"add a check box oprion in the files uoload page to turn on
+   and off the automated merging thing and have it on by default"*. Two boxes
+   showing one fact and able to disagree is worse than one box in the wrong
+   place, so whichever is touched, the other follows. */
+function stripSwitch(on){
+  const a=$('restitch_strips'), b=$('restitch_new');
+  if(a) a.checked=on;
+  if(b) b.checked=on;
+  if(typeof saveSettings==='function') saveSettings();
 }
 
 const MEDIUM_HINT={
@@ -584,6 +691,9 @@ function showPicker(on){
     $('pkDirection').value=(dir && dir!=='auto') ? dir : md.direction;
     mediumHint();
   }
+  // The File tab's re-cut switch follows the File tab's format menu, which
+  // has just been filled in.
+  if(on) stripSettings();
 }
 function changeChapter(){showPicker(true);}
 
@@ -689,11 +799,35 @@ async function loadStaged(){
   $('loadBtn').disabled=false;
 }
 
+/* The bar on the File tab. `at` is a fraction, or null for "working on
+   something with no count to give" — the re-cut, which is one long step on the
+   server. lee: *"add a loading bar in the file page when the files are getting
+   processed"*. */
+function pkBar(at, what){
+  const box=$('pkbar'), outer=$('pkBarOuter'), fill=$('pkBarFill');
+  if(!box) return;
+  if(at===false){ box.style.display='none'; return; }
+  box.style.display='block';
+  $('pkBarWhat').textContent=what||'';
+  if(at===null){ outer.classList.add('wait'); fill.style.width=''; return; }
+  outer.classList.remove('wait');
+  fill.style.width=Math.round(Math.max(0,Math.min(1,at))*100)+'%';
+}
+
+/* A bar left running is worse than no bar: it says the chapter is still
+   loading for as long as the tab is open. Whatever happens in there, it goes
+   away on the way out. */
 async function uploadFiles(fileList, append){
+  try{ return await _uploadFiles(fileList, append); }
+  finally{ pkBar(false); }
+}
+
+async function _uploadFiles(fileList, append){
   const files=[...fileList].filter(f=>/\.(png|jpe?g|webp|bmp)$/i.test(f.name))
         .sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
   const say=m=>{ if(append) toast(m); else $('pkmsg').textContent=m; };
   if(!files.length){say('No images in that selection.');return;}
+  pkBar(0, `Reading ${files.length} file${files.length===1?'':'s'}…`);
   if(!append){
     // Starting a chapter clears the last one — that is what starting one
     // means, and there is no separate "Clear this project" button any more.
@@ -714,10 +848,20 @@ async function uploadFiles(fileList, append){
     if(j.indices && j.indices.length && firstNew===null) firstNew=j.indices[0];
     if(j.problems && j.problems.length) failed.push(...j.problems);
     say(`Loading ${done}/${files.length}…`);
+    pkBar(Math.min(i+4,files.length)/files.length,
+          `Loading ${done} of ${files.length} pages…`);
   }
   if(failed.length) toast(`Could not read: ${failed.slice(0,3).join(', ')}`);
   say(`Added ${done} pages.`);
+  // The re-cut runs inside this one call and can take a while on a chapter of
+  // a hundred tiles, with nothing to report until it is finished. The bar
+  // paces rather than inventing a number.
+  pkBar(null, stripMedium('pk') && $('restitch_new')
+        && $('restitch_new').checked
+        ? 'Checking whether this chapter is a strip, and re-cutting it…'
+        : 'Finishing…');
   const fin=await api('/api/upload_done','POST',{})||{};
+  pkBar(false);
   // A webtoon came in as tiles and has just been put back together. Say so:
   // the page count changed underneath the person, and a chapter that silently
   // turns 105 files into 66 looks like something went wrong.
@@ -726,8 +870,9 @@ async function uploadFiles(fileList, append){
     say(`Re-cut ${s.before} strip slices into ${s.after} pages.`);
     toast(`That chapter arrived as ${s.before} slices of one long strip — `
         + `joined back up and cut into ${s.after} pages in the gaps between `
-        + `panels.` + (s.forced ? ` ${s.forced} had no gap to use: `
-        + `${(s.forced_pages||[]).slice(0,3).join(', ')}.` : ''));
+        + `panels.` + (s.over ? ` ${s.over} had to run past the height you `
+        + `asked for to reach a gap rather than cut through the artwork: `
+        + `${(s.over_pages||[]).slice(0,3).join(', ')}.` : ''));
   }
   if(append){
     // Adding to a chapter that is already open. This screen was never up, so

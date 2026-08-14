@@ -258,13 +258,49 @@ const $=id=>document.getElementById(id);
    the modules builds a server URL on its own. */
 const API_BASE='';
 const apiUrl=u=>API_BASE+u;
+/* Which page a URL is about, or null for anything that is not about one. */
+function pageOfUrl(u){
+  const m=/^\/api\/page\/(\d+)(?:[/?#]|$)/.exec(String(u||''));
+  return m ? +m[1] : null;
+}
 const api=async(u,m,b)=>{
+  // Which page this question was asked ABOUT, taken from the URL and not from
+  // `cur`, so the answer is checked against the page it actually describes.
+  const asked=pageOfUrl(u);
   const r=await fetch(apiUrl(u),{method:m||'GET',headers:{'Content-Type':'application/json'},
     body:b?JSON.stringify(b):null});
   const j=await r.json().catch(()=>(
     {error:`The server answered ${r.status} without data — if it was just `+
            `updated, restart it and reload this page.`}));
   if(j.error) toast(j.error);
+  // An answer about a page you have already left is not about what is on
+  // screen, and its boxes are another page's boxes.
+  //
+  // lee, switching pages quickly on a slow one: *"the page lagged and merge 2
+  // section from one page with another when i switch pages too fast"*. Two
+  // dozen places apply `j.regions` the moment it arrives, and each of them is
+  // somewhere the check can be forgotten — one of them already had it and the
+  // rest did not. Worse than a wrong picture: with another page's boxes in
+  // `regions`, the next drag or type posts THAT id to the page you are now on,
+  // so the mix-up gets written to disk.
+  //
+  // So it is refused here, in the one place every one of them passes through,
+  // and by the SAME rule for all of them. What is dropped is only the part
+  // that belongs to a page — an answer also carrying a job id or a setting
+  // keeps it.
+  if(asked!=null && typeof cur!=='undefined' && cur!==asked
+     && j && typeof j==='object' && !Array.isArray(j)){
+    // The BOXES and nothing else. They are what carries ids, and an id is
+    // what turns a wrong picture into a wrong write. Everything else an answer
+    // holds — the page's size, its cache key, which groups it has — is applied
+    // by `showPage` behind its own ticket check and is only ever cosmetic if
+    // it slips; stripping those as well broke a panel that reads them.
+    // A COPY. Deleting from the answer itself edits an object the caller may
+    // still be holding, which is a second way to make one page's data turn up
+    // somewhere it should not be.
+    const {regions, region, ...rest}=j;
+    return Object.assign(rest, {stale:true});
+  }
   return j;
 };
 function toast(m,ms){const t=$('toast');t.textContent=m;t.style.display='block';

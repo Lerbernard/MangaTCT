@@ -155,6 +155,26 @@ function closeModal(){ $('modal').classList.remove('on'); }
    by the time the page comes back, so the choice applies perfectly well at the
    other end — see only_kinds() in project.py. They stay live for every finder.
    All the note does now is say which way round it is working. */
+/* SOUND EFFECTS, on the webtoons: the tick is back, and it works.
+
+   It was greyed out with a "Coming soon" pill for four turns of one argument,
+   and all four came off ONE number: on chapter 1, 82 boxes came back as sound
+   effects and of the 36 checked by hand **eighteen held no writing** — sword
+   blades, a face, two buildings, a gold ornament, a leg, a bed. lee's
+   *"shound affct shoud be sissable for the detector not the user"* followed
+   from that and from nothing else.
+
+   Everything built since — the character census, the art veto, the stray-mark
+   sweep — was aimed at exactly those. Re-measured on all 46 pages of the new
+   chapter, every box cropped and looked at: **49 sound-effect boxes, 47 hold
+   real writing**. Two do not, and they are an architectural ornament and a
+   gold braid: the same class, 2 instead of 18.
+
+   So the row is a plain live tick on every format now, and it starts
+   UNTICKED, exactly as it does on manga. Nothing appears on anybody's pages
+   until they ask for it, and drawing one by hand (press 3) still works and
+   always did. `only_kinds` in project.py is what enforces the tick, and
+   always was. */
 function syncDetectKinds(){
   const det = $('detector') ? $('detector').value : '';
   ['kBubble','kFree','kSfx'].forEach(id=>{
@@ -162,17 +182,67 @@ function syncDetectKinds(){
     cb.disabled = false;
     const lab=cb.closest('label'); if(lab) lab.classList.remove('disabled');
   });
-  // One finder reads the whole page in one go and hands back every block on it
-  // whatever is ticked; the ticks are applied at the other end. (An AI mode used
-  // to be the other such finder. It is gone.)
-  const whole = det === 'comictext';
-  const n=$('ctdNote'); if(n) n.style.display = whole ? '' : 'none';
+  // The three ticks are alike, on every format. Sound effects used to be
+  // forced off and greyed out here on manhwa and manhua; the note above has
+  // the number that said so and the number that replaced it.
+  //
+  // There is no longer a paragraph here explaining that one finder reads the
+  // whole page and the ticks are applied at the other end. It was true and it
+  // was three lines of grey nobody needed before pressing a button.
+  // lee: *"remove the undeserasy tet"*.
+  syncTallWarning();
+}
+
+/* PAGES TOO LONG TO READ PROPERLY.
+
+   lee: *"somthing i notice is that when the pages are smaller teh issies are
+   gone ... if the page exide a cerain lenght can you give a warning"*.
+
+   He is right and the cause is arithmetic. comic-text-detector fits the page
+   into a 1024 square by its LONG side, so a strip is seen at 1024/height and
+   its writing arrives that many times smaller. `TALL_ASPECT` in
+   detect/comictext.py is where the measurement lives; the server sends the
+   number so there is only one of it.
+
+   The warning says what was measured and not more than that. It is NOT that
+   the writing goes missing — padding eleven pages out to eight times their
+   width barely moved recall. It is that the box list and the LABELS go: past
+   six, a page loses about a quarter of its boxes and a third of what survives
+   comes back a different kind. */
+function tallPages(){
+  const lim = (proj && proj.tall_aspect) || 0;
+  if(!lim || !proj || !proj.pages) return [];
+  return proj.pages.filter(p=>p.width && p.height
+    && Math.max(p.width,p.height)/Math.min(p.width,p.height) > lim);
+}
+
+function syncTallWarning(){
+  const el=$('tallNote'); if(!el) return;
+  const tall=tallPages();
+  if(!tall.length){ el.style.display='none'; return; }
+  const lim = Math.round((proj && proj.tall_aspect) || 0);
+  const one = tall.length===1;
+  el.style.display='';
+  // Short, and the page names first-class rather than a trailing aside: this
+  // is the only thing in the sheet that changes what you should DO before
+  // pressing the button. lee: *"ake teh pages that too long more visible"*.
+  el.innerHTML = `<b>${tall.length} page${one?' is':'s are'} very long.</b> `
+    + `<span class="warnpages">${tall.slice(0,6).map(p=>esc(p.name)).join('  ')}`
+    + `${tall.length>6?`  +${tall.length-6} more`:''}</span>`
+    + `<span class="warnwhy">More than ${lim} times taller than wide. Find text `
+    + `reads a whole page at once, so on ${one?'it':'them'} it gets the box `
+    + `types wrong and misses boxes. <b>Cut / join</b>, on the Translation `
+    + `view, splits a strip up.</span>`;
 }
 
 function chosenKinds(){
   const k=[];
   if($('kBubble').checked) k.push('bubble');
   if($('kFree').checked)   k.push('freefloat');
+  // ...and this one is read off the tick and nothing else now. It used to
+  // carry `&& sfxIsDetectable()` because the row was force-unticked on the
+  // webtoons and a box ticked on a manga project before the format changed
+  // would still have been ticked. There is no such force any more.
   if($('kSfx').checked)    k.push('sfx');
   return k;
 }
@@ -381,14 +451,30 @@ function renderSteps(runningLabel){
   if(typeof updateEditLock==='function') updateEditLock();
 }
 
+/* "Stopping…" belongs to ONE action, not to the rest of the line.
+   lee: *"when i clik cancel and it sto the ui show stopping even thiught te
+   next step queue ia happening"*. The button was put back only where the
+   whole queue had drained, so cancelling a Clean with a Translate waiting
+   behind it left it reading "Stopping…" and disabled for the whole of the
+   translation -- and there was no way to stop THAT one either.
+   So the cancel remembers which action it was aimed at, and `poll` puts the
+   button back the moment something else is running. */
 async function cancelJob(){
   const b=$('cancelJob');
   if(b){ b.disabled=true; b.textContent='Stopping…'; }
+  cancelJob._for = (lastJob && ((lastJob.queue && lastJob.queue.running_qid)
+                                || lastJob.label)) || null;
   try{ await api('/api/job/cancel','POST',{}); }catch(e){}
+}
+function _armCancelBtn(){
+  const b=$('cancelJob');
+  if(b){ b.disabled=false; b.textContent='Cancel'; }
+  cancelJob._for = undefined;
 }
 function _resetCancelBtn(){
   const b=$('cancelJob');
-  if(b){ b.style.display='none'; b.disabled=false; b.textContent='Cancel'; }
+  if(b){ b.style.display='none'; }
+  _armCancelBtn();
 }
 
 /* The server builds every page in the background so that moving to one for
@@ -472,6 +558,10 @@ async function poll(){
     ? ((j.queue && j.queue.running_qid) || j.label) : null;
   const changed = poll._at !== undefined && poll._at !== nowRunning;
   poll._at = nowRunning;
+  // The action the Cancel was aimed at has gone, so the button is about
+  // whatever is running now and says so.
+  if(cancelJob._for !== undefined && nowRunning !== cancelJob._for)
+    _armCancelBtn();
   // The count moves WHILE a run spends, not only when it ends.
   if(typeof coinsSpending === 'function' && j.running) coinsSpending(j.spent);
   if(j.running || (j.queue && j.queue.count)){

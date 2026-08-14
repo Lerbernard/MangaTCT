@@ -77,7 +77,17 @@ def _clean():
     shutil.rmtree(ROOT, ignore_errors=True)
 
 
-def test_the_three_steps_are_the_ones_the_pipeline_runs():
+def test_the_steps_are_the_ones_the_pipeline_runs():
+    """Three steps call a model, and each has boxes of its own, because a
+    service you cannot see is a price you cannot check.
+
+    `find` was here for a while, when Find text had an AI option. lee:
+    *"remoeve teh whole ai box deection and just keep what we have now"* — so
+    there is no such pass and there are no boxes for it.
+    `tests/test_the_ai_find_pass_is_gone.py` guards the removal; this list is
+    what the SCREEN and the PRICING are built from, and a step in it with
+    nothing behind it is three settings to get wrong.
+    """
     assert AI_STEPS == ("ocr", "translate", "proofread")
 
 
@@ -104,6 +114,11 @@ def test_the_defaults_are_a_cheap_reader_and_a_good_writer():
     from mangatl import coins
     for step, (back, model) in STEP_DEFAULTS.items():
         assert coins.priced(model, back), step        # never the unknown rate
+        # ...and it is a model the menu for that step really OFFERS. A default
+        # that has fallen off the menu — retired, or displaced at its price by
+        # a newer model, which is how Gemini 3.7 pushed 3.6 out — leaves the
+        # settings screen showing a row nothing else on it agrees with.
+        assert model in coins.offered(back, step), step
     assert coins.rate_for(STEP_DEFAULTS["ocr"][1]).inp < \
         coins.rate_for(STEP_DEFAULTS["proofread"][1]).inp
 
@@ -345,11 +360,30 @@ def test_the_pipeline_asks_for_the_right_step():
 
 
 def test_the_settings_api_masks_the_step_keys():
-    """/api/settings echoes the saved sheet back; it must mask there too."""
-    from pathlib import Path
-    src = (PKG
-           / "editor.py").read_text(encoding="utf8")
-    assert 'safe[f"{k}_key"] = "set" if safe.get(f"{k}_key") else ""' in src
+    """/api/settings echoes the saved sheet back; it must mask there too.
+
+    This used to look for one literal line of source. The line was then
+    refactored to go through `project.MASK` — the same constant the loader
+    checks — and the test carried on passing against a string that no longer
+    existed anywhere near the code it was about. Now it reads the loop, which
+    is the thing that must be true: EVERY ai step, masked with the shared
+    constant, and nothing left saying its own word for it.
+    """
+    import inspect
+    import re
+
+    from mangatl import editor as ed
+    from mangatl import project as project_mod
+
+    src = inspect.getsource(ed.Handler.do_POST)
+    assert "for k in AI_STEPS:" in src, "the steps are not walked as a list"
+    assert re.search(r'safe\[f"\{k\}_key"\] = \(project_mod\.MASK', src)
+    # ...and the api key and the per-service keys, by the same constant.
+    assert 'safe["api_key"] = project_mod.MASK' in src
+    assert 'safe[f"key_{svc}"] = (project_mod.MASK' in src
+    # A literal "set" next to a key would be a second place for the word.
+    assert '_key"] = "set"' not in src
+    assert project_mod.MASK == "set"
 
 
 def test_the_dialog_offers_a_row_for_every_step():
@@ -399,7 +433,7 @@ def test_the_menu_opens_on_something_current():
     wants and the one thing that gets picked by accident."""
     from mangatl import coins
     assert coins.models_for("anthropic")[0] == "claude-fable-5"
-    assert coins.models_for("gemini")[0] == "gemini-3.6-flash"
+    assert coins.models_for("gemini")[0] == "gemini-3.7-flash"
 
 
 def test_a_model_that_is_priced_but_retired_is_not_offered():

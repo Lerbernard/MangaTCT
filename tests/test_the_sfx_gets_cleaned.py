@@ -96,6 +96,23 @@ def _dark_panel():
     return img, tm
 
 
+def _gone(before, after, tm):
+    """How much of the MARK is left, said as the thing that matters: is the
+    shape of it still darker (or lighter) than the artwork around it.
+
+    Not "how many pixels changed", which was the old measure and cannot tell a
+    repair from a residue. These marks sit on hatching, and the redraw step
+    carries the hatch lines back across the patch — putting a pixel back to
+    what the artwork had there is the whole object of that step, and it counts
+    as a pixel that did not change.
+    """
+    ink = tm > 0
+    ring = (cv2.dilate(tm, np.ones((11, 11), np.uint8)) > 0) & ~ink
+    was = abs(float(before[ink].mean()) - float(before[ring].mean()))
+    now = abs(float(after[ink].mean()) - float(after[ring].mean()))
+    return now / max(1e-6, was)
+
+
 def _clean(img, tm, kind):
     x, y, w, h = cv2.boundingRect(tm)
     r = TextRegion(id=1, bbox=(x, y, w, h), kind=kind, text_mask=tm,
@@ -107,6 +124,7 @@ def _clean(img, tm, kind):
     out = I.inpaint_page(page)
     after = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
     moved = cv2.absdiff(after, img) > 8
+    page.mark_left = _gone(img.astype(float), after.astype(float), tm)
     return r, page, float(moved[tm > 0].mean()), moved
 
 
@@ -116,7 +134,7 @@ def test_a_plain_dark_sound_effect_on_dark_art_is_erased():
     """lee's page 12, box 5. Measured before the fix: 7% of the mark gone."""
     img, tm = _sfx_page()
     r, page, erased, _moved = _clean(img, tm, "sfx")
-    assert erased > 0.85, erased
+    assert page.mark_left < 0.15, page.mark_left
     assert page.clean_stats.get("kept", 0) == 0
     assert page.clean_stats.get("skipped", 0) == 0
 
@@ -126,7 +144,7 @@ def test_an_outlined_sound_effect_on_dark_art_is_erased():
     it, which is how most sound effects over artwork are drawn."""
     img, tm = _sfx_page(sw=5, edge=250)
     r, page, erased, _moved = _clean(img, tm, "sfx")
-    assert erased > 0.85, erased
+    assert page.mark_left < 0.15, page.mark_left
 
 
 def test_the_polarity_vote_is_meaningless_for_a_sound_effect():
@@ -162,8 +180,8 @@ def test_the_detectors_mask_is_kept_for_a_sound_effect():
     kept = int((I._letterlike(polar) > 0).sum())
     assert kept < 0.2 * int((tm > 0).sum()), (kept, int((tm > 0).sum()))
     # …and that is exactly what is NOT used.
-    _r, _page, erased, _moved = _clean(img, tm, "sfx")
-    assert erased > 0.85, erased
+    _r, page, erased, _moved = _clean(img, tm, "sfx")
+    assert page.mark_left < 0.15, page.mark_left
 
 
 # ------------------------------------------------------- and what must not change
@@ -225,8 +243,9 @@ def test_an_emptied_mask_falls_back_to_what_the_detector_found():
         out = I.inpaint_page(page)
     finally:
         I.glyphs_only = was
-    moved = cv2.absdiff(cv2.cvtColor(out, cv2.COLOR_BGR2GRAY), img) > 8
-    assert float(moved[tm > 0].mean()) > 0.85, float(moved[tm > 0].mean())
+    left = _gone(img.astype(float),
+                 cv2.cvtColor(out, cv2.COLOR_BGR2GRAY).astype(float), tm)
+    assert left < 0.15, left
     assert "fell back to the detector" in (r.flagged or ""), r.flagged
 
 

@@ -7,6 +7,7 @@ being edited or exported.
 """
 from __future__ import annotations
 
+import dataclasses
 import glob
 import json
 import os
@@ -14,6 +15,7 @@ import re
 import shutil
 import threading
 import time
+import traceback
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
@@ -27,11 +29,17 @@ SAVE_DELAY = 0.4
 
 from . import kinds as _kinds
 from .detect import classical
+# Imported up here rather than lazily like the detector itself, because
+# `summary()` needs one number off it on every project read and a fallback copy
+# of that number would be a second place for it to live. It costs the same
+# imports `classical` above already made.
+from .detect import comictext as _ctd
 from .order import assign_order
 from .pipeline import load_page
+from . import imgio
 from .score import score_regions
 from .translate import SeriesContext
-from .models import Page, TextRegion
+from .models import Page, TextRegion, turned_box
 
 # Media the app used to offer, and what each one stood for. Kept only so that a
 # project.json written back then still opens as the chapter it was, instead of
@@ -72,9 +80,18 @@ def list_images(folder: str) -> list[str]:
     return sorted(set(out), key=natural_key)
 
 
-# The three steps that call a model. Named here as well as in `editor` because
-# this is where their settings live; `editor.AI_STEPS` is the same three and a
-# test says so.
+# The steps that call a model. Named here as well as in `editor` because this
+# is where their settings live; `editor.AI_STEPS` is the same list and a test
+# says so.
+#
+# `find` is Find text's AI option and it joined the other three rather than
+# borrowing the reader's service. It was wired to borrow at first, on the
+# reasoning that the reader is already a vision step on a vision-capable model
+# and a fourth menu is a fourth thing to leave set wrong. lee, looking at the
+# new menu: *"what ai is it asking ? add on option to ai"* -- which is the
+# answer to that reasoning. A step whose service you cannot see is a step you
+# cannot trust the price of, and "it uses whatever Read text uses" is a fact
+# you have to be told rather than one you can look at.
 AI_STEPS = ("ocr", "translate", "proofread")
 
 
@@ -117,6 +134,55 @@ def migrate_engine(settings: dict, saved: dict) -> bool:
 # know is a step nobody can run, and it fails at the provider rather than at
 # the menu, halfway through a chapter.
 SERVICES = ("anthropic", "gemini", "openrouter")
+
+
+# What the browser is told instead of a secret. Everything that holds a key or
+# a token reports itself as this, or as "" when there is nothing saved.
+MASK = "set"
+
+
+def secret_keys(settings: dict | None = None) -> list[str]:
+    """Every settings key that holds a secret.
+
+    Built from `AI_STEPS` and `SERVICES` rather than written out, because the
+    written-out version has now been wrong twice: once when a fourth AI step
+    sent its key to the browser in the clear, and once when the same step's key
+    was left out of the strip-the-whitespace list on save.
+    """
+    out = ["api_key", "clean_token"]
+    out += [f"{k}_key" for k in AI_STEPS]
+    out += [f"key_{s}" for s in SERVICES]
+    return [k for k in out if settings is None or k in settings]
+
+
+def drop_masked_secrets(incoming: dict) -> list[str]:
+    """Refuse to store the mask as if it were the secret it stands for.
+
+    `MASK` is a REPORT that a key exists. It is never a key. But it goes out to
+    the browser in the same field the key would live in, and anything that
+    sends a whole settings object back -- a `.tct` import, a restored snapshot,
+    a script -- hands it straight back, and then the field that said "(saved)"
+    is saved: three characters long, and refused by every provider.
+
+    lee, with Find text on AI::
+
+        RuntimeError: the OCR step's key was refused by the provider
+        (HTTP 400) - the key it has ends set.
+
+    Ends `set` because it WAS `set`. The message was right and read like a
+    wrong key rather than like no key at all.
+
+    Edits `incoming` and returns the names it dropped, so a caller can say so.
+    """
+    dropped = []
+    for k in secret_keys():
+        v = incoming.get(k)
+        if isinstance(v, str) and v.strip() == MASK:
+            incoming.pop(k, None)
+            dropped.append(k)
+    return dropped
+
+
 
 
 def migrate_keys(settings: dict, saved: dict) -> bool:
@@ -162,12 +228,15 @@ def region_record(r: TextRegion) -> dict:
         "polygon": [[int(a), int(b)] for a, b in (r.polygon or [])],
         "kind": str(r.kind), "order": int(r.order),
         "link": int(getattr(r, "link", 0) or 0),
+        "link_kind": str(getattr(r, "link_kind", "") or ""),
         "box_group": int(getattr(r, "box_group", 0) or 0),
         "src_text": r.src_text, "src_vertical": bool(r.src_vertical),
         "angle": round(float(getattr(r, "angle", 0.0) or 0.0), 2),
         "sfx_vertical": bool(getattr(r, "sfx_vertical", False)),
         "sfx_len": round(float(getattr(r, "sfx_len", 0.0) or 0.0), 4),
         "sfx_wid": round(float(getattr(r, "sfx_wid", 0.0) or 0.0), 4),
+        "turn": round(float(getattr(r, "turn", 0.0) or 0.0), 2),
+        "focus": bool(getattr(r, "focus", False)),
         "dst_text": r.dst_text, "dst_compact": r.dst_compact,
         "speaker": r.speaker, "confidence": float(r.confidence),
         "flagged": r.flagged, "manual": bool(getattr(r, "manual", False)),
@@ -268,6 +337,20 @@ def _no_balloon(kind: str) -> bool:
     return _kinds.family_of(kind or "") in NO_BALLOON_KINDS
 
 
+def is_turned(rec: dict) -> bool:
+    """Is this a box somebody turned? Only those may be, and only they follow.
+
+    lee: *"only teh ser shoud be able to rotate them the detector boxes shoud
+    be normal"*. A detected box's outline came off the artwork, and turning it
+    would be turning the drawing.
+
+    Off `turn` and not `angle`: a sound effect drawn by hand is given an angle
+    the moment it is drawn — the axis its artwork runs along — and reading that
+    as a turn would have leant every one of them.
+    """
+    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01
+
+
 def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
     """Rebuild masks from the stored polygon."""
     H, W = img.shape[:2]
@@ -283,6 +366,20 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
     bubble = np.zeros((H, W), np.uint8)
     if not boxy:
         cv2.drawContours(bubble, [poly.reshape(-1, 1, 2)], -1, 255, cv2.FILLED)
+        # ...and fill the bays out of the writing, the same way the finder does
+        # now — see `detect.balloon._no_bays_in_the_writing`. Here as well as
+        # there because a project saved before that existed has the snaked
+        # outline on disk, and nothing rewrites a polygon except a fresh detect.
+        # lee's chapter 1 is one of those: page 067 came back with two words
+        # standing in the bays.
+        from .detect.balloon import _no_bays_in_the_writing
+        cnts, _ = cv2.findContours(bubble, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+        if cnts:
+            class _Box:
+                bbox = tuple(rec.get("bbox") or ())
+            bubble = _no_bays_in_the_writing(
+                _Box(), bubble, max(cnts, key=cv2.contourArea))
     else:
         # This rectangle is also where the WRITING is read from, two lines
         # down. A region relabelled outside text still carries the old
@@ -294,8 +391,50 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
                       else (rec["bubble_bbox"] or rec["bbox"]))
         bubble[y:y + h, x:x + w] = 255
 
+    # A placement area with nothing in it is not a placement area.
+    #
+    # Every rectangle above is trusted to be on the page, and one of them was
+    # not: a `bubble_bbox` left in the coordinates of a page that has since
+    # been cut in half indexes off the bottom, numpy hands back an empty slice
+    # without complaint, and the region ends up with an empty mask and an empty
+    # `text_mask`. Nothing downstream reads that as an error — there is simply
+    # nothing to erase — so the box goes uncleaned and unreported.
+    #
+    # `_region_moved` moves the balloon's box now, so this cannot be made
+    # fresh. It can still be READ: nothing rewrites a saved record, and lee's
+    # chapter has a plate in it that was cut in half before the fix existed.
+    # The box round the writing is always on the page, and it is the right
+    # answer here — a balloon nobody can find is a region with no balloon.
+    if not bubble.any():
+        x, y, w, h = (int(v) for v in rec["bbox"])
+        bubble[max(0, y):y + h, max(0, x):x + w] = 255
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     glyph = ((gray <= INK) & (bubble > 0)).astype(np.uint8) * 255
+
+    # ...unless this box is set to FOCUS, in which case its writing is read
+    # against its own local background instead of against a fixed level. One
+    # box at a time, by hand, and nothing else on the page changes — which is
+    # the whole reason it is a switch and not a better threshold. See
+    # `inpaint.focus_mask` for what it is and why the fixed levels cannot do it.
+    # The writing is read as DARK ink, and that is all. A tone split was tried
+    # here — the same `ink_and_background` the cleaner uses — because it is what
+    # takes gold-on-cream off, and it worked: lee's two caption plates went from
+    # 85% and 41% of their writing left to 7% and 11%.
+    #
+    # It is gone, at lee's word: *"right now hwe teh gold text is clenned the
+    # thither stuff gets broken and teh clenning gets sigmifivanly worst"*, and
+    # *"go back to right before this with teh cleanning ... that is a safe
+    # oint"*. Every version of it moved something else: excluding sound effects
+    # left the hand-drawn ones with empty masks and two of them uncleaned;
+    # including them changed what a box full of artwork gets erased. Two plates
+    # are worth less than a chapter that behaves, and painting one out by hand
+    # is a single gesture.
+    #
+    # If it is picked up again, the failure is not the split. It is that this
+    # function cannot tell WHAT it is reading a mask for: the detector's own
+    # segmentation is not on disk, so a bubble, a caption plate and a brush
+    # stroke over a drawing all arrive here as a rectangle and a guess.
 
     r = TextRegion(
         id=rec["id"], bbox=tuple(rec["bbox"]),
@@ -309,6 +448,7 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
         polygon=rec.get("polygon"), kind=rec.get("kind", "bubble"),
         skip_clean=bool(rec.get("skip_clean", False)),
         link=int(rec.get("link", 0) or 0),
+        link_kind=str(rec.get("link_kind", "") or ""),
         box_group=int(rec.get("box_group", 0) or 0),
         order=rec.get("order", -1), src_text=rec.get("src_text", ""),
         src_vertical=rec.get("src_vertical", True),
@@ -322,7 +462,14 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
         sfx_vertical=bool(rec.get("sfx_vertical", False)),
         sfx_len=float(rec.get("sfx_len") or 0.0),
         sfx_wid=float(rec.get("sfx_wid") or 0.0),
+        turn=float(rec.get("turn") or 0.0),
+        focus=bool(rec.get("focus", False)),
     )
+    # Whether the page throws the focus switch ITSELF is decided in the
+    # cleaner and not here — see `inpaint.focus_is_needed`. It has to be asked
+    # after the light-on-dark rescue has had its go, or it fires on white text
+    # on a black panel, which that rescue already reads correctly.
+    r.focus_auto = False                     # type: ignore[attr-defined]
     r.manual = rec.get("manual", False)      # type: ignore[attr-defined]
     r.locked = rec.get("locked", False)      # type: ignore[attr-defined]
     # A text box somebody put on the page themselves. It stands for no writing
@@ -579,6 +726,36 @@ def group_of(kind: str) -> str:
     return _kinds.family_of(kind or "")
 
 
+#: `NO_SFX_MEDIA` and `detectable_kinds` used to live here: sound effects were
+#: dropped from Find text on manhwa and manhua whatever the dialog said, so
+#: that only a box a PERSON drew could be one.
+#:
+#: They are gone because the measurement under them is gone. The rule was
+#: written on chapter 1: 82 sfx boxes, and of the 36 checked one at a time
+#: **eighteen held no writing** -- sword blades, a face, two buildings,
+#: clothing, a gold ornament, a leg, a bed, five thought-balloon tails. lee's
+#: instruction followed from that number, and only from it:
+#:
+#:     *"shound affct shoud be sissable for the detector not the user
+#:     only uswrs shoud be able to make sfx boxes for manhwa and manhua"*
+#:
+#: Everything built since was aimed at exactly those false positives -- the
+#: character census (`_characters_in`: a box CRAFT reads no characters in is
+#: art), the art veto, the stray-mark sweep. Re-measured on all 46 pages of
+#: the chapter after them, every box cropped and looked at: **49 sound-effect
+#: boxes, 47 hold real writing.** The two that do not are an architectural
+#: ornament on page 22 and a gold braid on page 32 -- the same class as
+#: before, 2 instead of 18. Four per cent, against the fifty the rule was
+#: written for.
+#:
+#: Put to lee with that number, and he asked for the tick back. So this is
+#: not a fourth answer to the old question, it is the same answer to a
+#: different one: what was measured as unreliable has been measured again.
+#: The Find text dialog's own tick decides, on every format, and it starts
+#: UNTICKED -- so nothing appears on anybody's pages until they ask for it.
+#: `only_kinds` is what enforces that tick, and always was.
+
+
 def only_kinds(found, kinds):
     """The regions whose FAMILY the person actually ticked.
 
@@ -612,7 +789,20 @@ def token_state(tok: str | None) -> str:
     t = (tok or "").strip()
     if not t:
         return ""
-    return "placeholder" if t.upper().startswith("CHANGE-ME") else "set"
+    return "placeholder" if t.upper().startswith("CHANGE-ME") else MASK
+
+
+# The formats that are DELIVERED as one long strip and have to be cut into
+# pages before anything else can run. Manga is not one of them: a manga chapter
+# arrives as pages, and lee's arrive as a handful of tall composite pages that
+# passed every one of `strip.looks_sliced`'s four tests by coincidence - same
+# scanner, same settings, so same width and same height to the pixel.
+#
+# lee: *"the page fixing shoud only be allied if manhwa is selected"*, and then
+# *"do it foe manhua too"*. Both are webtoon formats and both are delivered as
+# a strip; manga is the one that is not, and manga is the one that was being
+# re-cut behind his back.
+STRIP_MEDIA = {"manhwa", "manhua"}
 
 
 class Project:
@@ -661,11 +851,36 @@ class Project:
             # are full of it, and it still means exactly this.
             "source": "ja",
             # How finely a page is cut up before it goes to the AI reader:
-            # page (one image, fastest) | auto (up to 4 pieces) | high (up to 9)
-            "ocr_detail": "auto",
+            # page (one image) | auto (up to 4 pieces) | high (up to 9) |
+            # boxes (a zoomed close-up of each box).
+            #
+            # EMPTY means "whatever this format wants" — a crop per box on the
+            # webtoons, the page cut up on manga. Empty rather than a word,
+            # because a word here would be a second place the answer lives and
+            # it would go stale the day the measurement moves. The answer is
+            # `ocr.detail_for`, which says why the two formats differ.
+            #
+            # (There was an `ocr_fill` beside this, for sending each piece at
+            #  the biggest size the API takes. Gone: read the chapter four ways
+            #  and it never won — nothing at all under a crop per box, and on
+            #  tiles it cost +50% and made the worst run of the four.)
+            "ocr_detail": "",
             "direction": "rtl",    # rtl | ltr ("auto" still read, see above)
             "detector": "comictext", "weights": "", "text_weights": "",
             "auto_kind": True,     # comic-text-detector: label each box bubble/outside/narration
+            # Half of what came back as a sound effect on lee's chapter 1 had
+            # no writing in it: 18 of 36 were boxes on sword blades, faces,
+            # buildings, clothing and thought-balloon tails. Asking the second
+            # detector before keeping one removes 16 of those 18 and costs one
+            # real hand-drawn effect. See `comictext._seen_by`.
+            #
+            # It HAD a switch on the Settings page. lee: *"remove this"* — and
+            # he is right, because sound effects are not offered at all on the
+            # webtoons now, so on the format the veto was measured for the
+            # switch controls something that is filtered out either way. The
+            # setting is still read, so a project.json that turned it off is
+            # still obeyed and turning it back into a tick is one line of HTML.
+            "sfx_second_opinion": True,
             # There was an "ai_boxes" setting here — a pass that showed the
             # numbered page to the AI at Find text and let it judge the boxes.
             # It is gone; lee: "nvm remove it its pretty bad remove the ai".
@@ -681,8 +896,21 @@ class Project:
             # and cut again at the gutters, on upload, without being asked.
             # See `restitch_if_sliced` and `strip.py`.
             "restitch_strips": True,
-            "strip_target": 2400,   # what a page should come out at
-            "strip_max": 6000,      # past this a page is too tall to read from
+            # How tall a page should be, as a MULTIPLE OF ITS WIDTH.
+            #
+            # These were 2400 and 6000 raw pixels, which meant nothing to
+            # anybody looking at the box — lee: *"change teh value to be a more
+            # understandable metrics"*. A multiple is the honest unit for both
+            # of them. It reads as a shape rather than a measurement, it means
+            # the same thing on a 690px strip and a 1600px one, and the ceiling
+            # is genuinely about shape: the detector letterboxes a whole page
+            # into 1024px, so what costs you text is how many times taller than
+            # wide the page is, not how many pixels it has.
+            #
+            # 3.5 and 8.5 are 2400 and 6000 on lee's 690px-wide chapter, which
+            # is where those two numbers came from in the first place.
+            "strip_tall": 3.5,
+            "strip_tall_max": 8.5,
             "export_dir": "", "export_name": "pages",
             "backend": "anthropic", "base_url": "",
             "model": "claude-sonnet-5", "api_key": "",
@@ -710,12 +938,20 @@ class Project:
             # engine", and blank is no longer a thing that can mean anything —
             # a step with no model would be a step the price screen could not
             # name. See `editor.STEP_DEFAULTS`, which these have to agree with.
+            # Find text's AI option. Same cheap vision model as the reader:
+            # one call per page, and the rectangle it returns is measured
+            # again against the ink either way.
             "ocr_model": "gemini-3.5-flash-lite", "ocr_backend": "gemini",
             "ocr_base_url": "", "ocr_key": "",
-            "translate_model": "gemini-3.6-flash", "translate_backend": "gemini",
+            "translate_model": "gemini-3.7-flash", "translate_backend": "gemini",
             "translate_base_url": "", "translate_key": "",
             "proofread_model": "claude-sonnet-5", "proofread_backend": "anthropic",
             "proofread_base_url": "", "proofread_key": "",
+            # A box the reader found nothing in but marks — `!`, `……`, `?!`,
+            # `♡` — is deleted when Read text finishes. lee: *"make it on by
+            # defaut"*. See `editor.symbol_only_boxes` for the three kinds of
+            # box this never touches whatever they read.
+            "drop_symbol_only": True,
             # THE STORY SWITCHES. lee: *"add a story setting that allow the
             # user ti turn the story thing off, and to tun what the ai detects
             # with check boxes"*.
@@ -795,7 +1031,17 @@ class Project:
                 if self.pages:
                     return
             except Exception:
-                pass
+                # A state file that cannot be read is a state file that must
+                # not be REPLACED. `rescan` on an empty input folder saves an
+                # empty project, and that is how one unreadable key turns into
+                # a lost chapter — which is exactly what happened when a
+                # transient attribute was set on the series context and
+                # written into the file. Say so, and leave the file alone.
+                traceback.print_exc()
+                print("project.json could not be read (%s). Leaving it where "
+                      "it is rather than saving over it." % self.state_path)
+                self.pages = []
+                return
         self.rescan()
 
     def rescan(self) -> None:
@@ -810,7 +1056,7 @@ class Project:
             if p in known:
                 self.pages.append(known[p])
                 continue
-            img = cv2.imread(p)
+            img = imgio.imread(p)
             h, w = (img.shape[:2] if img is not None else (0, 0))
             self.pages.append(PageState(path=p, name=os.path.basename(p),
                                         width=w, height=h))
@@ -833,7 +1079,69 @@ class Project:
         os.makedirs(d, exist_ok=True)
         return d
 
+    def put_the_last_chapter_away(self) -> int:
+        """Empty the upload folder before a new chapter is loaded into it.
+
+        lee, having loaded a folder of manga: *"soem pages that wrere not i the
+        folder are showing uo when i upload teh foler"* — his list held his
+        `024.jpg … 039.jpg` AND a run of `page0xx` files, which are what the
+        webtoon re-cut wrote there for the chapter before.
+
+        Every chapter uploads into the same `input/` folder and nothing ever
+        emptied it. `clear()` forgets the PAGES, which is a different thing
+        from the FILES: anything that lists the folder afterwards — reopening
+        the project, a re-cut, a rescan — finds every file every chapter ever
+        put there and calls them all pages.
+
+        So the folder is emptied when a chapter is put down, and emptied by
+        MOVING: into `input-previous`, one generation, replacing the one before
+        it. Deleting would be the tidy answer and the wrong one — the re-cut
+        pages and the halves of anything you split exist nowhere else. Keeping
+        every generation would be the safe answer and also the wrong one, on a
+        chapter that is a third of a gigabyte.
+
+        Returns how many files were moved.
+        """
+        d = os.path.join(self.output_dir, "input")
+        if not os.path.isdir(d) or not os.listdir(d):
+            return 0
+        prev = os.path.join(self.output_dir, "input-previous")
+        shutil.rmtree(prev, ignore_errors=True)
+        try:
+            shutil.move(d, prev)
+        except OSError:
+            return 0
+        os.makedirs(d, exist_ok=True)
+        return sum(len(f) for _r, _dirs, f in os.walk(prev))
+
     # --------------------------------------------------------- webtoon strips
+    def strip_width(self) -> int:
+        """How wide this chapter's pages are.
+
+        Every tile of a sliced strip is the same width — `looks_sliced` will
+        not say yes otherwise — so the first one that has a width is the
+        chapter's width. Falls back to the width the two defaults were measured
+        on, so a project with no pages still gets the numbers it expects.
+        """
+        for pg in self.pages:
+            if pg.width:
+                return int(pg.width)
+        return 690
+
+    def strip_heights(self) -> tuple[int, int]:
+        """The target and the ceiling, in pixels, for THIS chapter.
+
+        Stored as multiples of the page width and turned into pixels here,
+        which is the only place that knows how wide the pages are.
+        """
+        w = self.strip_width()
+        tall = float(self.settings.get("strip_tall") or 0) or 3.5
+        top = float(self.settings.get("strip_tall_max") or 0) or 8.5
+        # A ceiling under the target is somebody's typo, and taken literally it
+        # marks every page as having run over. The target wins.
+        top = max(top, tall)
+        return max(600, int(round(w * tall))), max(1000, int(round(w * top)))
+
     def restitch_if_sliced(self, force: bool = False) -> dict:
         """Put a sliced webtoon back together and cut it at the gutters.
 
@@ -858,6 +1166,19 @@ class Project:
 
         if not force and not self.settings.get("restitch_strips", True):
             return {}
+        # ...and not unless the chapter IS a webtoon.
+        #
+        # `looks_sliced` is narrow, and it was still not narrow enough: lee's
+        # manga chapter arrives as a handful of tall composite pages, uniform
+        # in size because they came out of the same scanner at the same
+        # settings, and that is four of the four tests. A chapter re-cut into
+        # forty pages is not a small surprise.
+        #
+        # The format is the one fact that settles it, and the person has
+        # already told us: lee, on the strip fixer, *"shoud only be applied if
+        # manhwa is selected"*. A page format is not a strip and never was.
+        if not force and not STRIP_MEDIA.intersection({self.medium}):
+            return {}
         if any(pg.detected or pg.regions or pg.typeset or pg.cleaned
                for pg in self.pages):
             return {}
@@ -865,8 +1186,7 @@ class Project:
         if not _strip.looks_sliced([(pg.height, pg.width) for pg in self.pages]):
             return {}
 
-        target = int(self.settings.get("strip_target") or _strip.TARGET_H)
-        ceiling = int(self.settings.get("strip_max") or _strip.MAX_H)
+        target, ceiling = self.strip_heights()
         own = os.path.abspath(self.input_dir or "") == os.path.abspath(
             os.path.join(self.output_dir, "input"))
         if own:
@@ -939,7 +1259,7 @@ class Project:
             dest = os.path.join(d, name)
         with open(dest, "wb") as fh:
             fh.write(data)
-        img = cv2.imread(dest)
+        img = imgio.imread(dest)
         if img is None:
             os.remove(dest)
             return -1
@@ -1006,6 +1326,359 @@ class Project:
         self._img_cache.clear()
         self.save()
         return ""
+
+    # ------------------------------------------------------ cutting by hand
+    def gaps_in(self, i: int) -> list[int]:
+        """The rows on one page where the artist drew nothing.
+
+        The same measurement the automatic re-cut is made of, offered to a
+        person cutting a page by hand so the line can snap to a real gutter
+        instead of being eyeballed at a tenth of scale.
+        """
+        from . import strip as _strip
+
+        if not (0 <= i < len(self.pages)):
+            return []
+        g = imgio.imread(self.pages[i].path, cv2.IMREAD_GRAYSCALE)
+        if g is None:
+            return []
+        r = np.stack([g.min(1), g.max(1), g.std(1)], 1).astype(np.float32)
+        flat = (r[:, 2] < _strip.FLAT_STD) \
+            & ((r[:, 1] - r[:, 0]) < _strip.FLAT_RANGE)
+        return _strip.gutters(flat)
+
+    @staticmethod
+    def _painted(pg) -> bool:
+        """Strokes, or a plate the person supplied by hand.
+
+        These are the two things on a page that are PICTURES the size of the
+        page, made outside the editor's own geometry, and re-cutting them is a
+        different job from re-cutting a list of rectangles. Everything else —
+        boxes, the reading, the translation, the layout — is geometry, and
+        geometry moves.
+        """
+        return bool(pg.paint_overlay or pg.paint_over or pg.paint_layers
+                    or pg.custom_clean)
+
+    @staticmethod
+    def _region_moved(r: dict, dy: int, height: int):
+        """One box, moved up by `dy` and kept inside a page `height` tall.
+
+        Returns None when it belongs on the other half. Which half a box
+        belongs to is decided by its CENTRE: a box straddling the cut has to go
+        somewhere whole, and the half holding most of it is the half holding
+        most of its writing. It is then clamped to that half rather than left
+        hanging off the bottom, and the caller says how many that happened to.
+        """
+        x, y, w, h = [int(v) for v in (r.get("bbox") or (0, 0, 0, 0))]
+        mid = y + h / 2 - dy
+        if not (0 <= mid < height):
+            return None
+        out = dict(r)
+        top = max(0, y - dy)
+        bot = min(height, y - dy + h)
+        if bot - top < 2:
+            return None
+        clipped = (y - dy < 0) or (y - dy + h > height)
+        out["bbox"] = [x, top, w, bot - top]
+        # ...and the BALLOON's box, which used to be left behind in the old
+        # page's coordinates. On a region with no polygon that box IS the
+        # placement area (`region_from_record`), so a caption plate 4056px down
+        # a 4417px page went on saying 4056 after the page was cut in half —
+        # 1848px off the bottom of a page 2208 tall. The mask came out empty,
+        # there was nothing to erase, and the box was silently never cleaned.
+        # lee, with a screenshot of an untouched gold plate: *"at no point shoud
+        # a bubble not be cleneed"*.
+        #
+        # A balloon whose box lands wholly off this half is no longer this
+        # region's balloon. Dropped rather than clamped to a sliver, so the
+        # reader falls back to the box round the writing.
+        bb = r.get("bubble_bbox")
+        if bb:
+            bx, by, bw, bh = [int(v) for v in bb]
+            btop, bbot = max(0, by - dy), min(height, by - dy + bh)
+            out["bubble_bbox"] = ([bx, btop, bw, bbot - btop]
+                                  if bbot - btop >= 2 else None)
+        poly = r.get("polygon") or []
+        if poly:
+            out["polygon"] = [[int(px), max(top, min(bot, int(py) - dy))]
+                              for px, py in poly]
+        for key in ("layout", "layout_override"):
+            lay = r.get(key)
+            if isinstance(lay, dict) and lay.get("frame"):
+                fx, fy, fw, fh = [int(v) for v in lay["frame"]]
+                lay = dict(lay)
+                lay["frame"] = [fx, fy - dy, fw, fh]
+                out[key] = lay
+        return out, clipped
+
+    def _carry_regions(self, src, dst, dy: int, height: int) -> int:
+        """Move whichever of `src`'s boxes belong on `dst`, and say how many
+        had to be clipped to fit."""
+        clipped = 0
+        for r in src.regions:
+            got = self._region_moved(r, dy, height)
+            if got is None:
+                continue
+            moved, cut = got
+            clipped += 1 if cut else 0
+            dst.regions.append(moved)
+            if r.get("id") in (src.hidden_ids or []):
+                dst.hidden_ids.append(r["id"])
+        dst.hidden_kinds = list(src.hidden_kinds or [])
+        dst.next_id = max(int(getattr(src, "next_id", 0) or 0),
+                          max([int(r.get("id") or 0)
+                               for r in dst.regions] or [0]) + 1)
+        return clipped
+
+    def renumber_pages(self) -> int:
+        """Rename every page on disk `001`, `002`, ... in the order they are in.
+
+        lee, on the splitter: *"wheni clcik splite it shoud rename every file
+        from 1 - whatever so teh pages are properly numbered, only if teh tool
+        is used"*.
+
+        Cutting a page turns `012.jpg` into `012a.jpg` and `012b.jpg`, and
+        joining two turns them into `012+.jpg`. Both are correct — they sort
+        where the page they came from sorted — and after a few of them the
+        chapter is `011.jpg, 012a.jpg, 012b+.jpg, 013.jpg`, which is a list
+        nobody wants to read or export.
+
+        **Only from the knife.** Nothing else in the app renames a person's
+        files, and an editor that quietly renumbers a folder every time you
+        open it is an editor you cannot trust with a folder.
+
+        Two passes, through temporary names: `002.jpg` becoming `001.jpg` while
+        another `001.jpg` is still there loses a page, and one chapter in ten
+        is already numbered from 1.
+
+        Returns how many were renamed.
+        """
+        moves = []
+        for n, pg in enumerate(self.pages, 1):
+            ext = os.path.splitext(pg.path)[1] or ".png"
+            want = os.path.join(os.path.dirname(pg.path), f"{n:03d}{ext}")
+            if os.path.abspath(want) != os.path.abspath(pg.path):
+                moves.append((pg, want))
+        if not moves:
+            return 0
+        held = []
+        for k, (pg, want) in enumerate(moves):
+            tmp = os.path.join(os.path.dirname(pg.path), f".renum{k}.tmp")
+            try:
+                shutil.move(pg.path, tmp)
+            except OSError:
+                # Put back what has already moved rather than leave the chapter
+                # half renamed.
+                for old, at in held:
+                    shutil.move(at, old.path)
+                return 0
+            held.append((pg, tmp))
+        for (pg, tmp), (_pg, want) in zip(held, moves):
+            shutil.move(tmp, want)
+            pg.path = want
+            pg.name = os.path.basename(want)
+        self._img_cache.clear()
+        self.save()
+        return len(moves)
+
+    def split_page(self, i: int, at: int) -> tuple[bool, str]:
+        """Cut one page in two, at a row the person chose.
+
+        lee: *"add page splitter that allow the user to splite the pages
+        manualy"*. The automatic re-cut only runs on a chapter that arrived as
+        a sliced strip, only before any work is done, and only when it is sure
+        — three good rules that between them leave every other long page
+        untouched. A page you can see is too long is not an argument to loosen
+        any of them; it is an argument for a knife.
+
+        The original is KEPT, in `split/` beside the chapter, exactly as the
+        tiles are. Nothing a person handed the editor is deleted behind them.
+
+        **The work on the page comes with it.** lee: *"also alow me to cut teh
+        page after ive done so steps it"*. It used to refuse outright the
+        moment there were boxes, which meant noticing a page was wrong after
+        reading it cost you the reading. Boxes are geometry, and geometry
+        moves: each one goes to the half its CENTRE is in, with everything
+        measured from that half's top edge instead — the box, its outline, and
+        the typesetting frame if it has one. The reading, the translation, the
+        speaker, the type: all carried, none touched.
+
+        What does NOT come with it is anything that is a PICTURE the size of
+        the page — touch-up strokes and a hand-supplied clean plate. Re-cutting
+        those is a different job, so a page carrying them is refused and says
+        so. And the CLEANED and TYPESET flags come off both halves: the plate
+        and the laid-out text are page-sized too, and they are the two things
+        the app can simply make again.
+
+        Returns (ok, why). `why` is empty when it worked.
+        """
+        if not (0 <= i < len(self.pages)):
+            return False, "there is no such page"
+        pg = self.pages[i]
+        if self._painted(pg):
+            return False, ("there are touch-up strokes or a clean plate of "
+                           "your own on this page — those are pictures the "
+                           "size of the page and cutting them is a different "
+                           "job. Undo the painting, or cut before you paint")
+        img = imgio.imread(pg.path)
+        if img is None:
+            return False, "that page cannot be read"
+        h = img.shape[0]
+        at = int(at)
+        # A sliver is not a page, and a cut at the very edge is a mis-click
+        # rather than a decision.
+        if not (16 <= at <= h - 16):
+            return False, f"the cut has to be inside the page (1 to {h - 1})"
+
+        stem, ext = os.path.splitext(os.path.basename(pg.path))
+        if ext.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".bmp"):
+            ext = ".png"
+        folder = os.path.dirname(pg.path)
+        made = []
+        for k, part in enumerate((img[:at], img[at:])):
+            name = f"{stem}{'ab'[k]}{ext}"
+            n = 2
+            while os.path.exists(os.path.join(folder, name)):
+                name = f"{stem}{'ab'[k]}{n}{ext}"
+                n += 1
+            if not imgio.imwrite(os.path.join(folder, name), part):
+                for done in made:
+                    try:
+                        os.remove(os.path.join(folder, done[0]))
+                    except OSError:
+                        pass
+                return False, "the halves could not be written"
+            made.append((name, part.shape[1], part.shape[0]))
+
+        keep = os.path.join(folder, "split")
+        os.makedirs(keep, exist_ok=True)
+        try:
+            shutil.move(pg.path, os.path.join(keep, os.path.basename(pg.path)))
+        except OSError:
+            # Kept is better than tidy: if it will not move, leave it where it
+            # is rather than lose it. It stops being a page either way.
+            pass
+
+        halves = [PageState(path=os.path.join(folder, name), name=name,
+                            width=w, height=ph)
+                  for name, w, ph in made]
+        clipped = 0
+        for k, half in enumerate(halves):
+            half.detected = pg.detected
+            clipped += self._carry_regions(pg, half, at if k else 0,
+                                           half.height)
+        # The plate and the laid-out text are page-sized pictures of a page
+        # that no longer exists. Both are rebuilt from the boxes that just
+        # moved, so they are dropped rather than carried wrong.
+        for half in halves:
+            half.cleaned = half.typeset = half.exported = False
+        if pg.note:
+            halves[0].note = pg.note
+            for half in halves:
+                half.note_ids = [r["id"] for r in half.regions
+                                 if r.get("id") in (pg.note_ids or [])]
+        self._last_split_clipped = clipped
+        self.pages[i:i + 1] = halves
+        self._img_cache.clear()
+        self.save()
+        # `012a` and `012b` sort where `012` sorted, which is right and is also
+        # how a chapter ends up called 011, 012a, 012b, 013. lee asked for the
+        # numbering to be put straight, and only ever from here.
+        self.renumber_pages()
+        return True, ""
+
+    def merge_pages(self, i: int, count: int = 2) -> tuple[bool, str]:
+        """Join a run of pages back into one, top to bottom.
+
+        lee: *"also add a page mergin feature"*. The other half of the knife.
+        A webtoon site's slicer cut a scene across two files, or the re-cut
+        chose a gutter you would not have; either way the answer is to put them
+        back together and, if you want, cut once where it should have gone.
+
+        Widths can differ — two scans of the same book rarely agree to the
+        pixel — so the joined page is as wide as its widest part and the
+        narrower ones are CENTRED on paper the colour of their own top-left
+        corner. Stretching them would change the artwork; jamming them left
+        would put a step down one edge of the page.
+
+        The originals are kept in `merged/` beside the chapter.
+
+        Returns (ok, why).
+        """
+        n = max(2, int(count))
+        if not (0 <= i and i + n <= len(self.pages)):
+            return False, "there are not that many pages after this one"
+        run = self.pages[i:i + n]
+        # Boxes come with it, the same way they come through a cut. Pictures
+        # the size of a page do not.
+        painted = [pg.name for pg in run if self._painted(pg)]
+        if painted:
+            return False, ("there are touch-up strokes or a clean plate of "
+                           "your own on " + ", ".join(painted[:2])
+                           + " — those are pictures the size of the page and "
+                             "joining them is a different job")
+        parts = []
+        for pg in run:
+            img = imgio.imread(pg.path)
+            if img is None:
+                return False, f"{pg.name} cannot be read"
+            parts.append(img)
+
+        w = max(a.shape[1] for a in parts)
+        laid = []
+        for a in parts:
+            if a.shape[1] == w:
+                laid.append(a)
+                continue
+            pad = np.full((a.shape[0], w, 3), a[0, 0], np.uint8)
+            off = (w - a.shape[1]) // 2
+            pad[:, off:off + a.shape[1]] = a
+            laid.append(pad)
+        joined = np.vstack(laid)
+
+        folder = os.path.dirname(run[0].path)
+        stem, ext = os.path.splitext(os.path.basename(run[0].path))
+        if ext.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".bmp"):
+            ext = ".png"
+        # Named after the FIRST page with a `+` on it, so it sorts where the
+        # first one sorted and reads as "this one and the ones after it".
+        name = f"{stem}+{ext}"
+        k = 2
+        while os.path.exists(os.path.join(folder, name)):
+            name = f"{stem}+{k}{ext}"
+            k += 1
+        if not imgio.imwrite(os.path.join(folder, name), joined):
+            return False, "the joined page could not be written"
+
+        keep = os.path.join(folder, "merged")
+        os.makedirs(keep, exist_ok=True)
+        for pg in run:
+            try:
+                shutil.move(pg.path, os.path.join(keep,
+                                                  os.path.basename(pg.path)))
+            except OSError:
+                pass
+
+        one = PageState(path=os.path.join(folder, name), name=name,
+                        width=joined.shape[1], height=joined.shape[0])
+        # Each page's boxes move DOWN by everything stacked above it. `-y` is
+        # the same shift a cut does in the other direction, so one helper
+        # serves both and cannot disagree with itself.
+        y = 0
+        for k, pg in enumerate(run):
+            self._carry_regions(pg, one, -y, one.height)
+            one.detected = one.detected or pg.detected
+            if pg.note and not one.note:
+                one.note = pg.note
+            y += laid[k].shape[0]
+        one.note_ids = [r["id"] for r in one.regions
+                        if any(r.get("id") in (pg.note_ids or []) for pg in run)]
+        self.pages[i:i + n] = [one]
+        self._img_cache.clear()
+        self.save()
+        self.renumber_pages()
+        return True, ""
 
     def remove_page(self, i: int) -> bool:
         """Take a page out of the project. The source file is left alone."""
@@ -1180,7 +1853,20 @@ class Project:
             if not sub.get("font") and fonts.get(sub["key"]):
                 sub["font"] = fonts[sub["key"]]
         _kinds.use(self.settings["custom_kinds"])
-        self.ctx = SeriesContext(**(d.get("context") or {}))
+        # Only the fields this version HAS. A project.json written by a
+        # different version carries keys the dataclass does not take, and
+        # `SeriesContext(**saved)` raises on the first one — which `_load_or_
+        # scan` swallows, so the chapter is then rescanned from an empty input
+        # folder and SAVED over. A key nobody recognises is worth nothing; a
+        # chapter is worth everything.
+        _ctx = d.get("context") or {}
+        _known = {f.name for f in dataclasses.fields(SeriesContext)}
+        _drop = sorted(set(_ctx) - _known)
+        if _drop:
+            print("project.json holds context keys this version does not "
+                  "know, ignoring them: %s" % ", ".join(_drop))
+        self.ctx = SeriesContext(**{k: v for k, v in _ctx.items()
+                                    if k in _known})
         self.pages = [PageState(**p) for p in d["pages"]]
 
     # ------------------------------------------------------------------ images
@@ -1222,7 +1908,7 @@ class Project:
         ov = getattr(self.pages[i], "paint_overlay", "") or ""
         if not ov or not os.path.exists(ov):
             return img
-        o = cv2.imread(ov, cv2.IMREAD_UNCHANGED)
+        o = imgio.imread(ov, cv2.IMREAD_UNCHANGED)
         if o is None or o.ndim != 3 or o.shape[2] != 4 \
                 or o.shape[:2] != img.shape[:2]:
             return img
@@ -1277,15 +1963,16 @@ class Project:
     # gone, so they are gone with it. The reader and the translator sync the
     # backend onto self.ctx themselves, in editor.py, and always did.
 
-    def detect(self, i: int, kinds: list[str] | None = None) -> None:
-        """`kinds` picks what to look for: bubbles, free-floating text, or
-        both. Detection is no longer automatic, so this is always a choice
-        the person made."""
-        kinds = kinds or ["bubble"]
-        page = Page(image=self.image(i), source_path=self.pages[i].name)
-        weights = self.settings.get("weights") or ""
-        detector = self.settings.get("detector")
+    def _detect_measured(self, page: "Page", kinds: list, detector: str,
+                         weights: str) -> list:
+        """Find text the way it has always been found: by measuring.
 
+        Lifted out of `detect` when the AI option arrived, so that the two
+        ways of getting boxes are two expressions rather than two code paths
+        with two ends. Everything after this -- the kinds filter, the
+        sections, the numbering, the scoring, the order, the commit -- happens
+        once, to whichever list came back.
+        """
         found = []
         if detector == "comictext" and weights:
             # comic-text-detector finds ALL text directly, already grouped into
@@ -1295,9 +1982,16 @@ class Project:
             # is gone: he asked for "the whole split box by distance" removed,
             # because a body of writing is ONE box however wide the paper is
             # between its columns. What is left is the model's own built-in.
+            # ...and it is tuned per FORMAT. Every number was measured on
+            # manga and is frozen there; manhwa and manhua carry their own
+            # copies, so tuning either of those can never move a manga
+            # chapter. lee: *"save what we ahve for find text for manga and now
+            # we will modify it for manhwa"*. See `comictext.TUNING`.
             found = comictext.detect_comictext(
                 page, weights,
-                classify=self.settings.get("auto_kind", True))
+                classify=self.settings.get("auto_kind", True),
+                second_opinion=self.settings.get("sfx_second_opinion", True),
+                **comictext.tuning_for(self.medium))
         else:
             if "bubble" in kinds:
                 if detector == "yolo" and weights:
@@ -1352,20 +2046,43 @@ class Project:
                 # its own.
                 found = _ft.absorb_fragments(found)
 
-        # The AI used to get a turn here: the page went out numbered and it
-        # judged the boxes. lee, having watched it: "nvm remove it its pretty bad
-        # remove the ai". So there is no turn. Find text is measurement, from the
-        # first pass to the last, and it costs nothing and needs no network.
+        return found
+
+    def detect(self, i: int, kinds: list[str] | None = None) -> None:
+        """`kinds` picks what to look for: bubbles, free-floating text, or
+        both. Detection is no longer automatic, so this is always a choice
+        the person made."""
+        kinds = list(kinds or ["bubble"])
+        page = Page(image=self.image(i), source_path=self.pages[i].name)
+        weights = self.settings.get("weights") or ""
+        detector = self.settings.get("detector")
+
+        # ONE way of getting boxes: measurement.
         #
-        # Say plainly what that gives up, so nobody quietly re-adds it: nothing
-        # now labels a box by looking at the DRAWING. A caption in a ruled box is
-        # called a balloon because a rule was measured round it, and a sound
-        # effect brushed onto bare artwork is called freefloat unless
-        # comic-text-detector's own kind head says otherwise (that is
-        # `auto_kind`, which is measurement too and is still on). The kind is
-        # also a thing lee can set on any box by hand in the editor in one click,
-        # which is the whole reason this is an acceptable trade — and unlike the
-        # AI, clicking it never moved a corner.
+        # There were two AI passes here, built and removed in that order. The
+        # first showed a numbered page to a model and let it judge boxes; lee
+        # watched it and said *"nvm remove it its pretty bad remove the ai"*.
+        # The second asked a model where the writing was in tiles down the page
+        # and then snapped every rectangle onto the ink underneath, so a loose
+        # answer could not put a box on the artwork -- and it is out too:
+        # *"remoeve teh whole ai box deection and just keep what we have now"*.
+        #
+        # It is out because measurement caught up. On lee's chapter 1, all 67
+        # pages: the double balloon comes apart, a sound-effect box covers the
+        # whole stroke, 16 of the 23 captions come back as captions, the
+        # coverage pass takes a second opinion from CRAFT before keeping a box,
+        # and counted by eye over eight pages 29 of the 30 balloons, captions
+        # and asides are boxed. Free, offline, no key, and the same answer
+        # twice. `tests/test_the_ai_find_pass_is_gone.py` is the guard.
+        #
+        # What is given up, said plainly so nobody re-adds it by accident:
+        # nothing labels a box by looking at the DRAWING. What a box IS comes
+        # from measuring the paper round it -- a straight edge on three sides
+        # is a caption, an enclosure is a balloon, bare artwork is outside text
+        # -- which is `auto_kind`, and it is measurement and it is still on.
+        # Kind is also one click on any box in the editor, and clicking it has
+        # never moved a corner. Which was the whole problem with the AI.
+        found = self._detect_measured(page, kinds, detector, weights)
 
         # And what the person actually asked for. The measuring detectors are
         # steered by `kinds` — ask for bubbles alone and the free-text passes
@@ -1421,7 +2138,10 @@ class Project:
                              self.settings.get("clean_token")),
                          **{f"{k}_key": ("set" if self.settings.get(f"{k}_key")
                                          else "")
-                            for k in ("ocr", "translate", "proofread")},
+                            # AI_STEPS, not a copy of it: a hardcoded list
+                            # here meant a fourth step's key went to the
+                            # browser in the clear the moment one was added.
+                            for k in AI_STEPS},
                          **{f"key_{s}": ("set" if self.settings.get(f"key_{s}")
                                          else "")
                             for s in SERVICES}},
@@ -1430,6 +2150,13 @@ class Project:
                         "characters": dict(
                             getattr(self.ctx, "characters", {}) or {})},
             "job": self.job,
+            # How many times taller than wide a page may be before Find text
+            # starts mislabelling it. Sent rather than written into the
+            # browser, because it is a fact about comic-text-detector's 1024
+            # letterbox and it was measured next to the letterbox, in
+            # `detect/comictext.py`. A second copy of the number would be a
+            # second thing to keep in step.
+            "tall_aspect": _ctd.TALL_ASPECT,
             "pages": [{
                 "index": i, "name": p.name, "width": p.width, "height": p.height,
                 # `regions` is the count that counts: the work on this page.

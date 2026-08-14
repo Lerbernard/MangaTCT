@@ -32,3 +32,16 @@ site/mangatct-site-standalone.html
 # scratch
 diag_*.png
 *.log
+
+# Top-level scratch. Everything in this project that starts with ONE
+# underscore at the root is a working copy or a tarball -- `_pj.py` and
+# `_ct.py` are stale duplicates of project.py and detect/comictext.py,
+# `_editor.html` and `_sheet.png` are leftovers, `_to_delete/` is where
+# files go because the device bridge cannot delete them.
+#
+# `[!_]` is what keeps `__init__.py` and `__main__.py`: they start with
+# TWO, and they are real source.
+/_[!_]*
+
+# The push script's own noise, if it ever writes any.
+push.log

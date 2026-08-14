@@ -2398,6 +2398,39 @@ def _narrower_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
 
 def fit_region(region: TextRegion, cfg: TypesetConfig,
                mask: "Optional[np.ndarray]" = None) -> TextLayout:
+    """Lay the translation out, and turn it with the box if the box is turned.
+
+    A box somebody rotated is stored as a tilted rectangle, so `place_mask()`
+    is a tilted shape — and fitting into that directly would set the lines
+    level inside a leaning box, which is a staircase, not turned text. So the
+    fit is done against the box UPRIGHT and the finished block is turned about
+    the same centre the box turns about. The renderer already does that for any
+    layout carrying `rotate`; see `render.py`.
+
+    lee: *"alow me to rotate boxes ... the box and the text together"*.
+
+    Not a sound effect: those are already laid along an axis of their own,
+    letter by letter, and the turn reaches them by moving that axis — see the
+    region endpoint. Sending one through here would replace that with a block
+    of level lines in a box.
+    """
+    turn = float(getattr(region, "turn", 0.0) or 0.0)
+    if (getattr(region, "manual", False) and abs(turn) > 0.01 and mask is None
+            and _kinds.family_of(getattr(region, "kind", "") or "") != "sfx"):
+        x, y, w, h = (int(v) for v in region.bbox)
+        pm = region.place_mask()
+        up = np.zeros(pm.shape[:2] if pm is not None else (y + h, x + w),
+                      np.uint8)
+        up[max(0, y):y + h, max(0, x):x + w] = 255
+        lay = _fit_region(region, cfg, up)
+        if lay is not None:
+            lay.rotate = turn
+        return lay
+    return _fit_region(region, cfg, mask)
+
+
+def _fit_region(region: TextRegion, cfg: TypesetConfig,
+                mask: "Optional[np.ndarray]" = None) -> TextLayout:
     """Best-scoring layout of the full translation — line breaks before
     shrinking, shrinking before clamping, never overflowing, and a word is
     never split.

@@ -505,7 +505,7 @@ def test_nothing_calls_the_series_file_json_any_more(gone):
 
 def test_it_is_called_the_story_context_everywhere_instead():
     src = _ui()
-    for said in ("Download story context", "Drop a story context here",
+    for said in ("Export story context", "Drop a story context here",
                  "Choose a story context", "Story context</span>"):
         assert said in src, said
 

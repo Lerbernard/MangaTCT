@@ -55,7 +55,7 @@ export const MODELS = [
     proofread: [0.0007425, 0.000408, 0],
   },
   {
-    id: "gemini-3.6-flash", name: "Gemini 3.6 Flash",
+    id: "gemini-3.7-flash", name: "Gemini 3.7 Flash",
     backend: "gemini",
     blurb: "Fast, and it thinks before it answers. The usual choice for translating.",
     ocr: [0.0034485, 0.00045, 0],

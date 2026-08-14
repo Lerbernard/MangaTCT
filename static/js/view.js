@@ -14,21 +14,55 @@ function fitScale(){
     return fitZoom||1;
   }
   const avail=wrap.clientWidth-28, availH=wrap.clientHeight-28;
+  // pageW/pageH are what the SERVER said about the page that is open now.
+  // The <img> is a rendering of it and lags: while the next page's picture is
+  // still on the wire the element still reports the LAST page's size, and a
+  // fit measured from that is a fit for the wrong page. lee: *"wheni swith to
+  // the next page its still keeping the old pages size, meanin that if the
+  // next page is smaller it gts stuck on top"*. The element is the fallback
+  // now, not the authority.
   const d=$('img');
-  const ph=d.naturalHeight||pageH||1, pw=d.naturalWidth||pageW;
+  const pw=pageW||d.naturalWidth||1, ph=pageH||d.naturalHeight||1;
   return Math.min(avail/pw, availH/ph, 1);
 }
 
 function applyZoom(){
   const img=$('img');
-  if(!img.naturalWidth) return;
+  // Same authority as fitScale, and for a sharper reason here: the width was
+  // taken from the ELEMENT while `scale` divided it by pageW, so between
+  // pages those two were describing different pictures — and `scale` is what
+  // every box is drawn with. A stale width did not just size the page wrong,
+  // it put the boxes somewhere the writing is not.
+  const nw=pageW||img.naturalWidth;
+  if(!nw) return;
   const pc=$('paint');
-  if(pc){ pc.style.width=(img.naturalWidth*fitZoom*zoom)+'px'; pc.style.height='auto'; }
-  const w=img.naturalWidth*fitZoom*zoom;
+  if(pc){
+    // The paint canvas is sized from BOTH dimensions, not width plus
+    // `height:auto`.
+    //
+    // `auto` takes its height from the canvas's own BITMAP aspect, and the
+    // bitmap is only resized when someone paints — so on the page after a tall
+    // one it is still 690 by 3000, and 629 CSS pixels wide at that aspect is
+    // 2735 tall. The canvas lives inside the stage, so the stage became 2735
+    // tall for an 821-tall picture, and `centerPage` — which centres the
+    // STAGE — put the middle of that empty column in front of you with the
+    // page scrolled 613 pixels off the top of the pane.
+    //
+    // lee, on the framing for the fourth time: *"try to fi the issue of teh
+    // image not being centered"*. Measured in a real browser, turning from the
+    // tall page to the short one left the picture at top −599 in an 849-tall
+    // pane. Every other state measured — first paint, turning back, the Find
+    // text dialog open, Fit page, 2x, hiding the side panel, a page wider than
+    // the pane — was centred to the pixel, which is why this one lasted.
+    const nh=pageH||img.naturalHeight||0;
+    pc.style.width=(nw*fitZoom*zoom)+'px';
+    pc.style.height=nh ? (nh*fitZoom*zoom)+'px' : 'auto';
+  }
+  const w=nw*fitZoom*zoom;
   img.style.width=w+'px'; img.style.height='auto';
   const ri=$('refImg');
   if(ri && sideBySide) ri.style.width=w+'px';   // reference keeps the zoom
-  scale=w/pageW;
+  scale=w/nw;
   // The percentage is the REAL one: how big a page pixel is on screen.
   // It used to be `zoom`, which is measured from the fit — so a page shrunk
   // to a third to get it in the window read "100%", and there was no number
@@ -67,6 +101,19 @@ function syncViewChrome(){
   if (stw) stw.style.display = (view === 'typeset') ? 'inline-flex' : 'none';
   const rw = $('refWrap');
   if (rw) rw.style.display = (ok && sideBySide) ? 'block' : 'none';
+  // Cut / join belongs to the Translation view — the artwork as it came. In
+  // the Image view the boxes are placed against the page and the server
+  // refuses to cut it, so a button there would only ever offer a refusal.
+  //
+  // ...and to a webtoon. lee: *"cut and join shoud only be a thing for manhwa
+  // and manhua"*. A manga chapter arrives as pages somebody already decided
+  // the boundaries of; a webtoon arrives as a strip somebody's slicer cut by
+  // counting, and putting those boundaries right is the whole reason any of
+  // this exists.
+  const cb = $('cutBtn');
+  const strip = (typeof stripMedium === 'function') ? stripMedium() : true;
+  if (cb) cb.style.display = (view === 'original' && strip)
+    ? 'inline-flex' : 'none';
 }
 
 /* Put the page back in front of the person after the stage has been away.
@@ -192,8 +239,31 @@ function centerPageSoon(){
     if(offT>2||offL>2) centerPage();
   };
   if(typeof ResizeObserver!=='undefined'){
-    const ro=new ResizeObserver(enforce);
-    ro.observe(wrap); ro.observe(stage);
+    // The WRAP changing size is a different event from the stage changing
+    // size, and it needs more than a re-centre: the fit was measured against
+    // the old pane. A page opened while this pane was the wrong size — the
+    // settings page still up, the window not yet laid out, a sidebar
+    // appearing — was fitted to a pane that no longer exists, so it comes out
+    // too big for the one you are looking at and centring it only puts its
+    // middle in front of you. lee: *"some pages are still not at the center of
+    // the workspace"*.
+    //
+    // Only while the centring is still pending: once the person has taken the
+    // view over, resizing the window must not throw their zoom away.
+    let wasW=0, wasH=0;
+    const ro=new ResizeObserver(()=>{
+      const w=wrap.clientWidth, h=wrap.clientHeight;
+      const moved=(w!==wasW||h!==wasH);
+      wasW=w; wasH=h;
+      if(centerPending && moved && w>1 && h>1
+         && typeof fitScale==='function' && typeof applyZoom==='function'){
+        fitZoom=fitScale(); applyZoom();
+        if(typeof drawOverlay==='function') drawOverlay();
+      }
+      enforce();
+    });
+    ro.observe(wrap);
+    new ResizeObserver(enforce).observe(stage);
   }
   const img=$('img');
   if(img) img.addEventListener('load',enforce);

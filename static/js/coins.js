@@ -138,7 +138,37 @@ function drawWallet(){
     `costs less than a page with six; cleaning is a flat fee a page.</div>` +
     warn +
     `<div class="wtop"><button class="pri" onclick="buyCoins()">` +
-    `Buy coins</button></div>`;
+    `Buy coins</button>` + topUpRow(w) + `</div>`;
+}
+
+/* Putting coins in from here, which is only ever a TESTING purse.
+
+   lee: *"i ran out of coins to test stuff"* and *"just add coins to the editor
+   not teh website"*. So there is a button, and it is behind
+   `MANGATL_TEST_PURSE` on the machine the editor runs on — see
+   `coins.can_top_up`, which is also the only thing that decides whether this
+   draws at all. On an account it never appears, because on an account the
+   client cannot write a balance and a button that always failed would be
+   worse than none. */
+function topUpRow(w){
+  if(!w.can_top_up) return '';
+  return `<div class="wtest"><span class="wnote">Test purse on this ` +
+         `computer.</span>` +
+         [100, 1000, 5000].map(n =>
+           `<button onclick="topUp(${n})">+${n}</button>`).join('') +
+         `</div>`;
+}
+
+async function topUp(n){
+  try{
+    const r = await fetch('/api/coins', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({coins:n, what:'test purse'})});
+    const j = await r.json();
+    if(j.error){ toast(j.error); return; }
+    paintCoins(j);            // sets `wallet` and redraws
+    toast('+' + n + ' coins');
+  }catch(e){ toast('Could not add coins.'); }
 }
 
 /* Who the coins belong to.

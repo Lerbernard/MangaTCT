@@ -291,7 +291,11 @@ def test_detection_sections_them_before_anything_is_numbered():
     import inspect
     from mangatl import project
 
-    src = inspect.getsource(project.Project.detect)
+    # Find text is TWO methods since the AI option arrived: `detect` chooses
+    # which way to get boxes, `_detect_measured` is the measuring way. Read
+    # both, or a source check silently stops covering the half that moved.
+    src = (inspect.getsource(project.Project.detect)
+           + inspect.getsource(project.Project._detect_measured))
     assert "sections_in_one_balloon" in src
     assert "sections_in_one_balloon" not in inspect.getsource(
         project.Project.materialize)

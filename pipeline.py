@@ -14,6 +14,7 @@ from . import typeset as typeset_mod
 from .detect import classical
 from .translate import SeriesContext, translate_page
 from .models import Page
+from . import imgio
 
 
 @dataclass
@@ -33,7 +34,7 @@ class RunConfig:
 
 
 def load_page(path: str) -> Page:
-    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    img = imgio.imread(path, cv2.IMREAD_COLOR)
     if img is None:
         from PIL import Image
         import numpy as np
@@ -79,11 +80,11 @@ def run(path: str, outdir: str, cfg: RunConfig | None = None,
     if cfg.typeset:
         typeset_mod.typeset_page(page, tcfg)
         out = render_mod.render_page(page, tcfg, debug=cfg.debug_overlay)
-        cv2.imwrite(os.path.join(outdir, f"{stem}_en.png"), out)
+        imgio.imwrite(os.path.join(outdir, f"{stem}_en.png"), out)
 
     if cfg.reader:
         src = f"{stem}_src.png"
-        cv2.imwrite(os.path.join(outdir, src), page.image)
+        imgio.imwrite(os.path.join(outdir, src), page.image)
         render_mod.render_reader(page, src, os.path.join(outdir, f"{stem}_reader.html"))
 
     with open(os.path.join(outdir, f"{stem}.json"), "w", encoding="utf-8") as fh:

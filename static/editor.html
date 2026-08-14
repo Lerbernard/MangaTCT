@@ -88,7 +88,7 @@
        the order"* — so it reads outwards from the one you press last. -->
   <div class="side right" id="resultTools" style="display:none">
     <button onclick="newChapter()">Start a new project</button>
-    <button onclick="exportSettings()">Download story context</button>
+    <button onclick="exportSettings()">Export story context</button>
     <button class="pri" onclick="downloadZip()">Download all as .zip</button>
   </div>
   <!-- Zoom, snap, hide boxes and Original/Edit are all about a page on the
@@ -119,6 +119,20 @@
          lee: *"wheni clcik the translation button two button show up to the
          right of the 2 tabs button just make them she up to the left of the 2
          tab buttons so that the 2 tab buttons dont move"*. -->
+    <!-- Cutting a page in two by hand, and joining two back into one.
+         lee: *"add page splitter that allow the user to splite the pages
+         manualy to the translation tab"*, then *"also add a page mergin
+         feature"*. It belongs to the Translation view — the artwork as it
+         came — because that is the one you are looking at when you notice the
+         page is wrong, and it is gone from the Image view where the boxes are
+         placed and cutting is refused anyway.
+
+         It sits LEFT of the two view buttons for the same reason everything
+         else here does: this group is laid out from the right edge, so
+         anything appearing to their right shoves them along. -->
+    <button id="cutBtn" class="zb" style="display:none;margin-right:10px"
+            onclick="openCut()"
+            title="Cut this page in two, or join it to the next">Cut / join</button>
     <label id="sbsWrap" class="swx" style="margin-right:10px;display:none"
            title="Side by side">
       <input type="checkbox" id="sbs" onchange="toggleSideBySide(this.checked)"><i></i><span>Side by side</span></label>
@@ -251,22 +265,30 @@
 <div id="modal" class="modal">
   <div class="sheet">
     <h2>What should I look for?</h2>
+    <!-- Pages long enough that Find text starts getting the types wrong, and
+         FIRST, because it is the only thing here that changes what you should
+         do before pressing the button. lee: *"the find text popup is way too
+         crowded ans tetx havvy, remove the undeserasy tet and ake teh pages
+         that too long more visible"*. -->
+    <p id="tallNote" class="sheetwarn" style="display:none;margin:0 0 14px"></p>
     <label class="opt"><input type="checkbox" id="kBubble" checked>
       <span><b>Speech and narration bubbles</b><br>
-      <i>Dialogue inside an outline, and the narration boxes that carry the
-      story between them. This is the reliable one.</i></span></label>
+      <i>The reliable one.</i></span></label>
     <label class="opt"><input type="checkbox" id="kFree">
       <span><b>Text outside bubbles</b><br>
-      <i>Unboxed dialogue and asides lying loose on the artwork. Conservative —
-      it would rather miss some than cover the page in wrong boxes.</i></span></label>
+      <i>Asides lying loose on the artwork. Would rather miss some than box
+      the wrong thing.</i></span></label>
+    <!-- This row was greyed out with a "Coming soon" pill on manhwa and
+         manhua, because on chapter 1 the pass was wrong about half the time
+         there. Re-measured over 46 pages after the character census and the
+         art veto: 49 boxes, 47 with real writing in them. lee, shown that:
+         give me the tick back. It is a plain live tick on every format now,
+         and it starts unticked, so nothing arrives unasked for. -->
     <label class="opt"><input type="checkbox" id="kSfx">
       <span><b>Sound effects</b><br>
-      <i>Found the same way, but marked as SFX so they are typeset with the
-      SFX font and left out of the cleaning pass.</i></span></label>
-    <p id="ctdNote" class="muted" style="display:none;margin:8px 0 0">
-      This finder reads the whole page in one go and says what kind each block
-      is, so the boxes above are a filter rather than a search: everything is
-      found, and only the kinds you tick are kept.</p>
+      <i>Typeset with the SFX font and left out of the cleaning pass. You can
+      also draw one by hand: a box on the Translation view, then <b>3</b>.</i>
+      </span></label>
     <div class="row" style="margin-top:14px">
       <button class="pri" onclick="runDetect(false)">Find on every page</button>
       <button onclick="runDetect(true)">This page only</button>
@@ -300,13 +322,18 @@
     <button class="setnav-btn" onclick="saveProject()">Save project</button>
     <button class="setnav-btn" onclick="saveProjectAs()">Save as&hellip;</button>
     <button class="setnav-btn" onclick="openProject()">Open project&hellip;</button>
+    <!-- Put it down and walk away. Everything is already saved - every step
+         writes as it finishes - so this is not "save and quit", it is "stop
+         having this chapter open". It asks first anyway, because the one way
+         to lose work here is to close the wrong project. -->
+    <button class="setnav-btn" onclick="closeProject()">Close project</button>
     <!-- Settings had a "Save / move project" screen holding these two. It is
          gone: everything a FILE does is under File now, and one of the two was
          already here. lee: *"move the import to the file tab and remove this
          tab and make it soa import story context"*. -->
     <div class="setnav-title" style="margin-top:16px">This series</div>
     <button class="setnav-btn"
-            onclick="exportSettings()">Download story context</button>
+            onclick="exportSettings()">Export story context</button>
     <button class="setnav-btn"
             onclick="$('impSet').click()">Import story context&hellip;</button>
   </nav>
@@ -385,6 +412,27 @@
       </div>
       <div id="stagedList"></div>
       <p class="muted" id="stagedNote" style="margin:8px 0 0"></p>
+    </div>
+
+    <!-- The same switch as Settings ▸ Language & direction, put where the
+         decision is actually being made. lee: *"add a check box oprion in the
+         files uoload page to turn on and off the automated merging thing and
+         have it on by default"*. Both boxes are the one setting; whichever you
+         touch, the other follows. -->
+    <label id="restitchNewWrap" class="swx"
+           style="margin-top:14px;text-transform:none;display:none"
+           title="Only ever runs on a chapter that arrived as a sliced strip">
+      <input type="checkbox" id="restitch_new" checked
+             onchange="stripSwitch(this.checked)"><i></i>
+      <span>Join webtoon strips back up and re-cut them</span></label>
+
+    <!-- Loading a chapter is a hundred files read, uploaded and re-cut, and
+         until now it said only "Loading 12/120…" in small grey text.
+         lee: *"add a loading bar in the file page when the files are getting
+         processed"*. -->
+    <div id="pkbar" style="display:none;margin-top:14px">
+      <div class="barrow"><div id="pkBarOuter"><div id="pkBarFill"></div></div></div>
+      <p class="muted" id="pkBarWhat" style="margin:6px 0 0"></p>
     </div>
 
     <p id="pkmsg" class="muted" style="margin-top:12px"></p>
@@ -657,6 +705,12 @@
         <option value="manhua">Manhua</option>
       </select>
 
+      <!-- Everything about strips, shown only when the chapter IS one.
+           lee: *"this setting shoud only be a thing for manhwa and manhua"*.
+           A manga chapter is never re-cut — see `STRIP_MEDIA` — so on manga
+           these were controls for something that could not happen.
+           `stripSettings()` in project-io.js opens and closes it. -->
+      <div id="stripSet" style="display:none">
       <label style="display:flex;gap:6px;align-items:center;text-transform:none;margin-top:12px">
         <input id="restitch_strips" type="checkbox" style="width:auto" onchange="saveSettings()">
         <span>Re-cut webtoon strips when a chapter is loaded</span></label>
@@ -667,20 +721,36 @@
         gaps between panels. Turn this off to keep the tiles exactly as they
         came.</p>
 
+      <!-- Multiples of the page width, not pixels. lee: *"change teh value to
+           be a more understandable metrics"*. It reads as a shape rather than
+           a measurement, it means the same thing on a 690px strip and a
+           1600px one, and for the second box it is the RIGHT unit as well as
+           the friendlier one: the detector letterboxes a whole page into
+           1024px, so what costs you text is how many times taller than wide a
+           page is, not how many pixels it has. -->
       <div class="row" style="gap:10px;margin-top:8px">
         <div style="flex:1">
           <label>Page height</label>
-          <input id="strip_target" type="number" min="600" step="100"
-                 onchange="saveSettings()"></div>
+          <div class="row" style="gap:6px;align-items:baseline">
+            <input id="strip_tall" type="number" min="1" max="40" step="0.5"
+                   style="flex:1" onchange="saveSettings();stripPixels()">
+            <span class="muted" style="white-space:nowrap">&times; the width</span>
+          </div></div>
         <div style="flex:1">
-          <label>Never taller than</label>
-          <input id="strip_max" type="number" min="1000" step="100"
-                 onchange="saveSettings()"></div>
+          <label>Tell me when a page passes</label>
+          <div class="row" style="gap:6px;align-items:baseline">
+            <input id="strip_tall_max" type="number" min="1" max="99" step="0.5"
+                   style="flex:1" onchange="saveSettings();stripPixels()">
+            <span class="muted" style="white-space:nowrap">&times; the width</span>
+          </div></div>
       </div>
+      <p class="muted" id="stripPx" style="margin:4px 0 0"></p>
       <p class="muted" style="margin:4px 0 10px">Pages come out near the first
-        number, cut at the nearest gap. Where there is no gap before the second
-        one the page is cut at the quietest row there is, and you are told
-        which pages those were.</p>
+        number, cut at the nearest gap between panels. <b>Every cut is a
+        gap</b>: where there is none the page runs on to the next one however
+        far away it is, rather than being cut through the artwork. Any page
+        that ends up past the second number is named for you afterwards.</p>
+      </div>
 
       <label>Reading direction</label>
       <select id="direction" onchange="saveSettings()">
@@ -715,10 +785,48 @@
 
         <label>Reading detail</label>
         <select id="ocr_detail" onchange="saveSettings()">
+          <option value="">Best for this format — recommended</option>
           <option value="page">Whole page at once — 1 request per page</option>
           <option value="auto">Cut the page up — up to 4 requests per page</option>
           <option value="high">Finest — up to 9 requests per page</option>
+          <option value="boxes">Each box on its own, zoomed in — 1 request per
+            page, and cheaper</option>
         </select>
+        <p class="muted" style="margin:6px 0 0">
+          <b>Best for this format</b> sends a close-up of each box on manhwa
+          and manhua, and cuts the page up on manga.</p>
+        <p class="muted" style="margin:6px 0 0">
+          <b>Each box on its own</b> sends a close-up of every box instead of
+          the page, each blown up so its characters arrive the same size
+          whatever the page length. Read a Korean chapter four ways and scored
+          against the printed pages, it was the only setting that got an
+          unfamiliar name right — a whole-page read pulls a name it does not
+          know toward one it does. It is also about a third fewer image tokens.
+          It sees less of the artwork around a box, so a box drawn too tight
+          has less to fall back on, and that is why manga — vertical
+          typesetting, furigana beside it, never measured this way — stays on
+          cutting the page up.</p>
+
+        <!-- lee: *"add a button in the setting setting to auto emove boxes
+             taht are only symbol like ! or ....... etc make it on by defaut
+             and after read text happens if a box is only symboled with no
+             text it shodu auto delete"*.
+
+             It sits here rather than under the detector because it is not a
+             detection rule: the detector CANNOT know. Ink is ink, and a box
+             round a lone `!` is a box round something that was really printed
+             there. Only the reader can say there is no word in it, so this is
+             the first moment the question can be answered at all. -->
+        <label class="swx" style="margin-top:16px">
+          <input type="checkbox" id="drop_symbol_only" checked
+            onchange="saveSettings()"><i></i>
+          <span>Delete boxes that turn out to hold only symbols</span></label>
+        <p class="sethint" style="margin-top:6px">After Read text, a box the
+          reader found nothing in but marks — <b>!</b>, <b>……</b>, <b>?!</b>,
+          <b>♡</b> — is removed. Any letter or digit in any script keeps it,
+          so <b>ㅋㅋㅋ</b> and <b>3</b> stay. A box you typed yourself, one you
+          have locked, and one that already has a translation are never
+          touched. Off: they are flagged for review instead of deleted.</p>
 
         <label>Text detector</label>
         <select id="detector" onchange="$('yolocfg').style.display='block';$('ctdcfg').style.display='block';saveSettings()">
@@ -955,6 +1063,51 @@
   </div><!-- /#settingsPage -->
 
 </div><!-- /#main -->
+
+<!-- Cutting a page in two, and joining two into one. The automatic re-cut
+     only ever runs on a chapter that arrived as a sliced strip, before any
+     work is done, and only when it is sure — three good rules that between
+     them leave every other long page alone. This is the knife for those. -->
+<div id="cutdlg" class="modal">
+  <div class="sheet" style="max-width:520px">
+    <h2>Cut or join this page</h2>
+    <p class="muted" id="cutWhy" style="margin:6px 0 0"></p>
+
+    <div id="cutStage">
+      <div id="cutWrap">
+        <img id="cutImg" alt="">
+        <div id="cutLine"><b id="cutRow"></b></div>
+      </div>
+      <!-- The line goes exactly where you click, and nothing moves it.
+           lee: *"in teh cut page it teh cut line shoud be where my mouse is
+           when i clcick it"*, then *"remoeve teh click and drag and allow me
+           to clci where i want it to cut"*, then *"and removethe cut a the
+           nearst gap button"*. Three asks, one answer: click, line, done.
+
+           The line still turns GREEN when the row it landed on happens to be
+           a gap between panels. That is a readout, not a hand on the wheel. -->
+      <p class="muted" style="margin:8px 0 0">Click on the page where you want
+        it cut. The line goes exactly there, and turns green when the row it is
+        on is a gap between panels.</p>
+    </div>
+
+    <div class="row" style="margin-top:14px;justify-content:space-between;
+                            flex-wrap:wrap;gap:8px">
+      <span class="row" style="gap:8px">
+        <button id="cutPrev" onclick="joinPrev()">Join with previous</button>
+        <button id="cutNext" onclick="joinNext()">Join with next</button>
+      </span>
+      <span class="row" style="gap:8px">
+        <button onclick="$('cutdlg').classList.remove('on')">Cancel</button>
+        <button class="pri" id="cutGo" onclick="cutHere()">Cut here</button>
+      </span>
+    </div>
+    <p class="muted" style="margin:10px 0 0">The pages you had are kept —
+      they move into <code>split</code> or <code>merged</code> beside the
+      chapter rather than being deleted.</p>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- Classic scripts, not ES modules: they share one global scope and MUST
@@ -974,6 +1127,7 @@
 <script src="/static/js/coins.js"></script>
 <script src="/static/js/typesetting-edit.js"></script>
 <script src="/static/js/project-io.js"></script>
+<script src="/static/js/pagecut.js"></script>
 <script src="/static/js/toolbar.js"></script>
 <script src="/static/js/view.js"></script>
 <script src="/static/js/boot.js"></script>

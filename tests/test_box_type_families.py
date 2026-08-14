@@ -114,7 +114,15 @@ def test_the_sub_type_menu_follows_the_main_type(ed):
     assert not errs, errs[:2]
 
 
-def test_one_two_three_are_the_families_and_four_up_are_the_sub_types(ed):
+def test_one_two_three_are_the_families_and_nothing_else_is_a_key(ed):
+    """lee: *"only 1,2,3 shud work to swith box types"*.
+
+    It went up to 8, and 4 upwards picked a sub-type by POSITION out of
+    whatever family the box was already in — so 4 on a balloon and 4 on a sound
+    effect were two different types, and nothing on screen numbered them. The
+    three families are the three you can name and they are numbered the same
+    way in the legend and in the Kind menu; sub-types are a menu away, where
+    they are written out."""
     pg, _p, errs = ed
     pg.evaluate("setTab('edit'); setView('original')")
     browserpool.settled(pg)
@@ -122,11 +130,59 @@ def test_one_two_three_are_the_families_and_four_up_are_the_sub_types(ed):
     pg.wait_for_timeout(300)
     assert pg.evaluate("[kindForKey(1),kindForKey(2),kindForKey(3)]") == \
         ["bubble", "freefloat", "sfx"]
-    # on a balloon, 4 upwards are the balloon sub-types
-    assert pg.evaluate("kindForKey(4)") == "narration"
+    for n in (0, 4, 5, 8, 9):
+        assert pg.evaluate("(n)=>kindForKey(n)", n) is None, n
+    # ...and it stays nothing whatever the box already is: the old 4 answered
+    # differently on a balloon and on a sound effect.
     pg.evaluate("setKindSelected('sfx')")
     pg.wait_for_timeout(600)
-    assert pg.evaluate("kindForKey(4)") == "sfx_big"
+    assert pg.evaluate("kindForKey(4)") is None
+    assert not errs, errs[:2]
+
+
+def test_pressing_four_leaves_the_box_alone(ed):
+    """Through the keyboard, which is where it matters: a key that no longer
+    means anything must not mean the LAST thing it meant."""
+    pg, _p, errs = ed
+    pg.evaluate("setTab('edit'); setView('original')")
+    browserpool.settled(pg)
+    pg.evaluate("select(1)")
+    pg.wait_for_timeout(300)
+    pg.evaluate("setKindSelected('bubble')")
+    pg.wait_for_timeout(600)
+    pg.keyboard.press("4")
+    pg.wait_for_timeout(600)
+    assert pg.evaluate("regions.find(r=>r.id===1).kind") == "bubble"
+    pg.keyboard.press("3")
+    pg.wait_for_timeout(700)
+    assert pg.evaluate("regions.find(r=>r.id===1).kind") == "sfx", \
+        "1, 2 and 3 still have to work"
+    # A letter is not a number, and `+"q"` is NaN — which must read as "no
+    # family", not as the first one.
+    pg.keyboard.press("q")
+    pg.wait_for_timeout(500)
+    assert pg.evaluate("regions.find(r=>r.id===1).kind") == "sfx"
+    assert not errs, errs[:2]
+
+
+def test_they_belong_to_the_translation_view(ed):
+    """In the Image view those keys belong to painting and typesetting.
+
+    Honest note: this passes with the view guard REMOVED as well, because the
+    selection does not survive into that view — so it pins the intent rather
+    than discriminating. The guard stays because it is the thing that would
+    matter the day a selection does survive; there is no mutant for it,
+    because there is nothing yet for a mutant to change."""
+    pg, _p, errs = ed
+    pg.evaluate("setTab('edit'); setView('original')")
+    browserpool.settled(pg)
+    pg.evaluate("select(1); setKindSelected('bubble')")
+    pg.wait_for_timeout(600)
+    pg.evaluate("setView('typeset')")
+    browserpool.settled(pg)
+    pg.keyboard.press("3")
+    pg.wait_for_timeout(600)
+    assert pg.evaluate("regions.find(r=>r.id===1).kind") == "bubble"
     assert not errs, errs[:2]
 
 

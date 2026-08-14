@@ -99,16 +99,18 @@ def test_the_language_boxes_have_no_automatic_answer():
 
 
 def test_a_per_step_provider_is_a_provider():
-    for step in ("ocr", "translate", "proofread"):
-        block = re.search(rf'id="{step}_backend".*?</select>', HTML, re.S).group(0)
-        assert 'value=""' not in block
+    from mangatl.project import AI_STEPS
+
+    for step in AI_STEPS:
+        block = re.search(rf'id="{step}_backend".*?</select>', HTML, re.S)
+        assert block, f"{step} has no provider menu on the settings screen"
+        assert 'value=""' not in block.group(0)
     # ...and the box is FILLED from the STEP's own setting, inside the loop
     # that fills the three step rows. It used to be pre-filled from a
     # project-wide provider; that provider is gone, and a box that showed one
     # provider while the step called another is the disagreement these three
     # rows exist to end.
-    loop = PJS.split("['ocr','translate','proofread'].forEach(k=>{")[1] \
-              .split("\n  });")[0]
+    loop = PJS.split("'proofread'].forEach(k=>{")[1].split("\n  });")[0]
     assert "proj.settings[k+'_backend']" in loop, \
         "the step's provider box has to be filled from the step's own setting"
     assert "proj.settings.backend" not in loop, \

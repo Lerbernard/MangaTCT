@@ -81,10 +81,15 @@ def test_each_box_says_which_way_it_went(tmp_path):
     routes = {r.id: r.clean_route for r in page.regions}
     assert routes[1] == "flat fill", routes
     assert routes[2] and routes[2] != "flat fill", routes
-    # …and every route named on a box is one the chapter report also counted
+    # …and every route named on a box is one the chapter report also counted.
+    # A box can say more than one thing — "telea + second + redraw" is a box
+    # the ordinary clean did, the second step went back over, and the redraw
+    # put a line back through — so each part is looked up on its own.
+    said = {"second": "second pass", "redraw": "redrawn"}
     for r in page.regions:
-        assert page.clean_stats.get(r.clean_route), (r.id, r.clean_route,
-                                                     page.clean_stats)
+        for part in (r.clean_route or "").split(" + "):
+            assert page.clean_stats.get(said.get(part, part)), \
+                (r.id, r.clean_route, part, page.clean_stats)
 
 
 def test_the_routes_add_up_to_the_report(tmp_path):
@@ -95,9 +100,12 @@ def test_the_routes_add_up_to_the_report(tmp_path):
     p = _project(str(tmp_path / "s"), seed=2)
     page = p.materialize(0)
     editor.clean_page(p, 0, page)
+    said = {"second": "second pass", "redraw": "redrawn"}
     counted = {}
     for r in page.regions:
-        counted[r.clean_route] = counted.get(r.clean_route, 0) + 1
+        for part in (r.clean_route or "").split(" + "):
+            k = said.get(part, part)
+            counted[k] = counted.get(k, 0) + 1
     for k, v in counted.items():
         assert page.clean_stats.get(k) == v, (k, v, page.clean_stats)
 

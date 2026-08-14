@@ -149,19 +149,6 @@ def test_a_gutter_is_cut_down_its_middle():
     assert strip.gutters(_flat(1000, [(200, 240), (600, 620)])) == [220, 610]
 
 
-def test_the_quietest_row_is_the_middle_of_the_longest_gap():
-    """When there is no gutter to use, a two-pixel gap between panels is not a
-    gutter but it is still a far better place to cut than a face."""
-    f = _flat(1000, [(100, 104), (500, 520), (800, 802)])
-    assert strip.quietest(f, 0, 1000) == 510
-
-
-def test_with_nothing_empty_the_quietest_row_is_the_middle_of_the_window():
-    """A full-bleed spread with no gap anywhere. There is no good answer; the
-    honest one is the middle, and the caller says so on screen."""
-    assert strip.quietest(np.zeros(1000, bool), 200, 800) == 500
-
-
 # ---------------------------------------------------------------- the cutting
 
 def test_the_gutter_nearest_the_target_wins_not_the_first_one_past_it():
@@ -179,32 +166,47 @@ def test_the_gutter_nearest_the_target_wins_not_the_first_one_past_it():
 
 def test_a_page_runs_on_to_the_next_gutter_rather_than_cutting_through_ink():
     """Nothing inside the window. Rather than force a cut, the page is allowed
-    to be too long — up to the ceiling — because a page that reads is worth
-    more than a page of the right height."""
+    to be too long, because a page that reads is worth more than a page of the
+    right height."""
     f = _flat(13500, [(4000, 4020), (8000, 8020), (12000, 12020)])
-    cuts, forced = strip.plan_cuts(f, target=1000, ceiling=6000)
+    cuts, over = strip.plan_cuts(f, target=1000, ceiling=6000)
     assert cuts == [0, 4010, 8010, 12010, 13500]
-    assert not forced, "it found a gutter every time, so nothing was forced"
+    assert not over, "none of them passed the ceiling"
 
 
-def test_the_run_on_stops_at_the_ceiling():
-    """Running on to the next gutter is only worth doing while the result is
-    still a page. The next gap here is 9,000 rows away — nine times what was
-    asked for, and far too tall for the detector to read the typesetting off —
-    so it is cut short of it instead."""
+def test_the_run_on_does_not_stop_at_the_ceiling(_ceiling=6000):
+    """The change lee asked for. The next gap here is 9,000 rows away - nine
+    times what was asked for and half again past the ceiling - and the page
+    runs all the way to it anyway.
+
+    It used to cut short of the gap, at the quietest row it could find inside
+    the ceiling. lee: *"when it reaches teh max lenght it still crops teh text
+    box, if posiboe can you have a way of not to do that"*. The quietest row
+    inside a panel of solid artwork is the middle of a balloon, which is the
+    exact thing the re-cut exists to undo."""
     f = _flat(30000, [(9000, 9020)])
-    cuts, forced = strip.plan_cuts(f, target=1000, ceiling=6000)
-    assert cuts[1] <= 6000, "a page must not run past the ceiling to find a gap"
-    assert cuts[1] in forced, "and being cut short of one is worth saying"
+    cuts, over = strip.plan_cuts(f, target=1000, ceiling=_ceiling)
+    assert cuts[1] == 9010, "the cut has to land ON the gap, however far it is"
+    assert cuts[1] in over, "and running over is worth saying"
 
 
-def test_where_no_gutter_exists_inside_the_ceiling_the_cut_is_reported():
-    """The one case the person has to be told about: the page had to be cut
-    through the drawing because there was nowhere else within reach."""
+def test_a_strip_with_no_gutter_at_all_comes_back_as_one_page():
+    """A full-bleed chapter with nowhere to cut. Every answer is bad; the one
+    that does not cut through the artwork is to leave it alone and say so."""
+    f = _flat(20000, [])
+    cuts, over = strip.plan_cuts(f, target=2400, ceiling=6000)
+    assert cuts == [0, 20000], cuts
+    assert over == [20000], "a chapter left in one piece must not pass silently"
+
+
+def test_the_pages_that_ran_over_are_the_ones_reported():
+    """Only the long ones. A report that names every page is a report nobody
+    reads."""
     f = _flat(20000, [(300, 320), (15000, 15020)])
-    cuts, forced = strip.plan_cuts(f, target=2400, ceiling=6000)
-    assert forced, "a cut through ink must not pass silently"
-    assert set(forced) <= set(cuts)
+    cuts, over = strip.plan_cuts(f, target=2400, ceiling=6000)
+    assert set(over) <= set(cuts)
+    assert 310 not in over, "the first page is 310 rows and fits easily"
+    assert 15010 in over, "the second is 14,700 and does not"
 
 
 def test_an_empty_strip_is_not_cut():
@@ -317,6 +319,10 @@ def test_the_pages_come_back_in_the_order_they_were_cut():
 @pytest.fixture
 def proj(tmp_path):
     p = Project(None, str(tmp_path / "out"))
+    # A webtoon, because that is what this whole file is about. The re-cut is
+    # gated on the FORMAT now: manga arrives as pages and is never touched,
+    # however uniform the files happen to be. See `STRIP_MEDIA`.
+    p.settings["medium"] = "manhwa"
     yield p
     shutil.rmtree(str(tmp_path / "out"), ignore_errors=True)
 
@@ -369,6 +375,66 @@ def test_turning_it_off_leaves_the_tiles_alone(proj):
     assert [pg.path for pg in proj.pages] == before
 
 
+def test_a_manga_chapter_is_never_re_cut_however_uniform_it_looks(proj):
+    """The one that sent lee's chapter back in forty pieces.
+
+    `looks_sliced` asks four questions of the FILES: more than five, all the
+    same width, all but the last the same height to the pixel, taller than
+    wide. A manga chapter scanned in one sitting answers yes to all four by
+    coincidence - same scanner, same settings - and lee's tall composite pages
+    did exactly that.
+
+    No test of the pixels can tell those apart from a strip, because they are
+    not different in the pixels. The FORMAT tells them apart, and the person
+    has already said which one this is. lee: *"the page fixing shoud only be
+    allied if manhwa is selected"*.
+    """
+    proj.settings["medium"] = "manga"
+    _upload_strip(proj)                      # a real sliced strip, even
+    before = [pg.path for pg in proj.pages]
+    assert proj.restitch_if_sliced() == {}
+    assert [pg.path for pg in proj.pages] == before
+
+
+def test_a_manhua_is_re_cut_exactly_like_a_manhwa(proj):
+    """Manhua is delivered as a strip too, and asked for by name: lee, *"do it
+    foe manhua too"*.
+
+    It was left out of the first cut because he had only said manhwa, and being
+    wrong in the direction of not touching somebody's chapter is the cheap way
+    to be wrong. He has now said. The site has claimed it the whole time -
+    the manhua panel reads *"The same strip handling as manhwa"* - so this
+    makes the page true as well."""
+    from mangatl.project import STRIP_MEDIA
+    assert STRIP_MEDIA == {"manhwa", "manhua"}
+    proj.settings["medium"] = "manhua"
+    img, _ = _upload_strip(proj)
+    tiles = len(proj.pages)
+    rep = proj.restitch_if_sliced()
+    assert rep, "a Chinese webtoon is a strip like any other"
+    assert len(proj.pages) != tiles
+    assert sum(pg.height for pg in proj.pages) == len(img)
+
+
+def test_manga_is_the_only_one_left_out(proj):
+    """Said as a set rather than as three separate tests, because the whole
+    point of the gate is which formats are in it. A fourth arriving later
+    should have to come past this line."""
+    from mangatl.project import STRIP_MEDIA
+    from mangatl.translate import MEDIA
+    assert set(MEDIA) - STRIP_MEDIA == {"manga"}
+
+
+def test_asking_for_it_by_hand_still_works_on_any_format(proj):
+    """The gate is on the automatic pass. Somebody who KNOWS their manga
+    chapter is really a strip can still say so, and `force` is how."""
+    proj.settings["medium"] = "manga"
+    _upload_strip(proj)
+    tiles = len(proj.pages)
+    assert proj.restitch_if_sliced(force=True)
+    assert len(proj.pages) != tiles
+
+
 def test_it_still_runs_when_asked_for_directly(proj):
     """Off is a default, not a ban: the switch stops it happening by itself."""
     _upload_strip(proj)
@@ -399,6 +465,60 @@ def test_somebody_elses_folder_is_read_and_not_written_to(proj, tmp_path):
     assert sum(pg.height for pg in proj.pages) == len(img)
 
 
+# --------------------------------------------- how tall, said as a multiple
+
+def test_the_height_is_a_multiple_of_the_width(proj):
+    """Both numbers are stored as "x the width" rather than as pixels. lee:
+    *"change teh value to be a more understandable metrics"*.
+
+    It reads as a shape instead of a measurement, it means the same thing on a
+    690px strip and a 1600px one, and for the ceiling it is the RIGHT unit as
+    well as the friendlier one: the detector letterboxes a whole page into
+    1024px, so what costs you text is how many times taller than wide a page
+    is, not how many pixels it has."""
+    _upload_strip(proj)                       # tiles W wide
+    proj.settings["strip_tall"] = 4.0
+    proj.settings["strip_tall_max"] = 10.0
+    assert proj.strip_width() == W
+    assert proj.strip_heights() == (4 * W, 10 * W)
+
+
+def test_the_defaults_are_the_numbers_they_replaced():
+    """3.5 and 8.5 are 2,400 and 6,000 on the 690px chapter those two came
+    off. Nobody's chapter should come out differently because the box now says
+    something else."""
+    from mangatl.project import Project as P
+    d = P.__init__.__doc__            # only to keep the import honest
+    assert d is None or True
+    import inspect
+    src = inspect.getsource(P)
+    assert '"strip_tall": 3.5' in src and '"strip_tall_max": 8.5' in src
+    assert round(690 * 3.5) == 2415 and round(690 * 8.5) == 5865
+
+
+def test_a_page_that_could_not_be_read_is_not_what_the_width_comes_from(proj):
+    """A page recorded 0x0 - a file the reader could not open - would make
+    every height come out at the floor, which is a chapter of stubs. The width
+    is the first page that HAS one."""
+    from mangatl.project import PageState
+
+    _upload_strip(proj)
+    proj.pages.insert(0, PageState(path="", name="broken.png",
+                                   width=0, height=0))
+    assert proj.strip_width() == W
+    assert proj.strip_heights()[0] > 1000
+
+
+def test_a_ceiling_under_the_target_is_read_as_the_target(proj):
+    """Somebody's typo. Taken literally it marks every page in the chapter as
+    having run over, which is a report that says nothing."""
+    _upload_strip(proj)
+    proj.settings["strip_tall"] = 4.0
+    proj.settings["strip_tall_max"] = 1.0
+    t, c = proj.strip_heights()
+    assert c == t
+
+
 def test_the_page_height_you_asked_for_is_the_one_used(proj, tmp_path):
     """"Page height" in Settings is not decoration: shorter pages, more of
     them."""
@@ -406,57 +526,65 @@ def test_the_page_height_you_asked_for_is_the_one_used(proj, tmp_path):
     theirs = str(tmp_path / "tiles")
     _slice(img, theirs)
 
-    def pages_at(target):
-        q = Project(None, str(tmp_path / ("out%d" % target)))
-        q.settings["strip_target"] = target
+    def pages_at(tall):
+        q = Project(None, str(tmp_path / ("out%d" % (tall * 10))))
+        q.settings["medium"] = "manhwa"
+        q.settings["strip_tall"] = tall
         q.use_folder(theirs)
         return q.restitch_if_sliced()["after"]
 
-    assert pages_at(1200) > pages_at(3600)
+    assert pages_at(2.0) > pages_at(6.0)
 
 
-def test_the_ceiling_you_asked_for_is_the_one_used(proj, tmp_path):
-    """"Never taller than" is what stops a page running on for ever when the
-    artist left no gap — the detector letterboxes a whole page into one 1024px
-    square, so on a very tall page the typesetting arrives too small to find."""
-    tall = np.repeat(np.random.default_rng(5).integers(
-        60, 200, (13000, W, 1), dtype=np.uint8), 3, axis=2)
-    theirs = str(tmp_path / "nogaps")
-    _slice(tall, theirs)
-
-    def pages_under(ceiling):
-        q = Project(None, str(tmp_path / ("out%d" % ceiling)))
-        q.settings["strip_max"] = ceiling
-        q.use_folder(theirs)
-        return q.restitch_if_sliced()["after"]
-
-    assert pages_under(3000) > pages_under(6000)
+def test_the_ceiling_changes_what_is_REPORTED_and_not_where_it_cuts(proj):
+    """It used to be a wall: a page reaching it was cut at the quietest row
+    inside it, through whatever happened to be there. It is now a limit you
+    are told about, so lowering it must change the report and nothing else."""
+    img, _ = _strip_and_typesetting()
+    for i in range(0, len(img), TILE):
+        proj.add_uploaded("image_%d.png" % (i // TILE + 1),
+                          cv2.imencode(".png", img[i:i + TILE])[1].tobytes())
+    proj.settings["strip_tall"] = 1.0
+    proj.settings["strip_tall_max"] = 1.2      # anything real passes this
+    rep = proj.restitch_if_sliced()
+    assert rep["over"], "a tight ceiling has to name the pages that passed it"
+    assert set(rep["over_pages"]) <= set(rep["pages"])
+    assert sum(pg.height for pg in proj.pages) == len(img), \
+        "and not one row of the chapter is anywhere else"
 
 
 def test_a_page_height_that_would_give_one_page_leaves_the_chapter_alone(proj):
-    """Type 10,000,000 into the box and the answer is one page as long as the
-    chapter, which is not a chapter. Nothing is written, and the tiles that
-    were moved out of the way come back."""
+    """Type an absurd number into the box and the answer is one page as long
+    as the chapter, which is not a chapter. Nothing is written, and the tiles
+    that were moved out of the way come back."""
     _upload_strip(proj)
     before = [pg.path for pg in proj.pages]
-    proj.settings["strip_target"] = 10 ** 7
+    proj.settings["strip_tall"] = 10 ** 5
     assert proj.restitch_if_sliced() == {}
     assert [pg.path for pg in proj.pages] == before
     assert all(os.path.isfile(p) for p in before), "the tiles must be put back"
     assert not os.path.isdir(os.path.join(proj.upload_dir(), "tiles"))
 
 
-def test_the_forced_cuts_are_named(proj):
-    """A page cut through the drawing is a page to go and look at, so it is
-    named rather than counted."""
-    tall = np.repeat(np.random.default_rng(3).integers(
-        60, 200, (13000, W, 1), dtype=np.uint8), 3, axis=2)
+def test_the_pages_that_ran_over_are_named(proj):
+    """A page that had to run past the limit to find a gap is a page to go and
+    look at, so it is named rather than counted."""
+    # Artwork with a gutter only every 9,000 rows - far past the 5,100 the
+    # default 8.5 x 600 gives - so every page has to run over to reach one.
+    rng = np.random.default_rng(3)
+    parts = []
+    for _ in range(3):
+        parts.append(np.repeat(rng.integers(60, 200, (9000 - GUTTER, W, 1),
+                                            dtype=np.uint8), 3, axis=2))
+        parts.append(np.full((GUTTER, W, 3), 255, np.uint8))
+    tall = np.vstack(parts)
     for i in range(0, len(tall), TILE):
         proj.add_uploaded("image_%d.png" % (i // TILE + 1),
                           cv2.imencode(".png", tall[i:i + TILE])[1].tobytes())
     rep = proj.restitch_if_sliced()
-    assert rep["forced"] and len(rep["forced_pages"]) == rep["forced"]
-    assert set(rep["forced_pages"]) <= set(rep["pages"])
+    assert rep["over"] and len(rep["over_pages"]) == rep["over"]
+    assert set(rep["over_pages"]) <= set(rep["pages"])
+    assert sum(pg.height for pg in proj.pages) == len(tall)
 
 
 def test_finishing_an_upload_tells_the_browser_what_happened(proj):
@@ -507,3 +635,38 @@ def test_the_switch_is_on_the_settings_screen():
 def test_the_browser_is_told_when_a_chapter_was_recut():
     assert "fin.strip" in _ui_source(), \
         "the upload screen must say the pages were re-cut"
+
+
+# ------------------------------------------------------------- the File tab
+
+def test_the_file_tab_can_close_a_project():
+    """lee: *"add a close project button in the file tab"*.
+
+    Not "save and quit": everything is already written as each step finishes.
+    This is the editor putting the chapter down, which is why it asks by name
+    and says that Open project brings it back."""
+    from where import PKG
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    rail = html.split('data-sec="save"', 1)[1].split("</nav>", 1)[0]
+    assert "closeProject()" in rail
+    assert ">Close project<" in rail
+
+    js = (PKG / "static" / "js" / "project-io.js").read_text(encoding="utf-8")
+    body = js.split("async function closeProject", 1)[1].split("\nasync function", 1)[0]
+    # It asks first. The one way to lose work here is to close the wrong one.
+    assert "await ask(" in body
+    # ...and it does not clear the story, which is what `newChapter` is for.
+    assert "keep_settings:true" in body
+    assert "Open project" in body, "it has to say how to get back"
+
+
+def test_the_story_context_is_exported_and_not_downloaded():
+    """lee: *"make it say export story context"*. It is the word used for the
+    other direction already - Import story context - and the pair should read
+    as a pair."""
+    from where import PKG
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    assert "Export story context" in html
+    assert "Download story context" not in html
+    # ...and the import beside it is unchanged, so the two still match.
+    assert "Import story context" in html

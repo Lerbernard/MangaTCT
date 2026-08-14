@@ -177,7 +177,10 @@ def test_a_slot_with_several_tools_says_so(ed):
     marked = pg.evaluate("""[...document.querySelectorAll('#toolbox .tbtn')]
         .filter(b=>b.querySelector('.tbmore')).map(b=>b.dataset.slot)""")
     # "move" joined them when the transform gained a second tool: the same
-    # box with its corners already loose (Ctrl+T).
+    # box with its corners already loose (Ctrl+T). "text" joined them for a
+    # turn, when a draw-a-sound-effect tool went in beside the text box, and
+    # left again when lee said he did not want one — *"i dont want a button i
+    # wan to be able to clcik 3"*, and 3 already did it.
     assert set(marked) == {"move", "select", "paint", "retouch", "shape",
                            "view"}
     assert not errs, errs[:2]
@@ -215,9 +218,27 @@ def test_picking_one_out_of_the_flyout_arms_it_and_the_slot_keeps_it(ed):
 
 
 def test_a_slot_with_one_tool_has_no_flyout(ed):
+    """`text` and `view` are the one-tool slots. `text` stopped being one for a
+    turn, when a sound-effect tool went in beside it, and is one again — which
+    is why this test finds its slot by counting rather than naming one."""
+    pg, _p, errs = ed
+    only = pg.evaluate("""[...document.querySelectorAll('#toolbox .tbtn')]
+        .filter(b=>!b.querySelector('.tbmore')).map(b=>b.dataset.slot)""")
+    assert only, "every slot has a flyout; this test has nothing to measure"
+    _right_click(pg, only[0])
+    assert pg.evaluate("!document.getElementById('tbflyout')")
+    assert not errs, errs[:2]
+
+
+def test_the_text_slot_holds_one_tool_and_no_sound_effect_one(ed):
+    """A sound-effect tool lived here and lee did not want it. What is left is
+    the text box, with no flyout to go looking behind."""
     pg, _p, errs = ed
     _right_click(pg, "text")
     assert pg.evaluate("!document.getElementById('tbflyout')")
+    lit = pg.evaluate(
+        "document.querySelector('.tbtn[data-slot=\"text\"]').title")
+    assert lit == "Add a text box", lit
     assert not errs, errs[:2]
 
 

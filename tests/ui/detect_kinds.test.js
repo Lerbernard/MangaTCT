@@ -5,12 +5,13 @@
    the result: comic-text-detector hands back every block on the page and says
    what kind each one is, so the kinds are known by the time the page comes back
    and the choice bites there — only_kinds() in project.py. These pin that the
-   boxes stay live whichever finder is picked, and that the note explaining it
-   appears for the whole-page finder only.
+   boxes stay live whichever finder is picked.
 
-   There was a second whole-page finder once, an AI mode, and this file used to
-   drive it through proj.settings.ai_boxes. It is gone, and the setting with it,
-   so the note now turns on the detector alone. */
+   There was a paragraph in the dialog saying so, and there was a second
+   whole-page finder once, an AI mode. Both are gone — the finder with its
+   setting, the paragraph because lee asked for the dialog to stop being a wall
+   of grey. What it explained is still true and is still asserted here, on the
+   boxes themselves. */
 const {JSDOM}=require('jsdom');
 const html=require('./load')();
 const dom=new JSDOM(html,{runScripts:'dangerously',url:'http://127.0.0.1:8765/',
@@ -34,7 +35,6 @@ setTimeout(()=>{
       const cb=d.getElementById(i);
       return cb && !cb.disabled && !cb.closest('label').classList.contains('disabled');
     });
-    const note=()=>d.getElementById('ctdNote').style.display!=='none';
 
     // `proj` is a top-level `let` in core.js, so it lives in the global
     // lexical scope and is not a property of window — assigning w.proj would
@@ -46,17 +46,17 @@ setTimeout(()=>{
 
     set('classical');
     ok('classical: all three boxes are live', live());
-    ok('classical: no whole-page note', !note());
 
     set('comictext');
     ok('comic-text-detector: all three boxes stay live', live());
-    ok('comic-text-detector: the note says which way round it works', note());
 
-    // No setting can bring the note back on a per-box finder, because there is
-    // no longer a setting that speaks to it.
+    // No stale setting from an older project may reach in and grey one out.
     w.eval("proj={settings:{ai_boxes:'find'}}");
     set('classical');
-    ok('a stale ai_boxes in an old project changes nothing', !note());
+    ok('a stale ai_boxes in an old project changes nothing', live());
+
+    // The dialog no longer carries the paragraph that explained the above.
+    ok('the explaining paragraph is gone', !d.getElementById('ctdNote'));
 
     // And greying one out again must be caught: nothing in the page may
     // disable them behind syncDetectKinds' back.

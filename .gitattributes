@@ -1,0 +1,3 @@
+# A .bat with LF line endings misbehaves in cmd.exe around goto/labels.
+push.bat text eol=crlf
+push.sh  text eol=lf

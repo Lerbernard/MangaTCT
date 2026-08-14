@@ -1498,6 +1498,50 @@ def test_the_detect_dialog_boxes_behave_in_a_real_dom():
     assert out.returncode == 0, out.stdout + out.stderr
     assert "a stale ai_boxes in an old project changes nothing" in out.stdout
     assert "comic-text-detector: all three boxes stay live" in out.stdout
+
+
+def test_stopping_is_about_one_action_in_a_real_dom():
+    """tests/ui/stopping_is_one_action.test.js drives `poll` through a Clean
+    being cancelled with a Translate queued behind it, and checks the Cancel
+    button at every step. lee: *"when i clik cancel and it sto the ui show
+    stopping even thiught te next step queue ia happening"*."""
+    import os
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui", "stopping_is_one_action.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "once the next action starts the button says Cancel again" \
+        in out.stdout
+    assert "the second action can be cancelled as well" in out.stdout
+
+
+def test_the_legend_draws_the_box_in_a_real_dom():
+    """tests/ui/the_legend_draws_the_box.test.js drives the colour key: the
+    three main types are buttons, the lit one is the kind a drawn box comes out
+    as, and the number keys set it when nothing is selected. lee: *"make these
+    3 in the screenshoot buttons adn make them diactaet twhat box is beign draw
+    by degault"*."""
+    import os
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui", "the_legend_draws_the_box.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "bubble text is lit to start with" in out.stdout
+    assert "the region POST carries the lit kind" in out.stdout
     assert "all good" in out.stdout
 
 
@@ -5288,7 +5332,9 @@ def test_the_box_on_screen_is_the_writing_and_the_balloon_is_behind_it():
     2026-07-30 (*"there a thin dahed red box around the box around the text what
     does it do and remove it"*), so what is checked now is that ONE rectangle
     appears per region, at the writing, through the zoom, with a two-section
-    balloon still keeping its single group frame."""
+    balloon drawing NO frame round the pair -- lee: *"hide teh big box
+    afterware it dosnt need to be visibel"* -- and its sections still marked
+    as sections."""
     import os
     import shutil
     import subprocess
@@ -5306,6 +5352,32 @@ def test_the_box_on_screen_is_the_writing_and_the_balloon_is_behind_it():
     # the two that were the actual bug, named so a partial pass is not silent
     assert "ok   the box sits at the WRITING, not the balloon" in out.stdout
     assert "ok   nothing is drawn at the balloon rectangle" in out.stdout
+    assert "ok   a two-section balloon draws no frame round the pair" \
+        in out.stdout
+
+
+def test_the_page_list_follows_the_page_you_are_on():
+    """lee: *"can you make teh side bar with th pages scroll so that teh
+    current 0age is alwsy in teh frame"*. On a 46-page chapter the list is far
+    longer than the rail, so paging through walked the highlight off the
+    bottom while the sidebar sat on page 1."""
+    import os
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui",
+                              "the_page_list_follows_the_page.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "all good" in out.stdout, out.stdout
+    assert "FAIL" not in out.stdout, out.stdout
+    assert "ok   ...asked for as nearest, not centred" in out.stdout
+    assert "ok   a rename in progress is not scrolled away from" in out.stdout
 
 
 def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
@@ -5810,3 +5882,28 @@ def test_a_cut_that_typesets_big_by_leaving_the_words_behind_is_refused():
     # …and it is refused on the one ground that separates it from the stacked
     # balloon that is allowed to win: what it leaves behind.
     assert 0.5 <= band[1] < NECK_CUT_KEEPS_ITS_OWN, band[1]
+
+
+def test_an_answer_about_a_page_you_left_is_refused_in_a_real_dom():
+    """Switching pages while an answer is still in the air.
+
+    lee: *"the page lagged and merge 2 section from one page with another when
+    i switch pages too fast"*. Two dozen places apply `j.regions` the moment it
+    lands; one of them checked first and the rest did not. Worse than a wrong
+    picture — with another page's boxes in `regions`, the next drag posts THOSE
+    ids to the page now on screen, so the mix-up is written to disk.
+    """
+    import os
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui",
+                              "an_answer_about_a_page_you_left.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "all good" in out.stdout, out.stdout
