@@ -4,8 +4,8 @@ lee: *"revamp the box type, there need to be 3 main box type, boubble box,
 outide box and sfx box, they need to have sub categories, so ttought boubles
 shoud be a sub category of the the bubble type same as anfry bubbles"*.
 
-There were six flat types — speech, open typesetting, SFX, caption, thought,
-burst — sitting side by side in one menu with six unrelated colours, plus up
+There were six flat types - speech, open typesetting, SFX, caption, thought,
+burst - sitting side by side in one menu with six unrelated colours, plus up
 to ten more the person could add anywhere in the same list. Nothing said that
 a thought balloon and a burst are both BALLOONS, and the colours actively said
 they were not.
@@ -16,12 +16,12 @@ So: three families, and every box belongs to exactly one.
     freefloat   dialogue lying on the artwork with nothing drawn round it
     sfx         a drawn sound
 
-A family is a grouping and nothing else — it has no colour of its own. What a
+A family is a grouping and nothing else - it has no colour of its own. What a
 box actually IS is a SUB-TYPE, and every family comes with one that cannot be
 removed or renamed, because a box has to be something:
 
     bubble      Regular speech
-    freefloat   Outside text
+    freefloat   Freefloat text
     sfx         Sound effect
 
 The default sub-type's key is the family's own name, which is what every box
@@ -35,7 +35,7 @@ main catheory shou not have a color but the defaut shoud have the color, also
 only allow color with a color family for teh 5 user craeted boxex"*. Each
 family's default owns a colour; the sub-types under it can only be shades of
 that same colour. So a glance at a box says which family it is in before it
-says which sub-type — which is the way round that matters when you are looking
+says which sub-type - which is the way round that matters when you are looking
 at a page rather than a menu.
 
 **Find text only ever produces the three defaults.** A detector can measure
@@ -53,15 +53,15 @@ FAMILIES: tuple[str, ...] = ("bubble", "freefloat", "sfx")
 FAMILY_LABELS = {
     # lee: *"instad of bullon it shodu be bubble text and outside text"*.
     "bubble": "Bubble text",
-    "freefloat": "Outside text",
+    "freefloat": "Freefloat text",
     "sfx": "Sound effect",
 }
 
 # ...and what each family's undeletable sub-type is called. The key of this
-# sub-type IS the family name — see the module docstring.
+# sub-type IS the family name - see the module docstring.
 DEFAULT_LABELS = {
     "bubble": "Regular speech",
-    "freefloat": "Outside text",
+    "freefloat": "Freefloat text",
     "sfx": "Sound effect",
 }
 
@@ -79,7 +79,7 @@ SUBS_PER_FAMILY = 10            # ...plus the default, so eleven in a family
 # How wide a family's hue is allowed to run, either side of its own colour.
 #
 # +/- 0.034 of a turn is about twelve degrees. The three families sit a third
-# of a turn apart, so nothing here can reach anything else's territory — and
+# of a turn apart, so nothing here can reach anything else's territory - and
 # yellow (the SELECTED box) and blue (a link) stay well clear of all three.
 #
 # Some hue spread is unavoidable now. lee first asked for five sub-types per
@@ -105,7 +105,7 @@ def _hsv_of(hexstr: str):
 
 def _far_apart(base, n: int) -> list:
     """`n` colours from the family's own patch of colour space, chosen so that
-    the two closest of them — counting the family colour itself — are as far
+    the two closest of them - counting the family colour itself - are as far
     apart as they can be.
 
     Picked greedily rather than laid out on a ramp. A ramp spaces its steps
@@ -145,7 +145,7 @@ _SHADE_CACHE: dict = {}
 def family_shades(family: str) -> list[str]:
     """The colours a sub-type of this family may be, light to dark.
 
-    Same family as its own colour, always — that is what makes a box say which
+    Same family as its own colour, always - that is what makes a box say which
     of the three it is before it says which sub-type, which is the way round
     that matters when you are looking at a page rather than a menu.
     """
@@ -157,7 +157,7 @@ def family_shades(family: str) -> list[str]:
 
 
 def is_family(kind: str) -> bool:
-    """Is this the key of a family — which is also its default sub-type?"""
+    """Is this the key of a family - which is also its default sub-type?"""
     return kind in FAMILIES
 
 
@@ -165,7 +165,7 @@ def is_family(kind: str) -> bool:
 #
 # Which family a box belongs to is a question asked from places that have no
 # way to reach the settings: `PageState.shown`, for one, which is a dataclass
-# on a page and decides whether a hidden family's boxes count — and it is
+# on a page and decides whether a hidden family's boxes count - and it is
 # asked for every box on every page, constantly. Threading the settings list
 # through all of it would be a lot of plumbing for a value that cannot differ:
 # an editor serves ONE project (`editor.PROJECT`), and a project has one list.
@@ -198,7 +198,7 @@ def family_of(kind: str, subs=None) -> str:
     that has been deleted from the settings, or that came from a project file
     written by a newer version, still has boxes on pages pointing at it, and
     those boxes have to keep drawing and keep being cleaned. Balloon is the
-    family where being wrong costs least — it is the one that gets cleaned and
+    family where being wrong costs least - it is the one that gets cleaned and
     typeset normally.
     """
     if kind in FAMILIES:
@@ -231,8 +231,8 @@ def kind_colour(kind: str, subs=None) -> str:
     """The colour a box of this kind is drawn in.
 
     A family's default carries the family colour; anything else carries a
-    shade of it. A sub-type with no colour recorded — or one carrying a colour
-    from before this change, which could be any hue at all — is given the
+    shade of it. A sub-type with no colour recorded - or one carrying a colour
+    from before this change, which could be any hue at all - is given the
     first shade of its own family rather than drawn in a colour that lies
     about which family it is in.
     """
@@ -251,7 +251,7 @@ def kind_colour(kind: str, subs=None) -> str:
 
 # What Find text is allowed to call a box. Every detector in the project
 # reports one of these four names, and `narration` is a judgement rather than
-# a measurement — the box is a caption, which is a decision about what the
+# a measurement - the box is a caption, which is a decision about what the
 # writing IS, not about what shape was found. It comes back as a balloon and
 # the person moves it to whatever sub-type they keep captions in.
 def detected_kind(kind: str) -> str:
@@ -265,12 +265,12 @@ def detected_kind(kind: str) -> str:
 #
 # lee: *"add some preloaded custom bubble type ... naration type shiude be in
 # both bubble and outside box as a pre loaded custum"*. These are ordinary
-# sub-types — rename them, recolour them, delete the ones you never use. They
+# sub-types - rename them, recolour them, delete the ones you never use. They
 # are here because a page of manga has more than three kinds of writing on it
 # and starting from three empty families means naming them all yourself before
 # you can label anything.
 #
-# The three at the head of the balloon list — caption, thought and burst —
+# The three at the head of the balloon list - caption, thought and burst -
 # were built-in types before families existed, in the flat menu beside the
 # families themselves. They keep their keys, so a page already labelled with
 # one keeps its label; what changes is that they can now be renamed and
@@ -284,7 +284,7 @@ def detected_kind(kind: str) -> str:
 # typesetting. They are the same VOICE and a different piece of drawing, and it
 # is the drawing this list is about.
 # lee, with a picture of the list he wants: *"only these should be default"*.
-# Four under Bubble text, three under Outside text, two under Sound effect —
+# Four under Bubble text, three under Outside text, two under Sound effect -
 # Yell, Angry and Flashback are gone. A preload is a starting point, not a
 # catalogue: every one of them is a row somebody has to read past before they
 # reach their own, and a shout, a yell and an angry line are one kind of
@@ -313,19 +313,19 @@ def migrate(subs, seed: bool = False, offered=None) -> list[dict]:
 
     Seeding is the once-per-project part, and it is separate because it has to
     be. Adding anything missing from `PRELOADED` on every save means a sub-type
-    cannot be deleted at all — the next save puts it straight back, which is
+    cannot be deleted at all - the next save puts it straight back, which is
     what happened: pressing × on Thought balloon removed it and the row was
     there again before the panel finished redrawing.
 
     But "once per project" was too coarse. A project opened before this list
     existed was stamped as seeded from an EMPTY list, so every sub-type added
     to `PRELOADED` afterwards could never reach it: lee, with a project made
-    two rounds ago — *"you didnt add teh preloaded sub types"*.
+    two rounds ago - *"you didnt add teh preloaded sub types"*.
 
     So what is remembered is not a yes/no but WHICH keys have been offered.
     `offered` is that list. A `PRELOADED` key not in it has never been put in
     front of this person, so it goes in; a key in it was offered once and their
-    answer — kept, renamed, deleted — stands. New preloads reach old projects,
+    answer - kept, renamed, deleted - stands. New preloads reach old projects,
     and a deleted one stays deleted. `seed=True` is the new-project case: every
     key is being offered for the first time.
     """
@@ -367,7 +367,7 @@ def kind_colour_for_new(family: str, existing, want=None) -> str:
 
     `want` is honoured when it is one of the family's shades and free. When
     every shade is taken the first is reused rather than refusing to give a
-    colour at all — a sub-type without one cannot be drawn.
+    colour at all - a sub-type without one cannot be drawn.
     """
     shades = family_shades(family)
     taken = {str(s.get("color") or "").lower()

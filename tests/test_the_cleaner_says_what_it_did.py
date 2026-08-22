@@ -1,7 +1,7 @@
 """The clean step keeps what the cleaner said about each box.
 
 `inpaint_page` already reports, per region. It sets `clean_route` to the path
-that box took — flat fill, pattern copy, neural, telea, "fell back" — and it
+that box took - flat fill, pattern copy, neural, telea, "fell back" - and it
 appends to `flagged` when it falls back to the detector's own mask, when it
 drops to the letter-like core on a dark panel, when a screentone copy is worth
 a look, and when the typesetting is STILL VISIBLE after the retry.
@@ -11,7 +11,7 @@ a look, and when the typesetting is STILL VISIBLE after the retry.
 materialised page and dropped with it.
 
 Measured on lee's chapter 1, 71 pages and 134 regions: `clean_route` empty on
-every one, and four flags on the whole chapter — three about speaker names and
+every one, and four flags on the whole chapter - three about speaker names and
 one about punctuation. Not one from the cleaner. And that is a chapter where
 three boxes came back with their Korean still on them, which took a pixel diff
 against the originals to find, because the only other way to find them is to
@@ -19,7 +19,7 @@ look at 71 pages.
 
 Committing here is the whole fix. `_commit_keep_proofread` and not `commit`,
 because `commit()` rebuilds the records from the page and would drop the
-editor-only proofread flag — the same reason typeset and export go through it.
+editor-only proofread flag - the same reason typeset and export go through it.
 """
 
 import numpy as np
@@ -47,7 +47,7 @@ def proj(tmp_path, request):
     from mangatl.project import Project
     # The plate is cached in memory under the page's box geometry and every
     # fixture here has the same boxes, so a reused plate would run no cleaner
-    # and report no route — see `test_which_box_was_cleaned_how`.
+    # and report no route - see `test_which_box_was_cleaned_how`.
     ed._plate_cache.clear()
     root = str(tmp_path / "r")
     shutil.rmtree(root, ignore_errors=True)
@@ -99,7 +99,7 @@ def test_and_the_page_is_still_proofread_afterwards(proj):
 
 
 def test_a_page_with_its_own_plate_commits_nothing(proj):
-    """It is not cleaned at all — no mask, no route, nothing to report."""
+    """It is not cleaned at all - no mask, no route, nothing to report."""
     ed, p = proj
     import cv2
     own = str(p.output_dir) + "/own.png"
@@ -131,7 +131,7 @@ def test_the_record_has_somewhere_to_put_both(proj):
 
 def test_cleaning_a_page_does_not_rewrite_its_geometry(proj):
     """The first version of this called `_commit_keep_proofread`, which writes
-    the whole page back — and `materialize` runs the balloon finder over
+    the whole page back - and `materialize` runs the balloon finder over
     `repaired(i)` on the way in. So cleaning rewrote every region's outline
     from a balloon found on the CLEANED plate, where the ink that defines an
     interior has just been erased, and the next clean worked from that. lee:
@@ -158,7 +158,7 @@ def test_and_still_says_what_it_did(proj):
 
 def test_a_box_the_page_never_carried_is_left_as_it_was(proj):
     """A hidden box is not on the materialised page, so the cleaner has nothing
-    to say about it — and must not blank what it already said."""
+    to say about it - and must not blank what it already said."""
     ed, p = proj
     p.pages[0].regions[0]["clean_route"] = "flat fill"
     p.pages[0].regions[0]["flagged"] = "ghost: an old note"

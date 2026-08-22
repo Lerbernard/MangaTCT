@@ -7,8 +7,8 @@ outile etx? or is it better to have teh typesster try to find this info
 itself"*.
 
 The pixels, and not the reader. Everything measured in this chapter says a
-vision model normalises what it is unsure of — 티리스 became 타리스, 드래건
-became 드래곤, `….` became `...` — and a hex value and an angle are exactly the
+vision model normalises what it is unsure of - 티리스 became 타리스, 드래건
+became 드래곤, `….` became `...` - and a hex value and an angle are exactly the
 sort of continuous quantity it would approximate while sounding certain. The
 page can be asked instead, it answers exactly, it answers for free, and the
 answer carries its own confidence: a gradient is a regression, and the R² says
@@ -65,7 +65,7 @@ def test_black_on_white_comes_back_black():
 
 def test_the_block_mask_is_not_taken_for_the_letters():
     """The measurement that started this. `text_mask` is the BLOCK the detector
-    found, and a plain bubble measured through it comes out #FAFAFA — which is
+    found, and a plain bubble measured through it comes out #FAFAFA - which is
     the paper, not the writing. The letters are found inside the block."""
     img = np.full((200, 400, 3), 255, np.uint8)
     _letters(img, (0, 0, 0))
@@ -76,7 +76,7 @@ def test_the_block_mask_is_not_taken_for_the_letters():
 
 def test_white_on_a_dark_panel_is_read_the_same_way():
     """029's system panel. "Differs from the paper" has no polarity, so this
-    needs no second code path — and if it did, that path would be the one
+    needs no second code path - and if it did, that path would be the one
     nobody tested."""
     img = np.full((200, 400, 3), 0, np.uint8)
     img[:, :] = (75, 31, 28)                       # the navy, in BGR
@@ -111,7 +111,7 @@ def test_a_gradient_is_reported_with_both_ends():
     got = S.measure_region(img, _block())
     assert "fg1" in got and "fg2" in got, got
     # The ends are read at the 10th and 90th percentile along the axis rather
-    # than at the extremes, so they sit a little inside the painted ones —
+    # than at the extremes, so they sit a little inside the painted ones -
     # #736626 to #C19A5B here. Close, and deliberately not exact: a stop taken
     # from the single most extreme pixel is a stop taken from a speck.
     for got_hex, want in ((got["fg1"], (0x73, 0x66, 0x26)),
@@ -121,7 +121,7 @@ def test_a_gradient_is_reported_with_both_ends():
 
 
 def test_and_the_angle_the_app_paints_it_at():
-    """0 is top to bottom and it runs clockwise from there — the convention in
+    """0 is top to bottom and it runs clockwise from there - the convention in
     `typesetting.js`, which paints (sin a, cos a) and puts fg1 at the low end.
     A number measured against a different convention is a gradient drawn
     sideways, which is worse than none."""
@@ -137,7 +137,7 @@ def test_and_the_angle_the_app_paints_it_at():
 
 def test_the_angle_is_a_plain_number_and_not_numpys():
     """`np.float64` subclasses `float`, so JSON takes it and nothing complains
-    — and it comes back off disk as a plain float, so the same region is one
+    - and it comes back off disk as a plain float, so the same region is one
     type before a save and another after it. Pinned as the type, because that
     is the thing that differs."""
     import json
@@ -151,7 +151,7 @@ def test_the_angle_is_a_plain_number_and_not_numpys():
 
 def test_a_gentle_shade_is_not_a_gradient():
     """A flat fill on uneven artwork fits a line beautifully and moves almost
-    nothing. `GRAD_SPAN` is what refuses it — measured, the worst flat box on
+    nothing. `GRAD_SPAN` is what refuses it - measured, the worst flat box on
     six pages moved 4 and the plaque moved 78."""
     img = np.full((200, 400, 3), 236, np.uint8)
     _grad(img, a=(60, 60, 60), b=(74, 74, 74))
@@ -200,7 +200,7 @@ def test_a_ring_round_the_letters_is_reported():
 
 def test_a_soft_falloff_is_not_a_ring():
     """A glow. The bands step away from the paper exactly as an outline's do,
-    and the difference is that they never settle — 029's blue sound effects
+    and the difference is that they never settle - 029's blue sound effects
     move 27 between the first band and the second, and an outline is one
     colour. Reported as a hard ring, a glow becomes a stroke the artist never
     drew round every letter."""
@@ -222,7 +222,7 @@ def test_a_soft_falloff_is_not_a_ring():
 
 def test_the_rim_every_letter_has_is_not_a_ring():
     """Anti-aliasing. The first band outside black-on-white measures #D7D7D7,
-    which is 39 off the paper — every letter ever printed would come back with
+    which is 39 off the paper - every letter ever printed would come back with
     an outline if the first band counted on its own."""
     img = np.full((200, 400, 3), 255, np.uint8)
     _letters(img, (0, 0, 0))
@@ -380,7 +380,7 @@ def test_a_letter_filled_with_a_gradient_is_not_mistaken_for_a_ringed_one():
     gradient; the difference is WHERE the light half is. In a ring it is
     around the outside; in a gradient it runs through the middle. Take the
     split on a gradient and what is left is the dark core, which is how 066's
-    파 lost its red — measured, `fg` went to #010000 and both stops with it."""
+    파 lost its red - measured, `fg` went to #010000 and both stops with it."""
     img = np.full((200, 400, 3), 236, np.uint8)
     _grad(img, a=(20, 20, 20), b=(150, 150, 150))
     ink = S.glyph_ink(img, _block(),
@@ -410,8 +410,8 @@ def test_the_inside_share_is_the_measured_one():
 def test_a_ring_the_first_split_keeps_is_taken_off_by_the_second():
     """The case the second split exists for.
 
-    Where the ring's colour sits between the paper and the letters — grey
-    round black on white — one split cannot separate them, and the letters
+    Where the ring's colour sits between the paper and the letters - grey
+    round black on white - one split cannot separate them, and the letters
     come back as the average of black and grey, which is a colour that is on
     no part of the page."""
     img = np.full((200, 400, 3), 255, np.uint8)
@@ -423,15 +423,15 @@ def test_a_ring_the_first_split_keeps_is_taken_off_by_the_second():
 
 
 def test_the_blended_rim_of_a_glyph_is_not_part_of_its_colour():
-    """Every printed letter has one — a band where the ink and the paper are
-    mixed — and it is a fifth of a small glyph. Measured in, a red caption on
+    """Every printed letter has one - a band where the ink and the paper are
+    mixed - and it is a fifth of a small glyph. Measured in, a red caption on
     white reports pink."""
     img = np.full((200, 400, 3), 255, np.uint8)
     _letters(img, (32, 16, 200), size=14, gap=22)
     img = cv2.GaussianBlur(img, (7, 7), 0)
     got = S.measure_region(img, _block())
     have = tuple(int(got["fg"][i:i + 2], 16) for i in (1, 3, 5))
-    # 0 off with the rim dropped, 11 off with it kept — and 11 on a colour is
+    # 0 off with the rim dropped, 11 off with it kept - and 11 on a colour is
     # the difference between the red the artist drew and a pinker one.
     assert max(abs(a - b) for a, b in zip(have, (200, 16, 32))) <= 6, got
 
@@ -439,7 +439,7 @@ def test_the_blended_rim_of_a_glyph_is_not_part_of_its_colour():
 def test_the_rim_is_not_an_outline_even_at_full_contrast():
     """White on black is the worst case: the blend between them is mid-grey,
     which is 127 off the paper and clears any step you could set. It is still
-    not an outline — it is the edge of the letter."""
+    not an outline - it is the edge of the letter."""
     img = np.zeros((200, 400, 3), np.uint8)
     _letters(img, (255, 255, 255))
     img = cv2.GaussianBlur(img, (5, 5), 0)
@@ -492,7 +492,7 @@ def test_plain_writing_has_neither():
 
 
 def test_the_blended_rim_is_not_a_glow_either():
-    """It is the biggest step of the lot — white on black blends to 175 — and
+    """It is the biggest step of the lot - white on black blends to 175 - and
     it is one band wide. The tail is read from the SECOND ring for that
     reason."""
     img = np.zeros((200, 400, 3), np.uint8)
@@ -588,7 +588,7 @@ def test_the_read_step_keeps_the_tally_on_the_project():
 
 def test_a_flat_patch_behind_the_words_is_not_a_glow():
     """059's caption: a white patch four pixels wide behind small dark text on
-    artwork, which reads 47 88 87 85 12 — a plateau, and a plateau is a shape
+    artwork, which reads 47 88 87 85 12 - a plateau, and a plateau is a shape
     a glow never makes. Without that guard it comes back as a four-pixel white
     halo round every letter."""
     img = np.full((200, 400, 3), 0, np.uint8)

@@ -579,13 +579,13 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 /* Pills, not a row of words. Six links in a line all the same colour read as
    one sentence you cannot press. */
 .hd nav a,.navb{{color:var(--dim);text-decoration:none;padding:7px 13px;
- border:1px solid var(--line);border-radius:999px;line-height:1;
- white-space:nowrap;background:transparent;font:inherit;font-size:14px;
+ border:1px solid transparent;border-radius:999px;line-height:1;
+ white-space:nowrap;background:var(--panel2);font:inherit;font-size:14px;
  font-weight:600;cursor:pointer;display:inline-flex;align-items:center;
  gap:7px;transition:color .15s ease,border-color .15s ease,
  background .15s ease,transform .15s ease}}
-.hd nav a:hover,.navb:hover{{color:var(--fg);border-color:var(--line2);
- background:var(--panel2);transform:translateY(-1px)}}
+.hd nav a:hover,.navb:hover{{color:var(--fg);border-color:transparent;
+ background:var(--line);transform:translateY(-1px)}}
 .navb.icon{{padding:7px;width:34px;height:34px;justify-content:center;
  color:var(--dim)}}
 .navb svg{{display:block}}
@@ -701,9 +701,11 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
  display:flex;align-items:baseline;gap:8px;
  transition:color .15s ease,border-color .15s ease,background .15s ease}}
 .tb span{{font-size:12px;font-weight:400;color:var(--dim2)}}
-.tb:hover{{color:var(--fg);border-color:var(--line2)}}
+.tb:hover{{color:var(--fg);border-color:var(--line2);background:var(--panel2)}}
 .tb[aria-selected=true]{{color:#141821;background:var(--accent);
  border-color:var(--accent)}}
+.tb[aria-selected=true]:hover{{color:#141821;background:var(--accent2);
+ border-color:var(--accent2)}}
 .tb[aria-selected=true] span{{color:#4a3d00}}
 .pan[hidden]{{display:none}}
 .pan-img img{{max-height:330px;object-fit:cover;object-position:top}}
@@ -816,6 +818,7 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <a href="#control">Control</a>
     <a href="#compare">Compare</a>
     <a href="#credits">Coins</a>
+    <a href="tutorial.html">Guide</a>
     <a href="pricing.html">Pricing</a>
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
@@ -826,7 +829,7 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
 
 <section class="hero"><div class="wrap">
   <p class="kicker">Manga | manhwa | manhua</p>
-  <h1>Translate, clean and typeset a chapter <em>without giving up the page</em></h1>
+  <h1>Translate, clean and typeset a chapter <em>with full control of every page</em></h1>
   <p class="lead">MangaTCT finds every block of text, reads it, translates it
   with your glossary and your character sheet, wipes the original off the art
   and sets the English back into the balloon. Then it hands you all of it:

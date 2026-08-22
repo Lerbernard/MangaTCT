@@ -7,8 +7,8 @@
 
    Two things are asserted here and they are different: that the CURRENT row
    is the one asked for, and that the ask is `block:'nearest'`. Nearest does
-   nothing when the row is already visible — which is what stops a click on a
-   row you can see from jerking the list out from under the pointer — and
+   nothing when the row is already visible - which is what stops a click on a
+   row you can see from jerking the list out from under the pointer - and
    moves the least it can when the row is off the edge. `center` would scroll
    on every single redraw. */
 const {JSDOM}=require('jsdom');
@@ -48,7 +48,7 @@ setTimeout(async ()=>{
     w.HTMLElement.prototype.scrollIntoView=function(o){
       asked.push({el:this,opt:o}); };
 
-    // `cur` is a module-level binding, not a window property — so the page
+    // `cur` is a module-level binding, not a window property - so the page
     // is changed the way the app changes it.
     w.eval('cur=30');
     w.renderPages();
@@ -94,7 +94,7 @@ setTimeout(async ()=>{
     await new Promise(r=>w.setTimeout(r,30));
     ok('no current page scrolls nothing', asked.length===0, asked.length);
 
-    // A browser without `scrollIntoView` — which is every jsdom, and the
+    // A browser without `scrollIntoView` - which is every jsdom, and the
     // reason `soon` exists in core.js. An unguarded call throws INSIDE the
     // frame callback, and everything after it in that frame never happens.
     // The list must still be drawn and the error must never be raised.

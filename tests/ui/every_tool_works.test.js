@@ -13,7 +13,7 @@
 
    The shapes get the most of it, because they are what changed: a drawn shape
    can be picked up again with the arrow and moved, resized and turned, and its
-   colour, width and fill can be changed afterwards — because it is still a
+   colour, width and fill can be changed afterwards - because it is still a
    shape and not a flat patch of pixels. */
 const {JSDOM}=require('jsdom');
 const html=require('./load')();
@@ -91,7 +91,7 @@ setTimeout(async ()=>{
   w.ensureCanvas();
 
   // ---------------------------------------------------------- the toolbox
-  // Every tool is in ONE place now — the strip down the left of the page.
+  // Every tool is in ONE place now - the strip down the left of the page.
   // They used to be here as well, in four tabbed sections of the panel, so
   // each one was on screen twice and neither copy was obviously the real one.
   // lee: *"the tools are duplicated it shoud only be onteh side bar"*.
@@ -220,7 +220,7 @@ setTimeout(async ()=>{
   ok(Math.round(box().w)===Math.round(bKeep.w) && rect().rot===rotKeep,
      'and keeps the move, the resize and the turn');
 
-  // Esc puts the shape back where it was picked up — the whole session, not
+  // Esc puts the shape back where it was picked up - the whole session, not
   // the last drag, which is what cancelling a transform has always meant
   // the centre is the one point a turn does not move, so it is what a click
   // aimed at "this shape" has to use
@@ -336,11 +336,11 @@ setTimeout(async ()=>{
   w.eval('layers=[]');
   w.setToolTab('select');
   ok(!d.getElementById('liftBtn'),
-     'no lift BUTTON — J does it, and so do Ctrl+C and Ctrl+V');
+     'no lift BUTTON - J does it, and so do Ctrl+C and Ctrl+V');
   w.selLift();
   ok(L().length===0, 'lifting with nothing selected lifts nothing');
   // What lifting actually produces needs real canvas pixels, so it is proved
-  // in a Chromium against the exported page — tests/test_lift_and_ants.py.
+  // in a Chromium against the exported page - tests/test_lift_and_ants.py.
   w.toggleSelTool('rect');
   ok(w.eval("selTool")==='rect', 'and the marquee to make one with');
   w.toggleSelTool('rect');

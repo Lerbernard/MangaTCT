@@ -1,9 +1,9 @@
 """Four things wrong with cleaning, all of them about WHERE.
 
 lee, on a fresh run over 72 pages: *"very good progress was made with teh
-clenning, but theer are stil some issue"* — and then five screenshots.
+clenning, but theer are stil some issue"* - and then five screenshots.
 
-## 1 and 2 — a plate that was never cleaned at all
+## 1 and 2 - a plate that was never cleaned at all
 
 *"at no point shoud a bubble not be cleneed"*, about two gold caption plates.
 There were two separate reasons, and the first one is not about gold.
@@ -12,7 +12,7 @@ There were two separate reasons, and the first one is not about gold.
 `_region_moved` moved `bbox`, `polygon` and the layout frames when a page is
 split, and never `bubble_bbox`. On a region with no polygon that box IS the
 placement area, so a plate 4056px down a 4417px page went on saying 4056 after
-the cut — 1848px off the bottom of a page 2208 tall. numpy hands back an empty
+the cut - 1848px off the bottom of a page 2208 tall. numpy hands back an empty
 slice without complaint, the mask came out empty, `text_mask` came out empty,
 and nothing downstream reads that as an error: there is simply nothing to
 erase. The box was silently skipped.
@@ -20,7 +20,7 @@ erase. The box was silently skipped.
 **And the mask could not see gold.** A bbox-only region's glyph mask is
 `gray <= 128`; gold on cream is 150 to 190. Measured over the chapter, the
 detector's mask holds a median **0.99** of the letter-like ink an Otsu split
-finds in the same box, and 137 of 139 are over 0.95 — the two sides agree.
+finds in the same box, and 137 of 139 are over 0.95 - the two sides agree.
 The two that do not are these plates, at **0.15** and **0.39**. So when the
 mask holds less than `SAW_ENOUGH` of the split, the mask is not a reading of
 that box and the split is used instead.
@@ -30,7 +30,7 @@ on paper too, and erasing them chews the frame. `_letters_only` drops them: a
 letter is about as tall as the letters beside it, and those flourishes are 53
 and 43 pixels against a median glyph of 19.
 
-## 4 — the fill walked out of the bubble
+## 4 - the fill walked out of the bubble
 
 *"the box extarnt out f the bubble but the clenner shoud not mess uo teh bubble
 this bad"*, with a night sky that had a white rectangle bitten out of it. The
@@ -42,12 +42,12 @@ Only safe now that the mask covers the writing: it used to have bays bitten out
 of it exactly where a word was, and clipping to it then would have PRESERVED
 that word. See `test_no_bays_in_the_writing`.
 
-## and — only the text, not the box
+## and - only the text, not the box
 
 *"the ai tries to clenned everything in the box, it shoud only try to clen teh
 text"*. Measured as a share of the box: the glyphs are 14.5%, the seed takes it
 to 41%, the haze sweep adds a point, and `MODEL_PAD` at 6 took it to **73%**.
-At 1 it is 42%, and misses no more ink. The seed stays at 3 — tried at 1, the
+At 1 it is 42%, and misses no more ink. The seed stays at 3 - tried at 1, the
 local fills got worse, because that 3px paints the skirt the haze sweep is
 built to ignore.
 """
@@ -195,7 +195,7 @@ def _u8_ink(g):
 def test_the_model_is_not_handed_most_of_the_box():
     """At 6 the mask was 73% of its box, at 2 it is 55%, and the glyphs
     themselves are 14.5%. Held at 2 and not lower because `_local_fill` has to
-    stay measurably tighter than what the model is given — see
+    stay measurably tighter than what the model is given - see
     `test_clean_says_when_it_fails`."""
     assert I.MODEL_PAD <= 2
 
@@ -212,7 +212,7 @@ def test_a_glyph_poking_past_the_balloon_interior_still_comes_off():
     """The doorstep on the balloon side of the fence.
 
     The detected interior stops a little inside the drawn outline, and ordinary
-    writing pokes past it — `glyphs_only` grows the mask by GROW_PX for the
+    writing pokes past it - `glyphs_only` grows the mask by GROW_PX for the
     same reason. Fence the fill at the bare interior and the outer rim of every
     glyph that touches the edge is left standing.
     """

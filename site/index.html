@@ -132,13 +132,13 @@ header{position:sticky;top:0;z-index:60;background:var(--bg);
 /* Pills, not a row of words. Six links in a line all the same colour read as
    one sentence you cannot press. */
 .hd nav a,.navb{color:var(--dim);text-decoration:none;padding:7px 13px;
- border:1px solid var(--line);border-radius:999px;line-height:1;
- white-space:nowrap;background:transparent;font:inherit;font-size:14px;
+ border:1px solid transparent;border-radius:999px;line-height:1;
+ white-space:nowrap;background:var(--panel2);font:inherit;font-size:14px;
  font-weight:600;cursor:pointer;display:inline-flex;align-items:center;
  gap:7px;transition:color .15s ease,border-color .15s ease,
  background .15s ease,transform .15s ease}
-.hd nav a:hover,.navb:hover{color:var(--fg);border-color:var(--line2);
- background:var(--panel2);transform:translateY(-1px)}
+.hd nav a:hover,.navb:hover{color:var(--fg);border-color:transparent;
+ background:var(--line);transform:translateY(-1px)}
 .navb.icon{padding:7px;width:34px;height:34px;justify-content:center;
  color:var(--dim)}
 .navb svg{display:block}
@@ -254,9 +254,11 @@ header{position:sticky;top:0;z-index:60;background:var(--bg);
  display:flex;align-items:baseline;gap:8px;
  transition:color .15s ease,border-color .15s ease,background .15s ease}
 .tb span{font-size:12px;font-weight:400;color:var(--dim2)}
-.tb:hover{color:var(--fg);border-color:var(--line2)}
+.tb:hover{color:var(--fg);border-color:var(--line2);background:var(--panel2)}
 .tb[aria-selected=true]{color:#141821;background:var(--accent);
  border-color:var(--accent)}
+.tb[aria-selected=true]:hover{color:#141821;background:var(--accent2);
+ border-color:var(--accent2)}
 .tb[aria-selected=true] span{color:#4a3d00}
 .pan[hidden]{display:none}
 .pan-img img{max-height:330px;object-fit:cover;object-position:top}
@@ -378,6 +380,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <a href="#control">Control</a>
     <a href="#compare">Compare</a>
     <a href="#credits">Coins</a>
+    <a href="tutorial.html">Guide</a>
     <a href="pricing.html">Pricing</a>
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
@@ -388,7 +391,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
 
 <section class="hero"><div class="wrap">
   <p class="kicker">Manga | manhwa | manhua</p>
-  <h1>Translate, clean and typeset a chapter <em>without giving up the page</em></h1>
+  <h1>Translate, clean and typeset a chapter <em>with full control of every page</em></h1>
   <p class="lead">MangaTCT finds every block of text, reads it, translates it
   with your glossary and your character sheet, wipes the original off the art
   and sets the English back into the balloon. Then it hands you all of it:
@@ -399,7 +402,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   </div>
   <p class="note">Free credits on signup, no card. Finding text, cleaning and
   typesetting run on your own machine and cost nothing.</p>
-  <div class="heroshot"><img src="assets/ui-hero-real.jpg" alt="The MangaTCT workspace: a chapter typeset in English, with the seven steps across the top and the cleaning panel on the right" loading="lazy"></div>
+  <div class="heroshot"><div class="slot" style="aspect-ratio:16 / 10"><span class="sn">ui-hero-real.jpg</span><span class="sw">The workspace on a finished chapter, the whole window</span></div></div>
   <div class="stats">
     <span class="stat"><b>3</b><span>formats, end to end</span></span>
     <span class="stat"><b>7</b><span>steps, run in any order</span></span>
@@ -416,7 +419,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <div class="rise" style="margin:30px 0 0"><div class="slot tall" style="aspect-ratio:3 / 2"><span class="sn">ba-before.jpg + ba-after.jpg</span><span class="sw">One page, twice - the raw scan and the finished export, same size and same crop. Drop both in and this becomes a slider you drag.</span></div></div>
   <div class="balabels"><span>Raw</span><span>Typeset</span></div>
   <div class="clips rise" style="margin-top:36px">
-    <div class="clip"><img src="assets/clip-pipeline.gif" alt="The three stages cycling: raw, cleaned, typeset" loading="lazy">
+    <div class="clip"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">clip-pipeline.gif</span><span class="sw">A short loop of one page going raw to cleaned to typeset</span></div>
       <h4>The three stages</h4>
       <p>Find and read, clean, typeset. Each stage is a step you can run, undo
       and run again on one page or the whole chapter.</p></div>
@@ -443,7 +446,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     </ol></div>
     <div><div class="grp"><p class="gname">Translation</p><div class="gsteps"><article class="step" data-step="1"><b>1</b><h4>Find text</h4><p>Every block of writing on the page, boxed. comic-text-detector runs on your machine - no upload, no cost.</p></article><article class="step" data-step="2"><b>2</b><h4>Read text</h4><p>The Japanese, Korean or Chinese out of each box. Whole page in one request, or the page cut up for the small print.</p></article><article class="step" data-step="3"><b>3</b><h4>Translate</h4><p>Every box on the page in one go, with the synopsis, the character sheet and the glossary in front of it - so honorifics and names stay the same on page 39 as on page 1.</p></article><article class="step" data-step="4"><b>4</b><h4>Proofread <span class="opt">optional</span></h4><p>A second pass, only if you want one. It reads the page as a page: pronouns with no owner, a name one letter off the sheet, a line that does not answer the one before it. It writes a report you can read, and it changes nothing without you. Skip it and everything else works exactly the same.</p></article></div></div><div class="grp"><p class="gname">Image</p><div class="gsteps"><article class="step" data-step="5"><b>5</b><h4>Clean</h4><p>The Japanese comes off. Flat fill, tone copy, or the AI cleaner for the hard bits. Every bubble tells you which it used.</p></article><article class="step" data-step="6"><b>6</b><h4>Typeset</h4><p>The English goes in. Line breaks first, then size - never a hyphen, never a cut sentence, never a word split.</p></article></div></div><div class="grp"><p class="gname">Out</p><div class="gsteps"><article class="step" data-step="7"><b>7</b><h4>Export</h4><p>The finished pages. Or the cleaned plates. Or a sheet with every box numbered, for someone else to typeset.</p></article></div></div></div>
   </div>
-  <div class="rise" style="margin-top:40px"><figure class="shot "><img src="assets/ui-steps-real.jpg" alt="The seven-step bar on a finished chapter" loading="lazy"><figcaption>A real chapter, six steps done, twenty-three pages each.</figcaption></figure></div>
+  <div class="rise" style="margin-top:40px"><figure class="shot "><div class="slot" style="aspect-ratio:21 / 4"><span class="sn">ui-steps-real.jpg</span><span class="sw">The step bar with every step reading 23 of 23</span></div><figcaption>A real chapter, six steps done, twenty-three pages each.</figcaption></figure></div>
 </div></section>
 
 <section class="band" id="formats"><div class="wrap">
@@ -465,7 +468,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="kicker">The screens</p>
   <h2 class="rise">Four tabs, and only one of them is ever in your way.</h2>
   <div class="tabs rise" role="tablist" id="scrtabs" style="margin-top:24px"><button class="tb" role="tab" aria-selected="true" aria-controls="s-0" id="st-0">File</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-1" id="st-1">Workspace</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-2" id="st-2">Results</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-3" id="st-3">Settings</button></div>
-  <div class="rise"><section class="pan" role="tabpanel" id="s-0" aria-labelledby="st-0"><div class="two tight"><div><h3>File</h3><p class="mut">Open a chapter, add pages, reorder them. One screen, one job.</p></div><figure class="shot"><img src="assets/ui-pages.jpg" alt="File tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-1" aria-labelledby="st-1" hidden><div class="two tight"><div><h3>Workspace</h3><p class="mut">The page. Boxes on the left of the split, typesetting on the right, every tool down the rail. This is where the work happens.</p></div><figure class="shot"><img src="assets/ui-translation-real.jpg" alt="Workspace tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-2" aria-labelledby="st-2" hidden><div class="two tight"><div><h3>Results</h3><p class="mut">The proofread report and the chapter audit - what the second pass found, page by page, with the original beside it.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-results-real.jpg</span><span class="sw">The Results tab showing the proofread report on your own chapter</span></div></figure></div></section><section class="pan" role="tabpanel" id="s-3" aria-labelledby="st-3" hidden><div class="two tight"><div><h3>Settings</h3><p class="mut">Fonts, box types, languages, models, cleaning. Per chapter, and remembered.</p></div><figure class="shot"><img src="assets/ui-settings-fonts-real.jpg" alt="Settings tab" loading="lazy"></figure></div></section></div>
+  <div class="rise"><section class="pan" role="tabpanel" id="s-0" aria-labelledby="st-0"><div class="two tight"><div><h3>File</h3><p class="mut">Open a chapter, add pages, reorder them. One screen, one job.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-pages.jpg</span><span class="sw">The File tab with a chapter open and its pages listed</span></div></figure></div></section><section class="pan" role="tabpanel" id="s-1" aria-labelledby="st-1" hidden><div class="two tight"><div><h3>Workspace</h3><p class="mut">The page. Boxes on the left of the split, typesetting on the right, every tool down the rail. This is where the work happens.</p></div><figure class="shot"><img src="assets/ui-translation-real.jpg" alt="Workspace tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-2" aria-labelledby="st-2" hidden><div class="two tight"><div><h3>Results</h3><p class="mut">The proofread report and the chapter audit - what the second pass found, page by page, with the original beside it.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-results-real.jpg</span><span class="sw">The Results tab showing the proofread report on your own chapter</span></div></figure></div></section><section class="pan" role="tabpanel" id="s-3" aria-labelledby="st-3" hidden><div class="two tight"><div><h3>Settings</h3><p class="mut">Fonts, box types, languages, models, cleaning. Per chapter, and remembered.</p></div><figure class="shot"><img src="assets/ui-settings-fonts-real.jpg" alt="Settings tab" loading="lazy"></figure></div></section></div>
 </div></section>
 
 <section class="band" id="control"><div class="wrap">
@@ -474,8 +477,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="lead rise">This is the part most tools skip. Everything the pipeline
   decided is a value you can see and change, on the page, without leaving the
   editor and without starting again.</p>
-  <div style="margin-top:30px"><div class="ctl rise"><div class="ctltx"><h3>Every line, on the page</h3><p>The text list is the translation: one row per piece of source text, what it says and what it will say, and how sure the reader was. Open a row and both are fields - retype either. Change what kind of box it is, split it in two, or link it to the bubble it carries on into.</p></div><figure class="shot"><img src="assets/ui-row-real.jpg" alt="Every line, on the page" loading="lazy"></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every block, letter by letter</h3><p>Font, size, rotation, curve, line gap, letter gap, caps. Text colour, outline colour, both as gradients. Shadow, outer glow, inner glow. Per block - not per page, not per chapter.</p></div><figure class="shot"><img src="assets/ui-typesetting.jpg" alt="Every block, letter by letter" loading="lazy"></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every bubble, cleaned your way</h3><p>The page says which route cleaned each bubble - filled flat, tone copied, locally, by the AI - so you can see what it did before you trust it. Or drop in your own cleaned plate and skip the step.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-clean-real.jpg</span><span class="sw">The cleaning panel showing the route per bubble</span></div></figure></div></div>
-  <div class="rise" style="margin-top:38px"><figure class="shot "><img src="assets/ui-typesetting-full.jpg" alt="The whole workspace with one block selected and the typesetting panel open" loading="lazy"><figcaption>One block picked, and every control that applies to it.</figcaption></figure></div>
+  <div style="margin-top:30px"><div class="ctl rise"><div class="ctltx"><h3>Every line, on the page</h3><p>The text list is the translation: one row per piece of source text, what it says and what it will say, and how sure the reader was. Open a row and both are fields - retype either. Change what kind of box it is, split it in two, or link it to the bubble it carries on into.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-row-real.jpg</span><span class="sw">An open text row with both languages showing</span></div></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every block, letter by letter</h3><p>Font, size, rotation, curve, line gap, letter gap, caps. Text colour, outline colour, both as gradients. Shadow, outer glow, inner glow. Per block - not per page, not per chapter.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-typesetting.jpg</span><span class="sw">The typesetting rail with one block selected</span></div></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every bubble, cleaned your way</h3><p>The page says which route cleaned each bubble - filled flat, tone copied, locally, by the AI - so you can see what it did before you trust it. Or drop in your own cleaned plate and skip the step.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-clean-real.jpg</span><span class="sw">The cleaning panel showing the route per bubble</span></div></figure></div></div>
+  <div class="rise" style="margin-top:38px"><figure class="shot "><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-typesetting-full.jpg</span><span class="sw">The workspace with a block selected and the typesetting rail open</span></div><figcaption>One block picked, and every control that applies to it.</figcaption></figure></div>
 </div></section>
 
 <section class="band" id="rules"><div class="wrap">
@@ -485,8 +488,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   is not saving you work - it is hiding work you now have to find.</p>
   <div class="grid g3 rise" style="margin-top:28px"><article class="rule"><h4>The whole translation goes in.</h4><p>Never reworded to fit, never trimmed, never split across two boxes. The fitter changes the line breaks and the size, and that is all it is allowed to change.</p></article><article class="rule"><h4>No hyphens.</h4><p>It will not break a word to make it fit. A dash the author typed - S-S-S-SORRY!! - is a different thing and survives exactly as written.</p></article><article class="rule"><h4>Your font, and only your font.</h4><p>It will not quietly swap a character for one your face happens to have, and it will not hand a line to a different family. If your font is short of a glyph, the box says so.</p></article><article class="rule"><h4>It never overwrites good work with nothing.</h4><p>If a re-run cannot typeset a bubble - a bad font, an empty mask - the typesetting already on the page stays. A blank bubble is never an answer.</p></article><article class="rule"><h4>A box you drew is yours.</h4><p>Draw a text box and it is independent: no detection behind it, not in the translation list, not counted as text to translate. Uploading a new translation does not sweep it away.</p></article><article class="rule"><h4>Nothing is uploaded that you did not send.</h4><p>Finding text, cleaning and typesetting run locally. Reading and translating go to whichever model you point them at - including one on your own machine.</p></article></div>
   <div class="grid g2 rise" style="margin-top:30px">
-    <figure class="shot "><img src="assets/cmp-substitutes.jpg" alt="The same page typeset twice, with glyph substitution off and on" loading="lazy"><figcaption>Your font, and only your font. Left: the switch off - the character your face cannot draw is KEPT and the box is flagged by name. Right: the switch on, if you want it.</figcaption></figure>
-    <figure class="shot "><img src="assets/cmp-spill.jpg" alt="A sound effect typeset inside its box, and again spilling out of it" loading="lazy"><figcaption>Outside text and sound effects sit on artwork, not on paper. Rather than shrink under the legible minimum they are set at it and allowed to run past the box - the way a typesetter would.</figcaption></figure>
+    <figure class="shot "><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">cmp-substitutes.jpg</span><span class="sw">One page typeset twice: substitution off, then on</span></div><figcaption>Your font, and only your font. Left: the switch off - the character your face cannot draw is KEPT and the box is flagged by name. Right: the switch on, if you want it.</figcaption></figure>
+    <figure class="shot "><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">cmp-spill.jpg</span><span class="sw">The same effect at the minimum size, boxed and spilling</span></div><figcaption>Outside text and sound effects sit on artwork, not on paper. Rather than shrink under the legible minimum they are set at it and allowed to run past the box - the way a typesetter would.</figcaption></figure>
   </div>
 </div></section>
 

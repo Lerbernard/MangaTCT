@@ -7,11 +7,11 @@ but good ... i wan to keep sonnet 5 for proofrreding"*.
 Reading a page is a vision job on every page; translating is a language job on
 every page; proofreading runs once at the end. Paying Sonnet rates for all three
 is paying the expensive model to do the cheap work. So each step carries its own
-model, and — because reading with Gemini and proofreading with Claude is the
-whole point — its own backend, address and key.
+model, and - because reading with Gemini and proofreading with Claude is the
+whole point - its own backend, address and key.
 
-There WAS a project-wide engine behind these three — a "Claude model" menu and
-a "Translation engine" menu — and a step with nothing set fell through to it.
+There WAS a project-wide engine behind these three - a "Claude model" menu and
+a "Translation engine" menu - and a step with nothing set fell through to it.
 Both are gone. lee: *"remove teh recomened tab and the translation engine and
 the coins shou look at what ai is in each of teh step to use to bill"*, and he
 is right: two places to set one thing is two places for them to disagree, and
@@ -20,7 +20,7 @@ the coin price could only ever quote one of the two.
 What is locked here now:
 
 * a step with a model set uses it, and leaves the other steps alone
-* a step with NOTHING set falls back to `STEP_DEFAULTS` — a default, the same
+* a step with NOTHING set falls back to `STEP_DEFAULTS` - a default, the same
   for every project, not a setting that can drift out of step with the screen
 * a project set up on the old engine has it carried onto its three steps, once,
   so nothing anybody configured is lost
@@ -41,7 +41,7 @@ ROOT = scratch("_tmp_stepai")
 
 def _proj():
     """A project with nothing configured. There is no project-wide engine to
-    set any more — every step brings its own."""
+    set any more - every step brings its own."""
     shutil.rmtree(ROOT, ignore_errors=True)
     return Project(None, ROOT)
 
@@ -82,7 +82,7 @@ def test_the_steps_are_the_ones_the_pipeline_runs():
     service you cannot see is a price you cannot check.
 
     `find` was here for a while, when Find text had an AI option. lee:
-    *"remoeve teh whole ai box deection and just keep what we have now"* — so
+    *"remoeve teh whole ai box deection and just keep what we have now"* - so
     there is no such pass and there are no boxes for it.
     `tests/test_the_ai_find_pass_is_gone.py` guards the removal; this list is
     what the SCREEN and the PRICING are built from, and a step in it with
@@ -92,7 +92,7 @@ def test_the_steps_are_the_ones_the_pipeline_runs():
 
 
 def test_a_step_with_nothing_set_uses_its_own_default():
-    """Not "the project's engine" — there is no such thing any more. A default
+    """Not "the project's engine" - there is no such thing any more. A default
     is the same for every project, so it cannot drift out of step with what
     the screen shows, which is exactly how the two menus that used to sit
     above these boxes ended up being able to disagree with the price."""
@@ -115,8 +115,8 @@ def test_the_defaults_are_a_cheap_reader_and_a_good_writer():
     for step, (back, model) in STEP_DEFAULTS.items():
         assert coins.priced(model, back), step        # never the unknown rate
         # ...and it is a model the menu for that step really OFFERS. A default
-        # that has fallen off the menu — retired, or displaced at its price by
-        # a newer model, which is how Gemini 3.7 pushed 3.6 out — leaves the
+        # that has fallen off the menu - retired, or displaced at its price by
+        # a newer model, which is how Gemini 3.7 pushed 3.6 out - leaves the
         # settings screen showing a row nothing else on it agrees with.
         assert model in coins.offered(back, step), step
     assert coins.rate_for(STEP_DEFAULTS["ocr"][1]).inp < \
@@ -126,7 +126,7 @@ def test_the_defaults_are_a_cheap_reader_and_a_good_writer():
 def test_the_defaults_are_written_down_in_exactly_one_place():
     """`Project.settings` is where they live and where the screen reads them.
     `editor.STEP_DEFAULTS` is the last resort for a project.json old enough to
-    be missing the keys — and if the two disagree, a step falls back to a model
+    be missing the keys - and if the two disagree, a step falls back to a model
     the screen never showed and the price is for something else again. That is
     the whole failure these three boxes replaced."""
     p = _proj()
@@ -186,7 +186,7 @@ def test_each_step_picks_up_its_own_model():
     p = _proj()
     try:
         # A key for the step, because a step with no key it can use is not used
-        # at all — reading and translating come pointed at Google by default
+        # at all - reading and translating come pointed at Google by default
         # now, and an install with no Google key has to carry on working.
         p.settings.update({"ocr_key": "k", "translate_key": "k",
                            "proofread_key": "k"})
@@ -226,7 +226,7 @@ def test_a_step_can_live_on_another_provider_with_its_own_key():
         assert p.ctx.backend == "gemini"
         assert p.ctx.base_url == "https://example.invalid/v1"
         assert p.ctx.api_key == "reader-key"
-        # ...and the next step is on its own default, with no key of its own —
+        # ...and the next step is on its own default, with no key of its own -
         # a step's key belongs to that step and is never lent to another.
         _ctx_from_settings(p, "translate")
         assert (p.ctx.backend, p.ctx.model) == STEP_DEFAULTS["translate"]
@@ -238,7 +238,7 @@ def test_a_step_can_live_on_another_provider_with_its_own_key():
 def test_a_backend_without_a_model_gets_the_default_model():
     """A half-filled row must not post model="" to a provider. It used to fall
     all the way back to the project's engine, provider and all; now the row's
-    own provider is kept — it is what somebody chose — and only the missing
+    own provider is kept - it is what somebody chose - and only the missing
     model comes from the default."""
     p = _proj()
     try:
@@ -280,7 +280,7 @@ def test_an_unknown_step_name_changes_nothing():
     p = _proj()
     try:
         p.settings["ocr_model"] = "gemini-2.5-flash-lite"
-        # A step that calls no model gets no step's engine — not the reader's,
+        # A step that calls no model gets no step's engine - not the reader's,
         # and not a leftover from whichever step ran last.
         _ctx_from_settings(p, "clean")
         assert p.ctx.model != "gemini-2.5-flash-lite"
@@ -338,7 +338,7 @@ def test_every_step_field_has_a_default():
             assert p.settings[f"{step}_base_url"] == ""
         # Proofreading used to arrive BLANK, meaning "the project's engine".
         # There is no project engine any more, and blank would be a step the
-        # price screen could not name — so it arrives named, on the model lee
+        # price screen could not name - so it arrives named, on the model lee
         # picked for it: *"i wan to keep sonnet 5 for proofrreding"*.
         assert p.settings["proofread_model"] == "claude-sonnet-5"
         assert p.settings["proofread_backend"] == "anthropic"
@@ -347,24 +347,30 @@ def test_every_step_field_has_a_default():
 
 
 def test_the_pipeline_asks_for_the_right_step():
-    """The three callers name their own step — a copy-paste that leaves
+    """The three callers name their own step - a copy-paste that leaves
     do_translate asking for "ocr" would silently route translation through the
     reader's cheap model."""
     import inspect
     from mangatl import editor
-    for fn, step in ((editor.do_ocr, "ocr"),
+    # Read text has two readers now, and only one of them has a context to
+    # build - so for `ocr` the call sits in the AI arm, `_read_with_ai`,
+    # rather than in `do_ocr` itself. The rule is unchanged: whoever builds a
+    # context names the step it is for.
+    for fn, step in ((editor._read_with_ai, "ocr"),
                      (editor.do_translate, "translate"),
                      (editor.do_proofread, "proofread")):
         src = inspect.getsource(fn)
         assert f'_ctx_from_settings(p, "{step}")' in src, fn.__name__
+    # ...and the offline arm builds none at all.
+    assert "_ctx_from_settings" not in inspect.getsource(editor._read_here)
 
 
 def test_the_settings_api_masks_the_step_keys():
     """/api/settings echoes the saved sheet back; it must mask there too.
 
     This used to look for one literal line of source. The line was then
-    refactored to go through `project.MASK` — the same constant the loader
-    checks — and the test carried on passing against a string that no longer
+    refactored to go through `project.MASK` - the same constant the loader
+    checks - and the test carried on passing against a string that no longer
     existed anywhere near the code it was about. Now it reads the loop, which
     is the thing that must be true: EVERY ai step, masked with the shared
     constant, and nothing left saying its own word for it.
@@ -395,17 +401,23 @@ def test_the_dialog_offers_a_row_for_every_step():
             assert f'id="{step}_{suffix}"' in html, f"{step}_{suffix}"
 
 
-def test_the_key_is_asked_for_once_per_service_and_not_once_per_step():
-    """A key is a fact about the PROVIDER — the same Google key that reads the
-    page translates it. Three boxes meant typing it twice, and meant it could
-    be right in one and stale in the other with nothing on screen saying which
-    of the two a run would use."""
+def test_no_key_is_typed_on_the_page_at_all_any_more():
+    """It went from three boxes per step, to one per service, to none: lee:
+    *"remove tehh keys they shoud happen in te backend"*.
+
+    The rule the middle step existed for still holds underneath - a key is a
+    fact about the PROVIDER, and `key_for` reads one per service, falling back
+    to a per-step key only on the SAME service."""
     from mangatl.project import SERVICES
     html = (PKG / "static" / "editor.html").read_text(encoding="utf8")
     for svc in SERVICES:
-        assert f'id="key_{svc}"' in html, svc
+        assert f'id="key_{svc}"' not in html, svc
     for step in AI_STEPS:
         assert f'id="{step}_key"' not in html, step
+    src = (PKG / "editor.py").read_text(encoding="utf-8")
+    body = src[src.index("def key_for("):]
+    body = body[:body.index("\ndef ")]
+    assert 'p.settings.get(f"key_{back}")' in body
 
 
 # ------------------------------------------------- the model is a menu now
@@ -414,8 +426,8 @@ def test_the_models_offered_are_the_models_that_can_be_paid_for():
     """lee: *"inatd of habving to type teh names of teh model there shou dbe a
     drop downlist of all the models"*.
 
-    Typing was how a chapter died halfway through with a 404 — providers
-    retire models and nothing here would have told you — and it was also how a
+    Typing was how a chapter died halfway through with a 404 - providers
+    retire models and nothing here would have told you - and it was also how a
     step ended up on a model the app cannot price, which silently charges the
     top rate. So the menu offers what can be paid for.
     """
@@ -437,8 +449,8 @@ def test_the_menu_opens_on_something_current():
 
 
 def test_a_model_that_is_priced_but_retired_is_not_offered():
-    """Somebody may still have one set — it stays PRICED, so they are not
-    charged the unknown rate for it — but a menu of every model a provider
+    """Somebody may still have one set - it stays PRICED, so they are not
+    charged the unknown rate for it - but a menu of every model a provider
     ever shipped is a menu nobody can choose from."""
     from mangatl import coins
     for old in coins.RETIRED:
@@ -448,7 +460,7 @@ def test_a_model_that_is_priced_but_retired_is_not_offered():
 
 
 def test_a_provider_this_app_does_not_price_offers_nothing_of_its_own():
-    """Ollama and the rest are asked what they have instead — their range is
+    """Ollama and the rest are asked what they have instead - their range is
     not in the table and it costs nothing to run either way.
 
     OpenRouter used to be one of these and is not any more: its ten slugs are
@@ -584,7 +596,7 @@ def test_a_menu_with_nothing_in_it_says_so():
     yet. An empty menu is something a person clicks at; a row that says why is
     the one place they are already looking."""
     def check(pg, p):
-        # Nothing offered AND nothing already set — a step that HAS a model
+        # Nothing offered AND nothing already set - a step that HAS a model
         # keeps it on the menu, which is a different case and its own test.
         pg.evaluate("$('ocr_model').value=''; drawModels('ocr', [], null)")
         vals = pg.evaluate(
@@ -658,7 +670,7 @@ def test_changing_the_provider_asks_for_that_provider_s_models():
 
 
 def test_a_step_with_no_key_is_refused_before_the_run():
-    """And by the ENDPOINT, not only by the function behind it — a run that
+    """And by the ENDPOINT, not only by the function behind it - a run that
     starts and fails on page one has already taken the coins."""
     import json
     import threading
@@ -705,7 +717,7 @@ OR_MODELS = ["google/gemini-3.6-flash", "google/gemini-2.5-pro",
              "anthropic/claude-sonnet-5", "deepseek/deepseek-v3.2",
              "deepseek/deepseek-v4-flash"]
 
-# Every step on OpenRouter and NO key for anything else — otherwise the rule
+# Every step on OpenRouter and NO key for anything else - otherwise the rule
 # under test kicks in and subtracts the lot: a Google key that can reach these
 # models is a Google key that makes buying them through a reseller pointless,
 # which is the whole point of `test_openrouter_drops_what_your_own_key_already
@@ -720,13 +732,16 @@ _OR_ONLY = {"key_openrouter": "k", "key_gemini": "", "key_anthropic": "",
 
 
 def test_a_reseller_gets_a_maker_menu_of_its_own():
-    """lee: *"when its selected create s seperate drop down for the
-    providers"*. A hundred models from a dozen makers in one flat list is not
-    a choice, it is a search."""
+    """The maker question is asked by the AI COMPANY menu now - lee:
+    *"sinatsd of otrher it shodu be open deepsek quwen etc"* - so the maker
+    select stays OFF screen (data-locked) but keeps carrying the filter: its
+    options are still the makers, and the model menu is still one maker's
+    models, not a hundred-model search."""
     def check(pg, p):
         pg.wait_for_function(
-            "$('translate_vendor') && $('translate_vendor').style.display!=='none'",
+            "$('translate_vendor') && $('translate_vendor').options.length > 2",
             timeout=10000)
+        assert pg.evaluate("$('translate_vendor').style.display") == "none"
         makers = pg.evaluate(
             "[...$('translate_vendor').options].map(o=>o.value)")
         assert makers == ["google", "anthropic", "deepseek", "*"], makers
@@ -741,7 +756,7 @@ def test_choosing_a_maker_changes_the_models_and_saves_nothing():
     """Browsing the list must never change what the step runs on."""
     def check(pg, p):
         pg.wait_for_function(
-            "$('translate_vendor') && $('translate_vendor').style.display!=='none'",
+            "$('translate_vendor') && $('translate_vendor').options.length > 2",
             timeout=10000)
         was = p.settings["translate_model"]
         pg.evaluate("$('translate_vendor').value='deepseek';"

@@ -6,8 +6,8 @@ messing teh readding what can i do for this"*.
 
 A box is a rectangle. A sound effect drawn diagonally across a panel is not,
 and the rectangle round it reaches halfway into the balloon beside it. The
-reader is handed that picture — two rectangles, one lying over the other, each
-with a number on it — and asked which of them the words in the overlap belong
+reader is handed that picture - two rectangles, one lying over the other, each
+with a number on it - and asked which of them the words in the overlap belong
 to. The picture does not answer that. So the model puts the sound effect into
 the balloon's line, or the balloon's last column into the sound effect, and
 whichever it picks, one of them is now wrong for the rest of the chapter.
@@ -17,8 +17,8 @@ box 13 has never rubbed out box 12's balloon. It is the READING that the
 rectangle lies to.
 
 The fix is that the reader is shown the ink instead. Each region is outlined by
-the pixels it OWNS — shared ones settled once, by `_pixel_owner`, rather than
-by whichever box happens to be drawn last — so the sound effect arrives as a
+the pixels it OWNS - shared ones settled once, by `_pixel_owner`, rather than
+by whichever box happens to be drawn last - so the sound effect arrives as a
 slanted strip and the speech as an upright block, and the two barely touch.
 Neither box has to be moved for that to be true, which matters, because the
 balloon's box was right all along.
@@ -106,7 +106,7 @@ def test_the_box_round_slanted_words_is_slanted():
 
 def test_upright_speech_is_left_as_the_box_it_already_was():
     """Most text on most pages is upright, and for it the smallest turned
-    rectangle round the ink IS the box it already had — set out by the halo
+    rectangle round the ink IS the box it already had - set out by the halo
     that keeps the line off the glyphs, and nothing else. Nothing about a
     normal page may change."""
     page, speech, _sfx = _page()
@@ -131,7 +131,7 @@ def test_the_sound_effect_stops_swallowing_the_speech():
 
 
 def test_no_box_covers_more_of_its_neighbour_than_before():
-    """Both directions, so the fix cannot be a trade — one box getting tidier
+    """Both directions, so the fix cannot be a trade - one box getting tidier
     at the other's expense. Measured against the rectangle held off the ink by
     the same halo, so it is the SHAPE being compared and not the clearance."""
     page, speech, sfx = _page()
@@ -143,8 +143,8 @@ def test_no_box_covers_more_of_its_neighbour_than_before():
 
 
 def test_ink_in_the_overlap_belongs_to_one_box_only():
-    """Where two masks claim the same glyphs — which is what the detector does
-    when two balloons touch — the nearer centre wins, once, for everybody.
+    """Where two masks claim the same glyphs - which is what the detector does
+    when two balloons touch - the nearer centre wins, once, for everybody.
     Without that, each box is outlined round the other's words as well as its
     own and the two shapes grow back into the overlapping rectangles they
     were meant to replace.
@@ -207,7 +207,7 @@ def test_only_the_boxs_own_corner_of_the_page_is_measured():
 
 
 def _tags(vis):
-    """Just the solid red number plates — the outlines are 2px and erode away."""
+    """Just the solid red number plates - the outlines are 2px and erode away."""
     red = (np.abs(vis.astype(int) - np.array(RED)) <= 30).all(2)
     return cv2.morphologyEx(red.astype(np.uint8), cv2.MORPH_ERODE,
                             np.ones((5, 5), np.uint8)) > 0
@@ -230,7 +230,7 @@ def _near(vis, xy, colour, rad=6):
 def test_the_reader_is_shown_the_slanted_shape_not_the_rectangle():
     """Down the middle of the sound effect's left edge there is now a red line
     where the rectangle had blank paper, and the rectangle's own top-left
-    corner — which used to be drawn deep inside nothing — is bare."""
+    corner - which used to be drawn deep inside nothing - is bare."""
     page, _speech, _sfx = _page()
     vis, ids = _tile(page)
     assert ids == [12, 13]
@@ -257,7 +257,7 @@ def test_a_neighbour_from_another_piece_of_the_page_is_still_grey():
 
 
 def test_the_number_is_not_printed_over_the_words():
-    """A number on top of a glyph costs the reader that glyph — and the old
+    """A number on top of a glyph costs the reader that glyph - and the old
     placement, above the rectangle's top-left corner, put the sound effect's
     number inside the BALLOON."""
     page, _speech, _sfx = _page()
@@ -276,7 +276,7 @@ def test_the_number_is_not_printed_over_the_words():
 def test_the_reader_never_sees_a_box_drawn_round_somebody_elses_words():
     """The owner map has to be threaded all the way to the picture, not merely
     computed. Two regions at opposite corners, and the left one's mask has
-    sloppily swallowed the right one's glyphs — which is what the detector
+    sloppily swallowed the right one's glyphs - which is what the detector
     does when two things touch. Outlined off its raw mask, the left box is a
     quad stretching right across the page, through artwork belonging to
     neither of them."""
@@ -293,7 +293,7 @@ def test_the_reader_never_sees_a_box_drawn_round_somebody_elses_words():
     vis, _ids = _tile(page)
     drawn = ((np.abs(vis.astype(int) - np.array(RED)) <= 40).all(2)
              | (np.abs(vis.astype(int) - np.array(GREY)) <= 40).all(2))
-    # the number plates are solid red and are allowed to sit on blank paper —
+    # the number plates are solid red and are allowed to sit on blank paper -
     # blank paper is exactly where they are supposed to go
     drawn &= ~(cv2.dilate(_tags(vis).astype(np.uint8),
                           np.ones((21, 21), np.uint8)) > 0)
@@ -305,7 +305,7 @@ def test_the_reader_never_sees_a_box_drawn_round_somebody_elses_words():
 
 def test_the_number_moves_off_the_artwork():
     """The old placement was the top-left corner and nothing else, so a number
-    landed wherever that corner happened to be — over a black panel, over the
+    landed wherever that corner happened to be - over a black panel, over the
     neighbour's face, over the neighbour's words. It goes to whichever corner
     of the shape has the emptiest paper under it."""
     img = np.full((H, W, 3), 250, np.uint8)
@@ -345,7 +345,7 @@ def test_a_region_with_no_mask_is_still_outlined():
 
 
 def test_the_reader_is_told_the_outline_follows_the_words():
-    """Drawing a slanted outline is only half of it — the model has to be told
+    """Drawing a slanted outline is only half of it - the model has to be told
     that the outline, and not the upright rectangle around it, is the box."""
     from mangatl.translate import build_ocr_system
     sys = build_ocr_system("Japanese").lower()
@@ -373,7 +373,7 @@ def test_the_outline_is_never_drawn_on_the_words_it_points_at():
 
 
 def test_words_inside_two_outlines_go_to_the_closer_fit():
-    """Speech is upright, so its shape stays the block it always was — and a
+    """Speech is upright, so its shape stays the block it always was - and a
     sound effect slanting under it still falls inside that block. The picture
     cannot separate them, so the reader is told the rule."""
     from mangatl.translate import build_ocr_system
@@ -383,7 +383,7 @@ def test_words_inside_two_outlines_go_to_the_closer_fit():
 def test_no_glyph_on_the_page_is_ever_covered_by_a_line():
     """Two boxes side by side have a border between them, and it lands on
     whichever of them is nearer. On lee's panel box 12's edge fell across 悪,
-    which came back 悪魔 on one run and 聖女 on the next — the same character,
+    which came back 悪魔 on one run and 聖女 on the next - the same character,
     guessed twice, because part of it was painted over.
 
     A box is an annotation. The glyph under it is the only thing on the page
@@ -400,7 +400,7 @@ def test_no_glyph_on_the_page_is_ever_covered_by_a_line():
 
 
 def test_the_lines_are_still_there_where_the_page_is_blank():
-    """Putting the words back must not rub out the boxes as well — an outline
+    """Putting the words back must not rub out the boxes as well - an outline
     broken where it passes behind a letter is still an outline; one that is
     gone is nothing."""
     page, _speech, _sfx = _page()

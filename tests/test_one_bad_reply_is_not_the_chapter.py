@@ -6,7 +6,7 @@ lee, after reading a 58-page chapter a crop per box::
     Expecting property name enclosed in double quotes: line 1 column 21
     (char 20) (translate.py:885 in _extract_json)
 
-**That column number is not vague — it names the reply exactly.** Character 20
+**That column number is not vague - it names the reply exactly.** Character 20
 is the end of ``{"regions":[{"id":0,`` and the parser is asking for the next
 KEY. Two shapes give that message to the character, and both are reproduced in
 the tests below: the key left bare (``,translation:``) and the key in single
@@ -20,8 +20,8 @@ straight through, so one bad reply raised out of `do_ocr`, out of the job, and
 took the other 57 pages with it. It asks again now, `OCR_TRIES` times.
 
 **And when it still will not parse, the piece is skipped, not thrown.** Its
-regions come back unread — `do_ocr` flags them "ocr: no text read", which is
-the red box lee already knows how to fix — and the rest of the chapter
+regions come back unread - `do_ocr` flags them "ocr: no text read", which is
+the red box lee already knows how to fix - and the rest of the chapter
 finishes.
 
 Why a crop per box is where this showed up: a dozen pictures ride in one turn,
@@ -38,7 +38,7 @@ from mangatl import translate as T
 # ------------------------------------------------- the reply that took it down
 
 def test_lees_error_is_the_bare_key():
-    """Not a guess at the shape — the message matches to the character."""
+    """Not a guess at the shape - the message matches to the character."""
     with pytest.raises(json.JSONDecodeError) as e:
         json.loads('{"regions":[{"id":0,translation:"x"}]}')
     assert "Expecting property name enclosed in double quotes" in str(e.value)
@@ -78,7 +78,7 @@ def test_a_single_quoted_line_is_read_too():
 
 
 def test_a_bare_word_in_a_VALUE_is_still_a_failure():
-    """A bareword is only quoted where a COLON follows it — where it can be a
+    """A bareword is only quoted where a COLON follows it - where it can be a
     key. Anywhere else it is `null`, `true` or a number, and quoting those
     would turn "speaker":null into the string "null" on every page of the
     chapter. A bareword that is a real mistake stays a mistake and the reply

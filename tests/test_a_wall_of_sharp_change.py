@@ -9,7 +9,7 @@ fixes had been measured and thrown out::
     teh change is in circularish shape it shoud be a ballon tetx
 
 He is right, and the reason is exact. **Everything that existed asked about the
-balloon's FILL** — is it bright (`min_interior_brightness`), is it flat
+balloon's FILL** - is it bright (`min_interior_brightness`), is it flat
 (`max_interior_std`), is it free of drawing (`max_edge_density`). That page is a
 disc with a starfield and a planetary ring **drawn across it**. Every fill
 question answers "artwork", and answers correctly. Its fill measures 150
@@ -28,7 +28,7 @@ across 43 pages: **zero boxes change kind at any value.** The edge-density
 guard refuses the disc regardless, so the floor was never the blocker.
 
 lee's rule never looks at the fill. It asks whether a hard edge SHUTS around
-the writing and whether the thing it shuts is roundish — and a starfield
+the writing and whether the thing it shuts is roundish - and a starfield
 painted on the balloon disturbs neither question.
 
 MEASURED over 128 boxes on 43 pages of chapter 1:
@@ -40,7 +40,7 @@ MEASURED over 128 boxes on 43 pages of chapter 1:
     sfx             49         5                 4
 
 Only free-floating blocks are renamed, so the only boxes this can act on are
-that third row — three of them, and exactly the right one fires. The two that
+that third row - three of them, and exactly the right one fires. The two that
 must not move find no closed wall at all.
 
 **The label only.** No `bubble_mask` is set, so the English is still laid out
@@ -84,7 +84,7 @@ def _grey_disc_on_a_dark_page(fill=150, sky=25, art=True):
     The artwork has to be FAITHFUL, and getting it wrong is how this fixture
     lied twice. Fat stars (radius 3) and a hard 3-pixel planet ring both become
     ~20-pixel bars once the wall is sealed and thickened, and a bar across the
-    disc cuts the region in two — so the fixture said the rule failed when the
+    disc cuts the region in two - so the fixture said the rule failed when the
     real page says it works. On the page the stars are single pixels and the
     ring is a soft glow, so the wall sees neither. Written that way here.
     """
@@ -114,7 +114,7 @@ def test_a_grey_balloon_with_artwork_on_it_is_called_a_bubble():
 
 def test_the_old_tests_still_refuse_it_which_is_why_this_exists():
     """The control, and the whole argument in one assertion: every fill test
-    says artwork, and they are not wrong — there IS artwork on it."""
+    says artwork, and they are not wrong - there IS artwork on it."""
     page, r = _grey_disc_on_a_dark_page()
     cfg = B.BalloonConfig()
     _n, labels = B._free_labels(page, cfg)
@@ -164,7 +164,7 @@ def test_a_long_thin_slot_is_not_roundish():
     """`WALL_CIRC` earning itself: shut, but nothing like a balloon.
 
     Asked of `_round_wall_around` and not of `attach_balloons`, because a long
-    slot with a flat pale fill is a perfectly good ENCLOSURE — the ordinary
+    slot with a flat pale fill is a perfectly good ENCLOSURE - the ordinary
     pass finds it and promotes it, correctly, before this rule is ever
     reached. What is being measured here is only the roundness gate.
     """
@@ -217,8 +217,8 @@ def test_the_wall_has_to_be_thicker_than_canny_draws_it():
 
     Canny returns a curve that is 8-connected, and a 4-connected fill walks
     straight through the diagonal steps of one. On a clean drawn oval the
-    sealed wall came back 987 pixels for a 940-pixel perimeter — a single thin
-    line — and the inside joined the outside through it, so a perfectly closed
+    sealed wall came back 987 pixels for a 940-pixel perimeter - a single thin
+    line - and the inside joined the outside through it, so a perfectly closed
     balloon read as open. It only worked on lee's own page by luck, because fur
     is thick. One dilation fixes it.
     """

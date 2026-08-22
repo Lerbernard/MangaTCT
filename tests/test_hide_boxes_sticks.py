@@ -3,7 +3,7 @@
 lee: *"the hide boxes shoud stay off wheni switch pages"*.
 
 `syncBoxesForView('typeset')` forced `hideboxes` on every time it ran, and
-`showPage` runs it on every page change — so the switch could be turned off, and
+`showPage` runs it on every page change - so the switch could be turned off, and
 went back on at the next page, every time. The remembered preference
 (`boxPrefBeforeText`) made it worse by disguising the cause: it looked like the
 value was being restored from somewhere.

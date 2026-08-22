@@ -95,6 +95,61 @@ BLOCK_HOLDS = 0.5
 _readers: dict = {}
 
 
+def lay_out_for_the_cpu(reader) -> None:
+    """Turn CRAFT's weights over so the CPU can use its fast convolution.
+
+    lee: *"i relly wan to decrease teh time it takes because riht now it takes
+    froever"*.
+
+    Measured on his 32-page chapter, timed end to end through `Project.detect`:
+    **CRAFT is 93% of Find text**. The block head is 2.2 seconds and it runs
+    beside CRAFT rather than after it, so it costs nothing; the measuring this
+    package does -- the harvest, the walls, the grow, the kinds, the balloons,
+    the ordering -- is 5.4 seconds across all 32 pages put together. There is
+    nothing to shave anywhere else. Either CRAFT gets cheaper or Find text does
+    not.
+
+    Everything that makes CRAFT cheaper by giving it LESS TO LOOK AT costs
+    boxes. Its canvas at 1600 is very nearly twice as fast and changes what is
+    found on seven of twelve pages, every change a box lost -- 029 goes from 8
+    boxes to 6. At 2048 it still moves three of twelve. lee's standing rule is
+    that a missed sound effect is worse than a slow one, so the resolution
+    stays where it is.
+
+    What is left is the SAME arithmetic done better. PyTorch stores a picture
+    as one plane per colour; oneDNN's fast convolution wants the channels of a
+    pixel side by side, and given weights in that order it takes the blocked
+    path instead of a fallback. Nothing about the model changes -- same
+    weights, same layers, same input, same output shape -- so this is a layout
+    change and not a numerical one. Timed on page 029: 7.45s to 5.76s.
+
+    Same boxes, and that was measured rather than assumed. All 32 pages found
+    twice, once each way, comparing every region's rectangle, kind and reading
+    order: **zero pages differ**, and the chapter goes from 10.38 to 8.71
+    seconds a page. The score maps do move, in the seventh decimal (1.1e-06),
+    which is under every threshold this file thresholds them at by five orders
+    of magnitude.
+
+    Two faster runtimes were measured and neither is shippable. Batch-norm
+    folding on top of this is 5.32s, another 8%, and costs 30 seconds of
+    tracing at startup -- it does not pay for itself on a short run and lee
+    clicks Find text on single pages. `torch.compile` is 4.79s, a real 1.25x,
+    and costs 65 seconds and a working C++ compiler on the first run: on
+    Windows, which is what lee is on, that is MSVC and most machines have not
+    got it.
+
+    Wrapped in try/except and silent, because this is a speed-up and nothing
+    else. A torch too old to know the flag, or an easyocr that stops calling
+    its detector `detector`, should leave a slower Find text and not a
+    traceback.
+    """
+    try:
+        import torch
+        reader.detector.to(memory_format=torch.channels_last)
+    except Exception:
+        pass
+
+
 def _reader(langs: tuple):
     """One easyocr Reader per language set, kept for the life of the process.
 
@@ -103,7 +158,12 @@ def _reader(langs: tuple):
     """
     if langs not in _readers:
         import easyocr
-        _readers[langs] = easyocr.Reader(list(langs), gpu=False, verbose=False)
+        r = easyocr.Reader(list(langs), gpu=False, verbose=False)
+        # Once, here, and not at every page: the layout is a property of the
+        # weights and turning them over again on each call would be a copy per
+        # page for no gain.
+        lay_out_for_the_cpu(r)
+        _readers[langs] = r
     return _readers[langs]
 
 

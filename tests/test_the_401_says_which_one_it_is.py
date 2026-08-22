@@ -2,26 +2,26 @@
 
 lee, seven identical lines in his console and one sentence on the screen::
 
-    AI cleaning did not run — the cleaner refused the token (401).
+    AI cleaning did not run - the cleaner refused the token (401).
     2 spots were filled in with the plain local method instead.
     mangatl: the cleaner refused the token (401) -- not asking again this run.
     https://leemarvinbernard--mangatl-clean-lama-cleaner-clean.modal.run
 
 A 401 from the hosted cleaner is one of exactly two things:
 
-  * the string in Settings is not the string in the deploy file — the wrong
+  * the string in Settings is not the string in the deploy file - the wrong
     token is pasted; or
   * they are the SAME string and the deployed image was built from an older
     copy of that file, so it is still checking the token it was built with.
     Re-pasting the token can never fix this one, and it is the one people try.
 
-`clean_check` already tells them apart. It just has to be ASKED — Settings ▸
-Page cleaning ▸ Test cleaner — and nothing on the screen said so, which on a
+`clean_check` already tells them apart. It just has to be ASKED - Settings ▸
+Page cleaning ▸ Test cleaner - and nothing on the screen said so, which on a
 run of seven pages is seven identical lines and no next step.
 
 Nothing here needs the network. The token is a string in a file on this
 machine and a string in the settings; hashing both answers it. And nothing
-reads either one out loud — only whether two hashes agree.
+reads either one out loud - only whether two hashes agree.
 """
 import hashlib
 

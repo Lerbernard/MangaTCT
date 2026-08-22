@@ -271,8 +271,8 @@ def test_a_panel_sized_group_falls_back_to_its_pieces():
 
 def test_the_fallback_is_not_a_way_round_the_cap():
     """The pieces get measured against the cap too. A group can be over it
-    because ONE of its pieces is a panel and the rest are writing — CRAFT does
-    return the occasional huge box — and letting the fallback wave that one
+    because ONE of its pieces is a panel and the rest are writing - CRAFT does
+    return the occasional huge box - and letting the fallback wave that one
     through would put a painted-out panel back on the page by the side door."""
     pieces = [[0, 0, 60, 60], [0, 100, 720, 1500]]
     g = {"box": [0, 0, 720, 1500], "pieces": pieces}

@@ -6,13 +6,13 @@
    tightly and puts that in `bbox`; `attach_balloons` then works out the balloon
    the writing sits in and puts THAT in `bubble_bbox`, so the typesetter can spread
    English across the whole of the paper instead of down the narrow column the
-   Japanese occupied. Two different rectangles, two different jobs — and the
+   Japanese occupied. Two different rectangles, two different jobs - and the
    editor was drawing `bubble_bbox||bbox`, i.e. the balloon, as though it were
    the box the detector had found. A tall thin line of kana inside a wide oval
    therefore appeared as a wide oval-sized box with the writing in one corner.
 
    So the `.box` is `bbox`. For a while the balloon was also drawn, faint and
-   dashed, as a `.bhint` behind it — a label saying "this is the room the English
+   dashed, as a `.bhint` behind it - a label saying "this is the room the English
    may use". lee, on meeting it around a box he was cleaning: *"there a thin
    dahed red box around the box around the text what does it do and remove it"*.
    It answered a question nobody was asking and read as a second box, so it is
@@ -45,7 +45,7 @@ const px=v=>Math.round(parseFloat(v));
 
 setTimeout(()=>{
   try{
-    // A tall column of Japanese inside a wide balloon — the shape lee
+    // A tall column of Japanese inside a wide balloon - the shape lee
     // complained about. Region 1's balloon is the same rectangle as its
     // writing, which is what hand-typeset sound effects look like.
     const TALL={id:0,kind:'bubble',bbox:[400,200,60,300],
@@ -88,7 +88,7 @@ setTimeout(()=>{
        px(boxes()[0].style.width)===100, boxes()[0].style.width);
 
     // Scale: the box and the balloon must be drawn through the same zoom, or
-    // they drift apart as you zoom in — which is exactly how the original bug
+    // they drift apart as you zoom in - which is exactly how the original bug
     // was hidden at small zooms and obvious at large ones.
     w.eval("scale=0.5");
     put([TALL]);
@@ -101,8 +101,8 @@ setTimeout(()=>{
     // *"there a big box with no label or anything"*, then *"hide teh big box
     // afterware it dosnt need to be visibel"*. It was the only thing on the
     // page with no number chip and nothing to click, and it said what the
-    // sections' own dashed outlines already say. The GROUPING stays — it is
-    // what dashes them — and the frame is gone, the same end the balloon
+    // sections' own dashed outlines already say. The GROUPING stays - it is
+    // what dashes them - and the frame is gone, the same end the balloon
     // hint came to.
     put([{id:0,kind:'bubble',bbox:[400,200,60,120],
           bubble_bbox:[300,150,300,200],box_group:1},

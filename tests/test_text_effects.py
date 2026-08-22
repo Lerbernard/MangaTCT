@@ -10,14 +10,14 @@ What each one is, and why it is not one of the others:
 
 * **Outer glow** is not a shadow with no offset. A shadow is the letters moved
   and blurred; blur a silhouette in place and it stays *inside* the letters and
-  never shows past the outline. A glow has to be SPREAD first — drawn with a fat
-  stroke — then blurred, then stacked so it is dense enough to read on artwork.
+  never shows past the outline. A glow has to be SPREAD first - drawn with a fat
+  stroke - then blurred, then stacked so it is dense enough to read on artwork.
   Photoshop's Size and Spread, under one knob.
 * **Inner glow** is light from the letter's own edge, inwards, and it must not
   put a single pixel on the artwork. The measure of "how far in from the edge am
   I" is the glyph mask's blurred inverse, multiplied back by the mask.
-* **Transparency** belongs to the whole block — letters, outline, shadow, both
-  glows — so it scales one layer's alpha once, after everything has drawn and
+* **Transparency** belongs to the whole block - letters, outline, shadow, both
+  glows - so it scales one layer's alpha once, after everything has drawn and
   before the balloon clips it. Fading the composited page would fade the art.
 
 The trap all three share is that they have to be added in *six* places or they
@@ -81,7 +81,7 @@ BASE = {"fg": "#ffffff", "edge": "#000000", "locked": True}
 
 
 def _glyph_mask(ov=None):
-    """Where the letters themselves are — used to tell inside from outside."""
+    """Where the letters themselves are - used to tell inside from outside."""
     plain = _draw(BASE)
     empty = _draw(dict(BASE, opacity=0))
     return (np.abs(plain.astype(int) - empty.astype(int)).sum(2) > 12)
@@ -153,7 +153,7 @@ def test_an_inner_glow_lights_the_letters_and_not_the_page():
 
 
 def _title(ov):
-    """One word at title size — 140pt, strokes 25px thick.
+    """One word at title size - 140pt, strokes 25px thick.
 
     An inner glow is a title effect, and it has to be measured on one. At
     ordinary typesetting size a letter's stroke is about three pixels deep, so a
@@ -189,7 +189,7 @@ def test_an_inner_glow_hugs_the_edge_rather_than_flooding_the_letter():
     plain = _title(BASE)
     ig = _title(dict(BASE, iglow="#ff3b30", iglow_size=7))
     delta = np.abs(plain.astype(int) - ig.astype(int)).sum(2).astype(float)
-    # Depth is measured inside the LETTERS, which here are the white fill —
+    # Depth is measured inside the LETTERS, which here are the white fill -
     # not inside letters-plus-outline. The black outline ring is where the glow
     # is not allowed to go, so counting it as "inside" puts every lit pixel at
     # the same middling depth and flattens the measurement completely.
@@ -239,7 +239,7 @@ def test_opacity_fades_the_whole_block_towards_the_artwork():
 
 
 def test_opacity_zero_leaves_the_page_exactly_as_it_was():
-    """Zero is a real answer, and every link in the chain has to carry it —
+    """Zero is a real answer, and every link in the chain has to carry it -
     `or 100` anywhere turns it into solid ink."""
     page, cfg, r = _page(dict(BASE, opacity=0))
     bare = page.clean_plate.copy()
@@ -247,7 +247,7 @@ def test_opacity_zero_leaves_the_page_exactly_as_it_was():
 
 
 def test_opacity_takes_the_shadow_and_the_glow_with_it():
-    """It is the block that fades, not the letters — a solid halo around
+    """It is the block that fades, not the letters - a solid halo around
     ghosted letters would look like a mistake."""
     art = _draw(dict(BASE, opacity=0))
     full = _draw(dict(BASE, glow="#ffc400", glow_size=10,
@@ -319,7 +319,7 @@ def _post(base, path, body):
 
 def test_the_save_keeps_all_three_effects_and_hands_them_back():
     """`layout_override` is rebuilt key by key on save, so a key nobody listed
-    is dropped the moment you click away — and the panel would look like it
+    is dropped the moment you click away - and the panel would look like it
     worked until the page was reloaded."""
     from mangatl import editor
     root = scratch("_tmp_fx1")
@@ -342,7 +342,7 @@ def test_the_save_keeps_all_three_effects_and_hands_them_back():
         assert lay["opacity"] == 0
         # …and they survive the round trip to disk. `flush` because small edits
         # are written a moment after they are made now (see Project.save_soon)
-        # — what is being tested is the round trip, not how soon it starts.
+        # - what is being tested is the round trip, not how soon it starts.
         p.flush()
         back = Project(None, root)
         back.load()
@@ -404,7 +404,7 @@ def test_the_preview_shows_the_same_three_effects():
 
 def test_the_three_kind_switches_are_switches():
     """lee sent a picture of a toggle: "the first 3 button in the this page be
-    this type of button". The every-page tick below them stays a tick — it is a
+    this type of button". The every-page tick below them stays a tick - it is a
     modifier, not a thing being switched on and off."""
     js = (JS / "panels.js").read_text(encoding="utf8")
     assert 'type="checkbox" class="sw"' in js
@@ -421,7 +421,7 @@ def test_the_number_boxes_have_a_stepper_of_our_own():
     """This used to PAINT Chromium's native spinner: appearance off, chevrons
     drawn in as a background image. It looked right in Chromium and did nothing
     at all in Firefox, which cannot be styled and simply kept its own cramped
-    control — and Firefox is the browser lee works in. lee: *"make teh up and
+    control - and Firefox is the browser lee works in. lee: *"make teh up and
     down button look better"*.
 
     Both natives are off now and one is BUILT, out of two real buttons, so

@@ -22,7 +22,7 @@ const dom=new JSDOM(html,{runScripts:'dangerously',url:'http://127.0.0.1:8765/',
 const w=dom.window,d=w.document;
 
 // `regions` is a top-level `let`, which lives in the script's own scope and
-// not on window — so it is set the way the page itself would set it.
+// not on window - so it is set the way the page itself would set it.
 const SFX={id:0,order:0,kind:'sfx',bbox:[10,10,80,140],
            bubble_bbox:[10,10,80,140],dst_text:'GRR',
            layout:{lines:['G','R','R'],font_size:30,leading:1.1,

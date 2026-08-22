@@ -2,8 +2,8 @@
 
 lee opened Settings, chose `gemini-2.5-flash` out of the menu, and got a 404:
 the model was not enabled on his Google project. The cause was not the model.
-`/api/models` answered `coins.models_for(back)` — the models this app can
-PRICE — and never asked the provider what the key could actually see.
+`/api/models` answered `coins.models_for(back)` - the models this app can
+PRICE - and never asked the provider what the key could actually see.
 
 Both halves are needed, and each one alone is a different fault:
 
@@ -39,7 +39,7 @@ def test_the_menu_is_the_priced_list_crossed_with_the_reachable_one(monkeypatch)
     _reach(monkeypatch, ["gemini-3.6-flash", "gemini-2.5-pro", "some-other"])
     got = editor.model_menu("gemini", "http://x", "KEY")
     assert got == ["gemini-3.6-flash", "gemini-2.5-pro"]
-    # in the price table's order, which is newest first — not the provider's
+    # in the price table's order, which is newest first - not the provider's
     assert got == [m for m in coins.models_for("gemini") if m in got]
 
 
@@ -60,7 +60,7 @@ def test_a_model_that_cannot_be_priced_is_not_offered(monkeypatch):
 def test_an_empty_crossing_leaves_the_priced_list_standing(monkeypatch):
     """A key with no listing permission, a provider answering an unexpected
     shape, a network that is down. None of those mean the person has no
-    models, and an empty menu is a step nobody can configure — which is worse
+    models, and an empty menu is a step nobody can configure - which is worse
     than the fault it was trying to report."""
     _reach(monkeypatch, [])
     assert editor.model_menu("gemini", "u", "KEY") == coins.offered("gemini")
@@ -84,7 +84,7 @@ def test_read_text_only_offers_models_that_can_see_a_picture(monkeypatch):
 
 def test_nothing_is_asked_for_when_there_is_no_key(monkeypatch):
     """All three services refuse `GET /models` without one, so the request
-    could only ever time out — three times, every time Settings opened."""
+    could only ever time out - three times, every time Settings opened."""
     seen = _reach(monkeypatch, ["gemini-3.6-flash"])
     assert editor.model_menu("gemini", "u", "") == coins.offered("gemini")
     assert seen == []
@@ -105,7 +105,7 @@ def test_the_answer_is_remembered_for_a_while(monkeypatch):
 
 def test_the_answer_stops_being_worth_reusing(monkeypatch):
     """Fifteen minutes, not for ever. A key that has just been given access to
-    a model must not stay locked out of the menu for the afternoon — and the
+    a model must not stay locked out of the menu for the afternoon - and the
     reason the window can be this long at all is that saving the settings
     clears the whole cache anyway."""
     seen = _reach(monkeypatch, ["gemini-3.6-flash"])
@@ -154,11 +154,26 @@ def test_three_services_and_the_screen_agrees_with_the_server():
 
 def test_the_gone_services_are_gone_from_the_menus():
     """OpenAI, Groq, Cerebras and Ollama. Each was a menu with nothing behind
-    it that anybody here had priced or tested."""
+    it that anybody here had priced or tested.
+
+    Gone as SERVICES - as something the app holds a key for and talks to. The
+    company menu beside each step answers a different question, "whose model",
+    and lee asked for the real makers by name there: *"for the translation
+    sinatsd of otrher it shodu be open deepsek quwen etc"*. Every one of those
+    reaches the app through OpenRouter, which IS priced and keyed. So this
+    looks in the backend menus, and at the keys, rather than at every menu on
+    the page.
+    """
+    import re
     from where import PKG
     html = (PKG / "static" / "editor.html").read_text("utf-8")
+    backends = re.findall(
+        r'<select[^>]*id="[a-z_]*backend"[^>]*>(.*?)</select>', html, re.S)
     for dead in ("openai", "groq", "cerebras", "ollama"):
-        assert f'<option value="{dead}"' not in html, dead
+        for menu in backends:
+            assert f'<option value="{dead}"' not in menu, dead
+        # ...and never a box asking for a key for one of them
+        assert f'key_{dead}' not in html, dead
 
 
 def test_an_old_project_on_a_gone_service_is_still_priced():
@@ -172,7 +187,7 @@ def test_an_old_project_on_a_gone_service_is_still_priced():
 # ----------------------------------------------------------- the OpenRouter slugs
 
 def test_openrouter_costs_what_the_provider_costs():
-    """OpenRouter does not mark tokens up — the slug's rate is the provider's
+    """OpenRouter does not mark tokens up - the slug's rate is the provider's
     own published rate, and its money comes off the top-up instead. So a rate
     change that misses one of the two is caught here rather than charged."""
     for slug in coins.models_for("openrouter"):
@@ -182,8 +197,8 @@ def test_openrouter_costs_what_the_provider_costs():
 
 
 def test_the_anthropic_slugs_are_written_out_and_not_guessed():
-    """They carry DOTS where the direct ids carry dashes — `claude-haiku-4.5`
-    against `claude-haiku-4-5` — so the prefix matcher lands them on the
+    """They carry DOTS where the direct ids carry dashes - `claude-haiku-4.5`
+    against `claude-haiku-4-5` - so the prefix matcher lands them on the
     `claude-haiku-4` entry and prices them right today by luck. One price
     change and it would be wrong, and quiet."""
     assert "anthropic/claude-haiku-4.5" in coins.RATES
@@ -198,7 +213,7 @@ def test_every_openrouter_slug_is_written_out_and_every_vendor_is_stocked():
 
     First: the slug is an EXACT key, never prefix-matched. `qwen/qwen3.7-max`
     would happily land on a `qwen/qwen3.7` entry and be priced by luck, and
-    the day the two prices part it is wrong and quiet — the same trap the
+    the day the two prices part it is wrong and quiet - the same trap the
     Anthropic dotted slugs are held to just above.
 
     Second: every prefix in the openrouter family list actually stocks
@@ -244,7 +259,7 @@ def test_a_model_nobody_can_price_is_still_kept_out(monkeypatch):
 
 
 def test_a_retired_model_is_not_offered_under_its_slug_either(monkeypatch):
-    """`claude-opus-4` is priced — somebody may still be on it — and not
+    """`claude-opus-4` is priced - somebody may still be on it - and not
     offered. Arriving with a vendor in front of it does not change that."""
     _reach(monkeypatch, ["anthropic/claude-opus-4", "anthropic/claude-opus-5"])
     assert editor.model_menu("openrouter", "u", "KEY") == \
@@ -252,8 +267,8 @@ def test_a_retired_model_is_not_offered_under_its_slug_either(monkeypatch):
 
 
 def test_a_priced_variant_of_a_model_is_not_offered(monkeypatch):
-    """OpenRouter sells the same model at several prices — `:free`, `:nitro`,
-    `:floor` — and none of them is the price in the table. Quoting a `:free`
+    """OpenRouter sells the same model at several prices - `:free`, `:nitro`,
+    `:floor` - and none of them is the price in the table. Quoting a `:free`
     variant at the paid rate overcharges; quoting a `:nitro` one at the
     standard rate is a bill this app eats."""
     _reach(monkeypatch, ["google/gemini-2.5-pro", "google/gemini-2.5-pro:free",
@@ -272,7 +287,7 @@ def test_a_local_tag_full_of_colons_is_still_offered(monkeypatch):
 
 
 def test_the_menu_still_opens_on_something_current(monkeypatch):
-    """The price table's order first — it is newest-first and hand-kept — then
+    """The price table's order first - it is newest-first and hand-kept - then
     whatever else the key can reach, by name. Sorted purely alphabetically the
     menu opens on the oldest model in the range, which is the one nobody wants
     and the one that gets picked by accident."""
@@ -350,7 +365,7 @@ def test_the_line_is_read_off_the_price_table_not_off_a_date():
     with_four["gemini-4-pro"] = coins.RATES["gemini-3.1-pro"]
     import unittest.mock as mock
     # Which 3.x survives is read off the table as well, rather than written
-    # down here — the day a 3.8 lands this test follows it instead of failing
+    # down here - the day a 3.8 lands this test follows it instead of failing
     # for a reason that has nothing to do with what it is asking.
     last3 = max(coins._version(k)[2] for k in with_four
                 if coins._version(k) and coins._version(k)[:2] == ("gemini", 3))
@@ -369,7 +384,7 @@ def test_a_model_too_old_to_offer_is_still_priced():
     for old in ("gemini-2.0-flash", "claude-opus-4", "gpt-4o"):
         assert coins.priced(old), old
         # Asked as "did it MATCH an entry", not as "is the rate different from
-        # UNKNOWN" — `claude-opus-4` really does cost what the unknown
+        # UNKNOWN" - `claude-opus-4` really does cost what the unknown
         # fallback costs, and a test written the other way calls that a
         # failure.
         assert coins._prefix(old) is not None, old
@@ -407,7 +422,7 @@ def test_the_trim_happens_after_the_reachable_check(monkeypatch):
     assert "gemini-2.5-flash" not in coins.offered("gemini"), \
         "and it is NOT what the written-down menu would have offered"
     # ...and it really does still happen. Both of these cost the same, so one
-    # of them has to go — after the reachable check, not instead of it.
+    # of them has to go - after the reachable check, not instead of it.
     _reach(monkeypatch, ["gemini-2.5-flash", "gemini-3.5-flash-lite"])
     editor._MENU_CACHE.clear()
     assert editor.model_menu("gemini", "u", "KEY") == ["gemini-3.5-flash-lite"]
@@ -457,8 +472,8 @@ def test_only_openrouter_subtracts(monkeypatch):
 
 def test_gemini_3_7_flash_is_on_both_of_its_menus():
     """lee: *"google 3.7 flash is availbel add that to the list of goodle
-    ais"*. It is sold two ways — straight from Google and resold through
-    OpenRouter — and a model added to one menu and not the other is a model
+    ais"*. It is sold two ways - straight from Google and resold through
+    OpenRouter - and a model added to one menu and not the other is a model
     half the app cannot be pointed at."""
     assert "gemini-3.7-flash" in coins.offered("gemini")
     assert "google/gemini-3.7-flash" in coins.offered("openrouter")
@@ -471,7 +486,7 @@ def test_the_launch_rate_is_not_what_gets_written_down():
 
     Gemini 3.7 Flash opened at half price through 2026. Writing the discount
     down means every estimate in the app is half of what the chapter will
-    actually cost from the day the promotion ends — and nothing would tell
+    actually cost from the day the promotion ends - and nothing would tell
     anybody, because the number would not change.
     """
     r = coins.rate_for("gemini-3.7-flash")
@@ -496,8 +511,8 @@ def test_3_7_takes_the_price_band_off_3_6():
 def test_the_openai_and_qwen_ranges_reached_the_openrouter_menu():
     """lee: *"add some open ai and quen models to teh open router lsit"*.
 
-    OpenAI is not one of this app's three services — there is no OpenAI key
-    box on the settings screen — so OpenRouter is the only door these come
+    OpenAI is not one of this app's three services - there is no OpenAI key
+    box on the settings screen - so OpenRouter is the only door these come
     through, and the slugs have to be written down for them to be priced.
     """
     menu = coins.offered("openrouter", "translate")
@@ -525,7 +540,7 @@ def test_the_one_of_them_that_cannot_see_is_kept_off_the_read_text_menu():
 
 
 def test_nothing_at_all_on_the_read_text_menu_is_blind():
-    """The whole menu, not the models this batch happened to add — a slug put
+    """The whole menu, not the models this batch happened to add - a slug put
     in tomorrow is caught by this and by nothing else."""
     for back in ("gemini", "anthropic", "openrouter"):
         for m in coins.offered(back, "ocr"):
@@ -554,7 +569,7 @@ def test_the_mutation_runner_refuses_to_start_on_a_leftover(tmp_path,
                                                             monkeypatch):
     """A run killed part-way never reaches its `finally`, and the mutant it
     was holding stays on disk. Everything measured afterwards is measured
-    against it, silently — one such leftover sat in `static/editor.html` for
+    against it, silently - one such leftover sat in `static/editor.html` for
     an hour and turned the coin in the top bar into a plain yellow disc, and
     nothing said a word until a test that happened to look at the coin failed.
     """
@@ -569,7 +584,7 @@ def test_the_mutation_runner_refuses_to_start_on_a_leftover(tmp_path,
     spec.loader.exec_module(mod)
 
     # A mutant whose ORIGINAL is missing from the file and whose REPLACEMENT
-    # is present — which is exactly what a killed run leaves behind.
+    # is present - which is exactly what a killed run leaves behind.
     f = tmp_path / "left.py"
     f.write_text("the mutated line\n", encoding="utf-8")
     monkeypatch.setattr(mod, "PKG", tmp_path)

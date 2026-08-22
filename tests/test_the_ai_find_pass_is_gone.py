@@ -23,9 +23,24 @@ lee's chapter 1, measured:
       opinion from CRAFT
     balloons, captions and asides boxed     29 of 30 over eight pages
 
-**What these tests are for.** None of it is forbidden forever — it is forbidden
+**What these tests are for.** None of it is forbidden forever - it is forbidden
 SILENTLY. Wiring it back in means coming here and saying out loud that it is
 being re-added.
+
+**And a fifth was, on 2026-08-15, and lasted an afternoon.** lee asked for a
+proofchecker at the end of Find text - *"it hsoud validate boxes and check
+where anyboxes where missed and if the boxes is around teh sfx"* - and it was
+built to the one shape the four removals leave standing: it judged, it flagged,
+it never drew a rectangle, and a change needed the model's own confidence AND a
+measurement that agreed. `test_a_run_of_find_text_is_not_priced` below was
+amended to let it take a price, then amended back.
+
+He ran it and said: *"remove teh ai it did no meniful upgrade"*. So that is
+**five passes over boxes, five removals**, and the fifth one had every guard
+the first four lacked. The honest reading is not that the design was wrong
+again - it is that there is not enough left for a judge to find. What Find text
+measures is already close enough that a second opinion, however careful, is not
+worth a call per page.
 
 `detect/craft.py` is deliberately NOT covered by any of this. It is a text
 detector that runs offline on the machine with no key and no coins, it is not
@@ -50,7 +65,7 @@ GONE = ("aidetect", "detect_ai", "_detect_ai", "find_with", "finding_with_ai",
 
 def test_find_text_has_one_way_of_getting_boxes():
     """`detect` chose between measuring and asking. It does not choose any
-    more, and the source says so — a settings key nobody reads cannot bring
+    more, and the source says so - a settings key nobody reads cannot bring
     the branch back, but a branch can."""
     from mangatl import project
 
@@ -68,7 +83,7 @@ def test_the_project_has_no_ai_find_method():
 
 
 def test_nothing_imports_the_removed_module():
-    """Not just `detect` — nothing in the package. An import anywhere else is
+    """Not just `detect` - nothing in the package. An import anywhere else is
     a second door into it."""
     hits = []
     for f in sorted(ROOT.rglob("*.py")):
@@ -203,7 +218,7 @@ def test_craft_is_not_swept_up_with_it():
 
 # `tests/test_is_the_ai_really_finding_it.py` went with the pass, and it was
 # the only file testing any of the below. None of it was ever about the AI
-# find pass — it is how EVERY step's key is handled — so it is carried over
+# find pass - it is how EVERY step's key is handled - so it is carried over
 # here rather than deleted with the thing it happened to live next to.
 #
 # Left untested for one turn, six mutants survived: the mask could be saved as
@@ -214,7 +229,7 @@ def test_craft_is_not_swept_up_with_it():
 def test_the_mask_is_never_stored_as_a_key():
     """`MASK` is a REPORT that a key exists. It goes out to the browser in the
     same field the key lives in, and anything that hands a whole settings
-    object back — a `.tct` import, a restored snapshot, a script — hands it
+    object back - a `.tct` import, a restored snapshot, a script - hands it
     straight back. Then the field that said "(saved)" IS saved: three
     characters, and refused by every provider.
 
@@ -279,7 +294,7 @@ def test_the_secret_list_is_built_and_not_written_out():
 
 
 def test_removing_the_find_step_took_its_key_with_it():
-    """The list is built, so this follows — but it is the whole reason the
+    """The list is built, so this follows - but it is the whole reason the
     list is built, so it is worth one line."""
     from mangatl import project
 
@@ -292,7 +307,7 @@ def test_a_refusal_names_the_step_that_was_running():
     """The message said "the OCR step's key was refused" whatever had called,
     because `step_name` was only ever set by the AI find pass and every other
     step took the "OCR" fallback. Removing that pass left the fallback as the
-    only path — so a refusal on Translate blamed the reader, and sent you to
+    only path - so a refusal on Translate blamed the reader, and sent you to
     fix settings that were never the problem."""
     from mangatl.translate import make_client
 
@@ -323,7 +338,7 @@ def test_the_context_carries_it_to_the_client():
 
 
 def test_the_refusal_itself_says_which_step(monkeypatch):
-    """Not just that the client carries the name — that the message uses it.
+    """Not just that the client carries the name - that the message uses it.
     Driven through `complete`, with the provider answering 400 and "invalid
     api key", because the name is read at the `raise` and a test that only
     checks the attribute passes with the raise hardcoded to "OCR"."""
@@ -386,7 +401,7 @@ def test_the_series_context_only_holds_declared_fields():
 
 def test_a_context_key_this_version_does_not_know_costs_nothing():
     """The general form. A project.json from a different version must open,
-    minus the key nobody recognises — a key is worth nothing and a chapter is
+    minus the key nobody recognises - a key is worth nothing and a chapter is
     worth everything."""
     import json
     import shutil

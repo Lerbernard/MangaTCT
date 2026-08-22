@@ -2,7 +2,7 @@
 
 comic-text-detector reports TEXT, not balloons, so every region it hands back
 has ``bubble_mask=None`` and the fitter falls through to the footprint of the
-Japanese — a tall narrow column. Typesetting English into that column is what
+Japanese - a tall narrow column. Typesetting English into that column is what
 produced 8-12pt type inside a 200px bubble. ``attach_balloons`` walks back out
 from the ink to the outline around it.
 
@@ -120,7 +120,7 @@ def test_stacked_blocks_are_cut_straight_across_not_diagonally():
     """The real split bubble: the second column of Japanese sits both LEFT of
     and BELOW the first, because columns read right-to-left. Dividing that by
     nearest ink draws a DIAGONAL line through the balloon, and a diagonal edge
-    costs the fitter the width of every line it letters — it measures the
+    costs the fitter the width of every line it letters - it measures the
     narrowest row under each line, so a wedge prices out a size or two smaller
     than the paper really allows. Each stacked block must get the balloon's
     full width across its own rows."""
@@ -169,7 +169,7 @@ def test_text_lying_on_artwork_is_left_alone():
 
 
 def test_a_hatched_panel_is_not_paper():
-    """Light, flat, enclosed and the right shape — but it is a drawing.
+    """Light, flat, enclosed and the right shape - but it is a drawing.
 
     Everything the shape checks look at says bubble here. Only the drawn
     edges inside it say otherwise, so this is what stops the fitter from
@@ -187,7 +187,7 @@ def test_a_hatched_panel_is_not_paper():
 
 
 def test_a_balloon_no_roomier_than_the_text_box_is_not_worth_taking():
-    """Nothing is gained, so nothing changes — the old behaviour stands."""
+    """Nothing is gained, so nothing changes - the old behaviour stands."""
     page = _page()
     cv2.rectangle(page, (150, 150), (270, 240), 250, -1)
     cv2.rectangle(page, (150, 150), (270, 240), 20, 3)
@@ -234,7 +234,7 @@ def test_a_bubble_packed_with_japanese_is_still_a_bubble():
     """Shape is judged on the balloon, not on the paper left between glyphs.
 
     Half the inside of a busy bubble is ink. Measuring the bare paper makes
-    that bubble look ragged and unsolid — and it is the one that needs the
+    that bubble look ragged and unsolid - and it is the one that needs the
     rescue most, because its text footprint fills the balloon.
     """
     page = _page()
@@ -286,7 +286,7 @@ def test_a_balloon_whose_outline_has_a_hole_in_it_is_still_found():
     """Thirteen of twenty-seven misses on the sample chapter were this.
 
     The block is not sitting on artwork and it is not in a shape that fails the
-    checks — its balloon simply leaks. The paper it is embedded in is then the
+    checks - its balloon simply leaks. The paper it is embedded in is then the
     page background, which is thrown out (rightly: nothing that reaches the
     page edge is a balloon), and the block is left with no placement area at
     all. Bridging the hole closes the balloon again.
@@ -308,7 +308,7 @@ def test_the_rescue_does_not_hand_a_leaking_balloon_back_shrunken():
     """Bridging the hole means dilating the ink, which eats the edges.
 
     A wide hole needs a heavy seal, and a heavy seal takes a band off the whole
-    inside of the balloon — a fifth of it here. Those pixels are room the
+    inside of the balloon - a fifth of it here. Those pixels are room the
     typesetting is entitled to, so they have to be given back: grown into paper
     only, so the shape stops against the drawn outline instead of stepping
     over it and typesetting across the artwork behind.

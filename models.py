@@ -10,7 +10,7 @@ import numpy as np
 from . import kinds as _kinds
 
 # A box's kind is one of the three families, or the key of a sub-type somebody
-# made under one of them — so it is a string, not a closed set. `kinds.py` is
+# made under one of them - so it is a string, not a closed set. `kinds.py` is
 # where a kind is turned into the family that decides how the box behaves.
 RegionKind = str
 
@@ -26,7 +26,7 @@ def turned_box(bbox, turn: float) -> list:
 
     Clockwise, to match `TextRegion.angle` and the sound-effect reader. Here
     with the region rather than with the project because it is read on the way
-    OUT as well — the cleaner rebuilds a turned box's own outline from it, and
+    OUT as well - the cleaner rebuilds a turned box's own outline from it, and
     the cleaner cannot import the project (the project imports the cleaner).
     """
     x, y, w, h = (float(v) for v in bbox)
@@ -65,7 +65,7 @@ class TextRegion:
     # are only correct read together. "balloon" is
     # `detect.balloon.link_touching_bubbles`: the artist drew two lobes that
     # touch, which is a fact about the PICTURE and says nothing about the words
-    # — a double balloon holds two sentences as often as one.
+    # - a double balloon holds two sentences as often as one.
     #
     # They were both `link`, and the translation prompt reads a link as "one
     # sentence split across bubbles", so page 049's two complete sentences came
@@ -74,9 +74,9 @@ class TextRegion:
     link_kind: str = ""
     # Regions sharing the same positive `box_group` are SECTIONS of one
     # balloon. lee: "make it so that the bubbles can have 2 sections ... under
-    # teh one box". A balloon can hold a sentence and a small あっ！ beneath it —
+    # teh one box". A balloon can hold a sentence and a small あっ！ beneath it -
     # two things to read, two things to typeset, each in its own part of the
-    # paper — but one outline, so the editor draws one box round the group
+    # paper - but one outline, so the editor draws one box round the group
     # instead of a box each. Each section still carries its own share of the
     # balloon in `bubble_mask`, which is what the typesetter measures against.
     box_group: int = 0
@@ -85,7 +85,7 @@ class TextRegion:
     src_vertical: bool = True
     ocr_ok: bool = True
 
-    # A sound effect's own axis, read off the original ink at detection time —
+    # A sound effect's own axis, read off the original ink at detection time -
     # the last moment the page still carries the Japanese. `angle` is degrees
     # clockwise from straight, 0 when the reader refused to guess. `sfx_len`
     # and `sfx_wid` are the ink's footprint along and across that axis, held
@@ -100,8 +100,8 @@ class TextRegion:
 
     # How far somebody TURNED this box, in degrees clockwise. Its own field and
     # not `angle`, because the two say different things and a box can have
-    # both: `angle` is a reading of the artwork — the axis a sound effect was
-    # drawn along — while this is a decision about the box. Reading a turn out
+    # both: `angle` is a reading of the artwork - the axis a sound effect was
+    # drawn along - while this is a decision about the box. Reading a turn out
     # of `angle` would have turned every sound effect drawn by hand, since the
     # axis reader gives each one an angle the moment it is drawn.
     #
@@ -109,20 +109,6 @@ class TextRegion:
     # able to rotate them the detector boxes shoud be normal"*.
     turn: float = 0.0
 
-    # Read this box's writing by its own LOCAL BACKGROUND rather than by the
-    # fixed ink thresholds. Off by default and set per box, by hand.
-    #
-    # `gray <= 128` and `gray >= 200` describe a page of black-on-white and a
-    # page of white-on-black. They describe nothing else, and on lee's chapter
-    # they describe the BACKGROUND instead of the writing: gold on navy is 84%
-    # "dark ink", gold on cream is 91% "bright ink", and dark words on a
-    # translucent balloon with a beam of light crossing it are 54% "dark". Those
-    # three boxes are the three he keeps sending back.
-    #
-    # See `inpaint.focus_mask`. Kept per box because every attempt to fix gold
-    # for the whole chapter moved something else; a switch only moves the box it
-    # is on. lee: *"maybe add a focus cleening for special ares or something"*.
-    focus: bool = False
 
     dst_text: Optional[str] = None
     dst_compact: Optional[str] = None
@@ -139,8 +125,8 @@ class TextRegion:
     # Leave this region's source text alone during cleaning, so an individual
     # cleaning the person does not like can be switched off.
     skip_clean: bool = False
-    # Which way this box was actually cleaned — "flat fill", "neural",
-    # "telea", "pattern copy" — and whether only its letter strokes went.
+    # Which way this box was actually cleaned - "flat fill", "neural",
+    # "telea", "pattern copy" - and whether only its letter strokes went.
     #
     # The cleaner has always known this per box and thrown it away, keeping
     # only a count for the whole chapter. Several rounds of "why did THIS box
@@ -174,7 +160,7 @@ class TextRegion:
 
         Sound effects are the exception and keep the ink: they are drawn along
         an axis of their own, over artwork, and the place they belong is
-        exactly where the original was — not spread across a rectangle drawn
+        exactly where the original was - not spread across a rectangle drawn
         round it. Free-floating dialogue used to be treated the same way and
         should not have been. It is ordinary speech that happens to have no
         balloon round it, so it wants to be set as a block like any other, and
@@ -225,17 +211,17 @@ class TextLayout:
     stroke: int = 1
     rotate: float = 0.0
     # The text's own box, in page coordinates: x, y, w, h. Independent of the
-    # region — it can be moved, resized and rotated past the bubble edge.
+    # region - it can be moved, resized and rotated past the bubble edge.
     frame: tuple[int, int, int, int] | None = None
     # True when the line positions are NOT "evenly down the frame": a sound
     # effect running along its own axis, or a speech split between the two
     # lobes of a double balloon. Everything that would otherwise re-derive the
-    # positions from the frame — the browser's preview, the box you type into
-    # — leaves these exactly where they are.
+    # positions from the frame - the browser's preview, the box you type into
+    # - leaves these exactly where they are.
     fixed: bool = False
     # True when this block is deliberately BIGGER than the box it belongs to.
     # Outside text and sound effects are allowed to run onto the artwork
-    # rather than shrink under the minimum size — lee: *"outside text and sfx
+    # rather than shrink under the minimum size - lee: *"outside text and sfx
     # shoud be able to go outside teh box if the text size is bellow the
     # minimum"*. Everything that pulls a block back inside its region
     # (`pull_to_box`, `enforce_bounds`) leaves a spilling one alone, or the

@@ -4,7 +4,7 @@
    and script in place, in order. The result behaves exactly like the page
    a browser sees. */
 const fs=require('fs'),path=require('path');
-/* Two up from tests/ui is the package itself — `static/` is right there.
+/* Two up from tests/ui is the package itself - `static/` is right there.
    This used to walk two up and then back DOWN into a folder named for the
    package, which is only true when tests/ sits beside it rather than inside
    it. Same bug the Python suite had, same fix. */

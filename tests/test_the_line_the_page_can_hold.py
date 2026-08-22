@@ -5,7 +5,7 @@ one way, `마정석` 2 of 2) and the grandfather (four labels down to one, on
 eleven lines). Three things did not move, or moved the wrong way:
 
 **Turiss became "Assistant".** Named on page 11, a role label on pages 16 to
-19 — four pages into the same conversation. The grandfather was fixed and the
+19 - four pages into the same conversation. The grandfather was fixed and the
 disciple broke instead, so `already_said` listing the name was not enough on
 its own: it had to say that a name BEATS a role label.
 
@@ -14,7 +14,7 @@ still over 2.5x. The budget was a ratio, and a ratio is a fact about languages
 rather than about this balloon. `fits_chars` is a fact about the balloon.
 
 **And it started swallowing the shouting.** Four runs of `!!!` came back as one
-`!` — `이건 기적이야!!!` as "This is a miracle!". New that run, and the same run
+`!` - `이건 기적이야!!!` as "This is a miracle!". New that run, and the same run
 the prompt started asking for shorter lines: asked to cut, it cut the one thing
 on the page that is not words.
 """
@@ -72,7 +72,7 @@ def test_and_bigger_type_means_fewer_characters():
 
 
 def test_the_mask_is_used_where_there_is_one():
-    """A round balloon is not its bounding box — about three quarters of it —
+    """A round balloon is not its bounding box - about three quarters of it -
     and the box would promise room that is not there."""
     np = pytest.importorskip("numpy")
     cv2 = pytest.importorskip("cv2")
@@ -108,7 +108,7 @@ def test_the_type_the_project_sets_in_is_the_one_used():
 
     See `test_the_size_the_reader_gets`: on the chapter this file was written
     against, min_font was 11 and the typesetter set a median of 32. The budget
-    is taken at `comfort_size` now — bigger type, less room.
+    is taken at `comfort_size` now - bigger type, less room.
     """
     c = T.SeriesContext()
     c.min_font, c.max_font = 24, 48
@@ -188,7 +188,7 @@ def test_both_notes_reach_the_region():
 
 
 def test_a_stamp_sized_box_promises_nothing_rather_than_three_characters():
-    """A number like 2 is not a budget, it is a rounding artefact — and the
+    """A number like 2 is not a budget, it is a rounding artefact - and the
     prompt treats `fits_chars` as a fact about the balloon, so a wrong small
     one is worse than none. Below the floor it is left out entirely."""
     assert T.fits_chars(_r(w=22, h=22), 12) == 0
@@ -197,7 +197,7 @@ def test_a_stamp_sized_box_promises_nothing_rather_than_three_characters():
 
 def test_a_balloon_is_not_packed_to_its_edges():
     """It is a round hole with a margin inside it, and the typesetter keeps
-    clear of the outline — `typeset` has a whole clearance rule for it. Filling
+    clear of the outline - `typeset` has a whole clearance rule for it. Filling
     the rectangle edge to edge promises roughly twice the room that is there,
     and a promise like that comes back as a line that does not fit."""
     assert 0.3 < T.BALLOON_PACK < 0.8

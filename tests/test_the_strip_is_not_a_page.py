@@ -8,14 +8,14 @@ when i uplaod a manhwa it shoud autonaticaly do this"*.
 What was wrong with it: the chapter is ONE image, 690 x 167,617, and the site
 that served it cut that image into 105 tiles of exactly 1600px. The slicer
 counts pixels. It has never looked at the artwork. Of its 104 cuts, 86 land on
-ink, 63 cross a speech balloon and **38 go through the typesetting itself** —
+ink, 63 cross a speech balloon and **38 go through the typesetting itself** -
 one straight across the middle of 지구인 용사 소환!, half the glyph heights on
 one file and half on the next. Neither half can be read, the cleaner would
 have to erase half a word on one page and half on another, and the English has
 nowhere to go.
 
 So on upload the tiles are joined back into the strip they came from and cut
-again at the **gutters** — the rows where the artist drew nothing — which is
+again at the **gutters** - the rows where the artist drew nothing - which is
 what a typesetter does by hand before starting. On lee's chapter that turns 105
 tiles into 66 pages with three cuts through ink, all three reported, and none
 at all through typesetting.
@@ -114,7 +114,7 @@ def test_a_row_needs_both_an_even_tone_and_no_hard_edge():
     """There are two ways a row can have something on it and each needs its
     own test.
 
-    A band of fine screentone is EVEN across — no hard edge anywhere — and
+    A band of fine screentone is EVEN across - no hard edge anywhere - and
     only its spread gives it away. A margin with one panel border crossing it
     is the opposite: flat as a mirror except for the couple of pixels of the
     line, so the spread stays near zero and only the range sees it. Drop
@@ -137,7 +137,7 @@ def test_a_row_needs_both_an_even_tone_and_no_hard_edge():
 
 
 def test_a_single_flat_row_is_not_a_gutter():
-    """One flat row is a coincidence — a scanline between two panels of the
+    """One flat row is a coincidence - a scanline between two panels of the
     same tone. Cutting there puts the page break inside the drawing."""
     assert strip.gutters(_flat(400, [(100, 101)])) == []
     assert strip.gutters(_flat(400, [(100, 130)])) == [115]
@@ -295,7 +295,7 @@ def test_page_ten_comes_after_page_two():
 def test_a_padded_number_and_a_bare_one_still_have_an_order():
     """Reading digits as numbers makes `001.png` and `1.png` the same key, and
     one folder can hold both. Two files that sort as equal come out in
-    whatever order they arrived in, which is not an order — so the path itself
+    whatever order they arrived in, which is not an order - so the path itself
     has the last word."""
     a, b = "/x/001.png", "/x/1.png"
     assert natural_key(a) != natural_key(b)

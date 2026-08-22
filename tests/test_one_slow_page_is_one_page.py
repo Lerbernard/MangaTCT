@@ -9,8 +9,8 @@ Every one of them is the answer to a request being written to a socket the
 browser had already given up on. That is the symptom, not the fault. The fault
 is that building a page took a lock the WHOLE editor shared, and building a
 page can mean calling the hosted cleaner and waiting on the network for it. One
-slow page therefore stopped every other request in the app — page views, region
-edits, the lot — until it came back or timed out three minutes later. From
+slow page therefore stopped every other request in the app - page views, region
+edits, the lot - until it came back or timed out three minutes later. From
 outside, the app has died; the browser abandons what it asked for, and every
 answer that eventually arrives is written to nobody.
 
@@ -26,7 +26,7 @@ Two changes:
 The connection-aborted case is handled where it belongs as well: whoever asked
 is not there to be told, so the answer is dropped quietly instead of raising,
 printing a traceback, and then having the handler try to write a 500 down the
-same dead socket — which raised again. Two tracebacks apiece, tens a minute,
+same dead socket - which raised again. Two tracebacks apiece, tens a minute,
 burying anything real.
 """
 import json
@@ -139,7 +139,7 @@ def test_the_wait_on_the_cleaner_is_not_three_minutes():
 
 def test_a_page_is_only_loaded_once_however_many_ask_for_it(tmp_path):
     """Two pages can now be built at the same time, so this cache is reached
-    from more than one thread — and decoding a scan is the expensive thing in
+    from more than one thread - and decoding a scan is the expensive thing in
     the whole editor. Unguarded, every thread that misses decodes its own copy
     and then they overwrite each other.
 
@@ -187,7 +187,7 @@ def _serve(fn, root=scratch("_tmp_gone")):
 
 
 def test_a_client_that_hangs_up_is_not_an_error(capfd):
-    """Send a request and close the socket before reading the answer — a
+    """Send a request and close the socket before reading the answer - a
     browser does this whenever a page reloads or a fetch is superseded. The
     server must not print a traceback, and must not then try to write a 500
     down the same dead socket."""

@@ -1,11 +1,11 @@
 """Translating by hand: a template out, a filled-in file back.
 
-The AI route already had both halves — `/api/translate_request` writes the
+The AI route already had both halves - `/api/translate_request` writes the
 exact prompt, `/api/translate_response` takes the model's JSON. This is the
 same shape for a person: a plain text file with one block per box, the
 Japanese beside its label, and room to type the English underneath.
 
-    # mangatl — manual translation
+    # mangatl - manual translation
     #
     # Type the English under each label. A block you leave empty is left
     # alone, so you can do a few boxes now and the rest later.
@@ -17,7 +17,7 @@ Japanese beside its label, and room to type the English underneath.
 
     [p001.png #2]  こんにちは
 
-Two lines of a block are two lines of dialogue, kept as typed — the typesetter
+Two lines of a block are two lines of dialogue, kept as typed - the typesetter
 honours a break somebody put in by hand.
 
 The JSON form is the same information for anything that would rather read
@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import re
 
-# `[name #n]`, with the rest of the line — the Japanese — ignored on the way
+# `[name #n]`, with the rest of the line - the Japanese - ignored on the way
 # back in. Tolerant of stray spaces: this is a file people edit by hand.
 LABEL = re.compile(r"^\s*\[\s*(?P<page>[^\]#]+?)\s*#\s*(?P<n>\d+)\s*\]"
                    r"(?P<tail>.*)$")
@@ -130,7 +130,7 @@ def parse(text: str) -> list[tuple[str, int, str]]:
 
 def parse_json(data) -> list[tuple[str, int, str]]:
     """The same triples out of the JSON form, or out of a flat mapping like
-    `{"p001.png #2": "HELLO"}` — which is what somebody writing one by hand
+    `{"p001.png #2": "HELLO"}` - which is what somebody writing one by hand
     tends to produce."""
     out: list[tuple[str, int, str]] = []
     if isinstance(data, dict) and isinstance(data.get("pages"), list):
@@ -160,7 +160,7 @@ def parse_json(data) -> list[tuple[str, int, str]]:
 
 def read(text: str) -> list[tuple[str, int, str]]:
     """Whichever of the two this is. JSON is tried first and only when the
-    file actually looks like it — a template starts with a comment."""
+    file actually looks like it - a template starts with a comment."""
     t = (text or "").lstrip()
     if t[:1] in "[{":
         try:

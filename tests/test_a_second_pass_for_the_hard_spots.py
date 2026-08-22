@@ -17,7 +17,7 @@ chapter keeps handing back boxes it is not true of:
 | page 003 / 012, gold on cream                  | 1%          | **91%**     |
 
 Gold falls down the gap between the two levels wherever it stands, and a
-balloon you can see the sky through has no single level anywhere — a beam of
+balloon you can see the sky through has no single level anywhere - a beam of
 light crosses it and the background inside one box runs from 0 to 255.
 
 ## Why a second pass and not a cleverer first one
@@ -31,7 +31,7 @@ job. The one narrow enough to break nothing caught three boxes out of twelve.
 A second pass does not guess. It reads what the first pass actually produced,
 and whatever is still standing is by definition what the first reading missed.
 It can only paint where the writing survived, so the first step is left exactly
-as it was — the cleaner lee called the safe state — and a box that came out
+as it was - the cleaner lee called the safe state - and a box that came out
 clean is never touched at all.
 
 ## What the second step erases
@@ -39,7 +39,7 @@ clean is never touched at all.
 Read the colour way, against the box's own local background, because the boxes
 that survive step one are precisely the ones no grey level describes. A median
 blur wider than a stroke cannot see strokes, so what comes back is the box with
-the writing lifted off — paper, gradient, frame and beam intact — and whatever
+the writing lifted off - paper, gradient, frame and beam intact - and whatever
 differs from that is the writing. `focus_ink` then grows each stroke out to its
 own edge so no coloured rim is left behind, and drops decoration that runs off
 the edge of the box.
@@ -47,9 +47,22 @@ the edge of the box.
 Measured over lee's chapter: **better on 11 boxes, worse on none**, and the
 second step runs on 19 of 87.
 
-The switch is still there — `region.focus`, the ⊚ on a box — for reading a box
-that way in the FIRST step, which is a different thing and occasionally what
-you want.
+**THE SWITCH IS GONE.** `region.focus` and the ⊚ on a box let a person ask for
+that same reading in the FIRST step, one box at a time. lee, after a day of
+cleaning that kept coming back worse: *"also remove teh focuds clena it only
+makes this worst"*. On the chapter he was working, **1 of 157 boxes** had it
+on, so what it mostly did was exist - a second way for a page to clean, a
+branch at six places in `inpaint_page`, and a flag in the plate's identity that
+rebuilt a page's clean when it moved.
+
+The automatic half never ran at all: `focus_is_needed` was written, measured
+(*"focus came out equal or better on 65 of 67"*) and **never called**, and
+`focus_auto` was set to False in one place and True in none. It went with the
+switch.
+
+What stays is `focus_background`, `focus_mask` and `focus_ink` - the SECOND
+step is built on them and is not a switch anybody throws. The tests for those
+are below and are untouched.
 """
 
 import cv2
@@ -63,7 +76,7 @@ from mangatl.models import Page, TextRegion
 def _gold_on_navy(w=420, h=120, frame=False):
     """Page 030: gold caption on a navy plate. Both are mid-grey.
 
-    With `frame`, the plate's pale ornate border as well — which is what
+    With `frame`, the plate's pale ornate border as well - which is what
     defeats the ordinary reading on the real page. The split that handles
     light-on-dark is taken over the whole box, so a white frame is the thing
     it separates, and the gold goes in with the sky.
@@ -129,7 +142,7 @@ def test_and_the_same_gold_on_cream():
 
 
 def test_and_dark_words_on_a_background_that_is_not_one_tone():
-    """No fixed level can be right across this box — the paper under the last
+    """No fixed level can be right across this box - the paper under the last
     word is brighter than the ink under the first."""
     img = _dark_on_a_gradient()
     m = I.focus_mask(img)
@@ -171,27 +184,70 @@ def test_an_empty_crop_does_not_raise():
 
 # --- carried on the record -------------------------------------------------
 
-def test_the_switch_survives_a_page_being_rebuilt():
+# --- and the switch is gone ------------------------------------------------
+
+def test_there_is_no_focus_switch_left_in_the_cleaner():
+    """Six branches in `inpaint_page` asked whether a box was in focus, and a
+    box that said yes took a different reading, a different stroke completion,
+    a different fill and a different route in the report. lee: *"also remove
+    teh focuds clena it only makes this worst"*."""
+    import inspect
+    src = inspect.getsource(I)
+    assert "def in_focus" not in src
+    assert "in_focus(" not in src
+
+
+def test_the_half_that_never_ran_went_with_it():
+    """`focus_is_needed` was written and measured and never called once;
+    `focus_auto` was set False in one place and True in none. Dead either way,
+    and asserted so nobody rebuilds half of it by accident."""
+    import inspect
+    from mangatl import project as P
+    assert not hasattr(I, "focus_is_needed")
+    assert not hasattr(I, "FOCUS_WHEN")
+    for mod in (I, P):
+        assert "focus_auto" not in inspect.getsource(mod)
+
+
+def test_a_record_that_still_carries_the_flag_loads_anyway():
+    """His saved projects have `"focus": true` on one box in a hundred and
+    fifty-seven. They have to open."""
     from mangatl.project import region_from_record, region_record
     rec = {"id": 0, "bbox": [10, 10, 200, 80], "bubble_bbox": None,
            "polygon": [], "kind": "bubble", "focus": True, "order": 0}
-    again = region_record(region_from_record(rec, _gold_on_navy(300, 200)))
-    assert again["focus"] is True
+    r = region_from_record(rec, _gold_on_navy(300, 200))
+    assert r is not None
+    # ...and it is not written back out, so the flag leaves as pages are saved
+    assert "focus" not in region_record(r)
 
 
-def test_and_defaults_to_off_on_every_record_written_before_it_existed():
-    from mangatl.project import region_from_record
-    rec = {"id": 0, "bbox": [10, 10, 200, 80], "bubble_bbox": None,
-           "polygon": [], "kind": "bubble", "order": 0}
-    assert region_from_record(rec, _gold_on_navy(300, 200)).focus is False
+def test_the_plate_no_longer_rebuilds_when_a_flag_nobody_can_set_moves():
+    import inspect
+    from mangatl import editor
+    assert "focus" not in inspect.getsource(editor._plate_stamp)
+
+
+def test_the_switch_is_gone_from_the_screen_too():
+    """The \u229a on a box, and the ' - focus' the region row said."""
+    from where import PKG
+    for f in ("static/js/panels.js", "static/js/paint.js"):
+        src = (PKG / f).read_text(encoding="utf-8")
+        assert "toggleFocus" not in src, f
+        assert "r.focus" not in src, f
+
+
+def test_the_stamp_was_bumped_so_the_old_plates_retire():
+    """A change to how a page is cleaned that does not move `ALGO` ships
+    invisible: every plate on disk answers for the new build."""
+    assert I.ALGO >= "2026-08-15"
 
 
 # --- through the cleaner ---------------------------------------------------
 
-def _one(img, focus, bbox=(10, 30, 400, 70)):
+def _one(img, bbox=(10, 30, 400, 70)):
     from mangatl.project import region_from_record
     rec = {"id": 0, "bbox": list(bbox), "bubble_bbox": None, "polygon": [],
-           "kind": "bubble", "order": 0, "src_text": "a", "focus": focus}
+           "kind": "bubble", "order": 0, "src_text": "a"}
     r = region_from_record(rec, img)
     r.src_text, r.order = "a", 0
     p = Page(image=img.copy(), source_path="t.png")
@@ -210,7 +266,7 @@ def test_the_mask_the_cleaner_erases_is_built_from_it():
     """Read in the CLEANER and not where the mask is first built, because the
     question is asked after the light-on-dark rescue has had its go."""
     img = _gold_on_navy()
-    p, out = _one(img, True)
+    p, out = _one(img)
     changed = np.abs(img.astype(int) - out.astype(int)).max(2) > 6
     assert 0.005 < changed.mean() < 0.35, changed.mean()
 
@@ -219,29 +275,22 @@ def test_the_mask_the_cleaner_erases_is_built_from_it():
 
 def test_the_gold_comes_off():
     img = _gold_on_navy()
-    _, out = _one(img, True)
+    _, out = _one(img)
     assert _left(img, out, (10, 30, 400, 70)) < 0.35
 
 
 def test_and_the_plate_under_it_is_still_navy():
     """Erasing gold by painting a grey box over it is not cleaning."""
     img = _gold_on_navy()
-    _, out = _one(img, True)
+    _, out = _one(img)
     b, g, r = out[35:100, 20:390].reshape(-1, 3).mean(axis=0)
     assert b > g and b > r, "the plate came back neutral"
     assert abs(b - 92) < 22 and abs(r - 48) < 22, (b, g, r)
 
 
-def test_the_route_says_which_boxes_took_it():
-    """Every argument about cleaning so far has been settled by looking at the
-    page and guessing. A focus box says so in the report."""
-    p, _ = _one(_gold_on_navy(), True)
-    assert p.clean_stats.get("focus") == 1, p.clean_stats
-
-
 def test_a_mask_read_this_way_is_not_thrown_away_a_line_later():
     """`glyphs_only` asks "does this stroke carry on outside the region" and
-    used to answer it by finding the stroke again at a fixed level — the one
+    used to answer it by finding the stroke again at a fixed level - the one
     thing a focus box has been declared not to obey. On page 003 that took the
     mask from 13% of the box to 1%, with the switch on and the mask right."""
     from mangatl.project import region_from_record
@@ -257,19 +306,9 @@ def test_a_mask_read_this_way_is_not_thrown_away_a_line_later():
     assert int((kept > 0).sum()) > 0.5 * was
 
 
-def test_a_stroke_is_not_completed_against_the_levels_it_does_not_obey():
-    """`_complete_strokes` adds doorstep ink found by the FIXED levels. On a
-    box that needed the switch those levels are the background — on page 030
-    it would adopt the night sky."""
-    import inspect
-    src = inspect.getsource(I.inpaint_page)
-    i = src.index("_complete_strokes(erase")
-    assert "focus" in src[max(0, i - 400):i]
-
-
 def test_the_split_does_not_overwrite_it_on_a_dark_panel():
     """A navy plate reads as "light text on a dark panel", and the ordinary
-    answer to that is to replace the mask with the split — which on page 030 is
+    answer to that is to replace the mask with the split - which on page 030 is
     taken over a plate carrying a white frame, so it separates the FRAME and
     puts the gold in with the sky."""
     from mangatl.project import region_from_record
@@ -292,33 +331,22 @@ def test_the_split_does_not_overwrite_it_on_a_dark_panel():
 def test_a_box_without_the_switch_is_cleaned_to_the_same_pixels():
     """The promise lee asked for in so many words: *"without chnaging anythinge
     else"*. Every line of the focus path is behind `region.focus`, so an
-    ordinary box cannot reach any of it — including the two lines inside
+    ordinary box cannot reach any of it - including the two lines inside
     `glyphs_only` and `_complete_strokes`, which are the ones that could have
     leaked.
     """
     for make in (_gold_on_navy, _gold_on_cream, _dark_on_a_gradient,
                  _black_on_white):
         img = make()
-        _, a = _one(img, False)
-        _, b = _one(img, False)
+        _, a = _one(img)
+        _, b = _one(img)
         assert np.array_equal(a, b)
     # ...and the page the fixed levels WERE written for is still cleaned by
     # them. "Nothing else changed" has to mean the ordinary path still works,
     # not merely that it still runs.
     img = _black_on_white()
-    _, out = _one(img, False)
+    _, out = _one(img)
     assert _left(img, out, (10, 30, 400, 70)) < 0.35
-
-
-def test_the_plate_is_rebuilt_when_the_switch_is_flipped():
-    """A plate is built once and reused for ever, and its name is made of the
-    page, the boxes and the settings. A switch the name does not mention is a
-    switch that does nothing until something else happens to touch the page —
-    which has now cost a day of cleaning work twice."""
-    import inspect
-    from mangatl import editor
-    src = inspect.getsource(editor._plate_stamp)
-    assert "focus" in src
 
 
 # --- and the same reading on every box, when the project asks for it --------
@@ -334,10 +362,10 @@ def test_the_gold_survives_the_first_step_and_not_the_second():
     was = I.second_pass
     I.second_pass = lambda *a, **k: []
     try:
-        _, one = _one(img, False, box)
+        _, one = _one(img, box)
     finally:
         I.second_pass = was
-    _, two = _one(img, False, box)
+    _, two = _one(img, box)
     assert _left(img, one, box) > 0.9, \
         "the first step is supposed to be blind to this — fixture drifted"
     assert _left(img, two, box) < 0.35, _left(img, two, box)
@@ -352,26 +380,26 @@ def test_the_first_step_is_left_exactly_as_it_was():
     was = I.second_pass
     I.second_pass = lambda *a, **k: []
     try:
-        _, one = _one(img, False, box)
+        _, one = _one(img, box)
     finally:
         I.second_pass = was
-    _, two = _one(img, False, box)
+    _, two = _one(img, box)
     assert np.array_equal(one, two)
 
 
 def test_a_box_that_came_out_clean_is_never_looked_at_again():
-    """The gate is measured on the RESULT — how much of the writing is still
-    standing — and not guessed at beforehand. That is what makes the second
+    """The gate is measured on the RESULT - how much of the writing is still
+    standing - and not guessed at beforehand. That is what makes the second
     step unable to undo the first."""
     from mangatl.models import Page as _P
     img = _black_on_white()
-    p, out = _one(img, False)
+    p, out = _one(img)
     assert not p.clean_stats.get("second pass")
 
 
 def test_and_one_that_did_not_is(proj_free=None):
     img = _gold_on_cream()
-    p, _ = _one(img, False)
+    p, _ = _one(img)
     assert p.clean_stats.get("second pass") == 1, p.clean_stats
 
 
@@ -379,10 +407,10 @@ def test_the_report_says_how_many_needed_it():
     """Every argument about this cleaning has been settled by looking at the
     page and guessing. The count is the answer."""
     # On cream, because the fixture navy plate is flat enough that the
-    # ORDINARY clean already takes it — which is the second step doing exactly
+    # ORDINARY clean already takes it - which is the second step doing exactly
     # what it should and staying out of the way.
     img = _gold_on_cream()
-    p, _ = _one(img, False)
+    p, _ = _one(img)
     assert "second pass" in p.clean_stats
     assert p.regions[0].clean_route.endswith("+ second"), \
         p.regions[0].clean_route
@@ -393,14 +421,14 @@ def test_a_sound_effect_gets_the_second_step_too():
     to fix thses in their own part of the clenner"*.
 
     It has its own rule here, and one line of it. Everywhere else the second
-    step clips what it erases to `place_mask()` — the room this region owns —
+    step clips what it erases to `place_mask()` - the room this region owns -
     but on a sound effect `place_mask()` hands back the effect's own INK
     (models.py), which is right for typesetting and exactly wrong here: the
     only reason a box reaches the second step is that its ink was NOT found,
     so clipping to it leaves nothing to erase. On page 019 the gold effect's
     mask is all but empty and the effect stood through both steps untouched at
-    87% of its writing left. An effect's box IS the region — there is no
-    balloon it could be inside of — so the box is the room.
+    87% of its writing left. An effect's box IS the region - there is no
+    balloon it could be inside of - so the box is the room.
 
     Measured over lee's effects: eight better, none worse, and 019 went to 12%.
     """
@@ -432,18 +460,18 @@ def test_it_does_not_wipe_a_drawing_inside_a_balloon():
     come back as; writing comes back as many marks."""
     img = np.full((160, 400, 3), 250, np.uint8)
     # Bright enough that the ordinary clean does not read it as ink, and in the
-    # same tone band as the gold — so it survives step one and step two is the
+    # same tone band as the gold - so it survives step one and step two is the
     # only thing standing between it and being rubbed out.
     cv2.circle(img, (200, 80), 46, (210, 180, 120), -1)
     box = (10, 10, 380, 140)
-    p, out = _one(img, False, box)
+    p, out = _one(img, box)
     assert not p.clean_stats.get("second pass"), p.clean_stats
     assert _left(img, out, box) > 0.5, "the drawing was erased"
 
 
 def test_the_second_step_asks_the_model_where_there_is_one():
     """lee: *"some if teh sfx clenning has aome notisable edges and ae too
-    blurry"* — and *"the tie it takes to cleen is small so you ca add as many
+    blurry"* - and *"the tie it takes to cleen is small so you ca add as many
     steps ai you need"*.
 
     A median is a blur. Measured over lee's sound effects, the area it paints
@@ -452,7 +480,7 @@ def test_the_second_step_asks_the_model_where_there_is_one():
     the same. Nothing local rebuilds artwork.
 
     A model does. And the reason its first answer still had the writing on it
-    is not that it failed — it redrew faithfully, from a mask that did not
+    is not that it failed - it redrew faithfully, from a mask that did not
     cover the words. So the second step asks it again with the mask the first
     pass should have had, on the page as it ARRIVED rather than on its own
     first answer.
@@ -465,7 +493,7 @@ def test_the_second_step_asks_the_model_where_there_is_one():
         seen["mask"] = int((mask > 0).sum())
         return sub.copy()
 
-    _one(img, False, (10, 30, 400, 70))       # no model: must not ask
+    _one(img, (10, 30, 400, 70))       # no model: must not ask
     assert not seen.get("asked")
 
     from mangatl.project import region_from_record
@@ -482,13 +510,13 @@ def test_the_second_step_asks_the_model_where_there_is_one():
 
 def test_and_falls_back_to_a_feathered_patch_with_no_model():
     """A project with nothing to ask still gets the writing off, and the patch
-    must not announce itself: painted with a hard edge it reads as damage — a
+    must not announce itself: painted with a hard edge it reads as damage - a
     rectangle of blur with a rim round it."""
     import inspect
     assert "GaussianBlur" in inspect.getsource(I._feathered), \
         "the fallback patch is not feathered"
     img = _gold_on_cream()
-    _, out = _one(img, False, (10, 30, 400, 70))
+    _, out = _one(img, (10, 30, 400, 70))
     assert _left(img, out, (10, 30, 400, 70)) < 0.35
 
 
@@ -505,7 +533,7 @@ def test_the_second_step_tries_every_window_and_keeps_what_works():
 
     The axis that actually limits the reading is WIDTH. It is a median wider
     than a stroke, so writing whose strokes are wider than the window is
-    invisible to it — the median sees the stroke as background and nothing
+    invisible to it - the median sees the stroke as background and nothing
     differs from it. On page 060's outlined writing the 41px window finds 2%
     of the box and leaves a third of the writing; the 81px one finds 21% and
     leaves 5%. Which window is right is a fact about the box, so it is measured
@@ -533,7 +561,7 @@ def test_and_every_window_is_judged_on_the_same_ground():
 def test_a_big_patch_is_refused_when_there_is_nothing_to_rebuild_it():
     """lee, on page 010: *"the bubble got wraped"*.
 
-    The balloon was untouched. What went wrong was beside it — a sound effect
+    The balloon was untouched. What went wrong was beside it - a sound effect
     over grass, where the second step painted most of the box and the local
     fill flattened the artwork from a texture of 34 to 2.8, leaving a pale
     smear the balloon then sat in.
@@ -555,7 +583,7 @@ def test_a_big_patch_is_refused_when_there_is_nothing_to_rebuild_it():
 
 def test_a_reading_that_claims_the_whole_box_is_refused():
     """At the widest window the median is close to the box's own average, so on
-    page 004's violet effect the reading returns 93% of the box — which would
+    page 004's violet effect the reading returns 93% of the box - which would
     take the artwork with it. The line sits where the readings separate: the
     honest ones across lee's chapter run to 76%, and only that one is above
     85%. A first guess of 40% threw away the true readings on four boxes."""
@@ -565,7 +593,7 @@ def test_a_reading_that_claims_the_whole_box_is_refused():
 # --- and not over texture, with nothing to rebuild it ----------------------
 
 def _hatched(w=300, h=140, gap=3, dark=40, light=90):
-    """A panel of solid hatching with white typesetting over it — the case a
+    """A panel of solid hatching with white typesetting over it - the case a
     median cannot repair, because the thing it would paint over is a pattern
     and a median has no pattern in it."""
     img = np.full((h, w, 3), dark, np.uint8)
@@ -580,7 +608,7 @@ def _paint_of(img, out):
 
 
 def test_a_median_is_not_painted_over_hatching():
-    """lee: *"the bubble got wraped"* — page 010, where the second step's patch
+    """lee: *"the bubble got wraped"* - page 010, where the second step's patch
     flattened grass. The same thing on a hatched panel: the words come off and
     a smooth rectangle is left in the middle of the drawing, which is worse
     than the words, because the words at least looked deliberate."""
@@ -610,9 +638,9 @@ def test_a_median_is_not_painted_over_hatching():
 
 def test_but_it_is_over_paper():
     """The guard is about texture and not about size. The same second step on a
-    plain background still runs — this is what keeps lee's chapter working."""
+    plain background still runs - this is what keeps lee's chapter working."""
     img = _gold_on_cream()
-    p, out = _one(img, False)
+    p, out = _one(img)
     assert p.clean_stats.get("second pass") == 1, p.clean_stats
 
 
@@ -628,7 +656,7 @@ def test_a_model_may_paint_over_texture_because_it_rebuilds_it():
 
 def test_writing_the_first_step_already_took_off_is_not_texture_either():
     """The grain is measured on the page as it ARRIVED, so everything written
-    on it counts as writing — including the words the first step has already
+    on it counts as writing - including the words the first step has already
     removed. Measured only around what SURVIVED, the ordinary black line here
     is a dark pattern on cream and the box is refused: on lee's chapter that
     mistake refused nineteen of the twenty-one boxes the second step should
@@ -654,7 +682,7 @@ def test_writing_the_first_step_already_took_off_is_not_texture_either():
 
 def test_the_grain_is_measured_around_the_writing_and_not_through_it():
     """Writing is not texture. Measured through the words the number is huge on
-    every box and the second step would never run again — on lee's chapter the
+    every box and the second step would never run again - on lee's chapter the
     first version of this refused all but two of the twenty-one boxes it should
     have taken."""
     img = _hatched()

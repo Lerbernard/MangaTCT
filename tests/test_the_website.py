@@ -460,11 +460,94 @@ def test_no_page_uses_an_em_dash_or_a_middot():
     not something anybody reads and a rule that fails on one is a rule people
     start working around."""
     from where import PKG
-    for name in ("index.html", "pricing.html", "account.html", "signin.html"):
+    for name in ("index.html", "pricing.html", "account.html", "signin.html",
+                 "tutorial.html"):
         words = _rendered((PKG / "site" / name).read_text(encoding="utf-8"))
         assert "—" not in words, f"{name}: em dash"
         assert "–" not in words, f"{name}: en dash"
         assert "·" not in words, f"{name}: middot, use a vertical bar"
+
+
+# ------------------------------------------------------------- the guide
+
+def _tutorial():
+    from where import PKG
+    return (PKG / "site" / "tutorial.html").read_text(encoding="utf-8")
+
+
+def test_the_guide_is_a_page_and_the_landing_page_points_at_it():
+    """lee: *"make a very compriensive tutorila page ... add that as a page
+    on the website"*. Linked from BOTH the built page and its source, so the
+    next `build.py` run keeps the link rather than erasing it."""
+    from where import PKG
+    for f in ("index.html", "build.py"):
+        src = (PKG / "site" / f).read_text(encoding="utf-8")
+        assert 'href="tutorial.html"' in src, f
+
+
+def test_the_guide_is_tabs_and_sub_tabs_not_a_wall():
+    """lee: *"make it organoised in tabs and sub tabs ... dont make a block
+    of text"*. One top strip, three sub strips, all real tab semantics - the
+    same aria contract the landing page's strips keep, so a keyboard reaches
+    every one."""
+    page = _tutorial()
+    for strip in ("maintabs", "steptabs", "boxtabs", "settabs"):
+        assert f'id="{strip}"' in page, strip
+        assert f"wire('{strip}')" in page, f"{strip} is wired"
+    assert page.count('role="tab"') >= 16, "five main tabs and the sub tabs"
+    assert page.count('role="tabpanel"') >= 16
+    assert "keydown" in page and "ArrowRight" in page, "arrow keys work"
+
+
+def test_every_step_and_every_box_tool_has_its_place_in_the_guide():
+    """Comprehensive means the seven steps by name, the three box types, and
+    the tools lee asked for this week: the select square, merge, the
+    detector cards."""
+    page = _tutorial()
+    for word in ("Find text", "Read text", "Translate", "Proofread", "Clean",
+                 "Typeset", "Export"):
+        assert word in page, word
+    for word in ("Bubble text", "Freefloat text", "Sound effect",
+                 "Select boxes", "merge the selected boxes",
+                 "detector cards" if "detector cards" in page else "Detectors"):
+        assert word in page, word
+    # ...and the keys, shown as keys.
+    for key in ("S", "M", "L", "Del", "Esc"):
+        assert f"<kbd>{key}</kbd>" in page, key
+
+
+def test_the_guide_shows_real_pictures_and_the_pairs_are_pairs():
+    """lee: *"include picture and begore and after"*. Every tut-* picture the
+    page asks for ships with it (the ui-* and clip-* ones are the landing
+    page's own and already on disk), and before never appears without its
+    after."""
+    import re
+    from where import PKG
+    page = _tutorial()
+    asked = set(re.findall(r"assets/(tut-[A-Za-z0-9_.\-]+)", page))
+    assert len(asked) >= 10, "a guide with fewer pictures than tabs"
+    for name in asked:
+        assert (PKG / "site" / "assets" / name).exists(), name
+    for pair in ("find", "clean"):
+        assert f"tut-{pair}-before" in page and f"tut-{pair}-after" in page
+    # every picture explains itself to a screen reader too
+    assert page.count("<img") == page.count('alt="'), "an img without alt"
+
+
+def test_the_guide_speaks_to_somebody_new():
+    """lee: *"someone whose never usd this before can reed it"*. The words a
+    first-timer needs are on the page in plain English, and the jargon that
+    would stop them is not."""
+    page = _tutorial()
+    for phrase in ("first time", "Add your pages", "costs nothing"):
+        assert phrase in page, phrase
+    import re
+    low = _rendered(page).lower()
+    for jargon in ("onnx", "yolo", "checkpoint", "regression", "pipeline.js",
+                   "bbox", "iou"):
+        # whole words - "previous" carries "iou" and is fine
+        assert not re.search(r"\b%s\b" % re.escape(jargon), low), \
+            f"{jargon} is not a word for a beginner"
 
 
 def test_the_password_link_is_written_the_way_people_say_it():

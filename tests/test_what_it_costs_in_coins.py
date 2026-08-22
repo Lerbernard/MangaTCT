@@ -1,4 +1,4 @@
-"""TCT Coins — what the steps cost and what is left to spend.
+"""TCT Coins - what the steps cost and what is left to spend.
 
 lee: *"i wan you to impiment a credit syste using coins $1 is 100 coins i want
 you to make all the steps that use ai to cost coins aprpretly also bubble teh
@@ -29,7 +29,7 @@ from where import PKG
 
 @pytest.fixture(autouse=True)
 def purse(tmp_path, monkeypatch):
-    """A fresh, empty home for every test — its own wallet, its own ledger."""
+    """A fresh, empty home for every test - its own wallet, its own ledger."""
     monkeypatch.setenv("MANGATL_HOME", str(tmp_path / "home"))
     return tmp_path
 
@@ -94,7 +94,7 @@ def test_a_dated_build_of_a_model_prices_as_the_model():
 
 def test_the_longer_key_wins_however_the_table_is_written(monkeypatch):
     """The table happens to list every colliding pair longest-first today, so
-    taking the FIRST match that fits gives the same answers — which means the
+    taking the FIRST match that fits gives the same answers - which means the
     rule is untested by the table as it stands and a reordering would start
     charging flash-lite at flash prices with nothing to say so.
 
@@ -144,7 +144,7 @@ def test_a_chapter_of_two_box_pages_costs_less_than_one_of_six_box_pages():
     Asked over a RUN, because that is where whole coins let it be asked. At a
     hundred coins to the dollar one page of translation costs well under one
     coin, so a single two-box page and a single six-box page both round up to
-    1 and no rounding scheme can separate them — the price would have to be a
+    1 and no rounding scheme can separate them - the price would have to be a
     fraction, and lee asked for whole numbers. Over the chapter somebody
     actually buys, the difference is the whole difference.
     """
@@ -155,7 +155,7 @@ def test_a_chapter_of_two_box_pages_costs_less_than_one_of_six_box_pages():
 
 
 def test_every_extra_box_costs_the_same_as_the_last_one():
-    """Not merely "more is dearer" — the price RISES WITH the boxes, evenly,
+    """Not merely "more is dearer" - the price RISES WITH the boxes, evenly,
     because a box is a fixed lump of payload and a fixed lump of reply. A step
     that charged, say, the square of the count would pass the test above."""
     q = [coins.quote("translate", [n] * 23, "claude-sonnet-5")
@@ -169,7 +169,7 @@ def test_a_run_is_rounded_up_once_and_not_once_a_page():
     """The reason `quote` takes a LIST. Twenty-three pages rounded up one at a
     time is twenty-three coins whatever is on them, which is the flat rate lee
     explicitly did not want; the same pages summed and rounded once keep their
-    boxes. Rounded UP, still — never down to the sum itself."""
+    boxes. Rounded UP, still - never down to the sum itself."""
     pages = [1] * 23
     once = coins.quote("proofread", pages, "gemini-2.5-flash-lite")
     each = sum(coins.quote_page("proofread", n, "gemini-2.5-flash-lite")
@@ -183,8 +183,8 @@ def test_a_run_is_rounded_up_once_and_not_once_a_page():
 def test_the_chapter_goes_with_every_page_of_a_translation():
     """The term that was missing, and the biggest one in the file.
 
-    `do_translate` hands the model the whole chapter's lines as context — that
-    is what lets a single page be translated with the story in view — and it
+    `do_translate` hands the model the whole chapter's lines as context - that
+    is what lets a single page be translated with the story in view - and it
     does it on EVERY page. For a 217-box chapter that is thousands of tokens a
     page nobody was counting, twenty-three times over, and it is why a chapter
     estimated at eighteen coins really cost more than a hundred.
@@ -217,7 +217,7 @@ def test_translating_lees_chapter_costs_what_his_invoice_says():
     It is quoted with NO context, because that is what a full-chapter run
     sends: every page is being translated, so there is nothing to be consistent
     with that is not already in the run. Quoting it the whole chapter's boxes
-    anyway — which is what `max(boxes, chapter_boxes)` did — put about a
+    anyway - which is what `max(boxes, chapter_boxes)` did - put about a
     hundred thousand imaginary input tokens on this bill.
     """
     pages = [213 // 23] * 23
@@ -225,7 +225,7 @@ def test_translating_lees_chapter_costs_what_his_invoice_says():
     got = coins.quote("translate", pages, "gemini-3.6-flash", "", 0)
     assumed = got / coins.COINS_PER_DOLLAR / coins.MARKUP
     # Within a twelfth of the real invoice. Wider than that and the estimate
-    # is not calibrated, it is merely in the right decade — and since the
+    # is not calibrated, it is merely in the right decade - and since the
     # estimate IS the price, being out by a quarter means charging a quarter
     # too much or eating a quarter of the cost.
     assert abs(assumed - 0.4496) <= 0.4496 / 12, (got, assumed)
@@ -234,8 +234,8 @@ def test_translating_lees_chapter_costs_what_his_invoice_says():
 def test_three_quarters_of_that_bill_was_the_model_thinking():
     """The half of the invoice the input-side work never touched.
 
-    Of lee's 44,870 output tokens, the visible reply — the words that reach the
-    page — was about 6,000. The other 38,800 were reasoning. A shape that
+    Of lee's 44,870 output tokens, the visible reply - the words that reach the
+    page - was about 6,000. The other 38,800 were reasoning. A shape that
     smears that across the boxes prices a two-box page as thinking a fifth as
     hard as a ten-box page, and prices Claude, which is not asked to think
     anywhere in this app, as though it did.
@@ -256,8 +256,8 @@ def test_three_quarters_of_that_bill_was_the_model_thinking():
 
 
 def test_a_box_costs_what_a_box_puts_in_the_payload():
-    """The per-box price has two halves — what the box adds to what is SENT and
-    what it adds to what comes BACK — and a test that only watches the total
+    """The per-box price has two halves - what the box adds to what is SENT and
+    what it adds to what comes BACK - and a test that only watches the total
     rise is satisfied by either one of them working.
 
     So the dollars are checked against the shape directly. A price that had
@@ -285,14 +285,14 @@ def test_a_box_costs_what_a_box_puts_in_the_payload():
 
 
 def test_a_page_with_no_text_box_costs_nothing():
-    """A splash page has nothing to send. Not a special case bolted on — it is
+    """A splash page has nothing to send. Not a special case bolted on - it is
     what the arithmetic says, and a chapter is full of them."""
     for step in ("ocr", "translate", "proofread"):
         assert coins.quote_page(step, 0, "claude-sonnet-5") == 0
 
 
 def test_a_whole_run_is_its_pages_added_up():
-    """Added up as REAL cost and rounded at the end — the pages are what vary,
+    """Added up as REAL cost and rounded at the end - the pages are what vary,
     the rounding happens once."""
     pages = (2, 6, 0, 9)
     got = coins.quote("translate", pages, "claude-sonnet-5")
@@ -384,7 +384,7 @@ def test_a_wallet_file_that_is_nonsense_is_started_again():
 
 def test_can_afford_is_what_stops_a_run_not_the_spend():
     """`spend` goes through even into the red, on purpose: it is called AFTER
-    the tokens were bought, and refusing the entry would not un-buy them — it
+    the tokens were bought, and refusing the entry would not un-buy them - it
     would only lose the record of the money going."""
     coins.spend(coins.balance() + 50, "translate")
     assert coins.balance() < 0
@@ -404,7 +404,7 @@ class _Reply:
 
 
 def test_the_meter_reads_an_anthropic_reply():
-    """Anthropic reports the three input kinds SEPARATELY — `input_tokens`
+    """Anthropic reports the three input kinds SEPARATELY - `input_tokens`
     already excludes what was read from or written to the cache."""
     assert coins.usage_of(_Reply(
         input_tokens=900, output_tokens=250,
@@ -413,7 +413,7 @@ def test_the_meter_reads_an_anthropic_reply():
 
 
 def test_the_meter_reads_an_openai_shaped_reply():
-    """One total, with the cached part inside a details object — so it has to
+    """One total, with the cached part inside a details object - so it has to
     come back OUT of the total, or it is paid for twice at two rates."""
     assert coins.usage_of({"usage": {
         "prompt_tokens": 2910, "completion_tokens": 250,
@@ -444,7 +444,7 @@ def test_a_reply_whose_usage_blows_up_still_does_not_raise():
 def test_what_is_charged_is_what_the_page_really_used():
     """The quote is an estimate; the charge is the tokens the provider
     reported. Metered here at exactly the shape the estimate assumes, so the
-    two agree — which is the check that the estimate is honest."""
+    two agree - which is the check that the estimate is honest."""
     sh, r = coins.SHAPES["translate"], coins.rate_for("claude-sonnet-5")
     tin = sh.fixed_in + (sh.per_box_in + sh.chapter_in) * 9
     tout = sh.per_box_out * 9
@@ -466,7 +466,7 @@ def test_two_calls_on_one_page_are_one_bill():
 
 
 def test_a_call_with_nothing_metering_is_not_charged_to_anybody():
-    """Model calls happen outside a run too — listing models, a test button.
+    """Model calls happen outside a run too - listing models, a test button.
     Nothing is metering, so nothing is billed, and nothing raises."""
     start = coins.balance()
     assert coins.record(500, 50) == 0
@@ -562,7 +562,7 @@ def _project(tmp_path, boxes, model="claude-sonnet-5"):
     for n, count in enumerate(boxes):
         p.add_uploaded("%03d.png" % (n + 1), cv2.imencode(
             ".png", np.full((600, 420, 3), 240, np.uint8))[1].tobytes())
-        # Built the way the app builds them — a hand-written dict is missing
+        # Built the way the app builds them - a hand-written dict is missing
         # keys `materialize` needs and the page-warmer dies on it in a
         # background thread, where nothing fails the test and everything is
         # slower and stranger for it.
@@ -570,7 +570,7 @@ def _project(tmp_path, boxes, model="claude-sonnet-5"):
         p.pages[n].detected = True
     # Every step on the one model, because these tests are about the PRICE and
     # not about which step runs where. There is no project-wide engine to set
-    # any more — each step carries its own.
+    # any more - each step carries its own.
     for step in ("ocr", "translate", "proofread"):
         p.settings[f"{step}_backend"] = "anthropic"
         p.settings[f"{step}_model"] = model
@@ -580,7 +580,7 @@ def _project(tmp_path, boxes, model="claude-sonnet-5"):
 
 
 def test_the_editor_prices_a_run_off_the_boxes_on_its_pages(tmp_path):
-    """Six boxes a page costs more than two — compared between chapters, not
+    """Six boxes a page costs more than two - compared between chapters, not
     between halves of one.
 
     Within a single chapter the comparison does not hold, and it is not the
@@ -599,7 +599,7 @@ def test_the_editor_prices_a_run_off_the_boxes_on_its_pages(tmp_path):
     whole = list(range(12))
     assert 0 < editor.quote_run(thin, "translate", whole) < \
         editor.quote_run(fat, "translate", whole)
-    # ...and the whole chapter is its pages' real cost, rounded once — with no
+    # ...and the whole chapter is its pages' real cost, rounded once - with no
     # context, because a run that is translating every page has nothing to be
     # consistent with that is not already in it.
     assert editor.quote_run(mixed, "translate", list(range(24))) == coins.quote(
@@ -612,7 +612,7 @@ def test_a_page_costs_what_the_chapter_around_it_costs_to_read(tmp_path):
 
     "This page only" is not priced off that page. The page is translated with
     the REST of the chapter in view, so the same page in a long chapter costs
-    more than in a short one — and two runs of the same length can be priced
+    more than in a short one - and two runs of the same length can be priced
     differently by what is around them rather than what is in them.
     """
     from mangatl import editor
@@ -642,7 +642,7 @@ def test_what_is_charged_for_as_context_is_what_is_sent_as_context(tmp_path):
 
 def test_a_full_chapter_run_is_charged_no_context_because_it_sends_none(tmp_path):
     """Every page is being translated, so there is nothing to be consistent
-    WITH that is not already in the run — and the old price said otherwise.
+    WITH that is not already in the run - and the old price said otherwise.
 
     On lee's twenty-three page chapter that one `max(boxes, chapter_boxes)` was
     about a hundred thousand input tokens of pure invention.
@@ -691,7 +691,7 @@ def test_the_free_steps_cost_nothing_in_the_editor_either(tmp_path):
 
     `run_price` points the context at the step to find out which model to
     price against. There is nothing to price for a free step, so there is
-    nothing to point at — and the context belongs to the paid steps, which may
+    nothing to point at - and the context belongs to the paid steps, which may
     be part-way through a run of their own."""
     from mangatl import editor
     p = _project(tmp_path, [9, 9])
@@ -706,7 +706,7 @@ def test_the_free_steps_cost_nothing_in_the_editor_either(tmp_path):
 def test_the_price_leaves_the_purse_when_the_run_starts(tmp_path):
     """lee: *"make teh edit remove the coins when the person click teh
     button"*. The number on the button is the number that goes, at the moment
-    it is pressed — not a total that assembles itself over the next four
+    it is pressed - not a total that assembles itself over the next four
     minutes while the count drifts down and nobody knows where it will land."""
     from mangatl import editor
     p = _project(tmp_path, [9] * 8)
@@ -744,8 +744,8 @@ def test_cancelling_gives_back_the_pages_it_never_reached(tmp_path):
                         "fn": fn, "step": "translate"})
     assert p.job["cancelled"] is True
     assert p.job["done"] == 4
-    # Priced with the RUN's context — none, since the run was the whole chapter
-    # — and not with the context a fresh six-page run would send. The charge
+    # Priced with the RUN's context - none, since the run was the whole chapter
+    # - and not with the context a fresh six-page run would send. The charge
     # and the refund have to be worked out against the same number or they do
     # not add back up, and the difference is silent.
     back = coins.quote("translate", [9] * 6, "claude-sonnet-5", "anthropic", 0)
@@ -833,7 +833,7 @@ def test_the_endpoint_refuses_a_run_it_cannot_pay_for(tmp_path):
 
 def test_what_it_really_cost_is_recorded_beside_what_was_charged(tmp_path):
     """Nobody is billed on it. The quote is the price and a promise kept is
-    worth more than a few coins either way — but a quote drifting away from
+    worth more than a few coins either way - but a quote drifting away from
     the truth is a thing to know about, and this is where it would show."""
     from mangatl import editor
     p = _project(tmp_path, [9] * 6)
@@ -870,7 +870,7 @@ def test_a_free_step_is_not_charged_and_records_nothing(tmp_path):
 
 def test_a_chapter_with_nothing_on_its_pages_costs_nothing(tmp_path):
     """Pages nobody has run Find text on have no boxes, so there is nothing to
-    send and nothing to charge — and the run still goes ahead."""
+    send and nothing to charge - and the run still goes ahead."""
     from mangatl import editor
     p = _project(tmp_path, [0, 0, 0])
     start, n = coins.balance(), len(coins.ledger(10_000))
@@ -908,7 +908,7 @@ def _serve(fn, p):
 
 
 def test_the_purse_and_the_prices_come_down_together(tmp_path):
-    """One answer, because they are shown together — a price quoted from a
+    """One answer, because they are shown together - a price quoted from a
     different moment than the balance is how a screen comes to say you can
     afford something you cannot."""
     p = _project(tmp_path, [2, 6])
@@ -1005,7 +1005,7 @@ def test_the_count_is_at_the_top_of_the_screen(tmp_path):
 
 def test_the_coin_wears_the_logo(tmp_path):
     """lee: *"use the logo as the coin face"*. The same path as the mark in
-    the corner and the same path as the app icon — read off the drawn SVG, so
+    the corner and the same path as the app icon - read off the drawn SVG, so
     a coin that has quietly become a circle with nothing on it fails here."""
     import re
     from pathlib import Path
@@ -1054,7 +1054,7 @@ def test_the_purse_opens_and_says_what_the_chapter_costs(tmp_path):
 def test_buying_coins_opens_the_website_and_nothing_else(tmp_path):
     """lee: *"the top up just have a buy coin button that will link to oa page
     on the website"*. There is no way to give yourself coins from inside the
-    editor any more — it is a thing somebody runs on their own machine, and a
+    editor any more - it is a thing somebody runs on their own machine, and a
     card number has no business in it."""
     p = _project(tmp_path, [2])
 
@@ -1077,7 +1077,7 @@ def test_buying_coins_opens_the_website_and_nothing_else(tmp_path):
 def test_the_count_falls_while_a_run_is_spending_and_not_twice(tmp_path):
     """`job.spent` is what the run has taken SO FAR and the balance behind it
     is what the last read of the purse saw. Subtracting one from the other is
-    the live figure — and it must be drawn, not stored, or every poll takes
+    the live figure - and it must be drawn, not stored, or every poll takes
     the same spend off again and the count falls twice as fast as the money.
     """
     p = _project(tmp_path, [2])
@@ -1119,7 +1119,7 @@ def test_a_page_the_hosted_cleaner_touched_pays_the_flat_fee(tmp_path,
 
 def test_a_page_cleaned_on_this_machine_is_free(tmp_path, monkeypatch):
     """The fee is for somebody else's GPU. A chapter filled flat here is this
-    person's own CPU, exactly as Typeset and Export are — and it matters more
+    person's own CPU, exactly as Typeset and Export are - and it matters more
     than it looks, because the background page-builder cleans pages nobody
     asked it to and a fee there would be charged silently."""
     from mangatl import editor
@@ -1161,7 +1161,7 @@ def test_a_page_with_its_own_cleaned_file_is_not_charged(tmp_path, monkeypatch):
 
 def test_the_count_is_a_whole_number_and_nothing_else(tmp_path):
     """lee: *"it shoud oporate on whoel numbers"*. No decimal point anywhere
-    on the screen — the server never sends a fraction, and the count must not
+    on the screen - the server never sends a fraction, and the count must not
     invent one either."""
     p = _project(tmp_path, [2])
 
@@ -1195,12 +1195,12 @@ def test_a_run_can_be_priced_for_the_pages_it_would_touch(tmp_path):
         # translating one page still sends the whole chapter as context. The
         # per-page saving is real but it is nothing like a twentieth.
         assert one * 21 >= whole > one * 2, (one, whole)
-        # An empty `pages` is the whole chapter — that is what the button says
+        # An empty `pages` is the whole chapter - that is what the button says
         # when nothing is ticked. An empty `page` is nothing at all, because
         # "This page only" with no page is not the chapter.
         assert call("/api/coins?pages=")["prices"]["translate"] == whole
         assert call("/api/coins")["one"]["translate"] == 0
-        # A page number nobody has is not a page — including a NEGATIVE one,
+        # A page number nobody has is not a page - including a NEGATIVE one,
         # which Python would otherwise happily read as counting back from the
         # end and quote the last page of the chapter for.
         assert call("/api/coins?page=999")["one"]["translate"] == 0
@@ -1211,7 +1211,7 @@ def test_a_run_can_be_priced_for_the_pages_it_would_touch(tmp_path):
 
 
 def test_the_dialog_puts_a_price_beside_each_choice(tmp_path):
-    """Beside the label, not in it — the label still reads as the label and
+    """Beside the label, not in it - the label still reads as the label and
     the number is the thing you are comparing between the two rows."""
     p = _project(tmp_path, [9] * 6)
 
@@ -1226,7 +1226,7 @@ def test_the_dialog_puts_a_price_beside_each_choice(tmp_path):
             label: document.getElementById('scpOne').firstChild.textContent})""")
         assert got["label"].strip() == "This page only", got
         assert int(got["all"]) > int(got["one"]) > 0, got
-        # ...and the COIN is drawn beside the number — the same coin as the
+        # ...and the COIN is drawn beside the number - the same coin as the
         # one in the top bar, not a gold dot standing in for it. lee: *"also
         # make the coin look like the oher coins"*.
         assert pg.evaluate(
@@ -1261,14 +1261,14 @@ def test_a_free_step_shows_no_price_at_all(tmp_path):
 
 
 def test_pricing_the_dialog_twice_leaves_one_price(tmp_path):
-    """`priceScope` runs at least twice for every opening — once immediately,
+    """`priceScope` runs at least twice for every opening - once immediately,
     so the dialog is not blank, and again when the quote comes back from the
     server. It has to be safe to run any number of times: the second run must
     REPLACE the price, not add another one beside it.
 
     Called directly rather than through `stepScope`, because `stepScope` also
     rewrites the button labels and rewriting a label happens to wipe the price
-    with it. That side effect is not the guarantee — this is.
+    with it. That side effect is not the guarantee - this is.
     """
     p = _project(tmp_path, [9] * 4)
 
@@ -1290,7 +1290,7 @@ def test_pricing_the_dialog_twice_leaves_one_price(tmp_path):
 def test_the_dialog_prices_the_pages_that_button_would_run(tmp_path):
     """"Selected pages (4)" has to be the price of those four. Quoting the
     whole chapter beside a button that will run four pages is not a rounding
-    error, it is the wrong number — and it is the number somebody decides on.
+    error, it is the wrong number - and it is the number somebody decides on.
     """
     p = _project(tmp_path, [9] * 20)
 
@@ -1338,7 +1338,7 @@ def test_coins_can_be_added_from_the_shell():
 
 
 def test_the_shell_cannot_add_nothing_or_less():
-    """`add` with no number, or a negative one, is a typo — and a negative one
+    """`add` with no number, or a negative one, is a typo - and a negative one
     would be a way to empty somebody's purse from a shell history."""
     start = coins.balance()
     for bad in (["add"], ["add", "0"], ["add", "-500"]):
@@ -1350,7 +1350,7 @@ def test_the_shell_cannot_add_nothing_or_less():
 
 def test_the_shell_refuses_a_word_it_does_not_know():
     """`python -m mangatl.coins spend 999` must not quietly do nothing and
-    exit 0 — an unknown verb is a mistake and has to look like one."""
+    exit 0 - an unknown verb is a mistake and has to look like one."""
     for bad in (["spend", "999"], ["set", "0"], ["--everything"]):
         with pytest.raises(SystemExit) as e:
             coins._main(bad)
@@ -1361,7 +1361,7 @@ def test_the_shell_refuses_a_word_it_does_not_know():
 
 def test_an_unpriced_model_is_named_out_loud(tmp_path):
     """It is charged at the dearest rate on the list. That is the right way
-    round — charging an unknown model as free is a bill this app eats — and it
+    round - charging an unknown model as free is a bill this app eats - and it
     is an eightfold difference nobody would guess from the number.
 
     lee's own screenshot is what this is for: Read text 2 coins beside
@@ -1445,7 +1445,7 @@ GEMINI = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite",
 def test_every_active_claude_and_gemini_model_has_a_price(model):
     """lee: *"do price all teh claude and gemini active modeles"*.
 
-    Not "the table has an entry" — the entry has to be REACHED, by the same
+    Not "the table has an entry" - the entry has to be REACHED, by the same
     longest-prefix lookup a real model id goes through, and it has to be a
     price rather than the unknown-model fallback wearing one."""
     assert coins.priced(model), model
@@ -1468,7 +1468,7 @@ def test_a_dated_snapshot_of_a_model_is_the_model(model):
 def test_the_lite_models_are_not_priced_as_their_full_size_siblings():
     """The one that longest-prefix exists for. `gemini-3.5-flash-lite` starts
     with `gemini-3.5-flash`, and matching the shorter key first would charge
-    the cheapest model in the range at five times its price — which is exactly
+    the cheapest model in the range at five times its price - which is exactly
     what was happening before this table was checked against the real one."""
     for lite, full in (("gemini-3.5-flash-lite", "gemini-3.5-flash"),
                        ("gemini-3.1-flash-lite", "gemini-3.1-pro"),
@@ -1560,7 +1560,7 @@ def test_a_model_you_run_yourself_thinks_for_free():
 def test_the_same_model_costs_the_same_whoever_sold_it_to_you():
     """OpenRouter names a model by who MAKES it, so the same model arrives
     under two ids. Every question this file answers about a model has the same
-    answer for both — and each one is matched by prefix, so without the vendor
+    answer for both - and each one is matched by prefix, so without the vendor
     coming off they all take the wrong branch in silence: an unpriced model is
     charged at the top of the range, a marked cache is never priced, and a
     thinking model is quoted at a fifth of its bill."""
@@ -1602,7 +1602,7 @@ def test_a_cache_is_only_priced_where_this_app_asks_for_one():
 
 def test_a_slug_nobody_wrote_out_is_still_priced_by_its_maker():
     """Ten OpenRouter models are written into the table by hand. Everything
-    ELSE that arrives namespaced falls back to the model's own entry — and
+    ELSE that arrives namespaced falls back to the model's own entry - and
     without that fallback it is UNKNOWN, which is the top of the range, an
     eightfold difference, and silent.
 
@@ -1631,8 +1631,8 @@ def test_a_slug_priced_in_its_own_right_beats_its_makers_price(monkeypatch):
 
     Every OpenRouter slug in the table today costs exactly what the direct
     model costs, so today the two orders give the same answer. The order is
-    the guarantee for the day one of them does NOT — a reseller surcharge, a
-    promotional rate, a slug that lands on a different tier — and a guarantee
+    the guarantee for the day one of them does NOT - a reseller surcharge, a
+    promotional rate, a slug that lands on a different tier - and a guarantee
     with nothing testing it is a guarantee that quietly stops holding.
     """
     slug, direct = "google/gemini-3.6-flash", "gemini-3.6-flash"

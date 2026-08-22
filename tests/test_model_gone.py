@@ -9,7 +9,7 @@ lee, mid-chapter:
 
 Everything in that line is true and none of it is usable. It does not say which
 setting to change, it does not say what to change it to, and the one thing the
-editor could find out for you — what this key CAN use — it never asks.
+editor could find out for you - what this key CAN use - it never asks.
 
 Providers retire models on their own schedule; this will happen again. So the
 error names the model, names the setting, and lists what works.
@@ -48,7 +48,7 @@ def no_network(monkeypatch):
 def test_it_names_the_model_that_is_gone(no_network):
     msg = _err()
     assert "gemini-2.5-flash-lite" in msg
-    # and what the provider actually answered — a 403 is a key that is not
+    # and what the provider actually answered - a 403 is a key that is not
     # allowed this model, a 404 is a model that is not there, and the two are
     # fixed differently.
     assert "404" in msg, msg
@@ -56,7 +56,7 @@ def test_it_names_the_model_that_is_gone(no_network):
 
 def test_it_says_where_to_change_it(no_network):
     msg = _err()
-    assert "Settings" in msg and "Translation engine" in msg
+    assert "Settings" in msg and "AI models" in msg
 
 
 def test_it_lists_what_the_key_can_use(no_network):
@@ -71,7 +71,7 @@ def test_it_leaves_out_the_ones_that_cannot_write(no_network):
 
 
 def test_a_provider_that_will_not_list_still_gets_a_readable_error(monkeypatch):
-    """No list is a worse message, not a broken one — and certainly not a
+    """No list is a worse message, not a broken one - and certainly not a
     second exception on top of the first."""
     monkeypatch.setattr(translate, "list_models", lambda *a, **k: [])
     msg = _err()
@@ -92,7 +92,7 @@ def test_a_long_list_is_cut_and_says_so(no_network):
 
 
 def test_an_unrelated_failure_is_reported_as_it_was():
-    """A 500, a bad key, a rate limit — none of those are the model's name, and
+    """A 500, a bad key, a rate limit - none of those are the model's name, and
     rewriting them into 'no such model' would send you to change the one
     setting that was right."""
     msg = translate._model_error("OCR", "m", 500, "upstream exploded",
@@ -159,7 +159,7 @@ def test_a_provider_that_refuses_the_list_is_not_an_error(monkeypatch):
 
 def test_the_names_are_the_short_ones():
     """Gemini answers `models/gemini-3.5-flash`. The chat endpoint takes
-    either, but only one of the two is what a person recognises — and only one
+    either, but only one of the two is what a person recognises - and only one
     matches what they would have typed."""
     import urllib.request
     payload = _Fake({"data": [{"id": "models/gemini-3.5-flash"}]})
@@ -177,7 +177,7 @@ def test_only_a_leading_models_prefix_comes_off_the_name():
     Gemini answers `models/gemini-3.5-flash` and the short form is what a
     person recognises. But OpenRouter names a model by who MAKES it, and
     `str(name).split("/")[-1]` turned `anthropic/claude-sonnet-5` into
-    `claude-sonnet-5` — a name OpenRouter has never heard of, offered in a
+    `claude-sonnet-5` - a name OpenRouter has never heard of, offered in a
     menu, chosen, and 404 one call later.
     """
     import urllib.request
@@ -236,7 +236,7 @@ def _serve(fn, root=scratch("_tmp_models")):
 
 def test_a_priced_provider_answers_from_the_price_table(monkeypatch):
     """The model box offers what works instead of waiting for you to guess
-    wrong — and for a provider whose range this app PRICES, what works means
+    wrong - and for a provider whose range this app PRICES, what works means
     what can be paid for. An entry nobody priced would put the step on the top
     rate the moment it was chosen, and the person choosing it would have no way
     to know.
@@ -261,7 +261,7 @@ def test_a_priced_provider_answers_from_the_price_table(monkeypatch):
 
 def test_a_provider_this_app_does_not_price_is_asked_what_it_has(monkeypatch):
     """Ollama, OpenRouter, anything local or odd. Their range is not in the
-    price table — and it costs nothing to run either way — so the only honest
+    price table - and it costs nothing to run either way - so the only honest
     list is the one the provider itself gives."""
     from mangatl import translate as t
     monkeypatch.setattr(t, "list_models",
@@ -287,7 +287,7 @@ def test_a_step_with_no_model_yet_still_gets_a_list(monkeypatch):
         assert post("/api/models", {"step": "ocr"})["models"] == \
             coins.offered("gemini", "ocr")
         # ...and a provider whose range is not in the price table is asked
-        # what it has. It needs a key to ask with — all three services refuse
+        # what it has. It needs a key to ask with - all three services refuse
         # `GET /models` without one, so nothing is requested when there is
         # none.
         p.settings.update({"ocr_backend": "ollama", "ocr_model": "",
@@ -323,7 +323,7 @@ def test_the_list_is_not_sent_until_the_project_has_its_own_back(monkeypatch):
     coin-toss: the reply used to be written from inside the borrow and the
     context handed back after, so a run under load would sometimes read the
     list, act on it, and be answered by the step's provider. What matters is
-    the ORDER — at the moment the answer goes out, the project is already
+    the ORDER - at the moment the answer goes out, the project is already
     back on its own model. Caught at the write, not after it."""
     from mangatl import editor
     seen = {}
@@ -364,7 +364,7 @@ def test_a_refused_key_is_not_reported_as_a_missing_model(no_network):
     API key"*, with the key filled in and the model name right.
 
     Sending somebody to change the model when the model is right is the worst
-    of the three answers — they change a setting that was correct and the next
+    of the three answers - they change a setting that was correct and the next
     run fails the same way."""
     msg = translate._model_error("OCR", "gemini-3.5-flash-lite", 400, BAD_KEY,
                                  "https://x/v1", "abcdefghij1234")
@@ -441,7 +441,7 @@ def test_the_reading_step_comes_set_up_for_google():
 
 def test_a_step_with_no_key_says_so_before_the_chapter_starts():
     """It used to fall back to a project-wide engine, so a missing key was
-    invisible and the run quietly happened somewhere else — on a model the
+    invisible and the run quietly happened somewhere else - on a model the
     screen did not name and the price was not quoted for.
 
     There is no project-wide engine any more. A step with no key is a step
@@ -521,7 +521,7 @@ def test_a_key_belongs_to_its_step_and_is_never_lent_to_another():
     same provider. There is no project key any more, and borrowing between
     steps would be worse than the thing it replaced: the reader and the
     translator can be on the same provider with two different keys on purpose
-    — a free tier for the cheap step and a paid one for the expensive step is
+    - a free tier for the cheap step and a paid one for the expensive step is
     exactly what somebody would set up."""
     from mangatl import editor
 
@@ -562,7 +562,7 @@ def test_a_real_break_is_left_alone():
 
 
 def test_the_reader_hands_back_real_breaks(monkeypatch):
-    """Through `read_page_ocr`, not just the helper — the point is that nothing
+    """Through `read_page_ocr`, not just the helper - the point is that nothing
     downstream ever sees the two characters."""
     from mangatl import translate as t
     from mangatl.models import Page, TextRegion
@@ -587,7 +587,7 @@ def test_openrouter_is_asked_what_the_other_keys_can_reach(monkeypatch):
     lee: *"exclue teh molde that are usabe with teh keys that i have for
     example i cnat use gemeini 2.5 flash with my goohle key so it shoud be in
     teh open router"*. The rule is per KEY, so the route has to go and ask the
-    other services what THEIR keys reach — and the unit test for
+    other services what THEIR keys reach - and the unit test for
     `model_menu` cannot see whether it does, because it is handed the answer.
     """
     from mangatl import editor

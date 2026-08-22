@@ -1,6 +1,6 @@
 """The flat fill is the one route that can be marked, so it is.
 
-lee, about page 024 — a see-through balloon with a beam of light across it,
+lee, about page 024 - a see-through balloon with a beam of light across it,
 cleaned into a grey slab with the words still perfectly legible on top of it:
 *"can this be fixed?"*.
 
@@ -8,26 +8,26 @@ It could, and not where it looked. The second pass was leaving a fifth of that
 box's writing standing, so the obvious suspect was the second pass; the fault
 was two steps earlier. `_flat_from` samples the paper immediately AROUND the
 words, because that is the paper its answer will be used to paint. On a box
-whose writing covers half of it, that sample is a corner — and a corner of a
+whose writing covers half of it, that sample is a corner - and a corner of a
 gradient is flat. So the verdict "this balloon is one colour" was reached from
 a sample that could not see the balloon, and a slab of one grey went down.
 
 That is the worst outcome available, because it also blinds the step that would
-have caught it. The second pass reads the page the FIRST one produced — it
-must, or it would undo work already done — and what it now reads is a uniform
+have caught it. The second pass reads the page the FIRST one produced - it
+must, or it would undo work already done - and what it now reads is a uniform
 field: it finds 4% of the box where the original shows 60%.
 
 Several ways of second-guessing the verdict before painting were measured and
 all of them failed: a flatness question asked over a wider sample either misses
 the beam or reaches the drawn outline and takes plain white bubbles down with
 it. What has no such ambiguity is the fill's own result. The flat fill is
-justified by KNOWING the colour, so it can be checked — paint it and look, and
+justified by KNOWING the colour, so it can be checked - paint it and look, and
 if the words are still standing where the paint went, the colour was not known.
 
 Measured over lee's chapter: 121 boxes take the flat fill, their median leaves
 1% of the writing where it painted and their ninetieth leaves 2%. Page 024
 leaves 20%, the next worst is 5.5%, and exactly one box out of 145 changes
-route — page 024, from 20% of its writing left to 12%, and with a model
+route - page 024, from 20% of its writing left to 12%, and with a model
 configured to the model, where a balloon with artwork behind it belonged.
 """
 import numpy as np
@@ -37,7 +37,7 @@ cv2 = pytest.importorskip("cv2")
 
 
 def _bubble(bg=252, w=340, h=200):
-    """A plain white balloon with writing in it — the case that must not move,
+    """A plain white balloon with writing in it - the case that must not move,
     whatever else this change does."""
     from mangatl.models import Page, TextRegion
     x, y, bw, bh = 40, 40, 260, 120
@@ -64,8 +64,23 @@ def _bubble(bg=252, w=340, h=200):
 
 
 def _model(sub, sm):
-    """A cleaner that answers. What it answers does not matter here."""
-    return np.full_like(sub, 127)
+    """A cleaner that answers - and answers with something, which is not the
+    same as answering anything.
+
+    It used to hand back one flat grey. `_gave_up` was written since, and one
+    flat grey inside a mask whose surroundings have detail in them is exactly
+    what it now calls a refusal: the box was routed to the model, the model was
+    asked, and the count came back `fell back` instead of `neural`. That was
+    this fixture being out of date rather than the routing being wrong, so it
+    now paints in something with a texture to it.
+    """
+    out = sub.copy()
+    m = sm > 0
+    if m.any():
+        ys, xs = np.nonzero(m)
+        noise = ((ys + xs) % 2).astype(np.uint8) * 30 + 110
+        out[ys, xs] = noise[:, None]
+    return out
 
 
 def _routes(pg):
@@ -87,7 +102,7 @@ def _painted(orig, ink, colour):
 
 
 def _part_of(mask, share):
-    """The left `share` of the word — by where the word actually is, not by
+    """The left `share` of the word - by where the word actually is, not by
     where the patch happens to end."""
     from mangatl import inpaint as I
     cols = np.where(mask.any(0))[0]
@@ -116,7 +131,7 @@ def test_a_fill_the_writing_survived_is_not():
     """The whole point. The paint went down and the words are still there."""
     from mangatl import inpaint as I
     img, mask = _written_on()
-    # painted somewhere else entirely — the words are untouched
+    # painted somewhere else entirely - the words are untouched
     elsewhere = np.zeros(mask.shape, np.uint8)
     elsewhere[:12, :12] = 1
     assert not I._slab_worked(img, _painted(img, elsewhere, 250), mask)
@@ -134,7 +149,7 @@ def test_half_a_word_left_standing_is_still_a_failure():
 
 
 def test_nothing_recorded_and_nothing_there_are_both_left_alone():
-    """"I cannot see enough to tell" is not a verdict — it is `_flat_from`'s own
+    """"I cannot see enough to tell" is not a verdict - it is `_flat_from`'s own
     rule, and this is a fix for the case where it was broken."""
     from mangatl import inpaint as I
     img, mask = _written_on()
@@ -165,7 +180,7 @@ def test_the_line_is_where_the_chapter_separates():
 
 def test_a_fill_that_failed_is_not_used():
     """With the check saying no, the box goes where a box the local fill cannot
-    do belongs — the model when there is one, and the rebuilding paths when
+    do belongs - the model when there is one, and the rebuilding paths when
     there is not. Not to the slab either way."""
     from mangatl import inpaint as I
     with pytest.MonkeyPatch.context() as mp:
@@ -192,8 +207,8 @@ def test_a_fill_that_worked_is():
 
 
 def test_the_check_is_asked_before_the_paint_goes_down():
-    """It is asked about the fill this box would GET — its own colour, its own
-    mask, on its own pixels — and not about some page-wide average."""
+    """It is asked about the fill this box would GET - its own colour, its own
+    mask, on its own pixels - and not about some page-wide average."""
     from mangatl import inpaint as I
     seen = []
     real = I._slab_worked

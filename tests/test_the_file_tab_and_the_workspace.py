@@ -4,19 +4,19 @@ Five things lee asked for in one sitting, all of them about the chrome rather
 than the pages:
 
 * **File.** "New project" named one screen; it is a tab with a section rail now,
-  the way Settings is, with New project as the only section on it — *"wheni
+  the way Settings is, with New project as the only section on it - *"wheni
   clcik it a tab with multiple section shoud show rigt now new project shoud be
   the only one"*. The rail is what makes the next section a button and a
   `<section>` rather than a rebuild.
 * **Workspace.** "Edit" named the tab AND the right-hand view button, so the bar
   read Edit ▸ Edit.
-* **Results.** Unlocked on lee's word — *"the result tab shoud be unloacked"* —
+* **Results.** Unlocked on lee's word - *"the result tab shoud be unloacked"* -
   and shut again on his next one, *"re lock the results page after export is
   doen"*, which is where it started.
 * **Image / Translation**, and the lit pill SLIDES between them instead of
   being cut from one to the other.
 * **The rows are grey**, and the blue is gone. They wore their box's colour for
-  two rounds — mixed with the panel, then the swatch held at a fixed lightness —
+  two rounds - mixed with the panel, then the swatch held at a fixed lightness -
   and lee looked at both: *"aslo just go back to the  grey backgrounf"*.
 
 Measured in the browser wherever the answer is a computed one: a rule that is
@@ -50,7 +50,7 @@ def _serve(fn, root=scratch("_tmp_filetab"), pages=3, exported=0):
     from mangatl.project import Project
     # One folder per xdist worker. Every case in this file used the same
     # directory name, so under `-n 2` two of them could build and tear down the
-    # same project at the same time — one wiping the input folder the other was
+    # same project at the same time - one wiping the input folder the other was
     # about to read. It failed as `FileNotFoundError: _tmp_filetab/input/p0.png`
     # once in a hundred runs, which is exactly often enough to be blamed on
     # whatever was changed that day.
@@ -102,19 +102,19 @@ def test_the_second_tab_is_not_called_edit_any_more():
 
 
 def test_the_two_view_buttons_have_their_own_names():
-    """Not "Original" and "Edit" — the second named the tab it sat under, so
+    """Not "Original" and "Edit" - the second named the tab it sat under, so
     the bar read Edit ▸ Edit. lee: *"rename the to translation tab and image
     tab"*, then *"siwthc the tab name arund"*, then *"cha teh names of teh 2
     tabs aroung so the image tabs shoud be named translation"*.
 
-    Each is named for the WORK, not for the artwork behind it — which is why
+    Each is named for the WORK, not for the artwork behind it - which is why
     the names read the other way round from the views. lee: *"teh translation
     tab shoud be teh tab with teh bozes and the image tab shud be the tav with
     the clenned pages and text boxes"*.
 
-    * **Translation** — the page as it came, boxes over it, list beside it.
+    * **Translation** - the page as it came, boxes over it, list beside it.
       That is the `original` view, and it is where the translating happens.
-    * **Image** — the picture you end up with: cleaned, typeset, carrying any
+    * **Image** - the picture you end up with: cleaned, typeset, carrying any
       text boxes of your own. The `typeset` view.
     """
     strip = re.search(r'<span class="views">.*?</span>', HTML, re.S).group(0)
@@ -127,7 +127,7 @@ def test_the_group_is_dressed_right_before_anything_has_run():
     """What lee saw on opening the editor: a yellow pill under grey text, with
     the other label invisible against the dark plate. `setView` had not run
     yet, so the pill was at rest on the left while the lit class sat on the
-    button to the right of it — the markup has to be born in a state that
+    button to the right of it - the markup has to be born in a state that
     agrees with itself."""
     strip = re.search(r'<span class="views">.*?</span>', HTML, re.S).group(0)
     assert 'class="views"' in strip, "the group starts with the pill left..."
@@ -148,7 +148,7 @@ def test_the_view_buttons_do_not_move_when_the_view_changes():
     of the 2 tabs button just make them she up to the left of the 2 tab
     buttons so that the 2 tab buttons dont move"*.
 
-    Measured, in pixels, in both views — and not only the group's edge: the
+    Measured, in pixels, in both views - and not only the group's edge: the
     lit button used to go bold as it lit, and bold text is wider text, so the
     pair grew from the inside even once the switches had moved.
     """
@@ -189,7 +189,7 @@ def test_the_switches_are_before_the_buttons_in_the_bar():
 # -------------------------------------------------------- File has a section rail
 
 def test_the_file_screen_has_a_rail_and_every_entry_opens_something():
-    """This began as one entry and a place for more — the rail was built for a
+    """This began as one entry and a place for more - the rail was built for a
     second thing to be a button and a section rather than a rebuild, and
     saving a chapter turned out to be it. lee: *"add a save project save as
     and a load project and move into te files tab too"*.
@@ -210,7 +210,7 @@ def test_the_file_screen_has_a_rail_and_every_entry_opens_something():
 
 
 def test_the_rail_uses_the_settings_page_s_own_machinery():
-    """Not a second implementation of the same idea — `_pickSection` is what
+    """Not a second implementation of the same idea - `_pickSection` is what
     Settings switches with, and it is what this switches with."""
     assert "function setFileTab(name){ _pickSection('#fileNav','#fileBody'" \
         in VIEWJS
@@ -278,7 +278,7 @@ def test_the_lit_pill_is_one_thing_that_moves():
                 "'::before').transform")
         pg.evaluate("setView('original')")
         left = browserpool.at_rest(pg, pill)
-        # Translation — the `original` view — is the left-hand button, so the
+        # Translation - the `original` view - is the left-hand button, so the
         # pill is on the right only on Image. The class names a side, not a
         # view.
         assert not pg.evaluate(
@@ -301,7 +301,7 @@ def test_the_pill_lands_exactly_on_the_button():
     that ever stops being true the pill sits half over the wrong one."""
     def check(pg, p):
         pg.evaluate("setView('typeset')")
-        # Image is the right-hand button, so this switch MOVES the pill —
+        # Image is the right-hand button, so this switch MOVES the pill -
         # measured two frames in, it is caught halfway across.
         browserpool.at_rest(pg, "getComputedStyle(document.querySelector"
                                 "('.views'),'::before').transform")

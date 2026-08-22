@@ -1,4 +1,4 @@
-# manga_clean_modal.py — serverless manga text cleaner (IOPaint "manga" LaMa)
+# manga_clean_modal.py - serverless manga text cleaner (IOPaint "manga" LaMa)
 # Deploy:  python -m modal deploy manga_clean_modal.py
 # It prints a URL; paste that + the token below into mangatl's AI-clean settings.
 import base64
@@ -24,7 +24,7 @@ class Cleaner:
     def load(self):
         # Instantiate Manga directly. Routing through ModelManager adds a scan
         # gate that hides erase models unless their weights sit in the exact dir
-        # it expects — that gate is what left us with only 'cv2'. Direct
+        # it expects - that gate is what left us with only 'cv2'. Direct
         # instantiation skips it and auto-downloads if the baked copy is missing.
         from iopaint.model.manga import Manga
         self.model = Manga("cuda")

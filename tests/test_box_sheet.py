@@ -12,7 +12,7 @@ Two things make or break it, and both are pinned here.
 **It has to look like the editor.** A marked-up page is only useful if a red
 rectangle means the same thing on paper as it does on screen, so the colours,
 the balloon hint, the dashes and the numbers are copies of `frames.js` and
-`editor.css` — and one test below parses `frames.js` and fails if the two tables
+`editor.css` - and one test below parses `frames.js` and fails if the two tables
 ever drift apart. That is the whole reason the drawing lives next to the record
 rather than being reinvented.
 
@@ -108,8 +108,8 @@ def test_the_balloon_is_not_drawn_at_all():
     """It used to be, faint and dashed behind the writing, wherever the balloon
     was more than 1.25x the text area. lee asked for it gone on 2026-07-30:
     *"there a thin dahed red box around the box around the text what does it do
-    and remove it"*. The sheet shows what the editor shows — one rectangle per
-    box — so a roomy balloon and a tight one now produce the same picture."""
+    and remove it"*. The sheet shows what the editor shows - one rectangle per
+    box - so a roomy balloon and a tight one now produce the same picture."""
     img = _page()
     tight = _rec(0, (60, 50, 60, 90), bubble_bbox=[58, 48, 64, 94])
     roomy = _rec(0, (60, 50, 60, 90), bubble_bbox=[30, 20, 130, 160])
@@ -124,14 +124,14 @@ def test_two_sections_of_one_balloon_are_dashed_and_not_framed():
     """The frame round the pair is gone. lee, finding one on a burst holding
     two speeches: *"there a big box with no label or anything"*, then *"hide
     teh big box afterware it dosnt need to be visibel"*. The sheet shows what
-    the screen shows, so it went from both — and what it said is still said,
+    the screen shows, so it went from both - and what it said is still said,
     by the sections' own dashed outlines."""
     img = _page()
     solo = render.box_sheet(img, [_rec(0, (60, 50, 60, 90)),
                                   _rec(1, (60, 150, 60, 60))])
     pair = render.box_sheet(img, [_rec(0, (60, 50, 60, 90), box_group=3),
                                   _rec(1, (60, 150, 60, 60), box_group=3)])
-    # Nothing is drawn in the gap BETWEEN the boxes any more — that band is
+    # Nothing is drawn in the gap BETWEEN the boxes any more - that band is
     # where the frame used to run. Clear of the lower box's number badge.
     band = np.s_[143:148], np.s_[80:118]
     assert np.array_equal(solo[band[0], band[1]], img[band[0], band[1]])
@@ -164,7 +164,7 @@ def test_two_sections_of_one_balloon_are_not_also_wired_together():
 
 
 def test_a_sub_type_is_drawn_in_the_shade_it_was_given():
-    """A sub-type carries its own colour, and the sheet has to use it — the
+    """A sub-type carries its own colour, and the sheet has to use it - the
     sheet and the screen are two drawings of one thing."""
     from mangatl import kinds as K
     img = _page()
@@ -180,7 +180,7 @@ def test_a_sub_type_is_drawn_in_the_shade_it_was_given():
 def test_a_main_type_keeps_its_family_colour():
     """The three families are drawn in fixed colours so the sheet reads the
     same from one chapter to the next. A sub-type that reuses a family's key
-    must not repaint it — a family's colour is not anybody's to change."""
+    must not repaint it - a family's colour is not anybody's to change."""
     from mangatl import kinds as K
     img = _page()
     out = render.box_sheet(img, [_rec(0, (60, 50, 60, 90), kind="sfx")],
@@ -245,7 +245,7 @@ def test_the_sheet_uses_the_editor_s_own_opacities():
 
     Two things that used to be drawn are gone from BOTH and may not come back
     to either: the balloon hint, and the frame round two sections of one
-    balloon. The sheet shows what the screen shows — that rule is what made
+    balloon. The sheet shows what the screen shows - that rule is what made
     each removal happen in two files at once."""
     js = (JS / "frames.js").read_text(encoding="utf8")
     assert "kc+'22'" in js

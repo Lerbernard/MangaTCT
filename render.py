@@ -19,7 +19,7 @@ def stroke_for(region, automatic: int) -> int:
     """An outline width set by hand beats the automatic choice.
 
     Both the colour pass and the drawing pass work this out independently, so
-    the rule lives in one place — applying it in only one of them meant the
+    the rule lives in one place - applying it in only one of them meant the
     control moved the preview and left the exported page alone.
     """
     ov = region.layout_override or {}
@@ -74,7 +74,7 @@ def arc_places(line, f, lspace, curve, x, y):
     circle instead of along a straight baseline. `curve` is the whole angle the
     line subtends, in degrees, so it means the same thing whatever the words are
     or how big they are: 60 is the same bend on "OH" as on "OH NO, LOOK OUT".
-    Positive arches up like a rainbow — the middle is highest — and negative
+    Positive arches up like a rainbow - the middle is highest - and negative
     sags. The radius follows from the arc length: R = length / angle.
 
     Returns [(cx, cy, degrees, char, advance)], one per character, with the
@@ -89,7 +89,7 @@ def arc_places(line, f, lspace, curve, x, y):
         return None
     R = total / ang                     # signed: the sign is the direction
     # The bend has to keep the line where the fitter put it. Hung from the
-    # middle, an arch sinks by its whole sagitta — at 140 degrees that is a
+    # middle, an arch sinks by its whole sagitta - at 140 degrees that is a
     # third of the line's length, and the words walk off the bottom of the box.
     # Half the sagitta comes back off, so the ink stays balanced about the
     # straight line's own row: the middle rides as far up as the ends ride down.
@@ -109,7 +109,7 @@ def _letter_mask(f, ch, adv, pad=0, bar=None):
     """One character as an alpha mask, and where it goes relative to the arc.
 
     The offset is measured from the middle of the character's own advance, on
-    the line's middle — the same anchor the straight path draws from. Measuring
+    the line's middle - the same anchor the straight path draws from. Measuring
     from the mask's own centre instead is what lifted every comma and descender
     onto the baseline, because a comma's box is nowhere near its letter's.
     """
@@ -123,7 +123,7 @@ def _letter_mask(f, ch, adv, pad=0, bar=None):
     m = Image.new("L", (w + 2 * pad, h + 2 * pad), 0)
     # Drawn so the ink's own corner lands at (pad, pad): with anchor "lm" the
     # ink runs from the anchor + (x0, y0), and y0 is NEGATIVE for anything with
-    # an ascender — anchoring at (pad, pad) itself drew every capital off the
+    # an ascender - anchoring at (pad, pad) itself drew every capital off the
     # top of its own mask and stamped the leftovers.
     ImageDraw.Draw(m).text((pad - x0, pad - y0), ch, font=f, fill=255,
                            anchor="lm")
@@ -137,7 +137,7 @@ def _draw_curved(d, places, f, bar=None, fill=None, stroke_width=0,
     """A curved line, one turned letter at a time.
 
     `ImageDraw.text` cannot rotate, so each letter is rendered as its own mask,
-    turned, and stamped through `ImageDraw.bitmap` — which takes a colour, so
+    turned, and stamped through `ImageDraw.bitmap` - which takes a colour, so
     the same code paints the letters on a page and the letters into a mask
     (the gradient and inner-glow passes both need the second).
 
@@ -157,7 +157,7 @@ def _draw_curved(d, places, f, bar=None, fill=None, stroke_width=0,
                 m = m.filter(ImageFilter.MaxFilter(2 * sw + 1))
             gw, gh = m.size
             # the letter turns about the arc point, so its own centre swings
-            # round with it — rotate the offset, then place the turned mask
+            # round with it - rotate the offset, then place the turned mask
             mid = (ox + gw / 2.0, oy + gh / 2.0)
             m = m.rotate(-deg, resample=Image.BICUBIC, expand=True)
             a = math.radians(deg)
@@ -202,7 +202,7 @@ def draw_line(d, x, y, line, f, lspace=0.0, curve=0.0, **kw):
 def _gradient_image(size, bbox, c0, c1, angle_deg):
     """A full-size RGBA image blending c0 -> c1 across bbox.
 
-    angle 0 runs top to bottom, 90 left to right, and so on clockwise —
+    angle 0 runs top to bottom, 90 left to right, and so on clockwise -
     the same convention the editor's preview uses.
     """
     import math
@@ -230,8 +230,8 @@ def assign_colours(page: Page, cfg: TypesetConfig | None = None) -> None:
     live preview that matches the exported page.
     """
     cfg = cfg or TypesetConfig()
-    # Colours are read off the artwork, so a page with no artwork to read —
-    # a stand-in built to exercise the fitter alone — simply keeps whatever
+    # Colours are read off the artwork, so a page with no artwork to read -
+    # a stand-in built to exercise the fitter alone - simply keeps whatever
     # colours it already had rather than failing the lay-out.
     orig = getattr(page, "image", None)
     plate = getattr(page, "clean_plate", None)
@@ -263,7 +263,7 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
 
     `only` restricts it to a set of region ids and `bare` starts from clear
     paper instead of the plate and hands back RGBA. Together they are one
-    block's typesetting as a picture — which is what turning a text layer into
+    block's typesetting as a picture - which is what turning a text layer into
     an image layer needs. lee: *"allow me to turn text layer into image
     layers"*. The colours are chosen against the real page either way, so the
     picture is the typesetting as it looks where it stands.
@@ -316,7 +316,7 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
             d = ImageDraw.Draw(layer)
 
         # An OUTER GLOW: the same letters, spread outwards and blurred, sitting
-        # under everything. A shadow with no offset is not the same thing — a
+        # under everything. A shadow with no offset is not the same thing - a
         # glow has to be grown before it is blurred or it stays inside the
         # letters and never shows past the outline. So the silhouette is drawn
         # with a fat stroke (`spread`) and blurred by about half of it, and the
@@ -350,7 +350,7 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
         # the fill dark, so the glyph the stroke was drawn around is punched
         # back out of it. Painting through the whole stroked shape instead
         # would lay the outline's gradient across the letters as well, and then
-        # the fill — its own colour or its own gradient — would be repainting
+        # the fill - its own colour or its own gradient - would be repainting
         # over the top of it, which is two answers to one question.
         edge2 = hex_rgb(ov.get("edge2"))
         if edge2 and stroke > 0:
@@ -382,7 +382,7 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
                 layer.paste(grad, (0, 0), gm)
 
         # An INNER GLOW: light coming from the letter's own edge, inwards.
-        # There is no offset and no spread to play with — the whole effect is
+        # There is no offset and no spread to play with - the whole effect is
         # "how far in from the edge am I", and the cheapest honest measure of
         # that is the glyph mask's own blurred inverse: just inside the edge it
         # is bright, and it falls away towards the middle of the stroke. That
@@ -408,8 +408,8 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
                     layer, Image.merge("RGBA", (*tint.split()[:3],
                                                 Image.fromarray(a, "L"))))
 
-        # TRANSPARENCY. It belongs to the whole block — letters, outline,
-        # shadow, both glows — so it goes on once, here, after everything that
+        # TRANSPARENCY. It belongs to the whole block - letters, outline,
+        # shadow, both glows - so it goes on once, here, after everything that
         # draws and before the balloon clips it. Fading the composited PAGE
         # instead would fade the artwork with it.
         op = ov.get("opacity")
@@ -439,7 +439,7 @@ def render_page(page: Page, cfg: TypesetConfig | None = None,
             (r.layout_override or {}).get("locked"))
         # ...and a box somebody drew and TURNED. Its block is fitted against the
         # box upright and then turned about the frame's centre, while the mask
-        # is the box turned about the BOX's centre — two centres that are close
+        # is the box turned about the BOX's centre - two centres that are close
         # but not the same, so clipping to the mask shaves the ends off lines
         # that fitted perfectly. The box was drawn and angled by hand; where its
         # text goes was decided by the person, not guessed.
@@ -494,7 +494,7 @@ def original_tone(orig, region) -> int:
     The region's own `text_mask` cannot answer this. It is built as "dark
     pixels inside the bubble", so on a black balloon with white kana it selects
     the balloon and not a single stroke of the writing. Otsu makes no such
-    assumption — it just finds the two populations — and the ink is then named
+    assumption - it just finds the two populations - and the ink is then named
     by the one thing that is true of ink and false of everything else on the
     page: THERE IS MORE OF IT WHERE THE TEXT IS THAN THERE IS AROUND IT. So the
     same split is applied to the rest of the balloon, outside the text box, and
@@ -506,8 +506,8 @@ def original_tone(orig, region) -> int:
     dark; comparing inside against outside sees the hatch give way to white
     exactly where the words are, and calls it white.
 
-    With no surroundings to compare against — a sound effect sitting out on the
-    artwork, or a box that already covers the whole balloon — it falls back to
+    With no surroundings to compare against - a sound effect sitting out on the
+    artwork, or a box that already covers the whole balloon - it falls back to
     the next most reliable thing: writing is a minority of its own box.
 
     Returns +1 for light typesetting on dark, -1 for dark typesetting on light, and
@@ -550,7 +550,7 @@ def original_tone(orig, region) -> int:
 
     # What surrounds the writing. The balloon is the ideal answer, but masks are
     # not saved with a chapter, so after a reload there is no balloon to ask
-    # about — and that is precisely when this used to fall through to the coin
+    # about - and that is precisely when this used to fall through to the coin
     # flip below and typeset a dark hatched balloon black. A ring drawn just
     # outside the text box is background wherever the text box is a text box,
     # so the inside-versus-around test can run in both cases.
@@ -587,7 +587,7 @@ def _bg_under(base: np.ndarray, region, lay) -> tuple[float, float]:
 
     Sampled along the lines themselves rather than over the whole bubble: a
     bubble can be light overall and still have a line of text crossing a dark
-    patch. Returns the mean brightness and the share of it that is dark —
+    patch. Returns the mean brightness and the share of it that is dark -
     an average is the wrong question for hatching, where fine white lines on
     black average to grey and land either side of a threshold by luck, while
     what actually decides whether black typesetting can be read there is how
@@ -600,7 +600,7 @@ def _bg_under(base: np.ndarray, region, lay) -> tuple[float, float]:
         y0, y1 = max(0, int(y) - h), min(base.shape[0], int(y) + h)
         x0, x1 = max(0, int(x) - h * 6), min(base.shape[1], int(x) + h * 6)
         band[y0:y1, x0:x1] = 1
-    # With no mask at all — nothing detected, nothing reloaded — the strip the
+    # With no mask at all - nothing detected, nothing reloaded - the strip the
     # words will occupy is still a fair sample, and a fair sample beats
     # assuming white paper.
     sel = (band > 0) if mask is None else ((mask > 0) & (band > 0))
@@ -618,7 +618,7 @@ def _ink_colours(base: np.ndarray, region, lay, needs_halo: bool, orig=None):
     The original page decides when it can be read: writing that was light on
     dark comes back white with a black edge, writing that was dark on light
     comes back black with a white edge. When the original has nothing clear to
-    say the background decides instead — dark artwork gets white typesetting,
+    say the background decides instead - dark artwork gets white typesetting,
     everything else black. Either way the edge is the opposite colour, which is
     invisible inside a plain white bubble and does the work over tone and art.
     """
@@ -630,7 +630,7 @@ def _ink_colours(base: np.ndarray, region, lay, needs_halo: bool, orig=None):
     # words are drawn on the page as it is NOW: the cleaner can leave dark art
     # where a balloon used to be, a frame can be dragged out onto a black
     # panel, and the answer the original gave stops being true. So a decidedly
-    # dark background always gets white typesetting with a black edge — the one
+    # dark background always gets white typesetting with a black edge - the one
     # thing lee has asked for every time this has come up.
     dark_bg = mean < DARK_BG or dark_frac >= 0.55
 
@@ -650,18 +650,18 @@ def _ink_colours(base: np.ndarray, region, lay, needs_halo: bool, orig=None):
 # export that allow me to export the picture with the boxes".
 #
 # It is a copy of what the editor already draws on screen, and the point of it
-# is that it looks the SAME — a sheet you can hand to somebody, print, or put
+# is that it looks the SAME - a sheet you can hand to somebody, print, or put
 # beside the editor while you work through a chapter is worth nothing if its
 # colours mean something different from the ones on screen. So these four
 # colours are the four in `static/js/frames.js`, and a test parses that file
 # and fails if the two ever drift apart.
-# Three families, and the shades a sub-type of each may be — see kinds.py.
+# Three families, and the shades a sub-type of each may be - see kinds.py.
 # There used to be six unrelated colours here for six flat types.
 KIND_COLOURS = dict(_kinds.FAMILY_COLOUR)
 # One colour for every linked pair, not one per group.
 # lee: *"make the lunks just one color so all the link shoud be one color"*.
 # Six link colours meant six more things on the page competing with the six
-# text-type colours, and which link was which was never the question — the
+# text-type colours, and which link was which was never the question - the
 # question is only ever "are these two joined".
 LINK_COLOUR = "#2a63d8"
 # The colours a sub-type may take, per family. Kept as one flat list as well,
@@ -674,7 +674,7 @@ BOX_FILL = 0x22 / 255.0
 GROUP_FILL = 0.06
 HINT_INK = 0x88 / 255.0
 HINT_MIN = 1.25          # a balloon is only worth drawing when it is this much
-                         # bigger than the writing — same test as frames.js
+                         # bigger than the writing - same test as frames.js
 
 
 def _bgr(hexstr: str) -> tuple[int, int, int]:
@@ -692,7 +692,7 @@ def link_colour(group: int = 1) -> str:
 
 
 def contrast_text(hexstr: str) -> tuple[int, int, int]:
-    """Black or white on a given colour, whichever reads — frames.js's sum."""
+    """Black or white on a given colour, whichever reads - frames.js's sum."""
     r, g, b, _ = hex_rgb(hexstr) or (136, 136, 136, 255)
     return (22, 22, 22) if (0.299 * r + 0.587 * g + 0.114 * b) > 150 \
         else (255, 255, 255)
@@ -701,8 +701,8 @@ def contrast_text(hexstr: str) -> tuple[int, int, int]:
 class _Ink:
     """One transparent sheet to draw all the furniture on, composited once.
 
-    Every piece of this has its own opacity — a 13% fill, a half-lit dashed
-    balloon, a solid border — and blending each one against the page as it is
+    Every piece of this has its own opacity - a 13% fill, a half-lit dashed
+    balloon, a solid border - and blending each one against the page as it is
     drawn would tint whatever was drawn before it. So colour goes on one layer,
     opacity on another, and the page is touched exactly once at the end.
     """
@@ -772,7 +772,7 @@ class _Ink:
 def box_sheet(img, records, custom_kinds=()) -> np.ndarray:
     """The page with its boxes, numbers, balloons and links drawn on.
 
-    `records` are the stored region dicts — the same ones the browser is sent —
+    `records` are the stored region dicts - the same ones the browser is sent -
     so this needs no masks, no cleaning and no typesetting, and costs one image
     copy per page. Nothing here is a step of the pipeline: it is a picture of
     what was found, for checking and for showing somebody.
@@ -789,14 +789,14 @@ def box_sheet(img, records, custom_kinds=()) -> np.ndarray:
     def balloon_of(r):
         return [int(v) for v in (r.get("bubble_bbox") or r.get("bbox"))]
 
-    # Two sections of one balloon draw their own boxes dashed and quiet — the
+    # Two sections of one balloon draw their own boxes dashed and quiet - the
     # balloon is the thing that is one, and the sections are the things you
     # pick.
     #
     # A solid frame used to be drawn round the pair as well. lee, finding one
     # on a burst holding two speeches: *"there a big box with no label or
     # anything"*, then *"hide teh big box afterware it dosnt need to be
-    # visibel"*. Gone from the editor and gone from here in the same move —
+    # visibel"*. Gone from the editor and gone from here in the same move -
     # the sheet shows what the screen shows, which is the rule that took the
     # balloon hint out of both. `GROUP_FILL` stays: the sheet's other
     # opacities are checked against it.
@@ -809,7 +809,7 @@ def box_sheet(img, records, custom_kinds=()) -> np.ndarray:
     sectioned = {id(r) for m in groups.values() for r in m}
 
     # The balloon used to be drawn here too, faint and dashed behind the
-    # writing. It went with the editor's `.bhint` on 2026-07-30 — lee: *"there a
+    # writing. It went with the editor's `.bhint` on 2026-07-30 - lee: *"there a
     # thin dahed red box around the box around the text what does it do and
     # remove it"*. The exported sheet shows what the editor shows, so it shows
     # one rectangle per box as well. HINT_INK / HINT_MIN are kept because the

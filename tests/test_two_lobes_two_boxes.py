@@ -8,7 +8,7 @@ not::
 
 **This is not the guess `detect_comictext` refuses to make.** That one is about
 a block of writing a clusterer chopped in two, where the question is whether the
-WORDS run on and the picture cannot answer it — see the long note there, and the
+WORDS run on and the picture cannot answer it - see the long note there, and the
 hot-spring balloon it was written for. This one is about the drawn shape: two
 lobes of paper that touch were drawn as one balloon by the artist, and that is a
 fact about the page.
@@ -89,7 +89,7 @@ def test_the_reach_is_the_measured_one():
 
 def test_a_dark_system_panel_is_not_a_balloon():
     """Page 029: "[초월] 영혼의 문" and the lines under it. Two runs of paper
-    that touch — but the paper is navy, 33 and 67 against a balloon's 255."""
+    that touch - but the paper is navy, 33 and 67 against a balloon's 255."""
     g, rs = _page(gap=4, paper=60)
     assert B.link_touching_bubbles(g, rs) == 0
 

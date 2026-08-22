@@ -5,7 +5,7 @@ a threshold "dark". That is wrong on the page shape this file is built around:
 a balloon filled with fine hatching, whose average brightness lands in the
 middle of the range whichever way round it was drawn. Averaged, a black balloon
 under light hatching and a white balloon under dark hatching are the SAME
-NUMBER — so the old rule cannot tell them apart even in principle, and typeset
+NUMBER - so the old rule cannot tell them apart even in principle, and typeset
 white-on-black speech in black.
 
 ``original_tone`` does not average anything. It asks the original scan which of
@@ -101,7 +101,7 @@ def test_hatching_defeats_the_brightness_rule(name, fill, hatch, ink, want):
     """The hatched pages are the ones brightness cannot answer.
 
     Both of them average out to roughly the same middling number, on the light
-    side of the threshold — so brightness alone typesets both of them black, and
+    side of the threshold - so brightness alone typesets both of them black, and
     is wrong about one. This test is what makes the new rule load-bearing: it
     fails the moment the colour decision goes back to reading the background.
     """
@@ -158,7 +158,7 @@ def test_outline_on_art_defaults_to_two():
 
     Nothing out on the artwork has paper behind it, so the outline is the whole
     of its legibility. What decides the question is whether a balloon was ever
-    found round the words — NOT what the region is labelled. lee's on-art
+    found round the words - NOT what the region is labelled. lee's on-art
     captions come through as `narration`, which is a perfectly good description
     of what they say and no description at all of what is behind them, and they
     were the ones typeset with a hairline over the art.
@@ -205,7 +205,7 @@ def _forget_masks(region):
 
     ``TextRegion.to_dict`` drops the masks, so nothing that is written to disk
     remembers the shape of the balloon. Every region in a reopened chapter
-    therefore has ``place_mask() is None`` — and that, not anything about the
+    therefore has ``place_mask() is None`` - and that, not anything about the
     artwork, is why lee's reloaded pages typeset white speech in black.
     """
     region.bubble_mask = None
@@ -219,7 +219,7 @@ def test_tone_still_reads_after_a_reload(name, fill, hatch, ink, want):
     """No balloon mask, same answer.
 
     The inside-versus-around test needs something to call "around". It used to
-    ask the balloon, and with no balloon it gave up and guessed — which is the
+    ask the balloon, and with no balloon it gave up and guessed - which is the
     one case that actually matters, because a chapter is reloaded far more
     often than it is first opened. A ring drawn just outside the text box is
     background wherever a text box is a text box, so the test can still run.
@@ -259,7 +259,7 @@ def test_mostly_dark_paper_typesets_white_even_when_it_averages_light():
     """With no original to ask, how much of the paper is dark decides.
 
     A dark balloon ruled with bright lines averages up past the threshold while
-    remaining, pixel for pixel, mostly black — and black typesetting on mostly
+    remaining, pixel for pixel, mostly black - and black typesetting on mostly
     black paper cannot be read whatever the average says. The question the
     fallback asks is the answerable one: what is under the words?
     """

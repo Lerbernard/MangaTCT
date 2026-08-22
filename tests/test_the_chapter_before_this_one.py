@@ -4,11 +4,11 @@ lee loaded a folder of manga and got back his `024.jpg … 039.jpg` **and** a ru
 of `page0xx` files he had never seen: *"soem pages that wrere not i the folder
 are showing uo when i upload teh foler"*.
 
-`page001.png` and its friends are what the webtoon re-cut wrote — for the
+`page001.png` and its friends are what the webtoon re-cut wrote - for the
 chapter before. Every chapter uploads into the same `input/` folder and nothing
 ever emptied it. `clear()` forgets the PAGES, which is a different thing from
-the FILES: everything that lists the folder afterwards — reopening the project,
-a re-cut, a rescan — finds every file every chapter ever put there and calls
+the FILES: everything that lists the folder afterwards - reopening the project,
+a re-cut, a rescan - finds every file every chapter ever put there and calls
 them all pages.
 
 So the folder is emptied when a chapter is put down, and emptied by MOVING:
@@ -23,7 +23,7 @@ Two other things in the same paste:
 * the re-cut switch on the File tab was still there on manga. lee: *"the
   setting shoud not be there for manga"*.
 * a page whose picture never arrives used to leave the canvas scrolled to 0,0,
-  which is deep inside the stage's 46vmax margin — a screen of nothing at all.
+  which is deep inside the stage's 46vmax margin - a screen of nothing at all.
 """
 import json
 import os
@@ -108,7 +108,7 @@ def test_only_one_chapter_back_is_kept(proj):
 
 
 def test_an_empty_folder_is_left_alone(proj):
-    """It exists — `upload_dir()` makes it — and it has nothing in it. Moving
+    """It exists - `upload_dir()` makes it - and it has nothing in it. Moving
     an empty folder aside throws away the one generation that was being kept
     and puts an empty one in its place, so the chapter before last is gone for
     no reason at all."""
@@ -172,8 +172,8 @@ def test_joining_renumbers_too(proj):
 
 
 def test_the_order_is_kept_and_the_pictures_go_with_the_names(proj):
-    """Renaming in the wrong order — or renaming the file without moving the
-    page's path with it — shuffles the chapter, which is unrecoverable."""
+    """Renaming in the wrong order - or renaming the file without moving the
+    page's path with it - shuffles the chapter, which is unrecoverable."""
     for n in (11, 12, 13):
         proj.add_uploaded("%03d.png" % n, _png(seed=n))
     before = [proj.image(i).copy() for i in range(3)]

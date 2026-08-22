@@ -80,13 +80,20 @@ header nav{margin-left:auto;display:flex;align-items:center;gap:8px;
    *"make teh button on the second last screenshot buttons"* - three words in
    a row, all the same colour, reading as one sentence you could not press. */
 .navb{font:inherit;font-size:14px;font-weight:600;color:var(--ink);
-  background:transparent;border:1px solid var(--line);border-radius:999px;
+  background:var(--panel2);border:1px solid transparent;border-radius:999px;
   padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;
   gap:7px;line-height:1;white-space:nowrap;
   transition:border-color .16s,background .16s,color .16s,transform .16s}
-.navb:hover{border-color:var(--line2);background:var(--panel2);color:var(--ink);
+.navb:hover{border-color:transparent;background:var(--line);color:var(--ink);
   transform:translateY(-1px)}
-.navb.on{border-color:var(--accent);color:var(--accent)}
+/* Filled, not outlined. Accent TEXT on the page background disappears in the
+   light theme (amber on white); accent BACKGROUND under --on-accent text
+   reads in both. lee: *"chan[g]e the outilen on buttones ... use ful
+   background color"*. */
+.navb.on{background:var(--accent);border-color:var(--accent);
+  color:var(--on-accent)}
+.navb.on:hover{background:var(--accent);border-color:var(--accent);
+  color:var(--on-accent);filter:brightness(1.06)}
 .navb.cta{background:linear-gradient(160deg,var(--accent),var(--accent2));
   color:var(--on-accent);border-color:transparent}
 .navb.cta:hover{color:var(--on-accent);filter:brightness(1.06)}

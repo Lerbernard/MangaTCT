@@ -8,8 +8,8 @@ the page into a 1024 square by its LONG side, so a strip is seen at
 `1024 / height` and its writing arrives that many times smaller.
 
 WHICH MAKES IT AN ASPECT AND NOT A LENGTH. A 690x4140 page and a 1400x8400 one
-both arrive 170 pixels wide, and their writing — drawn relative to the page
-width — arrives the same number of pixels tall. Warning on height would nag the
+both arrive 170 pixels wide, and their writing - drawn relative to the page
+width - arrives the same number of pixels tall. Warning on height would nag the
 second one for being twice as big at nothing like twice the risk.
 
 MEASURED TWICE, because the obvious measurement was wrong.
@@ -17,8 +17,8 @@ MEASURED TWICE, because the obvious measurement was wrong.
 **The wrong one.** Run all 55 pages of two chapters whole, then in halves, and
 count what the halves find that the whole page did not: 12% at aspect 2 rising
 to 75% past 6. A clean-looking curve, and an artifact. Split by kind, the
-dialogue misses do not move with aspect at all — 0.9, 1.5, 0.7, 0.4, 1.2 per
-page up the bands — and the entire rise is sound effects. Cropping those says
+dialogue misses do not move with aspect at all - 0.9, 1.5, 0.7, 0.4, 1.2 per
+page up the bands - and the entire rise is sound effects. Cropping those says
 what they are: page 004's fifteen "missed" boxes are **fifteen copies of the
 짭툰.com watermark**. Tall pages in that chapter are scenery with the site stamp
 down them. Nothing about the detector.
@@ -38,7 +38,7 @@ on it: past six, the page loses about a quarter of its boxes and a third of
 what survives comes back a different kind.
 
 Which is exactly what lee has been looking at. Every one of his twelve
-screenshots was a box of the wrong TYPE or one run of writing cut into two —
+screenshots was a box of the wrong TYPE or one run of writing cut into two -
 not writing that vanished. So the warning says that, and does not say the other
 thing.
 """
@@ -94,7 +94,7 @@ def test_a_page_with_no_size_is_not_warned_about():
 
 def test_the_number_is_sent_and_not_written_twice():
     """The browser draws the warning and must not carry its own copy of the
-    limit — that is two numbers to keep in step and one of them nowhere near
+    limit - that is two numbers to keep in step and one of them nowhere near
     the letterbox it describes."""
     js = (PKG / "static" / "js" / "pipeline.js").read_text(encoding="utf-8")
     assert "proj.tall_aspect" in js
@@ -146,7 +146,7 @@ SHOWN = """()=>{const n=document.getElementById('tallNote');
 
 
 def test_a_long_page_is_warned_about_before_the_run():
-    """In the Find text sheet, which is the moment it matters — the run has not
+    """In the Find text sheet, which is the moment it matters - the run has not
     started and Cut / join is two clicks away."""
     def go(pg, _p):
         s = pg.evaluate(SHOWN)
@@ -174,7 +174,7 @@ def test_a_chapter_of_ordinary_pages_says_nothing():
 
 
 def test_it_says_what_was_measured_and_not_more():
-    """Recall was measured and it barely moves — padding a page out to eight
+    """Recall was measured and it barely moves - padding a page out to eight
     times its width keeps the boxes. Telling lee his text will go missing would
     be the easy sentence and the untrue one."""
     def go(pg, _p):

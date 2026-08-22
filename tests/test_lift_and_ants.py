@@ -1,12 +1,12 @@
 """The selection you can see, and the piece you can pick up.
 
 lee, pointing at the marquee, the lasso and the wand: *"these 3 just dont
-work"*. They did work — every one of them built the right mask — and showed
+work"*. They did work - every one of them built the right mask - and showed
 absolutely nothing for it, which from the outside is the same thing.
 
 The marching ants are drawn as `mask` minus the mask ERODED by a pixel, and
 erosion is the INTERSECTION of the four one-pixel shifts. The code subtracted
-each shifted copy from the mask in turn, which subtracts their UNION — and the
+each shifted copy from the mask in turn, which subtracts their UNION - and the
 union of the four shifts covers every pixel of any solid shape. The ring came
 out empty on every selection that has ever been made in this editor, so the
 ants were never once visible. Nothing else about selecting was wrong: paint
@@ -14,13 +14,13 @@ fenced correctly, heal fenced correctly, the bucket filled the right area.
 
 Two more things go with it, because they are what a selection is FOR:
 
-* **J lifts the selection to its own layer** — Photoshop's Ctrl+J. Copy and
+* **J lifts the selection to its own layer** - Photoshop's Ctrl+J. Copy and
   paste could already do this, but only through Ctrl+C then Ctrl+V and with
   nothing on screen to say the feature existed. lee: *"i shud be abke to copy
   a oiece o fthe image that i selcted and copy and paste it as a lyer that i
   can edit"*.
 * The lifted piece is a **copy**. The page underneath keeps its pixels, which
-  is what makes it safe to try — and what this file checks, in the PNG the
+  is what makes it safe to try - and what this file checks, in the PNG the
   server exports.
 
 None of this can be tested in jsdom: its canvas is a stub with no compositing
@@ -77,7 +77,7 @@ def editor_page(tmp_path):
     with browserpool.session() as br:
         # The clipboard is the whole point of the copy/paste tests: without
         # permission `navigator.clipboard.write` fails silently, the system
-        # clipboard stays empty, and Ctrl+V quietly takes the in-app path —
+        # clipboard stays empty, and Ctrl+V quietly takes the in-app path -
         # which is the path that was already right. The bug lives on the other
         # one.
         ctx = br.new_context(viewport={"width": 1500, "height": 900},
@@ -170,7 +170,7 @@ def _ants_bbox(pg):
 
 
 def test_a_second_selection_moves_the_ants(editor_page):
-    """The ring is cached — it is five full-page composites and it must not be
+    """The ring is cached - it is five full-page composites and it must not be
     rebuilt eight times a second just to animate the stripes running through
     it. Cached on the wrong key, the ants keep drawing the outline of the
     selection BEFORE this one, which is worse than not drawing them at all."""
@@ -229,7 +229,7 @@ def test_lifting_copies_the_piece_into_its_own_layer(editor_page):
     ex = cv2.imread(editor.export_page(p, 0, mode="clean"))
     assert ex is not None
     dark = (ex.astype(int).sum(2) < 200)
-    # the original block is untouched — lifting copies, it does not cut
+    # the original block is untouched - lifting copies, it does not cut
     assert dark[70:150, 80:190].mean() > 0.9, \
         "lifting took the pixels off the page instead of copying them"
     # ...and the copy is where it was moved to
@@ -245,7 +245,7 @@ def test_lifting_nothing_lifts_nothing(editor_page):
 
 
 def test_the_key_lifts_without_a_button_for_it(editor_page):
-    """lee: *"get rid of this"* — the button said the same thing as J, Ctrl+C
+    """lee: *"get rid of this"* - the button said the same thing as J, Ctrl+C
     and Ctrl+V, in a row that already had five icons in it. The key stays."""
     pg, _p, _root, _e = editor_page
     assert not pg.evaluate("!!document.getElementById('liftBtn')"), \
@@ -270,7 +270,7 @@ def test_copy_and_paste_leaves_exactly_one_copy(editor_page):
     back through the browser's paste event as a plain image with no idea where
     it had come from, and landed in the middle of the view. The guard meant to
     catch that compared FILE sizes, and the browser re-encodes on the way
-    through the clipboard, so it never matched once — it compares the image's
+    through the clipboard, so it never matched once - it compares the image's
     dimensions now.
 
     Then the transform, opened to place the new layer, took the still-live
@@ -304,7 +304,7 @@ def test_copy_and_paste_leaves_exactly_one_copy(editor_page):
 
 def test_a_foreign_image_still_lands_in_the_middle(editor_page):
     """The in-place rule is for OUR copy. An image from another app has no
-    place on this page to go back to, so the middle of the view is right —
+    place on this page to go back to, so the middle of the view is right -
     and that is the path the guard must not swallow."""
     pg, _p, _root, _e = editor_page
     pg.evaluate("toggleSelTool('rect')")
@@ -322,7 +322,7 @@ def test_a_foreign_image_still_lands_in_the_middle(editor_page):
 def test_move_and_resize_takes_the_layer_it_was_asked_for(editor_page):
     """A live selection and a picked layer at the same time. The transform
     used to prefer the mask with no way to be told otherwise, so "Move &
-    resize" on a layer picked up the selection instead — the same fault that
+    resize" on a layer picked up the selection instead - the same fault that
     put a second copy on the page after a paste, reached a different way."""
     pg, _p, _root, _e = editor_page
     # a shape to move: 90 wide, 60 tall

@@ -1,14 +1,14 @@
 """Three things about editing typesetting: it sticks, it drags, and it opens flat.
 
 * *"sometime when i update someything loike teh text or ouline and clcik off it
-  it reverts back to what it was before"* — everything typed into the typesetting
+  it reverts back to what it was before"* - everything typed into the typesetting
   panel was only PREVIEWED as you typed. The style fields saved themselves
   after a pause; the text, the size and the rotation were saved by "Keep this"
-  and by nothing else. So a new line typed and clicked away from was lost — and
+  and by nothing else. So a new line typed and clicked away from was lost - and
   because the preview had already redrawn the page, it looked as though it went
   in and then came back out.
 * *"make it so ythat i can click on te tetx and hold and move teh tetx with
-  opening up the text box"* — clicking typesetting opened the editor on the way
+  opening up the text box"* - clicking typesetting opened the editor on the way
   DOWN, so the only way to move a block was to find its frame handle first.
 * *"make all the section in the dide bar come open not collaped"*.
 
@@ -100,7 +100,7 @@ def test_typing_new_text_and_clicking_off_keeps_it():
     def check(pg, p):
         pg.evaluate("select(1)")
         pg.wait_for_timeout(700)
-        # The words are typed on the PAGE now, not in the panel — the Text box
+        # The words are typed on the PAGE now, not in the panel - the Text box
         # is gone (lee, with a picture of it: *"remove this box"*). So this
         # opens the block on the canvas, types into it, and clicks away, which
         # is the whole of what the person does.
@@ -130,7 +130,7 @@ def test_changing_the_outline_and_clicking_off_keeps_it():
 
 
 def test_a_new_size_survives_the_panel_being_rebuilt():
-    """The panel is rebuilt on all sorts of things — a poll landing, a save
+    """The panel is rebuilt on all sorts of things - a poll landing, a save
     elsewhere. Whatever was half-typed has to be written down first."""
     def check(pg, p):
         pg.evaluate("select(1)")
@@ -224,7 +224,7 @@ def test_the_line_gap_box_goes_under_the_floor_by_hand():
 
 def test_the_two_copies_of_the_floor_agree():
     """The browser has its own number so the box can be built without asking
-    the server. Two numbers, one meaning — they have to be held together."""
+    the server. Two numbers, one meaning - they have to be held together."""
     from mangatl.typeset import MIN_LEADING
     js = (PKG / "static" / "js" / "panels.js").read_text("utf8")
     line = [l for l in js.splitlines() if l.startswith("const MIN_LEADING")]
@@ -241,7 +241,7 @@ def test_nothing_the_fitter_chooses_is_tighter_than_the_floor():
 
 def test_a_tighter_gap_typed_in_by_hand_is_taken_as_typed():
     """The floor bounds the FITTER. A number in the override came from a
-    person, and it stands — including one saved back when the floor was lower.
+    person, and it stands - including one saved back when the floor was lower.
     lee: *"the line spacing shoud only be a minimun of 1.20 for the typesetting
     the user shoud be able to go lowwer"*."""
     from mangatl.models import TextRegion
@@ -314,7 +314,7 @@ def test_a_block_that_was_dragged_does_not_hop_back():
     prrevious location"*.
 
     `saveTypesetting` marks the fields a person set so that a page answer
-    already on its way cannot lay the old value back over them — and `frame`
+    already on its way cannot lay the old value back over them - and `frame`
     was not one of them, which is the only thing dragging a block writes. So
     the position was saved, and then immediately overwritten on screen by a
     refresh describing the page as it was a moment earlier."""
@@ -337,7 +337,7 @@ def test_an_edit_survives_the_page_being_refreshed_under_it():
     sorts of things that have nothing to do with the edit. An answer that was
     already on its way when the edit was made carries the value from BEFORE it,
     and laying that over the region puts the old number back on screen. The
-    change still reaches disk — it just looks as though it did not, and the
+    change still reaches disk - it just looks as though it did not, and the
     next edit then starts from the stale number.
 
     Measured before the fix: 4 in 6 with a poll landing, 3 in 6 with a page
@@ -356,7 +356,7 @@ def test_the_same_holds_for_a_plain_page_reload():
 
 def test_a_half_typed_value_is_written_down_before_any_reload():
     """`setRegions` flushed the region LIST and left the typesetting panel to
-    `renderInspector` — which a refresh asking for no list redraw never calls.
+    `renderInspector` - which a refresh asking for no list redraw never calls.
     So a reload landing mid-keystroke dropped what was in the box."""
     def check(pg, p):
         pg.evaluate("select(1)")
@@ -375,7 +375,7 @@ def test_a_half_typed_value_is_written_down_before_any_reload():
 def test_the_overlay_lets_go_once_the_server_agrees():
     """The values held over a refresh cannot be held for ever, or a change from
     anywhere else would never show again. They are let go the moment an answer
-    carries the same thing — agreement, not a timeout, because no length of
+    carries the same thing - agreement, not a timeout, because no length of
     time is reliably longer than 'every request already in flight'.
 
     So: make an edit, let it land, then hand the app an answer that says
@@ -404,7 +404,7 @@ def test_the_overlay_lets_go_once_the_server_agrees():
 
 def test_a_slow_save_does_not_let_go_of_a_newer_edit():
     """Type 2 then 7 and there are two saves in the air for the same bubble.
-    The first one's answer says 2 — true when it was asked, wrong now. If it
+    The first one's answer says 2 - true when it was asked, wrong now. If it
     released the mark, the very next refresh would put 2 back on screen and the
     edit would look lost again.
 

@@ -7,7 +7,7 @@ Two things are under test here and they are different questions.
 
 The first is the CLIENT: `account.py` talking to Firebase. Every test below
 replaces the one function that touches the network, so nothing here reaches
-Google — what is being checked is what would be SENT, what is made of what
+Google - what is being checked is what would be SENT, what is made of what
 comes back, and what is left on disk afterwards.
 
 The second is the SWITCH: `coins.py` has one purse interface and two purses
@@ -89,7 +89,7 @@ def _signed_in(monkeypatch, **extra):
 # ------------------------------------------------------------------- config
 
 def test_a_fresh_clone_has_no_project(home, monkeypatch):
-    """No Firebase, no account — and the editor keeps its local purse.
+    """No Firebase, no account - and the editor keeps its local purse.
 
     This is the case a checkout of the source is in, and it must not be an
     error state: a "Sign in" button that cannot sign in to anything is worse
@@ -161,7 +161,7 @@ def test_the_machine_beats_the_repository_and_the_environment_beats_both(
     """Three places, in that order.
 
     The repository's is the default, a machine can point somewhere else, and
-    an environment variable wins — which is what a test run and a staging
+    an environment variable wins - which is what a test run and a staging
     project both need.
     """
     monkeypatch.setattr(account, "_repo_config",
@@ -261,7 +261,7 @@ def test_tokens_left_over_from_a_project_that_is_gone_are_not_a_session(
         home, monkeypatch):
     """Signed in means signed in TO something.
 
-    A token file can outlive the project it was made for — somebody clears
+    A token file can outlive the project it was made for - somebody clears
     `config.js`, or moves the app to a machine with no Firebase set up. Reading
     that as a live session would put the editor on the remote purse with
     nowhere to send a spend, and every run would fail on the first page instead
@@ -397,7 +397,7 @@ def test_signing_up_takes_the_name_in_the_same_breath(project, monkeypatch):
 
 def test_a_name_that_is_taken_does_not_lose_the_new_account(project,
                                                             monkeypatch):
-    """The account exists by the time the name is asked for — it has to, since
+    """The account exists by the time the name is asked for - it has to, since
     claiming needs a token. Throwing it away because somebody else already had
     the name would be the wrong way round: the name can be set afterwards, and
     a person who has just made an account is signed in either way.
@@ -444,7 +444,7 @@ def test_a_balance_that_cannot_be_refreshed_is_the_last_one_known(project,
     """Showing the last known number beats showing nothing.
 
     What must not happen on a bad connection is a SPEND going through on a
-    stale number — and that is a different call, which does not swallow this.
+    stale number - and that is a different call, which does not swallow this.
     """
     _signed_in(monkeypatch, balance=500, checked=0)
     monkeypatch.setattr(account, "_post",
@@ -569,7 +569,7 @@ def test_coins_cannot_be_added_to_an_account_from_the_editor(project,
                                                              monkeypatch):
     """A client that could add coins to its own balance could add any number
     of them. Buying is the website's job, and the rules forbid the write
-    outright — this only says so before the round trip."""
+    outright - this only says so before the round trip."""
     _signed_in(monkeypatch)
     wire = Wire()
     monkeypatch.setattr(account, "_post", wire)
@@ -659,7 +659,7 @@ def test_the_refund_is_tied_to_the_charge_it_came_from(project, monkeypatch,
                                                        tmp_path):
     """One id for both, or the money does not come back.
 
-    A refund is measured against the run it names — the function will not give
+    A refund is measured against the run it names - the function will not give
     back more than that run took, and it will not give back anything at all for
     a run it has never heard of. So a refund carrying a FRESH id is a refund
     that is refused, and the person who cancelled after two of five pages is

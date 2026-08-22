@@ -8,19 +8,19 @@ smae as ... it shud just pre fill it with teh potion"*.
 Three things, and they are the same thing:
 
 * **Comic is gone.** Manga, manhwa, manhua. English survives as a source
-  LANGUAGE — an already-translated scan being taken somewhere else still needs
-  it — but not as a kind of book.
-* **The option is the name.** "Manga", not "Manga — Japanese, reads right to
+  LANGUAGE - an already-translated scan being taken somewhere else still needs
+  it - but not as a kind of book.
+* **The option is the name.** "Manga", not "Manga - Japanese, reads right to
   left". The sentence in the option was doing the job of the two boxes next to
   it, which is why those two were allowed to sit there saying nothing.
 * **Nothing says "same as".** "Same as the source material" and "Same as the
-  project" are not answers to "Written in" and "Read text — the model that
+  project" are not answers to "Written in" and "Read text - the model that
   reads the page"; they are a promise that something else will answer later.
   Picking a medium now FILLS the other two with that medium's usual answers,
   where they can be seen and changed.
 
-The values behind the old wording — `auto` in the two language boxes, `""` in a
-per-step provider — still mean what they always meant when they are READ, so no
+The values behind the old wording - `auto` in the two language boxes, `""` in a
+per-step provider - still mean what they always meant when they are READ, so no
 saved project changes behaviour. `Project.load` writes the resolved answer back
 once, so the file stops saying `auto` too.
 """
@@ -161,7 +161,7 @@ def test_an_old_comic_chapter_is_still_an_english_chapter(tmp_path):
 
     Every reader of the setting does `MEDIA.get(medium, MEDIA["manga"])`, so a
     project saved as a comic would have come back Japanese and right-to-left the
-    first time it was opened after the option was removed — the pages read in
+    first time it was opened after the option was removed - the pages read in
     the wrong order and sent to a Japanese OCR engine. What the medium was
     ANSWERING for is pinned first; only the word for it moves.
     """

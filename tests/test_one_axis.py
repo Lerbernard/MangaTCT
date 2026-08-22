@@ -5,7 +5,7 @@ centred paragraph, and the moment it was deselected the lines fanned out down
 the page, each one at a different horizontal centre. Two pictures of the same
 words, and the text jumped between them on every click.
 
-There were two placements. The browser centres a block on its frame — one
+There were two placements. The browser centres a block on its frame - one
 axis, which is what a paragraph is. The fitter centred every line on the
 balloon's own chord AT THAT LINE'S HEIGHT, which agrees with the browser in a
 circle (every chord of a circle shares a centre) and disagrees with it in
@@ -88,7 +88,7 @@ def test_a_caption_with_no_balloon_does_not_staircase(kind):
     """The case in lee's screenshot: on-art text, no balloon anywhere.
 
     The region falls back to its box, and the block that comes out of it is
-    centred on one line — which is what the browser draws when the same block
+    centred on one line - which is what the browser draws when the same block
     is selected, so nothing moves when it is clicked. Both halves matter: the
     box is what gives the block one chord to be centred on, and free-floating
     speech used to be handed the Japanese instead.
@@ -107,8 +107,8 @@ def test_a_caption_with_no_balloon_does_not_staircase(kind):
     bx, _, bw, _ = r.bbox
     assert abs(xs[0] - (bx + bw / 2)) <= 2, (xs[0], r.bbox)
     # The block is also typeset at a readable size. Measured against the
-    # Japanese instead, the real fit finds nothing at all — every row of a
-    # column of characters has a gap in it — and the block drops through to
+    # Japanese instead, the real fit finds nothing at all - every row of a
+    # column of characters has a gap in it - and the block drops through to
     # the last-resort wrap at single figures.
     assert lay.font_size >= 18, (lay.font_size, lay.lines)
 
@@ -134,8 +134,8 @@ def test_the_axis_is_read_off_the_lines_not_the_room_they_were_offered():
     out to say is the conservative answer, and it is dearer than it looks: on
     the two-lobed bud it narrowed four short words to the width of the worst
     band and cost the block two points of type. Asking the question of the
-    lines as they actually came out costs nothing — a block that fits its
-    bands still fits them — and leaves the size alone.
+    lines as they actually came out costs nothing - a block that fits its
+    bands still fits them - and leaves the size alone.
     """
     spans = [(40.0, 100.0), (30.0, 140.0)]     # a wedge: 60 wide, then 110
     # Narrow words: both bands can hold them, so the axis is free to sit in
@@ -159,7 +159,7 @@ def test_the_axis_lets_a_line_reach_both_ends_of_its_band():
     """The measurement the axis is chosen against is the honest one.
 
     `band_span` is the strip EVERY row of the band has, so a line centred on
-    the axis is inside the shape for its whole height — not just at its
+    the axis is inside the shape for its whole height - not just at its
     middle row.
     """
     m = _wedge()

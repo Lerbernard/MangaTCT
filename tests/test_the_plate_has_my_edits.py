@@ -11,10 +11,10 @@ typeset page did not have it.
 
 Two pictures of the same strokes exist, and they were allowed to disagree:
 
-* the EDITABLE LAYERS, which the browser replays onto the paint canvas — that
+* the EDITABLE LAYERS, which the browser replays onto the paint canvas - that
   is what he was looking at;
 * the OVERLAY, one flat PNG the browser sends up, which the server composites
-  into the cleaned plate before the typesetting is drawn — that is what the
+  into the cleaned plate before the typesetting is drawn - that is what the
   typeset page and the export are built from.
 
 The overlay was built by replaying the layer stack into a buffer and reading
@@ -24,14 +24,14 @@ that replay, and neither left a mark:
 * **A picture that had not decoded yet.** A heal or clone-stamp patch is a
   PNG and an eraser's fence is a PNG, and a browser decodes those
   asynchronously. `replayStroke` skipped a layer whose picture had not landed
-  — right for the screen, where the decode fires another repaint a moment
+  - right for the screen, where the decode fires another repaint a moment
   later, and wrong for the save, which nothing repeats. The save now waits for
   every picture to decode, and refuses to send a replay that still came up
   short.
 * **A family folded away.** The Layers panel has a master eye over the drawing
   family and another over the retouch family, so a heavily-healed page does
   not drown the list. Those two live in the tab and are back on the moment the
-  page is reopened — but they were filtering the buffer that gets SAVED, so
+  page is reopened - but they were filtering the buffer that gets SAVED, so
   folding the retouch family away and carrying on painting wrote a plate with
   every heal and clone patch missing. Reopening put them all back on screen,
   with no sign the saved copy disagreed. They are a way of LOOKING at the page
@@ -39,8 +39,8 @@ that replay, and neither left a mark:
 
 And because a page could already be carrying a bad overlay, opening one
 rewrites it once from the full decoded stack. That would have thrown away
-every rendered page in the chapter each time — writing the overlay bumps the
-render epoch — so a save that changes nothing now costs nothing: the server
+every rendered page in the chapter each time - writing the overlay bumps the
+render epoch - so a save that changes nothing now costs nothing: the server
 compares before it writes.
 """
 import os
@@ -158,7 +158,7 @@ def _synced(pg, timeout=20000):
     """Wait until the paint really is on the server, not for 2.5 seconds.
 
     `queueSync` debounces for 800ms and then posts. A fixed sleep long enough
-    for both is a guess in two directions — too short and the test reads the
+    for both is a guess in two directions - too short and the test reads the
     plate before the strokes land, which is how this file went red once in a
     full run and never once on its own; too long and every case here pays for
     it. Watching the flags instead does not work either: `syncTimer` keeps its
@@ -186,7 +186,7 @@ def test_a_patch_saved_the_instant_it_is_made_reaches_the_plate(page):
     """The whole complaint, in one test.
 
     The save is asked for in the same breath as the layer is created, before
-    its picture can possibly have decoded. That is not a contrived race — it
+    its picture can possibly have decoded. That is not a contrived race - it
     is what pressing the heal brush does.
     """
     pg, p, root, errs = page
@@ -205,7 +205,7 @@ def test_a_picture_that_will_never_decode_does_not_stop_the_saving(page):
     """The waiting has to end.
 
     A broken picture never decodes, so the replay is never complete and a save
-    that waits for it waits for ever — and every stroke made after it is lost
+    that waits for it waits for ever - and every stroke made after it is lost
     with nothing on screen saying so. Waiting for something slow is right;
     waiting for something that is not coming is worse than going without it.
     """
@@ -247,7 +247,7 @@ def test_folding_the_retouch_family_away_does_not_empty_the_plate(page):
     """The master eye is a way of looking at the page, not a fact about it.
 
     Fold the family away, paint on, and the heal and clone patches must still
-    be in the plate — because reopening the page brings them all back on
+    be in the plate - because reopening the page brings them all back on
     screen, and a saved copy that disagrees with the screen is the bug.
     """
     pg, p, root, errs = page
@@ -256,8 +256,8 @@ def test_folding_the_retouch_family_away_does_not_empty_the_plate(page):
     before = _red(_plate(p))
     assert before > 0.005, "the patch never reached the plate to begin with"
 
-    # Fold it away, then paint something else — somewhere else, in another
-    # colour — so a save happens and the two cannot be confused for each other.
+    # Fold it away, then paint something else - somewhere else, in another
+    # colour - so a save happens and the two cannot be confused for each other.
     pg.evaluate("toggleGroupEye('retouch')")
     _patch(pg, "drawing", x=340, col="#2cdd60")
     _synced(pg)
@@ -289,7 +289,7 @@ def test_folding_a_family_away_still_takes_it_off_the_screen(page):
 
 def test_a_layers_own_eye_still_takes_it_off_the_page(page):
     """The per-layer eye is the one that means "not on the page", and it has
-    to keep meaning that — this change must not turn every eye into a view."""
+    to keep meaning that - this change must not turn every eye into a view."""
     pg, p, _root, errs = page
     _patch(pg)
     _synced(pg)
@@ -331,7 +331,7 @@ def test_opening_a_page_rewrites_an_overlay_that_lost_a_layer(page):
 
 def test_a_save_that_changes_nothing_changes_nothing(page):
     """The repair above runs on every page opened, and writing the overlay
-    bumps the render epoch — which throws away every rendered page in the
+    bumps the render epoch - which throws away every rendered page in the
     chapter, not just this one. So an identical save must be a no-op."""
     pg, p, _root, errs = page
     _patch(pg)

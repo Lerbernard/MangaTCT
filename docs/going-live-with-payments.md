@@ -2,7 +2,7 @@
 
 Test mode and live mode are two separate worlds inside one Stripe account.
 Nothing crosses between them: not a key, not a product, not a price id, not a
-webhook secret, not a customer. So going live is not a switch — it is doing the
+webhook secret, not a customer. So going live is not a switch - it is doing the
 setup a second time, in the other world, and pointing four things at it.
 
 **Read the whole page before starting.** Step 3 is the one people miss, and it
@@ -14,7 +14,7 @@ does not fail until a real customer is holding a card.
 
 * **The Stripe account is activated.** Business details, and a bank account to
   be paid into. Live mode is refused until it is.
-* **Managed Payments is enabled and its terms accepted** —
+* **Managed Payments is enabled and its terms accepted** -
   <https://dashboard.stripe.com/settings/managed-payments>. This is separate
   from activating the account, and this integration cannot work without it:
   `index.js` sets `managed_payments: { enabled: true }` on every Checkout
@@ -25,7 +25,7 @@ collect, file and remit sales tax, VAT and GST in 80+ countries and carry the
 fraud and dispute load. What it costs you, besides the fee: the customer's
 statement reads `LINK.COM* MANGATCT`, their receipt comes from Link, and
 refunds can be granted by Stripe without asking you if a support escalation
-goes 48 hours unanswered. `charge.refunded` is handled — see `handle()` — so
+goes 48 hours unanswered. `charge.refunded` is handled - see `handle()` - so
 coins come back out when that happens.
 
 ---
@@ -34,12 +34,12 @@ coins come back out when that happens.
 
 Top-left toggle. Everything below is done with it OFF sandbox. A price id
 created in test mode is invisible to a live key, which fails as
-`No such price` — this is the single most common way this goes wrong.
+`No such price` - this is the single most common way this goes wrong.
 
 ## 2. Create the four packs, in live mode
 
 <https://dashboard.stripe.com/products> → **Add product**, four times. The
-names are yours; the numbers are not — they must match `PACKS` in
+names are yours; the numbers are not - they must match `PACKS` in
 `firebase/functions/purse.js`, because that is what grants the coins:
 
 | id | price | coins |
@@ -52,10 +52,10 @@ names are yours; the numbers are not — they must match `PACKS` in
 One-time, not recurring. lee: *"fuck teh subcription, it too omplicated jus
 have teh pacjks"*.
 
-Keep the four `price_...` ids. Not the `prod_...` ids — the price is what a
+Keep the four `price_...` ids. Not the `prod_...` ids - the price is what a
 Checkout Session takes.
 
-## 3. Give every product a tax code — the step that is easy to miss
+## 3. Give every product a tax code - the step that is easy to miss
 
 Managed Payments cannot calculate tax for a product it cannot categorise, and a
 product with no eligible tax code is **refused at checkout, in live mode
@@ -71,19 +71,19 @@ page tells you *All of your products are eligible* when nothing is left out.
 The per-product way is still there if one ever needs its own: **⋯ → Edit
 product → Product tax code**.
 
-### And the tax behaviour — set this, it is not the default
+### And the tax behaviour - set this, it is not the default
 
 **Tax is inside the price.** lee: *"also make the price will include the
 tax"*. A customer pays exactly $4.99 in Ohio, in London and in Sydney; Stripe
 takes each country's tax out of that figure rather than adding it on top. You
-net less where tax is high — about $4.15 of a $4.99 sale at 20% VAT — and
+net less where tax is high - about $4.15 of a $4.99 sale at 20% VAT - and
 nobody is ever surprised at checkout. That is the trade, and it is the right
 way round for a $4.99 impulse buy.
 
 **Stripe's default is the opposite**, so this has to be set, in one of two
 places:
 
-* once for the account — Managed Payments settings → Tax settings → **Include
+* once for the account - Managed Payments settings → Tax settings → **Include
   tax in prices** → **Yes**, which every price made afterwards inherits; or
 * per price, `tax_behavior: inclusive`, when you create it.
 
@@ -103,7 +103,7 @@ receipt.
 >
 > **A copied price brings its original tax behaviour with it.** The account
 > setting applies to prices made AFTER it, and a price copied from sandbox was
-> made before — so it most likely arrives `unspecified`, which Managed Payments
+> made before - so it most likely arrives `unspecified`, which Managed Payments
 > reads as "add tax on top". The products look right, the category says
 > Eligible, and the customer is charged more than the page said.
 >
@@ -114,7 +114,7 @@ receipt.
 
 Check it before you leave the Dashboard: open one of the four prices and it
 should say the amount **includes** tax. If it does not, delete it and make it
-again — that is cheaper than finding out from a customer's receipt.
+again - that is cheaper than finding out from a customer's receipt.
 
 ## 4. The live secret key
 
@@ -155,8 +155,8 @@ functions use.
 Subscribe to exactly two events. Both are handled; anything else is noise the
 function answers 200 to and ignores:
 
-* `checkout.session.completed` — the coins go in
-* `charge.refunded` — the coins come back out
+* `checkout.session.completed` - the coins go in
+* `charge.refunded` - the coins come back out
 
 Then **Reveal** the signing secret (`whsec_...`) and:
 
@@ -169,7 +169,7 @@ The second deploy is not optional. A secret is bound to a function at deploy
 time, so setting it changes nothing until the function is deployed again.
 
 > **`Unhandled error cleaning up build images`** at the end of a deploy is not
-> a failed deploy — `Deploy complete!` on the next line is the truth. It means
+> a failed deploy - `Deploy complete!` on the next line is the truth. It means
 > the container images the build produced were left in the registry instead of
 > being swept up. They cost cents a month, and the next successful deploy
 > usually clears them; if the message keeps coming back, delete them at
@@ -177,7 +177,7 @@ time, so setting it changes nothing until the function is deployed again.
 > Nothing about the running function depends on them.
 
 > If the webhook rejects everything with `bad signature`, the function logs the
-> **length** of the secret it is holding and the size of the body it got — never
+> **length** of the secret it is holding and the size of the body it got - never
 > the secret itself. A length of 0 means the secret is not bound; a length four
 > longer than it should be usually means a newline or a pair of quotes came
 > along with the paste.
@@ -212,7 +212,7 @@ SITE_URL=https://mangatctproject.web.app
 
 That is where a paying customer is sent after checkout. It is right for today.
 The day `mangatct.com` resolves, change this line, redeploy the functions, and
-add the domain under **Authentication → Settings → Authorized domains** — sign
+add the domain under **Authentication → Settings → Authorized domains** - sign
 in refuses to work on a domain that is not on that list, and the checkout
 button is behind sign in.
 
@@ -223,7 +223,7 @@ button is behind sign in.
 Test mode cannot tell you whether step 3 was done. Only a live payment can.
 
 1. Sign in on the live site with an account you can afford to spend on.
-2. Buy **pack1** — $4.99, the cheapest thing that exercises the whole path.
+2. Buy **pack1** - $4.99, the cheapest thing that exercises the whole path.
 3. Watch the coin count in the editor's top bar go up by 500.
 4. <https://dashboard.stripe.com/webhooks> → your endpoint → the delivery
    should be `200`. If it is `400`, the signing secret is wrong; if `500`, the
@@ -240,7 +240,7 @@ knowing because Stripe *will* deliver twice eventually.
 
 ## What stays test-mode
 
-Nothing in the code. There is no test/live branch anywhere — the key decides,
+Nothing in the code. There is no test/live branch anywhere - the key decides,
 and the key is a secret set outside the repository. `site/config.js` holds no
 Stripe key at all: checkout is a redirect to a session URL the function makes,
 so the browser never sees one.

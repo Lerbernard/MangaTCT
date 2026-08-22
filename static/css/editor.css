@@ -2,7 +2,7 @@
   --bg:#101216; --panel:#171a21; --panel2:#1e222b; --line:#2b313d;
   --fg:#e7e9ee; --dim:#8b93a4; --accent:#ffc400; --ok:#4ade80;
   --warn:#fb923c; --bad:#f87171; --blue:#60a5fa;
-  /* Kept in step with LINK_COLOR in frames.js and LINK_COLOUR in render.py —
+  /* Kept in step with LINK_COLOR in frames.js and LINK_COLOUR in render.py -
      a test fails if the three drift apart. */
   --link:#2a63d8;
 }
@@ -15,8 +15,8 @@ body{margin:0;background:var(--bg);color:var(--fg);
     Windows draws small text with ClearType, which lights the red, green and
     blue subpixels of one pixel by different amounts to fake a third of a
     pixel of precision. On black-on-white that is invisible. On DARK TEXT OVER
-    A SATURATED YELLOW — the lit view switch, the open tab, every .pri button
-    — the fringes have nothing to blend into and the label comes out tinted:
+    A SATURATED YELLOW - the lit view switch, the open tab, every .pri button
+    - the fringes have nothing to blend into and the label comes out tinted:
     lee sent a crop of "Translation" on its pill reading blue-violet rather
     than black. Greyscale AA has no colour to fringe with, so a label is the
     colour it was given. lee: *"fix tjis whike you are at it"*. */
@@ -24,7 +24,7 @@ body{margin:0;background:var(--bg);color:var(--fg);
 /* A button that answers when you touch it.
    lee: *"mak ethe on hover and on clcikk for the button look btter"*. Hover
    was one flat colour swap and a press did nothing at all, so there was no
-   moment where the button acknowledged the click — on a slow action that
+   moment where the button acknowledged the click - on a slow action that
    reads as a button that did not take it. Now: it lifts a little under the
    pointer, and goes down and dark on the press, which is the whole of what a
    button has to say. */
@@ -54,14 +54,14 @@ input,select,textarea{background:#12151b;color:var(--fg);border:1px solid var(--
 /* --- the stepper on a number box ---
    Chromium's own is a pair of hairline arrows sized for a white page: on this
    theme it reads as a smudge, and on a 28px-tall box the two halves are barely
-   4px each. Turning `appearance` off does NOT remove the control — it keeps
-   working, top half up and bottom half down — so it can be painted properly:
+   4px each. Turning `appearance` off does NOT remove the control - it keeps
+   working, top half up and bottom half down - so it can be painted properly:
    one column the full height of the box, a divider down its left, and the two
    chevrons drawn as one background image, dim until the box is touched. */
 /* --- the up/down on a number box ---
    Both browsers draw their own and neither can be made to look like the other:
    Chromium's inner-spin-button can be painted, Firefox's cannot be touched at
-   all, and lee works in Firefox — so his boxes carried a cramped little native
+   all, and lee works in Firefox - so his boxes carried a cramped little native
    control. Both natives are switched off here and one is BUILT instead, out of
    two real buttons (see dressNumbers in project-io.js). It is the same control
    in every browser, it is big enough to hit, and it can be styled.
@@ -102,12 +102,12 @@ input.sw[type=checkbox]:hover{border-color:#5b6780}
 input.sw[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
 input.sw[type=checkbox]:checked::after{transform:translateX(15px);background:#161616}
 input.sw[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-/* Boxes are a fixed size — dragging the corner only ever left the panel in a
+/* Boxes are a fixed size - dragging the corner only ever left the panel in a
    shape you had to fix again later. Anything taller than its box scrolls. */
 textarea{resize:none;min-height:52px;line-height:1.45}
 /* The synopsis is reference text you re-read, so it grows to fit instead of
    hiding the end. growSynopsis() sets the height, and switches the scrollbar
-   back on once the text passes ten lines — past that it is a wall, not a note. */
+   back on once the text passes ten lines - past that it is a wall, not a note. */
 #synopsis{overflow:hidden}
 label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
  text-transform:uppercase;letter-spacing:.05em}
@@ -123,7 +123,7 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
  font-size:15px;letter-spacing:-.01em;line-height:1;flex:0 0 auto}
 .brand svg{display:block;flex:0 0 auto}
 /* MangaTCT is ONE word. The gap on `.brand` is a flex gap, so it fell between
-   every child — including between "Manga" and "TCT", which split the name in
+   every child - including between "Manga" and "TCT", which split the name in
    half. lee: *"remve teh gap between mangatctc"*. The two halves live in their
    own span now: the gap separates the mark from the word, and nothing
    separates the word from itself. */
@@ -168,8 +168,8 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
 .step.busy{border-color:var(--accent)}
 .step.busy .sn{background:var(--accent);color:#161616}
 .step.next{border-color:#4b5573}
-/* The three model steps while you are translating it yourself. Not a lock —
-   see runStep() — but nothing there is going to call a model, so the buttons
+/* The three model steps while you are translating it yourself. Not a lock -
+   see runStep() - but nothing there is going to call a model, so the buttons
    say so by going quiet. lee: *"the manual tranlat button should grey out the
    read text translate and profread"*. */
 .step.off{opacity:.4;cursor:default}
@@ -183,6 +183,10 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
 @keyframes linkpulse{0%,100%{outline-color:#ffd23f}50%{outline-color:#ff7a1a}}
 .pill{display:inline-block;padding:2px 8px;border-radius:10px;
   background:#2a3140;color:var(--fg);font-size:11px;line-height:1.6}
+/* A pill that is a caution rather than a label. The plain one is the same
+   grey as everything beside it, which was right for "Coming soon" and is
+   wrong for "this pass will get some of them wrong". */
+.pill.warn{background:#6b4e12;color:#ffe0a3}
 #linkbanner{position:fixed;top:14px;left:50%;transform:translateX(-50%);
   z-index:9999;background:#ffd23f;color:#161616;padding:8px 16px;
   border-radius:20px;font-size:13px;font-weight:600;display:none;
@@ -211,18 +215,35 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
   justify-content:center}
 #cancelJob:hover{background:#e14b4b;border-color:#e14b4b}
 #cancelJob:disabled{background:#b23232;border-color:#b23232;cursor:default}
-#job.idle #bar{opacity:.35}
-#jobtxt{font-size:11px;color:var(--dim);margin-bottom:5px;
+/* Idle is a bar that has FINISHED - `paintJob` leaves the fill at 100% - so
+   it is full, and GREY. Amber at low opacity over a near-black bar came out
+   olive, which is a colour that means nothing here; grey means done. The
+   dimming is on the fill rather than on the whole bar because dimming the bar
+   took the label down with it, and the label is the part you read. */
+#job.idle #fill{background:#232833}
+/* ...unless the models are still coming off the disk. See `pollWarm`. */
+#job.idle.warm #fill{background:linear-gradient(90deg,#e0a800,var(--accent))}
+#jobtxt{font-size:11.5px;color:var(--dim);
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
  font-variant-numeric:tabular-nums}
 /* Only when there is more of it to see. A pointer over "Ready" promises
    something that does not happen. */
-#job.err #jobtxt,#job.warn #jobtxt{cursor:pointer}
-#job.busy #jobtxt{color:var(--accent)}
+#job.err #bar,#job.warn #bar{cursor:pointer}
+/* White with a shadow under it, because this text crosses the fill's own
+   edge: amber on the left of it, near-black on the right, and one flat colour
+   cannot be read on both. */
+#job.busy #jobtxt,#job.busy #jobpct,
+#job.warm #jobtxt,#job.warm #jobpct{color:#fff;
+ text-shadow:0 1px 3px #000000bf}
 #job.err #jobtxt{color:var(--bad)}
+/* Nothing ran, so there is no fill - and an empty dark box beside a red
+   sentence reads as "no job" rather than "the job failed". The rim says it. */
+#job.err #bar{background:#1a1012;border-color:#7a3336}
 /* The run finished, but not the way it was asked to. Orange, not red: nothing
-   is broken and nothing was lost — the pages just did not get the cleaning. */
-#job.warn #jobtxt{color:var(--warn)}
+   is broken and nothing was lost - the pages just did not get the cleaning.
+   The FILL carries the orange (see below), so the words on it are dark ink -
+   orange text on an orange bar is not a warning, it is a blank. */
+#job.warn #jobtxt{color:#2a1a05}
 #job.warn #fill{background:var(--warn);width:100%}
 /* A setting that is filled in but cannot work. The rim is the only way an empty
    box with placeholder text reads as wrong rather than as merely blank. */
@@ -237,13 +258,38 @@ input.bad::placeholder{color:var(--warn)}
 .nchip:hover{background:var(--warn);color:#1a1208;border-color:var(--warn)}
 .help.good{color:var(--ok)}
 .help.warnbad{color:var(--warn)}
-#bar{height:6px;background:#0e1116;border:1px solid var(--line);
- border-radius:99px;overflow:hidden}
-#fill{height:100%;width:0;border-radius:99px;transition:width .35s ease;
- background:linear-gradient(90deg,#ffb300,var(--accent),#ffe08a);
- background-size:200% 100%}
-#job.busy #fill{animation:flow 1.4s linear infinite}
+/* The bar is 26px and the words are ON it. Four times the old height, which
+   is what makes a run at 4% look different from a run at 96% across the room,
+   and it costs no width - `.jobcol` is the same fixed 250px it was, because
+   the line of text that used to sit above the bar now sits inside it. */
+#bar{position:relative;height:26px;background:#0e1116;
+ border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0;
+ border-radius:7px 0 0 7px;transition:width .35s ease;
+ background:linear-gradient(90deg,#e0a800,var(--accent))}
+/* Hatching that MARCHES, and only while the run is running. The old bar
+   flowed a gradient whether or not anything was happening; this is the one
+   thing on the strip that means "still going", so a run that has stalled
+   looks stalled. */
+#job.busy #fill::after,#job.warm #fill::after{content:'';position:absolute;inset:0;
+ background:repeating-linear-gradient(115deg,#ffffff00 0 10px,
+   #ffffff1a 10px 20px);
+ animation:march 1s linear infinite}
+@keyframes march{to{transform:translateX(20px)}}
+/* Still here for the File tab's own bar, which loads a chapter rather than
+   running a job and keeps the flowing gradient. See `#pkBarFill`. */
 @keyframes flow{from{background-position:0 0}to{background-position:-200% 0}}
+/* One row, laid over the fill: what is happening on the left, how far on the
+   right. `pointer-events:none` so the click still lands on the bar itself. */
+.joblab{position:absolute;inset:0;display:flex;align-items:center;
+ justify-content:space-between;gap:8px;padding:0 10px;font-size:11.5px;
+ font-weight:600;pointer-events:none}
+#jobpct{flex:0 0 auto;color:var(--dim);font-size:11px;
+ font-variant-numeric:tabular-nums}
+/* Nothing to count. Loading the checkpoints is one long step with no pages in
+   it, so the fill PACES rather than inventing a number - the same answer the
+   File tab's bar gives to the same question. See `@keyframes slide`. */
+#bar.wait #fill{animation:slide 1.1s ease-in-out infinite alternate}
 
 /* Cut / join. It sits among the zoom controls, which are all bare glyphs, and
    as one of those it read as a label rather than a thing you press.
@@ -252,8 +298,8 @@ input.bad::placeholder{color:var(--warn)}
  border-radius:6px;padding:4px 11px;font-size:12px}
 #cutBtn:hover{background:#2e3542;border-color:var(--accent)}
 
-/* The page splitter's preview. The page is shown whole and small — you are
-   choosing a row, not reading it — and the line is what you are moving. */
+/* The page splitter's preview. The page is shown whole and small - you are
+   choosing a row, not reading it - and the line is what you are moving. */
 /* The WHOLE page, always. It used to be fitted to the width and scrolled
    inside a 52vh window, which on a 6,000-row webtoon meant eight screenfuls of
    scrolling to reach a row you could see in the page list. You are picking one
@@ -274,8 +320,8 @@ input.bad::placeholder{color:var(--warn)}
  padding:1px 7px;color:var(--fg)}
 
 /* The File tab's own bar. The top-bar one belongs to the job queue and is not
-   up while the picker is, so loading a chapter — a hundred files read,
-   uploaded and re-cut — happened behind one line of small grey text. */
+   up while the picker is, so loading a chapter - a hundred files read,
+   uploaded and re-cut - happened behind one line of small grey text. */
 #pkBarOuter{flex:1 1 auto;height:8px;background:#0e1116;
  border:1px solid var(--line);border-radius:99px;overflow:hidden}
 #pkBarFill{height:100%;width:0;border-radius:99px;transition:width .25s ease;
@@ -289,8 +335,20 @@ input.bad::placeholder{color:var(--warn)}
 
 /* ---------- layout ---------- */
 #main{flex:1;display:flex;min-height:0}
-#pages{width:168px;flex:0 0 auto;overflow-y:auto;background:var(--panel);
- border-right:1px solid var(--line);padding:6px}
+/* 168px cut the file names off at "page00…", which is every page on lee's
+   chapter reading the same. 210 is that plus a quarter - lee: *"make teh
+   dealt 25% bigger"* - and it is only the default now: `#pagesGrip` next to
+   it drags, and the width it is left at is remembered. */
+#pages{width:210px;flex:0 0 auto;overflow-y:auto;background:var(--panel);
+ padding:6px}
+/* The handle is its own element rather than `resize` on the rail, because a
+   flex child with `resize` fights `flex-basis` and lands back where it was.
+   Four pixels wide with the rail's own border drawn on it, so the seam looks
+   the same until it is reached for. */
+#pagesGrip{flex:0 0 4px;cursor:col-resize;background:var(--line);
+ transition:background .12s ease}
+#pagesGrip:hover,#pagesGrip.on{background:var(--accent)}
+body.railing{cursor:col-resize;user-select:none}
 .pg{position:relative;padding:6px 8px;margin-bottom:4px;border-radius:6px;
  cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid transparent}
 .pg.ins-t{box-shadow:inset 0 2px 0 var(--accent)}
@@ -313,7 +371,7 @@ button.tiny{padding:1px 7px;font-size:10px}
 .addbtn:hover{color:var(--fg);border-color:var(--accent)}
 .pg:hover{background:var(--panel2)}
 .pg.on{background:#2a3040;border-color:var(--accent)}
-/* One dot per step of the view you are on — four on Original, two on Edit.
+/* One dot per step of the view you are on - four on Original, two on Edit.
    They are small and they sit together, so the row of them reads as one
    progress mark for the page rather than four separate lights. */
 .dots{display:inline-flex;gap:3px;flex:0 0 auto;align-items:center}
@@ -321,7 +379,7 @@ button.tiny{padding:1px 7px;font-size:10px}
 .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:#3a4152}
 .dot.detected{background:var(--blue)} .dot.ocr{background:var(--warn)}
 .dot.translated{background:var(--ok)} .dot.empty{background:var(--bad)}
-/* a checked page with no text is done — green, like a finished one */
+/* a checked page with no text is done - green, like a finished one */
 .dot.done{background:var(--ok)}
 .pg .nm{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The name, being renamed. Sized like the label it replaces so the row does
@@ -333,14 +391,14 @@ button.tiny{padding:1px 7px;font-size:10px}
 
 /* NO flex centring here. Centring an overflowing flex item pushes part of it
    beyond scrollLeft 0 where no scrollbar can reach, so "centred scroll" was
-   sitting left of the page's true centre — the page looked pushed left with
+   sitting left of the page's true centre - the page looked pushed left with
    extra space on the right. Block flow + symmetric borders means the scroll
    midpoint IS the page's centre, exactly. */
 #canvasWrap{flex:1;overflow:auto;overflow-anchor:none;position:relative;
  background:#0b0d11}
 #stage{position:relative;user-select:none;-webkit-user-select:none;
  /* Sized to CONTENT: a plain block would stretch-and-clamp to the pane and
-    push the page off to one side. Room to pan well past every edge — the
+    push the page off to one side. Room to pan well past every edge - the
     SAME amount on every side, so the empty space around the page is even.
     A transparent border (not padding) keeps the overlays' coordinate origin
     glued to the image. */
@@ -355,7 +413,7 @@ button.tiny{padding:1px 7px;font-size:10px}
    A hairline and a soft drop shadow, so a black page still reads as a page. */
 #stage img{display:block;max-width:none;border-radius:4px;
  box-shadow:0 0 0 1px var(--line),0 10px 34px rgba(0,0,0,.55)}
-/* the reference pane: the untouched original, in step with the edit pane —
+/* the reference pane: the untouched original, in step with the edit pane -
    identical border geometry so scroll positions map one to one */
 #refWrap{flex:1;overflow:auto;overflow-anchor:none;position:relative;
  background:#0b0d11;border-left:1px solid var(--line);display:none}
@@ -365,12 +423,12 @@ button.tiny{padding:1px 7px;font-size:10px}
 .box{position:absolute;border:2px solid #ff3b30;border-radius:5px;
  cursor:move;background:rgba(255,59,48,.10);z-index:20}
 #canvasWrap.painting .box{pointer-events:none}
-/* One balloon, one box. When a balloon holds two SECTIONS — a sentence and a
-   small あっ！ under it — the pair get this single frame drawn round them, and
+/* One balloon, one box. When a balloon holds two SECTIONS - a sentence and a
+   small あっ！ under it - the pair get this single frame drawn round them, and
    their own boxes go dashed and quiet inside it. It is a label, not a
    control: nothing is clicked or dragged here, the sections are still the
    things you select. */
-/* `.gbox` — the solid frame round the two sections of one balloon — is gone.
+/* `.gbox` - the solid frame round the two sections of one balloon - is gone.
    lee: *"there a big box with no label or anything"*, then *"hide teh big box
    afterware it dosnt need to be visibel"*. The grouping it drew is still
    there and still dashes the sections' own outlines; only the frame went.
@@ -379,11 +437,11 @@ button.tiny{padding:1px 7px;font-size:10px}
 /* The BALLOON, drawn faint and dashed behind the box. Find text measures the
    writing; the balloon round it is worked out afterwards and is only ever the
    room the English gets to use. Drawing the balloon as THE box is what made it
-   look as though the detector had boxed whole panels of artwork — lee: "these
+   look as though the detector had boxed whole panels of artwork - lee: "these
    bubbles are too big the detector should only try to find the text not the
    whole bubble". So the box is the writing now and this is the room. It is a
    label, not a control: nothing here is clicked or dragged. */
-/* .bhint (the dashed balloon behind each box) was removed on 2026-07-30 —
+/* .bhint (the dashed balloon behind each box) was removed on 2026-07-30 -
    see frames.js. The clear-up in drawBoxes still names it, harmlessly. */
 /* Sections are linked to each other, and .box.linked forces a solid border,
    so this has to shout back or the dashes never appear. */
@@ -391,13 +449,13 @@ button.tiny{padding:1px 7px;font-size:10px}
  background:transparent!important}
 .box.weak{border-style:dashed;border-color:rgba(255,120,110,.8)}
 .box.manual{border-color:#ff9f0a}
-/* the SELECTED box — and with it the corner handles — sits above its
+/* the SELECTED box - and with it the corner handles - sits above its
    neighbours (plain boxes are 20; it used to be 5, which buried the
    handles under any overlapping box) */
 /* The box border/fill now come from the text TYPE (set inline), so selection
    shows as a bright glow around it rather than a colour swap. */
 .box.sel{z-index:24;box-shadow:0 0 0 2px var(--accent),0 0 10px 2px rgba(255,196,0,.55)}
-/* Multi-pick wears the SAME yellow as a single selection — every picked box is
+/* Multi-pick wears the SAME yellow as a single selection - every picked box is
    equally selected, and a second colour only made it look like two different
    things. The one whose editor is open keeps the wider glow. */
 .box.msel{z-index:23;box-shadow:0 0 0 2px var(--accent),0 0 7px 1px rgba(255,196,0,.4)}
@@ -413,7 +471,7 @@ body.multipick .box{cursor:copy}
   display:inline-block;vertical-align:middle;position:relative;
   transition:transform .08s ease}
 .swatch:hover{transform:scale(1.14)}
-/* A family's default has a colour but nothing to choose — it IS the family's
+/* A family's default has a colour but nothing to choose - it IS the family's
    colour, and there is no other one it could be. */
 .swatch.fixed{cursor:default;border-color:rgba(255,255,255,.10)}
 .swatch.fixed:hover{transform:none}
@@ -425,7 +483,7 @@ body.multipick .box{cursor:copy}
 .ckrow.ckdef{opacity:.8}
 .cknm{flex:1;min-width:0}
 .ckrow select.fontsel{flex:1;min-width:0}
-/* The default's row has no × — it cannot be removed. It still has to be the
+/* The default's row has no × - it cannot be removed. It still has to be the
    same width as one that does, or every row under it starts and ends a button
    further along and the columns fan out. So it holds a real × that is simply
    not there to see: same font, same padding, same border, same width. */
@@ -454,24 +512,32 @@ span.cknm.ckfix{padding:6px 8px;border:1px solid transparent;
 .hd::before{content:'';position:absolute;inset:-7px}   /* larger hit area */
 .hd.nw{left:-5px;top:-5px;cursor:nwse-resize} .hd.ne{right:-5px;top:-5px;cursor:nesw-resize}
 .hd.sw{left:-5px;bottom:-5px;cursor:nesw-resize} .hd.se{right:-5px;bottom:-5px;cursor:nwse-resize}
-/* The turn handle. Round, so it does not read as a corner you can pull, and
-   held off the top edge on a stem so it is never on top of the nw/ne squares.
-   Only on a box somebody drew — see addHandles. */
-.hd.rot{left:50%;top:-24px;margin-left:-6px;width:12px;height:12px;
- border-radius:50%;background:#ff9f0a;cursor:grab}
-.hd.rot::after{content:'';position:absolute;left:5px;top:11px;width:2px;
- height:13px;background:#ff9f0a}
+/* The turn zones: one just outside each corner, invisible, and only a
+   cursor. They replaced `.hd.rot`, a handle on a stalk above the box -
+   which was a second thing to learn and only ever offered on a box
+   somebody drew. See addHandles. */
+.rotz{position:absolute;width:20px;height:20px;cursor:grab;left:-16px;top:-16px}
+.rotz.r{left:auto;right:-16px} .rotz.b{top:auto;bottom:-16px}
+.rotz:active{cursor:grabbing}
 #rubber{position:absolute;border:2px dashed var(--accent);
  background:rgba(255,196,0,.12);pointer-events:none;display:none;border-radius:4px}
 
-#side{width:330px;flex:0 0 auto;background:var(--panel);border-left:1px solid var(--line);
- overflow-y:auto;padding:11px}
+/* PINNED, not merely sized. lee, with two screenshots of the panel at two
+   widths: *"make thsi side bar a consistent size"*. `width` on a flex item
+   is only its basis - the item still refuses to shrink below its widest
+   child, so any page whose panel held one wide row (a long name, a button
+   row that would not wrap) pushed the whole sidebar out and the artwork
+   jumped with it. min and max close both doors, and overflow-x makes a
+   too-wide child that page's problem instead of every page's. */
+#side{width:330px;min-width:330px;max-width:330px;flex:0 0 330px;
+ background:var(--panel);border-left:1px solid var(--line);
+ overflow-y:auto;overflow-x:hidden;padding:11px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
  padding:9px;margin-bottom:8px}
 .card.on{border-color:var(--accent)}
 .row{display:flex;gap:6px;align-items:center}
 .muted{color:var(--dim);font-size:11px}
-/* A caution inside a sheet — the tall-page note in Find text. Amber and boxed
+/* A caution inside a sheet - the tall-page note in Find text. Amber and boxed
    rather than another line of grey: it is the difference between a thing worth
    reading once and a thing worth reading before you press the button. */
 /* ...and LOUDER than the options it sits above, because it is the only line
@@ -490,13 +556,13 @@ span.cknm.ckfix{padding:6px 8px;border:1px solid transparent;
 .ja{color:#9aa4b8;font-size:12px}
 .chip{font-size:10px;padding:1px 6px;border-radius:9px;background:#2b3140;
  color:var(--dim);flex:0 0 auto}
-/* Only the chips in the ROW HEAD are kept on one line — that is the head's
+/* Only the chips in the ROW HEAD are kept on one line - that is the head's
    whole point. A warning is a sentence, and a sentence that is not allowed to
    wrap is a sentence with its end cut off: lee's *"overflow: shrunk below the
    minimum font size (10pt) to fit the bo…"*. */
 .rowhead .chip{white-space:nowrap}
 .chip.r, .chip.g{white-space:normal}
-/* The same warning, in the typesetting panel, where the block is worked on —
+/* The same warning, in the typesetting panel, where the block is worked on -
    and the only copy of it, now that the box list no longer carries one.
    It sits directly under the Sub-type select, and a red box hard against the
    bottom of a control reads as part of that control: lee, with a picture,
@@ -514,13 +580,13 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
  text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 /* Add pages covers the work, not the way out of it.
 
-   It used to be `inset:0` — the whole window, top bar and all — so from that
+   It used to be `inset:0` - the whole window, top bar and all - so from that
    screen there was no Edit tab, no Results, no Settings, and the only way back
    was the Close button, which is not there at all until a chapter is loaded.
    lee: *"the add page shoud have this top bar be visible"*.
 
    `#top` stays where it is and this starts underneath it. The bar is given a
-   z-index of its own so it is above this rather than merely uncovered — two
+   z-index of its own so it is above this rather than merely uncovered - two
    positioned things with no stacking order between them is the sort of thing
    that works in one browser. */
 #top{position:relative;z-index:60}
@@ -530,7 +596,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 #picker.on{padding-top:calc(var(--topbar,52px) + 20px)}
 #picker.on{display:flex}
 /* The File screen is one card with a section rail, the same shape as Settings
-   — `#fileNav` borrows `#setNav`'s rules below, and the sections inside are
+   - `#fileNav` borrows `#setNav`'s rules below, and the sections inside are
    the same `.set-section` the settings body uses. The card is the card: the
    panel inside it drops its own border so there is not a box in a box. */
 .filecard{display:flex;width:100%;max-width:860px;
@@ -539,7 +605,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
  border-radius:12px;overflow:hidden}
 /* Tall enough to look like a screen, no taller than it needs. It was pinned to
    760px, so a form that ends two thirds of the way up left a third of a very
-   large card empty underneath it — lee: *"make the fle look better"*. */
+   large card empty underneath it - lee: *"make the fle look better"*. */
 #fileBody{flex:1;min-width:0;min-height:0;overflow-y:auto;padding:26px 28px;
  display:flex;justify-content:center;align-items:flex-start}
 .pk{max-width:560px;width:100%;background:transparent;border:0;
@@ -595,7 +661,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
  height:10px;border-radius:50%;background:#aeb6c6;transition:left .15s,background .15s}
 .swx input:checked+i{background:var(--accent);border-color:var(--accent)}
 .swx input:checked+i::after{left:14px;background:#161616}
-/* A switch with nothing to switch — greyed and unclickable rather than
+/* A switch with nothing to switch - greyed and unclickable rather than
    sitting there bright and doing nothing (see syncTextToggle). */
 .swx.off{opacity:.42;cursor:not-allowed}
 .swx.off:hover{color:var(--dim)}
@@ -617,7 +683,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 #canvasWrap.hand{cursor:grab}
 #canvasWrap.hand.grabbing{cursor:grabbing}
 #canvasWrap.hand .box{pointer-events:none}
-/* Two views, one lit pill — and the pill MOVES. lee: *"can you add an animation
+/* Two views, one lit pill - and the pill MOVES. lee: *"can you add an animation
    of teh button switching side wneh i clcik it"*.
 
    It used to be a background that appeared on one button and vanished from the
@@ -633,7 +699,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 
    A percentage on an absolutely positioned child resolves against the PADDING
    box, so with 3px of padding either side and a 3px gap, each column is exactly
-   `50% - 4.5px` of that box — and the second one starts its own width plus the
+   `50% - 4.5px` of that box - and the second one starts its own width plus the
    gap further along, which is what the transform says. */
 .views{position:relative;display:grid;grid-template-columns:repeat(2,1fr);
  gap:3px;padding:3px;background:#12151b;
@@ -658,7 +724,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
    time: the generic `button:hover` up at the top of this file paints #2f3648
    on ANY button, so hovering the lit one dropped a dark plate over the yellow
    pill and left a sliver of it showing down one side. Both states are answered
-   here — lee: *"chnage teh on hover to loo better"*.
+   here - lee: *"chnage teh on hover to loo better"*.
 
    The unlit one brightens its label; the lit one brightens the PILL, which is
    the thing you are actually pointing at. Neither of them draws a rectangle. */
@@ -684,7 +750,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 #canvasEdit:focus{outline:none}
 /* Selecting words while editing on the page.
    The browser's own selection paints a solid slab behind every glyph AND
-   overrides the text colour, and typesetting is white with a black outline — so
+   overrides the text colour, and typesetting is white with a black outline - so
    selecting a line turned it into a blue block with an outline on top and
    nothing readable inside. lee: *"this is what happens when i select the text
    with the outine it shoud look normal"*.
@@ -707,7 +773,7 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 #tframe .th::before{content:'';position:absolute;inset:-5px}
 #tframe .th:hover{background:var(--accent)}
 /* Rotate zones: a square just outside each corner. Invisible until you are
-   over one, when the cursor becomes the curved arrow — the same bargain as
+   over one, when the cursor becomes the curved arrow - the same bargain as
    every drawing program. They sit UNDER the resize handles, so a press on
    the corner itself still resizes.
    lee: *"if i go to the edgec corner and out out a little a rotate thing come
@@ -793,13 +859,13 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 #brushCursor{position:fixed;border:1.5px solid #111;border-radius:50%;
  pointer-events:none;z-index:70;display:none;
  box-shadow:0 0 0 1px rgba(255,255,255,.85)}
-/* Both of these are pinned to the window ABOVE the dialog backdrop — 70 and 71
-   against the modal's 60 — so with a tool armed, "Clean the pages?" came up
+/* Both of these are pinned to the window ABOVE the dialog backdrop - 70 and 71
+   against the modal's 60 - so with a tool armed, "Clean the pages?" came up
    with the brush circle drawn across it. lee: *"if have a have a tool active
    and i clcik of cleaned ot nay other tab and a popup window opend it shoud
    just be the mouse pointer over the popup"*.
    Here rather than in the code that moves them, because they are moved on
-   mousemove and a dialog can open without the mouse moving at all — from a
+   mousemove and a dialog can open without the mouse moving at all - from a
    keyboard shortcut, or from the click that opened it being the last event
    before the ring would next be asked about. `!important` because the display
    they are fighting is set inline. */
@@ -845,7 +911,7 @@ body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
    and a small white knob ringed in the accent. The runnable track is styled
    EXPLICITLY (leaving it unstyled let some browser/zoom combos park the
    knob at the left whatever the value); track and thumb geometry are fixed
-   so the knob rides flush from end to end — at max it touches the end. */
+   so the knob rides flush from end to end - at max it touches the end. */
 .sl input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;
  height:20px;background:transparent;outline:none;cursor:pointer;margin:0}
 .sl input[type=range]::-webkit-slider-runnable-track{height:5px;
@@ -915,7 +981,7 @@ body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
 .tab.on{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:600}
 /* A tab that is already open does not go grey when the pointer crosses it.
    The generic hover rule outranks a plain `.tab.on` on specificity, so the
-   lit state has to say so itself — otherwise the tab you are looking at
+   lit state has to say so itself - otherwise the tab you are looking at
    un-lights whenever the mouse passes over it. */
 .tab.on:hover:not(:disabled),.tab.on:active:not(:disabled){
   background:var(--accent);color:#161616;border-color:var(--accent)}
@@ -928,7 +994,7 @@ body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
 
    Wrapping flex, not a grid. A grid needs `auto-fit` to collapse the columns
    it has no pages for, and `auto-fit` cannot collapse anything while an item
-   spans `1/-1` — which the row of Download buttons does. So the tracks stayed,
+   spans `1/-1` - which the row of Download buttons does. So the tracks stayed,
    the pages stayed left, and the centring did nothing. Flex has no tracks to
    leave empty: the cards are their own width and the row is centred. */
 /* Room above the first row and below the last. Without it the top row was cut
@@ -956,17 +1022,29 @@ body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
 /* The three main keys are buttons: the lit one is the kind a box you draw
    comes out as. Unlit they read as the key they always were, so the bar has
    not turned into a toolbar. */
-.legend .lgmain{color:var(--fg);background:transparent;border:1px solid
-  transparent;border-radius:999px;padding:3px 10px 3px 7px;font:inherit;
-  cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.legend .lgmain:hover{background:#232833;border-color:#333a49}
-.legend .lgmain.on{background:#232833;border-color:#4a5468;color:#fff;
-  font-weight:600}
+/* FILLED, not outlined. lee, over a screenshot of the outlined pill: *"do
+   you see this border thing you kike to do  make the wole bacground the
+   color not just a border area foe evry button like this"*. Each button
+   carries its colour as `--lgc` (the kind buttons inline, the select tool
+   below), the fill is that colour mixed down at rest and near-solid when the
+   button is ON, and the plain background/border lines above each color-mix
+   are the fallback for a browser without it. */
+.legend .lgmain{color:var(--fg);border:1px solid transparent;
+  border-radius:999px;padding:3px 10px 3px 7px;font:inherit;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  background:#232833;
+  background:color-mix(in srgb, var(--lgc, #8792a5) 16%, #1a1f29)}
+.legend .lgmain:hover{background:#2a303d;
+  background:color-mix(in srgb, var(--lgc, #8792a5) 30%, #1a1f29)}
+.legend .lgmain.on{color:#fff;font-weight:600;
+  border-color:var(--lgc, #4a5468);
+  background:#3a4150;
+  background:color-mix(in srgb, var(--lgc, #2f6fd0) 72%, #10141c)}
 .legend .lgmain i{width:10px;height:10px;border-radius:3px}
 .legend .lgmain.on i{box-shadow:0 0 0 2px rgba(255,255,255,.22)}
-/* Text boxes in the region editor are as tall as their text and no taller —
+/* Text boxes in the region editor are as tall as their text and no taller -
    no grip, nothing to drag, nothing cut off. See growBox() in panels.js. */
-/* The head of a region card is its drag handle — grip, number and all. */
+/* The head of a region card is its drag handle - grip, number and all. */
 .lrow .rowhead{cursor:grab}
 .lrow .rowhead:active{cursor:grabbing}
 .lrow .chip.num{cursor:grab}
@@ -985,6 +1063,26 @@ body:has(#picker.on) #brushCursor, body:has(#picker.on) #loupe{
 .opt.disabled{opacity:.45;cursor:default}
 .opt.disabled:hover{border-color:var(--line);background:transparent}
 .opt input{width:auto;margin:2px 0 0}
+/* One BOX with more than one tick in it: the border belongs to the box and
+   the rows inside it are plain. lee: *"it shoud be in one box"*. The sub-row
+   is indented and appears only when the row above it is on. */
+.optbox{margin-top:9px;border:1px solid var(--line);border-radius:8px;
+ font-size:12px;text-transform:none;letter-spacing:0;color:var(--fg)}
+.optbox:hover{border-color:#46536b}
+/* ...and the rows say so THEMSELVES. `.optbox` above already sets
+   `text-transform:none`, and it never reached anything: these rows are
+   `label`s, the bare `label` rule up at the top of this file sets
+   `text-transform:uppercase`, and a rule that matches the element beats a
+   value inherited from its parent however specific the parent's selector is.
+   So the whole box shouted -- SOUND EFFECTS, NOT EXACT, LEAVE OUT EFFECTS
+   OVER 300PX -- for as long as it has existed. lee, with a screenshot of it:
+   *"what is this all caps"*. `.opt` above escapes the same rule only because
+   it carries the reset on its own selector, which is what this is. */
+.optrow{display:flex;gap:10px;align-items:flex-start;padding:10px;
+ cursor:pointer;margin:0;text-transform:none;letter-spacing:0}
+.optrow input{width:auto;margin:2px 0 0}
+.optrow i{color:var(--dim);font-style:normal;font-size:11px;line-height:1.5}
+.optrow.sub{padding-top:0;padding-left:36px}
 .opt i{color:var(--dim);font-style:normal;font-size:11px;line-height:1.5}
 /* The show/hide switches in the Current page card: the same control as the
    Find text dialog's, tightened up for a side panel, with the text type's own
@@ -999,7 +1097,7 @@ kbd{background:#2b3140;border-radius:3px;padding:0 4px;font-size:10px}
 
 /* --- drag-to-reorder in the "Text on this page" list --- */
 /* The row is text you can select, copy and paste out of. Only the grip drags
-   it — a `draggable` card cannot be selected in at all (see armRowDrag). */
+   it - a `draggable` card cannot be selected in at all (see armRowDrag). */
 .card.lrow{cursor:default}
 /* The head is one line, and it stays one line.
    It carried a ⋮ grip and a ▲▼ pair as well as the chips, so on any box whose
@@ -1008,7 +1106,7 @@ kbd{background:#2b3140;border-radius:3px;padding:0 4px;font-size:10px}
    so athat everything in the top row fits"*. Both were duplicates: the whole
    head is the drag handle (see armRowDrag), and dragging is how the reading
    order is set. What is left is the number, the confidence, the type, and the
-   link — and the type is the one that gives way when there is not room. */
+   link - and the type is the one that gives way when there is not room. */
 .lrow .rowhead{flex-wrap:nowrap;overflow:hidden}
 /* The per-box eye. Pushed hard right by its own margin rather than by a
    spacer, so it keeps its place on a row whose chips have run out of room. */
@@ -1024,26 +1122,26 @@ kbd{background:#2b3140;border-radius:3px;padding:0 4px;font-size:10px}
  letter-spacing:.06em}
 .lrow .chip.kind{min-width:0;overflow:hidden;
  display:inline-flex;align-items:center;gap:4px;flex:0 1 auto}
-/* The colour is the point of the chip, so it is the last thing to give way —
+/* The colour is the point of the chip, so it is the last thing to give way -
    and the NAME is what ellipsises, which needs a box of its own to do it in. */
 .lrow .chip.kind i.kd{flex:0 0 auto}
 .lrow .chip.kind .kdn{font-weight:400;min-width:0;overflow:hidden;
  text-overflow:ellipsis;white-space:nowrap}
 /* The rows are a plain grey plate again.
 
-   They wore their own box's colour for two rounds — first mixed into the panel,
+   They wore their own box's colour for two rounds - first mixed into the panel,
    then the swatch's hue and chroma held at a fixed lightness so every row came
    out the same brightness whatever colour it wore. lee looked at both and said
    *"aslo just go back to the  grey backgrounf"*, so the plate is `--panel2`
    from `.card` and nothing here overrides it. The type is still said twice on
    every row: by the coloured dot and by the name beside it.
 
-   The blue went in the same sitting and does not come back — a linked pair
+   The blue went in the same sitting and does not come back - a linked pair
    says so with its border and with the chip in its head. */
 .card.lrow.linked{border-color:var(--link)}
 .card.lrow.linked.on{border-color:var(--accent)}
 .lrow .tx{margin-top:5px;cursor:text;user-select:text;-webkit-user-select:text}
-/* Same yellow as the row whose editor is open — they are all selected. */
+/* Same yellow as the row whose editor is open - they are all selected. */
 .card.lrow.msel:not(.on){border-color:var(--accent)}
 .card.lrow.ins-t{box-shadow:inset 0 2px 0 var(--accent)}
 .card.lrow.ins-b{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1064,7 +1162,7 @@ kbd{background:#2b3140;border-radius:3px;padding:0 4px;font-size:10px}
   min-height:0;overflow:hidden}
 .rinline select{width:100%;box-sizing:border-box}
 
-/* The font pickers are native <select>s again — see `fontWidget` in
+/* The font pickers are native <select>s again - see `fontWidget` in
    project.js. Everything that dressed the custom one is gone with it, and so
    is the strip of the word "sample" that used to sit on every row of Fonts ▸
    your own fonts: lee, *"remove teh smaple from the add fonts"*. Nothing
@@ -1093,7 +1191,7 @@ select.fontsel{width:100%}
    save an cancel button shoud be at teh bttom right"*.
 
    `align-items:center` centres vertically and `justify-content:center`
-   horizontally — but only while the card is SHORTER than the room. Past that
+   horizontally - but only while the card is SHORTER than the room. Past that
    the card is capped at the full height and scrolls inside itself, because a
    centred box taller than its parent is one whose top is unreachable. */
 #settingsPage,#mangaPage{flex:1;min-height:0;display:flex;
@@ -1121,7 +1219,7 @@ select.fontsel{width:100%}
   border-radius:7px;padding:9px 11px;color:var(--fg);font-size:13px;
   cursor:pointer;width:100%}
 /* Hover has to be READABLE. `--panel2` is barely off the panel it sits on and
-   the label all but vanished into it — lee, with a picture: *"change the on
+   the label all but vanished into it - lee, with a picture: *"change the on
    hover color it sberely readable"*. A lighter plate and full-strength text,
    the same pair every other button here uses. */
 .setnav-btn:hover:not(:disabled){background:#2f3648;border-color:#4a5670;
@@ -1129,11 +1227,17 @@ select.fontsel{width:100%}
 .setnav-btn.on{background:var(--accent);color:#161616;border-color:var(--accent);
   font-weight:600}
 /* One section at a time, centred in the card's body. */
-#setBody,#mangaBody{flex:1;min-height:0;overflow-y:auto;padding:22px 24px}
-/* The CARD is the card now — a second border inside it was a box in a box. */
-.set-section{display:none;width:100%;max-width:620px;margin:0 auto}
+#setBody,#mangaBody{flex:1;min-height:0;overflow-y:auto;padding:24px 28px}
+/* The CARD is the card now - a second border inside it was a box in a box. */
+.set-section{display:none;width:100%;max-width:640px;margin:0 auto}
 .set-section.on{display:block}
-.set-h{margin:0 0 4px;font-size:19px;font-weight:600}
+/* The title carries the section: a short amber keyline under it, the same
+   mark the site's section headers wear, so the eye lands somewhere before
+   the controls start. lee: *"redesign the layout of the setting page"*. */
+.set-h{margin:0 0 14px;font-size:20px;font-weight:650;padding-bottom:10px;
+  border-bottom:1px solid var(--line);position:relative}
+.set-h::after{content:"";position:absolute;left:0;bottom:-1px;width:46px;
+  height:2px;background:var(--accent)}
 #setBody label,#mangaBody label{font-size:11.5px;margin:11px 0 4px}
 #setBody h3,#mangaBody h3{font-size:14px;margin:20px 0 8px;padding-top:14px;
   border-top:1px solid var(--line)}
@@ -1156,7 +1260,7 @@ select.fontsel{width:100%}
    the keyboard and needs no script of its own. */
 /* No `overflow:hidden` here, however tidy it looks. The font picker's menu is
    positioned against the box it drops out of, and a clipping ancestor cuts it
-   off — which is what left one option showing and the rest of the list behind
+   off - which is what left one option showing and the rest of the list behind
    the edge of the group. lee: *"fix this make teh list be visible"*. The
    corners are rounded on the summary instead, which is what the clip was
    there for. */
@@ -1218,7 +1322,7 @@ select.fontsel{width:100%}
    Chrome: *"thses are sill in the cghorm version remove them or make them
    match teh theme"*.
 
-   The two mechanisms are not additive — they FIGHT. From Chromium 121 the
+   The two mechanisms are not additive - they FIGHT. From Chromium 121 the
    standard `scrollbar-color` property takes precedence and the whole
    `::-webkit-scrollbar` set is ignored, so setting both for everybody is what
    put the pale native bar back: Chrome fell out of the painted scrollbar and
@@ -1248,7 +1352,7 @@ select.fontsel{width:100%}
 }
 
 /* --- the same slider in both browsers ---
-   The knob had four states painted in Chromium — hover, active, focus — and
+   The knob had four states painted in Chromium - hover, active, focus - and
    one flat rule in Firefox, so the same control answered differently to the
    same mouse depending on the browser. The rules cannot be merged into one
    selector list: a selector either browser does not understand invalidates the
@@ -1258,7 +1362,7 @@ select.fontsel{width:100%}
 .sl input[type=range]:focus-visible::-moz-range-thumb{
  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 
-/* Dragging a layer row to restack it. Pointer events, not HTML5 drag —
+/* Dragging a layer row to restack it. Pointer events, not HTML5 drag -
    see layDown() in paint.js. lee: *"clci ad drag up and doen teh list and
    remove the un and down arrow to move them"*. */
 body.laydragging{cursor:grabbing;user-select:none}
@@ -1272,11 +1376,11 @@ body.laydragging .lay{cursor:grabbing}
 /* Folded away. A page with twenty bubbles is twenty rows of text between the
    drawings above the typesetting and the drawings below it, and the two ends of
    the stack cannot be seen at once. lee: *"alwome to colapst the text foler in
-   teh layer"*. The band itself stays — it is what a layer is dragged across
+   teh layer"*. The band itself stays - it is what a layer is dragged across
    to change which side of the typesetting it is on. */
 #stackList .textband.shut .textrow{display:none}
 /* The fold arrow on the Text folder. At 9px it was a speck you had to aim at
-   — lee, with a screenshot of it: *"malke this bigger for teh drop down in teh
+   - lee, with a screenshot of it: *"malke this bigger for teh drop down in teh
    layers"*. It is the one control on that row, so it is sized like one. */
 .lcar{color:var(--dim);font-size:15px;width:16px;height:16px;flex:0 0 auto;
       cursor:pointer;display:inline-flex;align-items:center;
@@ -1287,7 +1391,7 @@ body.laydragging .lay{cursor:grabbing}
 
 /* Picking a row up, and where it will land.
    lee: *"add a visula for when im moving layers"*. The list already reorders
-   live, so the row under the pointer IS where it lands — what was missing was
+   live, so the row under the pointer IS where it lands - what was missing was
    any sign that a row had been picked up at all, and any mark on the boundary
    a drag is about to cross. */
 #stackList .lay.dragging{border-color:var(--accent);
@@ -1301,7 +1405,7 @@ body.laydragging .lay{cursor:grabbing}
 /* A list that is allowed to get long gets its own scrollbar instead of
    pushing everything below it off the panel. lee: *"make this all fit in the
    page and make the the layer and clenning per bubble have a scroll bar oif
-   they get too long"* — a page with sixteen bubbles pushed the tools a whole
+   they get too long"* - a page with sixteen bubbles pushed the tools a whole
    screen down, and the panel is the thing you work from.
 
    Twelve-ish rows before it starts scrolling, which is the same bargain the
@@ -1323,7 +1427,7 @@ body.laydragging .lay{cursor:grabbing}
 .row.fxrow > button{height:29px;flex:0 0 auto;padding:0 9px;line-height:1}
 
 /* The per-bubble font picker is a button as wide as its card, and the card
-   has padding — without border-box it drew itself past the edge.
+   has padding - without border-box it drew itself past the edge.
    lee, on This box: *"the test for this bubble is broken"*. */
 #lyFontWrap, select.fontsel{max-width:100%;box-sizing:border-box}
 
@@ -1347,12 +1451,12 @@ body.laydragging .lay{cursor:grabbing}
   color:var(--fg);transform:none;box-shadow:none}
 .tbtn:active:not(:disabled){transform:translateY(1px);box-shadow:none}
 /* The tool this slot is SET to, when that tool is not armed. Quieter than
-   `.on`, which means "this is in your hand right now" — but it has to be
+   `.on`, which means "this is in your hand right now" - but it has to be
    visible, or picking out of the flyout reads as a click that did nothing. */
 .tbtn.on{background:var(--accent);border-color:var(--accent);color:#161616}
 .tbtn.on:hover:not(:disabled){background:#ffd851;border-color:#ffd851;
   color:#161616}
-/* The corner mark that says this slot holds more than one tool — the same
+/* The corner mark that says this slot holds more than one tool - the same
    signal Photoshop and GIMP use, and the thing you right-click. */
 .tbmore{position:absolute;right:2px;bottom:2px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid currentColor;
@@ -1369,7 +1473,7 @@ body.laydragging .lay{cursor:grabbing}
 .tbrow.on:hover:not(:disabled){background:#ffd851;color:#161616}
 .tbrow span{flex:1;min-width:0}
 
-/* A text block somebody emptied. Nothing is drawn on the page — it IS empty —
+/* A text block somebody emptied. Nothing is drawn on the page - it IS empty -
    but on screen it stands where it stands, so it can be found, clicked, typed
    into again or deleted. lee: *"if i dlete all teh text from a text box its
    shoud accesp the edit and stay the last size it was and i shoud be able to
@@ -1377,7 +1481,7 @@ body.laydragging .lay{cursor:grabbing}
 .temptyph{position:absolute;border:1px dashed rgba(255,196,0,.55);
   border-radius:3px;background:rgba(255,196,0,.06);pointer-events:none}
 
-/* Alignment, as three buttons rather than a menu — it is a picture of what it
+/* Alignment, as three buttons rather than a menu - it is a picture of what it
    does, and the lit one says what the block is. */
 .alignrow{gap:4px;margin-top:5px}
 .alignb{width:34px;height:28px;padding:0;display:flex;align-items:center;
@@ -1394,7 +1498,7 @@ body.laydragging .lay{cursor:grabbing}
 #coinBtn{display:flex;align-items:center;gap:7px;padding:5px 10px;
  font-variant-numeric:tabular-nums}
 #coinBtn .coinface{flex:none;display:block}
-/* Nearly out. Not red — you are not in trouble yet, and a red bar for a
+/* Nearly out. Not red - you are not in trouble yet, and a red bar for a
    balance that still works is the sort of alarm people learn to ignore. */
 #coinBtn.low{border-color:#c8890033;color:#ffc400}
 #coinBtn.broke{border-color:#e0555540;color:#ff9b9b}
@@ -1437,7 +1541,7 @@ body.laydragging .lay{cursor:grabbing}
 .wform .wlink:hover{color:var(--ink)}
 
 /* The price on a scoped run's two choices. lee: *"on the pop up it shoud tell
-   teh price for all the pages and and this page onli on the side"* — beside
+   teh price for all the pages and and this page onli on the side"* - beside
    the label, not in it, so the label still reads as the label and the number
    is the thing you are comparing between the two rows. */
 #scopedlg .scpcoin{position:absolute;right:12px;top:50%;
@@ -1445,7 +1549,7 @@ body.laydragging .lay{cursor:grabbing}
  font-variant-numeric:tabular-nums;font-size:12px;opacity:.85}
 #scpAll,#scpOne{position:relative}
 /* The real coin, not a gold dot. One <symbol> in editor.html, drawn at
-   whatever size the place it sits in wants — 15px in the top bar, 13px on a
+   whatever size the place it sits in wants - 15px in the top bar, 13px on a
    choice. lee: *"also make the coin look like the oher coins"*.
 
    On the highlighted choice the metal would be gold on gold, so it gets a
@@ -1455,7 +1559,7 @@ body.laydragging .lay{cursor:grabbing}
 
 /* A step running a model nobody priced. Charged at the dearest rate on the
    list, which is the right fallback and an eightfold difference nobody would
-   guess from the number — so the row says so, and so does a line under it. */
+   guess from the number - so the row says so, and so does a line under it. */
 .wrow.unpriced .wamt{color:#ffc400}
 .wflag{display:inline-flex;align-items:center;justify-content:center;
  width:13px;height:13px;margin-left:5px;border-radius:50%;font-size:9px;
@@ -1463,7 +1567,7 @@ body.laydragging .lay{cursor:grabbing}
 .wnote.warn{color:#e2b871}
 
 /* A line of explanation under a settings heading. Grey, small, and never a
-   label — a label names a control and this names the shape of a group. */
+   label - a label names a control and this names the shape of a group. */
 .sethint{margin:4px 2px 2px;color:var(--dim);font-size:12px;line-height:1.55}
 
 /* The test purse's Add buttons, which only exist when MANGATL_TEST_PURSE is
@@ -1472,3 +1576,92 @@ body.laydragging .lay{cursor:grabbing}
        padding-top:8px;border-top:1px dashed var(--line,#2a2d37)}
 .wtest .wnote{flex:1 1 100%;margin:0 0 2px}
 .wtest button{padding:3px 9px;font-size:12px;border-radius:6px}
+
+/* THE DETECTOR ROUTES, AS CARDS.
+
+   lee: *"make all teh detectore selecteabe card in the setting so i can pick
+   and choos and mek them nice"*.
+
+   One is selected, always. They were tickboxes and that was a lie about how
+   they work: `_detect_measured` asks them in order and the first yes wins, so
+   two ticked meant one ignored. A radio group says that; four checkboxes said
+   the opposite.
+
+   `--on` is the selected border and it is drawn INSIDE with a ring rather
+   than by growing the border, because a 2px border on select and 1px off
+   moves every card beside it by a pixel when you click. */
+.cards{display:grid;gap:8px;margin-top:10px;
+       grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.cards .card{display:flex;flex-direction:column;gap:2px;text-align:left;
+             padding:11px 12px;border:1px solid var(--line,#d9dde2);
+             border-radius:9px;background:var(--panel,#fff);cursor:pointer;
+             font:inherit;color:inherit;transition:box-shadow .12s,border-color .12s}
+.cards .card:hover:not([disabled]){border-color:#9aa4b0}
+.cards .card b{font-size:13.5px;font-weight:650;letter-spacing:-.01em}
+.cards .card i{font-style:normal;font-size:11.5px;opacity:.65}
+.cards .card em{font-style:normal;font-size:11.5px;font-weight:600;
+                font-variant-numeric:tabular-nums;opacity:.8;margin-top:3px}
+.cards .card span{font-size:11.5px;opacity:.72;line-height:1.4;margin-top:4px}
+.cards .card.on{border-color:#2f6fd0;box-shadow:inset 0 0 0 1px #2f6fd0}
+.cards .card[disabled]{opacity:.45;cursor:not-allowed}
+/* The reason a card is grey, ON that card. It has to stay legible through the
+   .45 the disabled state fades the whole button to, so it is the one thing in
+   here at full opacity and in the warning colour. */
+.cards .card .why{display:block;margin-top:6px;font-size:11px;font-weight:600;
+  line-height:1.35;color:#d08a2f;opacity:1;white-space:normal}
+.cards .cardwhy{grid-column:1/-1;font-size:11.5px;opacity:.7;margin-top:2px}
+/* ...and what it costs and how good it is. The bar is the score; the number
+   beside it is the same score, because a bar alone is a mood and a number
+   alone is hard to compare at a glance. */
+.cards .card .rating{display:flex;align-items:center;gap:6px;margin-top:5px}
+.cards .card .rate{flex:1;height:4px;border-radius:3px;
+                   background:var(--line,#e3e6ea);overflow:hidden}
+.cards .card .rate u{display:block;height:100%;background:#2f6fd0;
+                     text-decoration:none}
+.cards .card .score{font-size:11px;font-weight:700;opacity:.75;
+                    font-variant-numeric:tabular-nums}
+.cards .card.on .rate u{background:#1f5fc0}
+
+/* The box-select marquee. Dashed and cool rather than the warm dashed border
+   the pixel selection uses, because the two tools look alike on screen and
+   only one of them is about the artwork. */
+.boxselrect{position:absolute;pointer-events:none;z-index:9;
+            border:1px dashed #2f6fd0;background:rgba(47,111,208,.10)}
+.canvasWrap.boxselecting, #canvasWrap.boxselecting{cursor:crosshair}
+
+/* The box-select tool, in the legend row beside the three kinds - and NOT
+   dressed like them. lee: *"make it stand out campared to ryhe oher
+   buttons"*. The kind buttons say what a box you draw will BE; this one is a
+   MODE that changes what your next drag does, and a mode that looks like its
+   neighbours is a mode nobody can tell is on. So it wears the selection blue
+   the whole time - outlined at rest, solid while armed - and while armed it
+   is the loudest thing on the row, because an armed mode is the one thing on
+   screen worth noticing. */
+.legend .lgmain.lgsel{--lgc:#2f6fd0;color:#a8c8f2}
+.legend .lgmain.lgsel.on{background:#2f6fd0;border-color:#2f6fd0;color:#fff;
+                         box-shadow:0 0 0 2px rgba(47,111,208,.35)}
+.lgsel .lgmarq{display:inline-block;width:11px;height:11px;border-radius:2px;
+               border:1px dashed #7db2ee;background:transparent}
+.lgsel.on .lgmarq{border-color:#fff;background:rgba(255,255,255,.28)}
+
+/* A menu that is not this reader's question - "Reading detail" with the
+   offline reader chosen. Dead, and visibly dead, rather than clickable and
+   quietly ignored. See `syncReader`. */
+select:disabled{opacity:.4;cursor:default}
+
+/* the small question above a control inside a block that already has its
+   own heading - "AI company", "AI model" */
+.sublab{display:block;margin:10px 0 2px;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim)}
+
+/* One plate per block of related controls on the AI screen: the keys, and
+   each step. The plate is what groups them - the labels inside stay small. */
+.stepai{background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:12px 14px 14px;margin:10px 0 0}
+.stepai > label:first-child{margin-top:0}
+
+/* the right-click menu on boxes shares the toolbox flyout; these two are its
+   own: a thin rule between groups, and the grey key hint on a row's end */
+.tbhr{height:1px;background:var(--line);margin:4px 2px}
+.tbrow .mkey{float:right;font-style:normal;color:var(--dim);font-size:11px;
+  border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:10px}

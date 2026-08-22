@@ -6,8 +6,8 @@ clean and letter a chapter". So this one is about the verb.
 
 Two things make it hold where the last one did not.
 
-**Each file is read as ONE LONG LINE.** A phrase that straddles a wrap —
-`there is to\n    # letter` — is invisible to a search that works line by line,
+**Each file is read as ONE LONG LINE.** A phrase that straddles a wrap -
+`there is to\n    # letter` - is invisible to a search that works line by line,
 and comments in this codebase wrap constantly.
 
 **The glyph sense is allowed on purpose.** A page still has letters on it, a
@@ -27,7 +27,7 @@ EXT = {".py", ".js", ".html", ".css", ".md"}
 
 # Two files are allowed to say it, and both for the same reason: their content
 # is the wrong version on purpose. This one has to name what it forbids, and
-# `tools/mutate.py` holds the mutation that puts the word BACK — which is the
+# `tools/mutate.py` holds the mutation that puts the word BACK - which is the
 # test of this test, and would be unwritable under its own rule.
 SAYS_IT_ON_PURPOSE = {"test_the_word_is_typesetting.py", "mutate.py"}
 
@@ -106,7 +106,7 @@ def test_the_headline_on_the_website_says_typeset():
 
     Asked of the page on disk AND of the builder that writes it. Not of the
     standalone copy: that is generated and no longer committed, so reading it
-    fails on a fresh clone — which is a thing about the checkout rather than a
+    fails on a fresh clone - which is a thing about the checkout rather than a
     thing about the word, and it broke CI on the first two pushes.
     """
     html = (PKG / "site" / "index.html").read_text(encoding="utf-8")

@@ -19,6 +19,13 @@ _to_delete/
 *.zip
 *.pt
 *.onnx
+# ...and the other two shapes a checkpoint arrives in. `dbpp_coo.dat` is 116MB
+# and `detect-20241225.ckpt` is 308MB, and GitHub REFUSES a file over 100MB -
+# so without these two lines the first push of the week fails on the upload
+# rather than on anything you could fix in a commit. Weights are downloaded by
+# `get_models.py`; they are not source.
+*.dat
+*.ckpt
 models/
 firestore-debug.log
 

@@ -16,13 +16,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import stopping as _stopping
 from .models import Page
 
 MODEL = "claude-sonnet-5"
 
 # How many times the reader asks for one piece of a page. Three, so a reply
 # that comes back malformed is asked again twice before its regions are given
-# up on — the same courtesy translating and proofreading already got, and the
+# up on - the same courtesy translating and proofreading already got, and the
 # reason one bad reply no longer ends a chapter.
 OCR_TRIES = 3
 
@@ -34,12 +35,12 @@ _SRC_DASHES = "—–―─━〜～"
 # And the plain hyphen-minus, WHERE IT STANDS ALONE. A scan letters its dashes
 # with whatever the keyboard has: the title plate `- 대마법사 김진우 -` frames a
 # caption with two of them, and reading that page as having no dash on it cost
-# the plate its frame — the translator's "Arsilan — Archmage Kim Jinwoo" was
+# the plate its frame - the translator's "Arsilan - Archmage Kim Jinwoo" was
 # turned into "Arsilan, Archmage Kim Jinwoo", which says he IS Arsilan.
 # Inside a word the same character is a hyphen and means nothing here, so it
 # only counts with whitespace on both sides, or the end of the text. A bulleted
 # status window counts too, and that is the right answer for the same reason:
-# the page does print dashes there. No `re.M` — a newline IS whitespace, so a
+# the page does print dashes there. No `re.M` - a newline IS whitespace, so a
 # plate on the third line of a caption is already reached from both sides, and
 # a flag that changes nothing is a line that lies about what the code does.
 _LOOSE_HYPHEN = re.compile(r"(?:^|\s)-+(?=\s|$)")
@@ -56,12 +57,12 @@ def source_has_dash(src: str) -> bool:
 # What a page looks like when it masks its OWN word. Japanese scans do it with
 # 〇, ●, × or a full-width asterisk; an already-English scan does it the western
 # way. `〇` doubles as the kanji for zero, so a number like 一〇〇 reads as masked
-# here — deliberately. Erring that way costs a warning that is not raised; the
+# here - deliberately. Erring that way costs a warning that is not raised; the
 # other way costs a warning raised about a page that did nothing wrong.
 _SRC_MASKS = "*＊〇○●×✕✖#＃$＄@＠%％"
 
 # What the MODEL does when it censors on its own account: a letter with a mask
-# character stuck to it. Both halves are needed — "5 * 4" is arithmetic and
+# character stuck to it. Both halves are needed - "5 * 4" is arithmetic and
 # "WOW!!" is shouting, neither is a masked word.
 _MASKED = re.compile(r"[A-Za-z]\*|\*[A-Za-z]|[A-Za-z][#@$%&][#@$%&!*]+")
 
@@ -73,8 +74,8 @@ def added_masking(dst: str, src: str) -> bool:
     *"unless it it cenored inth emnga itself you can add * if the managa itselft
     has it"*.
 
-    Softening a swear is a mistranslation — the line was written to land that
-    hard — and typesetting it as "f***" when the Japanese says the word outright
+    Softening a swear is a mistranslation - the line was written to land that
+    hard - and typesetting it as "f***" when the Japanese says the word outright
     is the model editing the author. Mirroring a mask the page DOES carry is
     the opposite: that mask is part of what the page says.
 
@@ -105,10 +106,10 @@ _OPENERS = r"[\"'“”‘’«»「」『』（）()\[\]【】\s]*"
 # into a comma and then left the comma behind: ", The existence known as...".
 # ...and the PLAIN HYPHEN counts as one of them here, which it does not in
 # `source_has_dash`. A line cannot begin with the hyphen of a hyphenated word,
-# so a hyphen at the front is a dash whatever the keyboard typed it with —
+# so a hyphen at the front is a dash whatever the keyboard typed it with -
 # lee's page 4 came back "-Be resolute before pain." and walked straight past
 # a class that knew only `—` and `–`. At the TAIL it must have a space in
-# front of it, or "well-" — a word the speaker was cut off in the middle of —
+# front of it, or "well-" - a word the speaker was cut off in the middle of -
 # would lose its hyphen.
 _EDGE_LEAD = re.compile(rf"^({_OPENERS}(?:{_ELLIPSIS})?{_OPENERS})[-—–]+\s*")
 _EDGE_TAIL = re.compile(
@@ -119,8 +120,8 @@ def strip_added_dashes(dst: str, src: str) -> str:
     """Take back dashes the translator put at the edges of a line unbidden.
 
     Asked to carry one sentence across two balloons, the model reaches for a
-    dash at the break — closing the first balloon with one and opening the
-    second with another — even when the Japanese has no dash anywhere. Nothing
+    dash at the break - closing the first balloon with one and opening the
+    second with another - even when the Japanese has no dash anywhere. Nothing
     in the page called for it, and scanlation does not typeset it that way: a
     thought continuing into the next balloon is trailed with an ellipsis, not a
     rule, and American comics have no em-dash at all. So an edge dash with no
@@ -133,7 +134,7 @@ def strip_added_dashes(dst: str, src: str) -> str:
     The LEADING one is the exception to that exemption, and it is the one lee
     found: a dash at the front of a Korean or Japanese bubble is the page's
     mark for speech arriving from off-panel, and English typesetting has
-    never used it — the balloon's own tail says the same thing, and so does the box
+    never used it - the balloon's own tail says the same thing, and so does the box
     type. So it comes off whether or not the source has one, which is the same
     rule `strip_added_ellipsis` already applies to a leading ellipsis. Without
     that, whether the reader sees it comes down to whether the model felt like
@@ -182,7 +183,7 @@ def strip_added_ellipsis(dst: str, src: str) -> str:
     of standalone lines that continue nothing. A leading ellipsis is a pause
     the reader is asked to hear, and the page did not draw one.
 
-    So the line still ENDS with three periods where a sentence runs on — that
+    So the line still ENDS with three periods where a sentence runs on - that
     is the half that reads as trailing off, and lee has kept it everywhere.
     It just never starts with them unless the {source} does.
 
@@ -197,7 +198,7 @@ def strip_added_ellipsis(dst: str, src: str) -> str:
 
 # Punctuation that can only be standing in front of the words. A quote and a
 # bracket are not in this class: they WRAP the line rather than precede it, and
-# `¿`/`¡` open a sentence in Spanish, which is one of the targets — so all of
+# `¿`/`¡` open a sentence in Spanish, which is one of the targets - so all of
 # those are read past on both sides, exactly as `_LEADS` reads past them.
 # The hyphen is last because a `-` anywhere else in a character class is a range.
 _LEAD_MARKS = r"[,.;:!?…‥・·、。，；：！？—–ー~〜～\-]"
@@ -237,7 +238,7 @@ def strip_added_lead(dst: str, src: str) -> str:
 
 # Any server speaking the OpenAI chat-completions shape works here: Ollama,
 # LM Studio, llama.cpp's server, vLLM, or a hosted free tier. What the model
-# must be able to do is follow instructions and return JSON — a sentence-level
+# must be able to do is follow instructions and return JSON - a sentence-level
 # MT model (opus-mt, NLLB) cannot, and would throw away the page context that
 # makes this pipeline worth having.
 LOCAL_PRESETS = {
@@ -255,14 +256,14 @@ LOCAL_PRESETS = {
                    "model": "qwen/qwen-2.5-72b-instruct"},
 }
 
-# The three the app is for. There was a fourth, "comic" — an English-source
-# western comic — and it is gone; lee: *"remove suport for comics and the
+# The three the app is for. There was a fourth, "comic" - an English-source
+# western comic - and it is gone; lee: *"remove suport for comics and the
 # project still supports mahnwa and manhua"*. Nothing else about English is
 # gone with it: English is still a source LANGUAGE anyone can pick, which is
 # what an already-translated scan needs.
 #
 # A project.json saved as a comic is migrated on load rather than silently
-# reinterpreted as a manga — see `Project.load`.
+# reinterpreted as a manga - see `Project.load`.
 MEDIA = {
     "manga":  {"source": "Japanese", "rtl": True,  "code": "ja"},
     "manhwa": {"source": "Korean",   "rtl": False, "code": "ko"},
@@ -277,7 +278,7 @@ TARGETS = {
 }
 
 # Explicit source languages, for material that is not in its medium's usual
-# language — an English-translated manga being taken into Spanish, say.
+# language - an English-translated manga being taken into Spanish, say.
 SOURCE_LANGS = {
     "ja": "Japanese", "ko": "Korean", "zh": "Chinese",
     "en": "English", "es": "Spanish", "pt": "Portuguese", "fr": "French",
@@ -438,6 +439,12 @@ Translation rules:
   bubbles — each bubble holds its own part, and read in order they form one
   sentence. Never translate a linked region as a self-contained line, and never
   repeat the whole sentence in each bubble.
+- A link between SOUND EFFECTS means the same thing about a sound: one effect
+  the artist drew across the page with a gap in it, not two sounds. し and ん…
+  linked are しん… — a hush, one word. So read them together and split the
+  English at the same place, so that what lands in the first box and what
+  lands in the second are the two parts of one sound. Never make two sounds
+  of it, and never put the whole of it in both boxes.
 - A "balloon" number is a DIFFERENT thing and must not be treated the same
   way. It means the artist drew those regions as two lobes of one balloon —
   a fact about the picture, not about the words. A double balloon holds two
@@ -650,7 +657,7 @@ def build_proofread_system(medium: str = "manga", target: str = "en",
 
 
 def build_proofread_payload(page: Page, ctx: SeriesContext) -> dict:
-    # Fixed first, moving last — see `_base_payload` for why the ORDER of
+    # Fixed first, moving last - see `_base_payload` for why the ORDER of
     # these keys is what decides whether a prompt cache can help.
     return {
         "medium": ctx.medium,
@@ -682,7 +689,7 @@ def build_proofread_payload(page: Page, ctx: SeriesContext) -> dict:
             #
             # So does a text box somebody added themselves. There is no source
             # for the proofreader to check it against, and those are not a
-            # translation to be corrected — they are what the person wanted
+            # translation to be corrected - they are what the person wanted
             # the page to say.
             if ((r.dst_text or "").strip() and r.kind != "sfx"
                 and not getattr(r, "own_text", False))
@@ -768,7 +775,7 @@ def proofread_page(
                     r.flagged = ((r.flagged or "") + " " + note).strip()
 
         # The model has had its say. Now check its spelling the way a style
-        # sheet does — mechanically, against the sheet and glossary, on a page
+        # sheet does - mechanically, against the sheet and glossary, on a page
         # that has no idea what the other thirty-eight pages called this
         # person. This is the half of "consistent" that a prompt cannot
         # promise, because each page looks perfectly consistent with itself.
@@ -806,7 +813,7 @@ class SeriesContext:
 
     # What the series is called. lee: *"in teh symo[psis tab add a tilee box
     # fort the manga"*. It is content, not configuration, so it lives with the
-    # synopsis and the cast and travels with them — and it is what the story
+    # synopsis and the cast and travels with them - and it is what the story
     # context and the chapter file are named after, because "mangatl-project"
     # is not the name of anybody's manga.
     title: str = ""
@@ -817,7 +824,7 @@ class SeriesContext:
     # cast is off screen.
     characters: dict[str, str] = field(default_factory=dict)
     previous_page_tail: list[str] = field(default_factory=list)
-    # What this chapter has already called people and things — see
+    # What this chapter has already called people and things - see
     # `already_said`. Filled as a run goes and thrown away with it, which is
     # the right lifetime: it is about one chapter being consistent with
     # itself, and the sheet and the glossary are what carry across chapters.
@@ -843,7 +850,7 @@ class SeriesContext:
     #
     # `story` off means the synopsis, the character sheet and the glossary are
     # neither SENT with a page nor ADDED TO by what comes back. The sheets are
-    # not touched — turning it on again finds them exactly as they were, which
+    # not touched - turning it on again finds them exactly as they were, which
     # is the difference between a switch and a delete.
     #
     # The other three are independent, and each is off-able on its own because
@@ -867,8 +874,8 @@ class SeriesContext:
     # Google's core protections are not configurable and stay on either way.
     safety: str = ""
     # Which STEP is about to call a model, for the message a provider's
-    # refusal turns into. Transient — it is set fresh on every step and means
-    # nothing between runs — but it is DECLARED, because the whole context is
+    # refusal turns into. Transient - it is set fresh on every step and means
+    # nothing between runs - but it is DECLARED, because the whole context is
     # serialised into project.json by `Project._state` and read back with
     # `SeriesContext(**saved)`. Setting an undeclared attribute on this
     # dataclass wrote a key the constructor then refused, `load` raised,
@@ -913,13 +920,13 @@ def names_in(texts) -> list[str]:
     words: "Still," and "There" and "The" are capitals the full stop put
     there, and every one of them appears lower-case elsewhere in any real
     page. Run over the whole of lee's chapter it returns exactly the fourteen
-    proper nouns in it and nothing else — Calliope, Canyon, Chryses, Chrysos,
+    proper nouns in it and nothing else - Calliope, Canyon, Chryses, Chrysos,
     Demarcus, Edel, House, Lancaster, Laszlo, Lord, Majesty, Phara, Tuberin.
 
     That Chryses AND Chrysos are both in that list is the bug this exists for:
     they are the same man, spelled two ways, four pages apart.
 
-    Possessives are folded in — `Lancaster's` is not a fifteenth name.
+    Possessives are folded in - `Lancaster's` is not a fifteenth name.
     """
     if isinstance(texts, str):
         texts = [texts]
@@ -947,8 +954,8 @@ def name_drift(used, fresh, close: float = 0.72) -> list:
     """Names in `fresh` that are near-misses of one already `used`.
 
     Chryses against Chrysos: same first letter, 0.86 alike, and never once in
-    the same line. Two names that really are different — Edel and Ethel, if
-    the story has both — turn up together on a page sooner or later, and a
+    the same line. Two names that really are different - Edel and Ethel, if
+    the story has both - turn up together on a page sooner or later, and a
     pair that has met is not drift.
 
     Returns `(was, now)` pairs. This never rewrites anything: two similar
@@ -1001,8 +1008,8 @@ def remember_said(ctx: "SeriesContext", page, adds: dict | None = None) -> None:
 
 
 # Roughly how much area one character of typeset English takes, as a multiple
-# of the type size squared. It was reasoned at 0.6 — half the size wide, 1.15
-# of it tall with the leading — and then MEASURED, by putting sentences of
+# of the type size squared. It was reasoned at 0.6 - half the size wide, 1.15
+# of it tall with the leading - and then MEASURED, by putting sentences of
 # growing length through `typeset._best` against the real balloon masks of a
 # 71-page chapter and asking where it stopped fitting. The answer is 1.05: the
 # reasoning left out the space between words, the ragged right of a wrapped
@@ -1014,7 +1021,7 @@ BALLOON_PACK = 0.55
 # The size to budget at, as a fraction of what the project calls a full-size
 # line. NOT `min_font`, which is what this used to use and is why the number
 # meant nothing: min_font is the floor below which a human gets flagged, and on
-# that chapter the typesetter never went near it — it set a median of 32px
+# that chapter the typesetter never went near it - it set a median of 32px
 # against a floor of 11, and 18px was the smallest thing on 71 pages. A budget
 # of "what could be crammed in if we shrank the type to illegible" said the
 # median balloon held 634 characters when the median line was 43, and the note
@@ -1035,7 +1042,7 @@ OVER_FITS = 1.25
 def comfort_size(min_font: int = 12, max_font: int = 34) -> int:
     """The type size a balloon should be budgeted at.
 
-    A fraction of the project's full size, never below its floor — a project
+    A fraction of the project's full size, never below its floor - a project
     whose two settings sit on top of each other gets the floor, which is the
     only size it has.
     """
@@ -1046,7 +1053,7 @@ def comfort_size(min_font: int = 12, max_font: int = 34) -> int:
 def fits_chars(region, size: int = 12) -> int:
     """How many characters of English that balloon holds at `size`.
 
-    Zero when there is nothing to measure — no mask and no box — and the
+    Zero when there is nothing to measure - no mask and no box - and the
     caller leaves the number out rather than sending a guess.
     """
     px = 0
@@ -1079,7 +1086,7 @@ def quieter(dst: str, src: str) -> str:
 
     `이건 기적이야!!!` came back "This is a miracle!" and `아이고, 진우야아!!!`
     came back "Oh, Jinwoo...!". Four of those on one chapter, and all four
-    arrived the same week the prompt started asking for shorter lines — asked
+    arrived the same week the prompt started asking for shorter lines - asked
     to cut, the model cut punctuation, which is the one thing on the page that
     is not words. A run of marks is drawn at the size the artist drew it.
 
@@ -1095,7 +1102,7 @@ def quieter(dst: str, src: str) -> str:
 def too_long(dst: str, region, size: int = 12) -> str:
     """Did it come back longer than the balloon holds?
 
-    Only where there is a balloon to measure — see `fits_chars`, which is an
+    Only where there is a balloon to measure - see `fits_chars`, which is an
     estimate and is treated as one: the note is only raised at OVER_FITS past
     it, so a line that is merely snug says nothing.
     """
@@ -1116,13 +1123,13 @@ def already_said(ctx: "SeriesContext") -> dict:
     twelve on one chapter, which is two terms.
 
     The character sheet and the glossary already travel with the request and
-    are not enough on their own — a one-off speaker never reaches the sheet by
+    are not enough on their own - a one-off speaker never reaches the sheet by
     design (a guard, a bystander), and a term nobody proposed never reaches
     the glossary. This is the rest of it: what was SAID, whether or not it was
     written down.
 
     `names` is the third of those gaps and the widest. A person NEVER goes in
-    the glossary — the prompt forbids it, so that nobody is listed twice — and
+    the glossary - the prompt forbids it, so that nobody is listed twice - and
     the glossary is the only place that binds a source spelling to an English
     one. So a character's romanisation is written down NOWHERE: the sheet
     holds "Laszlo" because that is the speaker label, and the surname in the
@@ -1168,18 +1175,18 @@ def _base_payload(page: Page, ctx: SeriesContext,
     # chapter. Everything from `characters` on is not: the character sheet
     # grows as the chapter is read, the tail is the last page's last lines, and
     # the regions are this page. Putting one changing field in the middle ends
-    # the prefix there and throws away every fixed byte after it — which is
+    # the prefix there and throws away every fixed byte after it - which is
     # what `characters` sitting above `previous_page_tail` used to do, and what
     # `keep_honorifics` sitting below them still did with a field that never
     # changes at all.
     #
     # So: fixed first, in a fixed order; then the ones that move. The model is
-    # handed exactly the same information either way — a JSON object's key
-    # order carries no meaning — but the cache can see where the repetition
+    # handed exactly the same information either way - a JSON object's key
+    # order carries no meaning - but the cache can see where the repetition
     # stops.
     # What the story switches turn off. Named in the payload rather than
     # silently dropped, because the system prompt asks for these things by
-    # name — a model told to propose `character_additions` and then quietly
+    # name - a model told to propose `character_additions` and then quietly
     # ignored is a model spending output tokens on an answer nobody reads, and
     # output is the expensive side of the bill.
     #
@@ -1203,7 +1210,7 @@ def _base_payload(page: Page, ctx: SeriesContext,
         **({"series_context": ctx.synopsis,
             "glossary": ctx.glossary} if story else {}),
         # The chapter belongs UP HERE, with the fixed things, even though it
-        # is not fixed for ever — it is fixed for the RUN, which is what a
+        # is not fixed for ever - it is fixed for the RUN, which is what a
         # cache is measured over. It used to be appended after the regions,
         # which put four and a half thousand tokens just past the end of the
         # prefix and threw the saving away on every page of every run.
@@ -1246,8 +1253,8 @@ def _repair_json(s: str) -> str:
     text tracking whether we are inside a string and fix each in place.
 
     ...and the QUOTES AROUND A KEY, which is what took lee's chapter down. A
-    reply that opens ``{"regions":[{"id":0,translation:"..."`` — the key left
-    bare, or wrapped in single quotes — fails with *Expecting property name
+    reply that opens ``{"regions":[{"id":0,translation:"..."`` - the key left
+    bare, or wrapped in single quotes - fails with *Expecting property name
     enclosed in double quotes: line 1 column 21 (char 20)*, and that is his
     error to the character. Two repairs, and the difference between them is
     the point:
@@ -1255,7 +1262,7 @@ def _repair_json(s: str) -> str:
     * **A single quote outside a string is a string delimiter.** Anywhere it
       appears, key or value: ``'translation'`` and ``'네, 스승님.'`` are the
       same slip and there is nothing to lose by fixing both.
-    * **A bareword is only quoted when a COLON follows it** — i.e. only where
+    * **A bareword is only quoted when a COLON follows it** - i.e. only where
       it can be a key. A bareword anywhere else is `null`, `true`, or a
       number, and every reply is full of those; quoting them would turn
       ``"speaker":null`` into the string "null" on every page in the chapter.
@@ -1381,7 +1388,7 @@ def list_models(base_url: str, api_key: str = "", timeout: int = 20) -> list:
 
     Every OpenAI-shaped server answers `GET /models`, including Gemini's
     compatibility endpoint, OpenRouter, Groq and Ollama. Returns [] rather than
-    raising: this is only ever used to HELP — to fill the suggestion list under
+    raising: this is only ever used to HELP - to fill the suggestion list under
     the model box, and to say something useful when a name turns out to be
     wrong. A provider that will not answer must not take the page down with it.
     """
@@ -1404,7 +1411,7 @@ def list_models(base_url: str, api_key: str = "", timeout: int = 20) -> list:
         # either, but the short form is what a person recognises. ONLY that
         # prefix comes off: OpenRouter names a model by who makes it, and
         # cutting at the last slash turned `anthropic/claude-sonnet-5` into
-        # `claude-sonnet-5` — a name OpenRouter has never heard of, offered in
+        # `claude-sonnet-5` - a name OpenRouter has never heard of, offered in
         # a menu, chosen, and 404 one call later.
         name = str(name)
         out.append(name[len("models/"):] if name.startswith("models/") else name)
@@ -1412,13 +1419,13 @@ def list_models(base_url: str, api_key: str = "", timeout: int = 20) -> list:
 
 
 # Providers retire models. Google's answer when it happens is a 404 whose body
-# begins with the JSON of an error object — accurate, and unreadable in a red
+# begins with the JSON of an error object - accurate, and unreadable in a red
 # bar halfway down the editor.
 #   lee: *"RuntimeError: OCR server returned 404: [{ "error": { "code": 404,
 #   "message": "This model models/gemini-2.5-flash-lite is no longer available
 #   to new users..."*
 # So a wrong model name is named as such, and answered with the names that DO
-# work on this key — the one thing the person needs and cannot look up from
+# work on this key - the one thing the person needs and cannot look up from
 # inside the app.
 _GONE = ("no longer available", "not found", "does not exist",
          "is not supported", "unknown model", "invalid model",
@@ -1442,7 +1449,7 @@ def _model_error(what: str, model: str, code: int, body: str,
                 else f"the key it has ends {got[-4:]}")
         return (f"the {what} step's key was refused by the provider "
                 f"(HTTP {code}) — {note}. Paste it again in Settings → "
-                f"Translation engine; a key copied with a space or a newline "
+                f"AI models; a key copied with a space or a newline "
                 f"on the end fails exactly like a wrong one, and so does the "
                 f"word \"set\", which is what the screen shows INSTEAD of a "
                 f"saved key and is never a key itself.")
@@ -1454,29 +1461,35 @@ def _model_error(what: str, model: str, code: int, body: str,
     if have:
         show = ", ".join(have[:8])
         more = f" …and {len(have) - 8} more" if len(have) > 8 else ""
-        msg += (f" Change it in Settings → Translation engine. This key can "
+        msg += (f" Change it in Settings → AI models. This key can "
                 f"use: {show}{more}.")
     else:
-        msg += " Change it in Settings → Translation engine."
+        msg += " Change it in Settings → AI models."
     return msg
 
 
-# ---------------------------------------------------------------- Gemini
-# safety thresholds
+# ------------------------------------------------------ no content filter
 #
-# Google's own documented developer control, set per request on your own key:
-# four categories whose threshold you choose. `OFF` is one of the documented
-# values and is what "turn the filters off" means here.
+# lee: *"no ai shoud have any content filter"*. There is no switch for this in
+# Settings and no default to argue about: every request that CAN carry a
+# filter-off goes out with one.
 #
-# What it does NOT do — and cannot, at any threshold — is switch off Google's
-# built-in protections against core harms such as child safety. Those are not
-# configurable and stay on. So a page can still come back refused; that is why
-# `_refusal` below exists, to say so plainly instead of failing on a schema
-# error two retries later.
+# Where that switch exists is Google's - four categories whose threshold you
+# choose, set per request on your own key. `OFF` is one of the documented
+# values and is what "turn the filters off" means here. It travels to Google's
+# own endpoint and through OpenRouter (see `takes_google_options`).
 #
-# It is off by default. A person who wants it turns it on in Settings, and it
-# is only ever sent to Google — the same field posted at OpenAI, Groq or a
-# local llama.cpp is at best ignored and at worst a 400.
+# The other two makers the app can reach publish no equivalent. Claude and
+# OpenAI have no per-request threshold at all - their filtering is inside the
+# model and inside their serving stack, and no field on the wire moves it - so
+# for those there is nothing being left on; there is nothing to send. A local
+# llama.cpp has no filter in the first place.
+#
+# And what the Google switch does NOT do - cannot, at any threshold - is
+# disable Google's built-in protections against core harms such as child
+# safety. Those are not configurable and stay on. So a page can still come back
+# refused; that is why `_refusal` below exists, to say so plainly instead of
+# failing on a schema error two retries later.
 GEMINI_HARMS = ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH",
                 "HARM_CATEGORY_SEXUALLY_EXPLICIT",
                 "HARM_CATEGORY_DANGEROUS_CONTENT")
@@ -1484,6 +1497,36 @@ GEMINI_HARMS = ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH",
 
 def is_google_endpoint(url: str) -> bool:
     return "generativelanguage.googleapis.com" in (url or "").lower()
+
+
+def is_openrouter_endpoint(url: str) -> bool:
+    return "openrouter.ai" in (url or "").lower()
+
+
+def takes_google_options(url: str, model: str = "") -> bool:
+    """Will this request reach an endpoint that accepts these options?
+
+    lee: *"all the trherolod for all the ais shiud bre off"*, and then plainer:
+    *"no ai shoud have any content filter is what i meant"*. So the rule is not
+    "Google gets its filters turned down" - it is "wherever a filter can be
+    turned off, it is off", and this answers where the switch exists.
+
+    Google's own endpoint, obviously. And EVERY model through OpenRouter, not
+    only `google/…`: OpenRouter forwards provider-specific fields to the
+    provider that recognises them and drops them for the rest, so the block
+    costs nothing on a Claude route and still lands when the model string is an
+    alias, an `auto` route, or a Gemini reached under some other name. Gating on
+    the `google/` prefix meant the crossing `editor.or_openrouter` makes - the
+    moment a key is missing or refused - could quietly put the filters back on,
+    on the run that had already gone wrong once.
+
+    Everything else is not a "no": it is that there is nothing to send. Claude
+    and OpenAI publish no per-request threshold - their filtering is in the
+    model and in their own serving stack, with no knob on the wire - and a local
+    llama.cpp has no filter to begin with. If some endpoint turns out to take
+    one, the sticky `_no_safety` retry below is what makes trying it cheap.
+    """
+    return is_google_endpoint(url) or is_openrouter_endpoint(url)
 
 
 def safety_body(threshold: str = "OFF") -> dict:
@@ -1504,7 +1547,7 @@ def _refusal(data: dict) -> str:
 
     Before this, a refused page came back with an empty message, failed the
     schema check, was retried twice, and then reported something about missing
-    regions — which is true and tells you nothing. Refusals are not errors in
+    regions - which is true and tells you nothing. Refusals are not errors in
     the code; they are an answer, and they should read like one.
     """
     try:
@@ -1576,9 +1619,12 @@ class OpenAICompatClient:
         self.model = model
         self.api_key = api_key or "not-needed"
         self.timeout = timeout
-        # "" leaves Google's defaults alone; "OFF"/"BLOCK_NONE"/… is sent as
-        # the threshold for the four configurable categories. Google only.
-        self.safety = safety if is_google_endpoint(self.base_url) else ""
+        # "OFF"/"BLOCK_NONE"/… is sent as the threshold for the four
+        # configurable categories, on every endpoint that has them. "" is not a
+        # choice anybody makes any more - it is what an endpoint with no such
+        # switch gets, because there is nothing to send it.
+        self.safety = safety if takes_google_options(
+            self.base_url, self.model) else ""
         # Which STEP is holding this client, for the error message. It used
         # to say "the OCR step's key was refused" whatever had actually
         # called, so a refusal on Translate sent lee to look at Read text's
@@ -1591,7 +1637,7 @@ class OpenAICompatClient:
                  temperature: float = 0.25) -> str:
         """Free tiers rate-limit aggressively, so back off and retry on 429
         rather than failing the page. JSON mode is requested when the server
-        supports it and quietly dropped when it does not — the same request
+        supports it and quietly dropped when it does not - the same request
         works against OpenAI, Gemini, Groq, Ollama and llama.cpp."""
         import time
         import urllib.error
@@ -1687,7 +1733,7 @@ class OpenAICompatClient:
     def complete_vision(self, system: str, user: str, image_b64: str,
                         media_type: str = "image/png",
                         max_tokens: int = 4000) -> str:
-        """Same as complete(), but the user turn carries a page image — for the
+        """Same as complete(), but the user turn carries a page image - for the
         vision OCR reader. OpenAI/Gemini both take an image_url data URL."""
         import time
         import urllib.error
@@ -1765,7 +1811,7 @@ def make_client(backend: str = "anthropic", base_url: str = "",
                 step_name: str = ""):
     """Return (client, model, kind).
 
-    `step_name` is only ever read by the error message — see `_model_error`.
+    `step_name` is only ever read by the error message - see `_model_error`.
     It is passed rather than looked up because the client does not know what
     is holding it, and a refusal that names the wrong step sends somebody to
     fix settings that were never the problem.
@@ -1778,11 +1824,15 @@ def make_client(backend: str = "anthropic", base_url: str = "",
         cl.step_name = step_name or ""
         return cl, mdl, "openai"
     import anthropic
-    return anthropic.Anthropic(), (model or MODEL), "anthropic"
+    # The key from Settings, not only the environment: `Anthropic()` bare
+    # reads ANTHROPIC_API_KEY and nothing else, so the key typed into the
+    # editor never reached a native Claude call.
+    return (anthropic.Anthropic(api_key=api_key or None),
+            (model or MODEL), "anthropic")
 
 
 # Models that refused the temperature knob ("`temperature` is deprecated for
-# this model") — remembered so every following page skips it first try.
+# this model") - remembered so every following page skips it first try.
 _NO_TEMPERATURE: set[str] = set()
 
 
@@ -1791,14 +1841,14 @@ _NO_TEMPERATURE: set[str] = set()
 # on every page of every chapter, so it is exactly what a cache is for: written
 # once and read for the rest of the run at a tenth of the price.
 #
-# Under the minimum it is not marked — a cache write costs MORE than a plain
+# Under the minimum it is not marked - a cache write costs MORE than a plain
 # read, so marking a short prompt is a small loss on every page rather than a
 # saving. That is why the reader's 442-token system prompt is left alone and
 # the translator's 2,010 is not.
 #
 # Google's cache needs no marking at all: it is implicit, automatic and free
 # above the same sort of threshold, and asks only that the repeated bytes come
-# FIRST — which is what the key order in `_base_payload` is about.
+# FIRST - which is what the key order in `_base_payload` is about.
 CACHE_MIN_TOKENS = 1024
 
 
@@ -1812,7 +1862,7 @@ def split_at_the_fixed_part(user: str) -> tuple:
     """The serialised payload, cut where the repeated half ends.
 
     Anthropic caches what is MARKED, and only whole content blocks can be
-    marked — so to have the synopsis, the glossary and the chapter context
+    marked - so to have the synopsis, the glossary and the chapter context
     read at a tenth of the price, they have to be a block of their own with
     everything that moves in a second block after it.
 
@@ -1852,7 +1902,7 @@ def _meter(resp, model: str = "") -> None:
 
     Every AI step in the app goes through `_ask`, `_ask_vision` or the
     OpenAI-compatible client below, so these are the only four places a token
-    is ever bought — which is why the charging lives here rather than being
+    is ever bought - which is why the charging lives here rather than being
     counted again, differently, in each step.
 
     It can never fail a page. A metering bug that loses a charge costs money;
@@ -1871,7 +1921,7 @@ def _ask(client, kind: str, model: str, system: str, user: str,
     """One turn. `cache_prefix` is the head of `user` that repeats across a
     run and is worth marking for the cache.
 
-    Google needs no marking — its cache is implicit above about a thousand
+    Google needs no marking - its cache is implicit above about a thousand
     tokens and asks only that the repeated part come first, which is what the
     payload's key order is for. Anthropic caches only what is marked, hence
     this.
@@ -1911,7 +1961,7 @@ def _ask_vision(client, kind: str, model: str, system: str, user: str,
 
     `image_b64` is one image or a list of them. Several go in one turn because
     a page read as one crop per box is a dozen small pictures that all want the
-    same system prompt and the same page listing — sending them one at a time
+    same system prompt and the same page listing - sending them one at a time
     would multiply that text by a dozen and spend the whole saving.
     """
     imgs = [image_b64] if isinstance(image_b64, str) else list(image_b64)
@@ -1968,8 +2018,8 @@ def build_ocr_system(source: str = "Japanese") -> str:
         "handakuten exactly (が vs か, で vs て, ば vs は).\n"
         # This used to say "write an ellipsis as three periods ...", which was
         # written for Japanese and is an instruction to CHANGE the page. lee's
-        # chapter 1 prints "거, 취향 참…." and "흐음…." — an ellipsis glyph and
-        # then a full stop, which is ordinary Korean typesetting — and the read
+        # chapter 1 prints "거, 취향 참…." and "흐음…." - an ellipsis glyph and
+        # then a full stop, which is ordinary Korean typesetting - and the read
         # came back "참...", losing the stop and spelling the ellipsis a way the
         # page does not. Measured over the chapter: 8 lines rewritten to ASCII
         # dots, and 6 of the 8 printed "…." dropped their stop. Three periods
@@ -1985,9 +2035,29 @@ def build_ocr_system(source: str = "Japanese") -> str:
         "- Keep the LINE BREAKS as printed. A run of writing set as three lines "
         "comes back as three lines separated by \\n, broken in the same places. "
         "Do not re-wrap it, and do not join it into one line.\n"
-        "- Two regions almost never hold the SAME text. If you are about to "
-        "give two regions identical text, look again — one of them says "
-        "something else, or is empty.\n"
+        # ONE RUN OF WRITING, ONE REGION. lee: *"can you come up with a
+        # system or a prompt so that it dont double read"*.
+        #
+        # The old rule said "two regions almost never hold the SAME text",
+        # which only caught the identical case. Page 017's pair is the real
+        # shape: the detector put two boxes over ONE vertical column of
+        # dialogue, and the reader gave the whole line to one and its tail to
+        # the other - そんなので足りるかと and 足りるかよ. Not identical, and
+        # the same words read twice.
+        #
+        # So the rule names the decision instead of the symptom: it belongs to
+        # ONE of them, the one whose outline fits it, and the other gets the
+        # empty string. The empty one is then removed by `empty_boxes` after
+        # the read, which is how the duplicate box disappears without anything
+        # having to guess about boxes.
+        "- ONE RUN OF WRITING BELONGS TO ONE REGION. If the words inside a red "
+        "outline are also inside another region's outline, they are that "
+        "column of text answered twice: decide which region they belong to — "
+        "the one whose outline fits them most closely — give it the whole "
+        "line, and return the EMPTY STRING for the other. Never split one run "
+        "of writing between two regions, and never give the same line, or any "
+        "PART of the same line, to two regions. An empty answer for a box that "
+        "holds nothing of its own is the correct answer, not a failure.\n"
         # The 011 failure. "하이엘프 티리스" came back "하이엘프 타라스": a name
         # the model had never seen, normalised into one that sounds more like a
         # name. The glyphs were 57px and perfectly legible; nothing in this
@@ -2018,7 +2088,7 @@ def build_ocr_system(source: str = "Japanese") -> str:
 #   1. The model invents a proper name for someone the page never names. Two
 #      palace attendants become "Glow" and "Rofan" eleven pages before those
 #      characters actually appear.
-#   2. The same person is written two ways — "Glow" one page, "Glou" the next —
+#   2. The same person is written two ways - "Glow" one page, "Glou" the next -
 #      and setdefault() happily keeps both, so the sheet now disagrees with
 #      itself about who exists.
 #
@@ -2044,7 +2114,7 @@ def canon_name(s: str) -> str:
 
     Japanese has no l/r distinction and no v, long vowels are written half a
     dozen ways (ou / oh / oo / o / ow), and doubled consonants come and go. Fold
-    all of that away and Glow, Glou, Grow and Grou become the same string —
+    all of that away and Glow, Glou, Grow and Grou become the same string -
     which is the point: they are the same man.
     """
     import re as _re
@@ -2062,7 +2132,7 @@ def canon_name(s: str) -> str:
 
 
 def name_tokens(name: str) -> list[str]:
-    """The parts of a name that actually identify somebody — titles dropped."""
+    """The parts of a name that actually identify somebody - titles dropped."""
     import re as _re
     words = [w for w in _re.split(r"[^A-Za-z]+", str(name or "")) if w]
     keep = [w for w in words if w.lower() not in _TITLE_WORDS]
@@ -2072,7 +2142,7 @@ def name_tokens(name: str) -> list[str]:
 def same_person(a: str, b: str) -> bool:
     """True when two written names are one person.
 
-    Canonical equality first — that is the principled half, and it is what
+    Canonical equality first - that is the principled half, and it is what
     catches Glow/Glou. Then a one-character slip on a name long enough for the
     slip to be a typo rather than a different name: Leonora/Leonore yes,
     Mimi/Momi no, because at four letters a single letter IS the difference
@@ -2104,8 +2174,8 @@ def name_evidence(ctx: "SeriesContext", texts=()) -> set:
 
     Drawn from what the editor wrote (the synopsis and the sheet), what the
     series has established (the glossary), and what is said out loud on the
-    pages in hand. A character gets named when somebody addresses them — "Ada,
-    what's wrong?" — so the dialogue is the strongest evidence there is.
+    pages in hand. A character gets named when somebody addresses them - "Ada,
+    what's wrong?" - so the dialogue is the strongest evidence there is.
     """
     import re as _re
     pool: list[str] = []
@@ -2125,7 +2195,7 @@ def name_evidence(ctx: "SeriesContext", texts=()) -> set:
 
 
 def unevidenced(name: str, evidence: set) -> bool:
-    """True when nothing anywhere writes this name — so the model made it up.
+    """True when nothing anywhere writes this name - so the model made it up.
 
     A name is cleared by ANY of its identifying parts appearing: "Rofan the
     Mercenary" passes as soon as Rofan is written somewhere. Only a name with
@@ -2166,7 +2236,7 @@ def is_generic_speaker(name: str) -> bool:
 # ------------------------------------------------------------- the glossary
 #
 # A glossary entry is stored as {source term: canon rendering}, and the
-# rendering carries its own short note in brackets — "Tarel (the copper coin)".
+# rendering carries its own short note in brackets - "Tarel (the copper coin)".
 # The panel shows it as name | note, the same shape as a character row, and the
 # note travels to the translator with the name.
 #
@@ -2294,7 +2364,7 @@ def is_a_person(rendering: str, characters) -> str:
     """Which character this glossary rendering is, if it is one at all.
 
     The prompt is already clear that **a person NEVER goes in
-    glossary_additions** — a named character belongs on the character sheet
+    glossary_additions** - a named character belongs on the character sheet
     and nowhere else, so that no one is listed twice. Nothing enforced it, and
     lee's chapter came back with
 
@@ -2309,12 +2379,12 @@ def is_a_person(rendering: str, characters) -> str:
     house and family name)"`, which is a real place-ish term that happens to
     share a word with Edel Lancaster. So:
 
-    * the rendering is exactly TWO name-shaped words — the shape of a personal
+    * the rendering is exactly TWO name-shaped words - the shape of a personal
       name, and not "Lancaster" (one) or "Edel Canyon Bridge" (three);
     * no possessive and no lower-case word in it, so "Phara's Temple" and
       "Hall of Mirrors" are left alone;
     * and its FIRST word is the first word of a name on the character sheet.
-      A surname shared with a house is not enough — "Lancaster" is not Edel's
+      A surname shared with a house is not enough - "Lancaster" is not Edel's
       given name, so the ducal house passes. A GIVEN name is what a person is
       re-introduced under: a maiden name, a title, a pen name.
 
@@ -2339,7 +2409,7 @@ def merge_glossary(sheet: dict, adds: dict, characters=None) -> list:
 
     **Every term must say what it is.** lee, looking at a panel where nine of
     eleven terms had an empty note: *"make it so that the ai alway writes a
-    discption"*. A bare rendering is refused — a glossary that says "Tarel" and
+    discption"*. A bare rendering is refused - a glossary that says "Tarel" and
     nothing else tells the next page's translator only that Tarel is spelled
     Tarel, which it could already see.
 
@@ -2350,7 +2420,7 @@ def merge_glossary(sheet: dict, adds: dict, characters=None) -> list:
       asks the model to re-propose anything it was given without a bracket, and
       this is what lets the answer land.
     * A described entry **never re-words** an already-described one. First
-      sighting is canon, exactly as it is for the character sheet — otherwise
+      sighting is canon, exactly as it is for the character sheet - otherwise
       every page gets a vote on what a term means and the sheet is whatever the
       last page happened to say.
 
@@ -2401,8 +2471,8 @@ def merge_characters(sheet: dict, adds: dict, evidence: set, is_generic=None) ->
             continue
         known = match_known(name, sheet)
         if known:
-            # Already on the sheet. First sighting stays canon — later pages
-            # extend the sheet, they do not re-decide someone's pronouns — but
+            # Already on the sheet. First sighting stays canon - later pages
+            # extend the sheet, they do not re-decide someone's pronouns - but
             # the alternative SPELLING is dropped rather than added beside it.
             if known != name:
                 refused.append(f"{name} (already on the sheet as {known})")
@@ -2428,7 +2498,7 @@ def merge_characters(sheet: dict, adds: dict, evidence: set, is_generic=None) ->
 #
 # The danger is obvious: canon_name folds l into r and collapses vowels, so
 # "Grow" and "Glow" are the same string, and rewriting the verb into the man
-# would be worse than the drift it fixes. Three guards stand in the way — a
+# would be worse than the drift it fixes. Three guards stand in the way - a
 # word must be capitalized, must not be a common English word, and must not be
 # a word the chapter itself uses in lower case somewhere.
 
@@ -2474,7 +2544,7 @@ def observed_lowercase(texts) -> set:
 
     Free, chapter-specific evidence that a word is an ordinary word. If the
     English says "watch it grow" anywhere, then "Grow" at the start of a
-    sentence is that verb and not the character — no hand-maintained word list
+    sentence is that verb and not the character - no hand-maintained word list
     could have known that, and this does."""
     import re as _re
     out = set()
@@ -2521,7 +2591,7 @@ def _near_term(canon: str, table: dict) -> str | None:
     it is deciding whether to MERGE two people and Mimi is not Momi. Here the
     only outcome is a note for a human to read, so the bar is lower: three
     characters, one edit. That difference is the whole reason this is not just
-    a call to same_person — at the stricter bar, Aeda for Ada goes unremarked,
+    a call to same_person - at the stricter bar, Aeda for Ada goes unremarked,
     and three-letter names are exactly the ones a reader skims past.
 
     One edit on two three-letter words is not a resemblance, though: it made
@@ -2546,8 +2616,8 @@ def enforce_spellings(text: str, table: dict, common=()) -> tuple:
     """Snap names and places back to the canon spelling. -> (text, notes).
 
     Two outcomes, deliberately different. A word whose canonical form IS a
-    canon term is the same word wearing a different romanization — Leonore for
-    Leonora — and is rewritten silently, because there is nothing to decide. A
+    canon term is the same word wearing a different romanization - Leonore for
+    Leonora - and is rewritten silently, because there is nothing to decide. A
     word that is merely NEAR a canon term is left exactly as written and
     reported instead: one edit apart can be a typo, but it can equally be
     Mimi and Momi, and a proofreader that quietly merges two characters is
@@ -2591,7 +2661,7 @@ def _ocr_context(page: "Page", ctx: "SeriesContext") -> str:
     terms this series already uses, and which regions are one split sentence.
 
     The split-line note is the important one. When a name runs across a bubble
-    break — エー / ダ — a reader shown the halves with no warning tends to
+    break - エー / ダ - a reader shown the halves with no warning tends to
     transcribe the whole name into one half and repeat it in the other."""
     bits: list[str] = []
 
@@ -2633,7 +2703,7 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
     """Vision OCR. Transcribe every region from the labelled page image(s).
 
     `tiles` is either raw PNG bytes for the whole page, or a list of
-    (png bytes, [region ids]) pieces from ocr.page_label_tiles — one request per
+    (png bytes, [region ids]) pieces from ocr.page_label_tiles - one request per
     piece, so small typesetting arrives at something near its native resolution
     instead of being squashed into a whole-page thumbnail.
 
@@ -2665,7 +2735,7 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
 
     out: dict[int, str] = {}
     # How many pictures ride in one turn. One, unless the caller is sending a
-    # crop per box — a dozen small pictures that all want the same system
+    # crop per box - a dozen small pictures that all want the same system
     # prompt and the same page listing, and sending them separately would
     # multiply that text by a dozen and spend the whole saving.
     n_batch = max(1, int(batch or 1))
@@ -2673,6 +2743,9 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
         n_batch = 1                      # that client takes one image a turn
     groups = [tiles[i:i + n_batch] for i in range(0, len(tiles), n_batch)]
     for n, group in enumerate(groups, 1):
+        # Stop means stop -- between batches, which is the finest grain there
+        # is here: a request already in flight cannot be unsent. See `stopping`.
+        _stopping.check()
         if progress:
             try:
                 progress(n, len(groups))
@@ -2746,7 +2819,7 @@ def read_page_ocr(page: Page, ctx: "SeriesContext", tiles, media_type: str = "im
 def _unescape_breaks(t: str) -> str:
     """A line break that arrived as two characters.
 
-    Some models escape the newline twice on the way out — the JSON carries
+    Some models escape the newline twice on the way out - the JSON carries
     `"A\\nB"`, which parses to a backslash followed by an n, and the region
     then holds a literal `\n` where the line break should be. It is not
     consistent: in one 23-page chapter it happened on three pages and not on
@@ -2792,7 +2865,7 @@ def translate_page(
         user = json.dumps(payload, ensure_ascii=False, indent=1) + "\n\n" + SCHEMA_HINT
         if last_err:
             user += f"\n\nYour previous reply was rejected: {last_err}. Fix it."
-        # The head of it — the synopsis, the glossary and the chapter context —
+        # The head of it - the synopsis, the glossary and the chapter context -
         # is the same on every page of a run, so it is worth a tenth of the
         # price instead of all of it.
         fixed, _rest = split_at_the_fixed_part(user)
@@ -2823,7 +2896,7 @@ def translate_page(
             continue
         if got != want:
             # Models occasionally drop or duplicate a region. Never let that pass
-            # silently — a missing bubble is a blank bubble in the output.
+            # silently - a missing bubble is a blank bubble in the output.
             last_err = f"id mismatch: missing {sorted(want - got)}, extra {sorted(got - want)}"
             continue
 
@@ -2831,7 +2904,7 @@ def translate_page(
         by_id = {r.id: r for r in page.regions}
         for item in items:
             r = by_id[int(item["id"])]
-            # normalize typographic characters at the door — comic fonts
+            # normalize typographic characters at the door - comic fonts
             # can't draw most of them, and a tofu box in an export is worse
             # than a plain apostrophe
             r.dst_text = strip_added_lead(
@@ -2853,7 +2926,7 @@ def translate_page(
                 r.flagged = ((r.flagged or "") + " " + note).strip()
             # Who said it, unless nobody asked for that. A speaker the
             # model was told not to return but returned anyway is still
-            # dropped here — the switch is about the SHEET's contents, and a
+            # dropped here - the switch is about the SHEET's contents, and a
             # rule enforced only by asking politely is not enforced.
             sp = item.get("speaker") if getattr(ctx, "name_speakers", True) else None
             r.speaker = str(sp) if sp not in (None, "") else None
@@ -2867,7 +2940,7 @@ def translate_page(
         story = getattr(ctx, "story", True)
         gl = data.get("glossary_additions") or {}
         if story and getattr(ctx, "learn_terms", True) and isinstance(gl, dict):
-            # Every term must say what it is — see `merge_glossary`. A bare
+            # Every term must say what it is - see `merge_glossary`. A bare
             # name comes back refused, and is shown the same way a refused
             # character is.
             gl_refused = merge_glossary(ctx.glossary, gl,
@@ -2884,12 +2957,12 @@ def translate_page(
 
         # Two passes over the speakers, in this order and not the other:
         #   1. someone already on the sheet, spelled loosely, is snapped back to
-        #      the sheet's spelling — otherwise "Glou" and "Glow" drift apart
+        #      the sheet's spelling - otherwise "Glou" and "Glow" drift apart
         #      page by page. This has to run unconditionally: the sheet is part
         #      of the evidence, so a loose spelling of a known name looks
         #      perfectly well-evidenced and would never reach step 2.
         #   2. whatever is left and is written nowhere at all was invented. Keep
-        #      the label — it may still be the right person — but say so, so it
+        #      the label - it may still be the right person - but say so, so it
         #      is not mistaken for something the page established.
         for r in page.regions:
             # Nothing to snap a name back TO when the sheet is switched off,
@@ -2908,7 +2981,7 @@ def translate_page(
                              ).strip()
 
         # ...and the same question asked of the PROSE, which is where lee's
-        # Chrysos/Chryses happened — in the body of two narration boxes, four
+        # Chrysos/Chryses happened - in the body of two narration boxes, four
         # pages apart, with no speaker and no glossary term anywhere near it.
         #
         # NOT gated on the story switch: this is about one chapter agreeing
@@ -2926,7 +2999,7 @@ def translate_page(
         adds = data.get("character_additions") or {}
         if story and getattr(ctx, "learn_characters", True) and isinstance(adds, dict):
             # first sighting wins: the sheet is canon, later pages only extend
-            # it — they must not flip someone's pronouns, nor spell them a
+            # it - they must not flip someone's pronouns, nor spell them a
             # second way, nor add a name the story never wrote down
             refused = merge_characters(ctx.characters, adds, evidence,
                                        is_generic_speaker)

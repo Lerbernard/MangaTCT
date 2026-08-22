@@ -1,6 +1,6 @@
 """Black balloons are found the same way white ones are.
 
-lee, with a screenshot of each — a white oval holding a black HUH?, and an eye
+lee, with a screenshot of each - a white oval holding a black HUH?, and an eye
 with a flat black speech shape inside it holding a white ...HUH? :
 
 > *can you do a tecting for black bubbles like teh white bubbles*
@@ -9,14 +9,14 @@ Every balloon test in `detect/` reads `gray <= 128` as ink and the rest as
 paper, which is a white balloon with dark typesetting. A black balloon's
 interior IS ink by that definition, so it is never a run of paper to begin
 with, and `_interior_ok`'s `mean >= 190` would refuse it even if it were. The
-block still gets found — comic-text-detector's segmentation head sees white
-typesetting perfectly well — it just arrives with no balloon and, because the
+block still gets found - comic-text-detector's segmentation head sees white
+typesetting perfectly well - it just arrives with no balloon and, because the
 ring around it reads as artwork, labelled outside text.
 
 The fix is not a new threshold. It is the same search run a second time on
 `255 - gray` for the blocks the first pass left with nothing. Every test the
-upright pass applies — enclosed, the right size, a flat fill, no drawn edges
-in it — applies unchanged to the negative, where it means "a flat DARK fill".
+upright pass applies - enclosed, the right size, a flat fill, no drawn edges
+in it - applies unchanged to the negative, where it means "a flat DARK fill".
 Coordinates and masks land on the same pixels either way.
 
 The pages here are drawn rather than loaded, so the tests run everywhere and
@@ -34,11 +34,11 @@ H, W = 300, 260
 
 # How far apart the hatch lines over the eye are drawn, and it is not a free
 # choice. The lines are what stops the eye's own dark from being one run of
-# paper with the balloon's on the negative — `_free_labels` dilates ink by
+# paper with the balloon's on the negative - `_free_labels` dilates ink by
 # `close_px` on every side, so a one-pixel line seals a five-pixel gap and no
 # more. Drawn at 5 the balloon comes back clean: 0.6% of what it takes lies
 # outside the drawn shape. Drawn at 7 the seal fails and the run leaks out
-# along the eye's dark bands, and the shape comes back 25% too big — a thin
+# along the eye's dark bands, and the shape comes back 25% too big - a thin
 # filigree spanning the whole eye that every plausibility test passes, because
 # it IS flat and dark and enclosed. That is a real limit of this approach, not
 # a fixture artefact, and `test_sparse_hatching_leaks_and_this_says_so` pins
@@ -73,7 +73,7 @@ def _black_page():
 
 
 def _dark_art_page():
-    """White typesetting straight onto TEXTURED dark artwork — a real free
+    """White typesetting straight onto TEXTURED dark artwork - a real free
     shout, and it must stay one."""
     page = np.full((H, W), 30, np.uint8)
     for y in range(0, H, 5):
@@ -133,8 +133,8 @@ def test_a_white_balloon_is_still_found_the_way_it_always_was():
     x, y, w, h = r.bbox
     assert float((r.bubble_mask > 0).sum()) > 1.15 * w * h
     # …and what it took is the oval that was drawn, not the page around it.
-    # (The typesetting is inside the mask — `_filled` fills the glyph holes on
-    # purpose — so the drawn shape is the truth here, not the pixel values.)
+    # (The typesetting is inside the mask - `_filled` fills the glyph holes on
+    # purpose - so the drawn shape is the truth here, not the pixel values.)
     got = r.bubble_mask > 0
     shape = np.zeros((H, W), np.uint8)
     cv2.ellipse(shape, (110, 160), (75, 63), 0, 0, 360, 1, -1)
@@ -166,7 +166,7 @@ def test_sparse_hatching_leaks_and_this_says_so():
     Draw the eye's hatching further apart than the ink dilation can seal and
     the run of dark reaches out of the balloon along the bands between the
     lines. What comes back is flat, dark, enclosed and the right size, so
-    every plausibility test passes it — it is simply a quarter bigger than the
+    every plausibility test passes it - it is simply a quarter bigger than the
     balloon, as a filigree spanning the eye.
 
     Nothing here fixes that. It is written down so that a change which makes
@@ -222,7 +222,7 @@ def test_the_upright_pass_promotes_too_now():
 
 def test_a_caption_keeps_its_name_either_way():
     """Promotion renames free text and nothing else. A caption found in a
-    balloon is still a caption — the person said what it was."""
+    balloon is still a caption - the person said what it was."""
     page, r = _white_case(kind="narration")
     assert attach_balloons(page, [r]) == 1
     assert r.bubble_mask is not None            # it still gets its shape...
@@ -249,7 +249,7 @@ def test_typesetting_on_textured_dark_art_gets_nothing():
 
 
 def test_a_flat_grey_panel_is_not_a_balloon():
-    """Flat and dark-ish is not enough — a balloon is ENCLOSED. This panel
+    """Flat and dark-ish is not enough - a balloon is ENCLOSED. This panel
     runs to the page edge, so there is nothing round the block at all."""
     page = _flat_grey_page()
     ink = _write(page, 125, 155, 3, 5, light=True)
@@ -307,8 +307,8 @@ def test_two_blocks_in_one_black_balloon_divide_it():
 def test_the_black_balloon_typesets_bigger_and_in_white():
     """What lee is actually looking at. Without the balloon the English is
     squeezed into the footprint of the writing it replaces; with it the block
-    gets the balloon, and the colour picker — which already read the
-    background and needed no changing — sets it white on black."""
+    gets the balloon, and the colour picker - which already read the
+    background and needed no changing - sets it white on black."""
     from mangatl import render, typeset
     from mangatl.models import Page
 
@@ -343,7 +343,7 @@ def test_the_two_passes_share_one_set_of_rules():
 
     Proved by loosening them: a flat MID-GREY enclosed blob does not get a
     balloon SHAPE, and the only thing that says so is
-    `min_interior_brightness` — 255 minus 112 is 143, and the rule wants 190.
+    `min_interior_brightness` - 255 minus 112 is 143, and the rule wants 190.
     Drop the rule to 120 and the same blob comes back with a shape.
 
     So if the inverted pass is ever given its own gentler config to make lee's
@@ -351,12 +351,12 @@ def test_the_two_passes_share_one_set_of_rules():
     artwork starts becoming balloons.
 
     THE LABEL IS A SEPARATE QUESTION AND IT DOES CHANGE HERE. This blob is
-    flat, enclosed and round, so `_shut_in_a_round_wall` calls it a bubble —
+    flat, enclosed and round, so `_shut_in_a_round_wall` calls it a bubble -
     see `test_a_wall_of_sharp_change.py`. That is not this test being sanded
     down to fit: the two are different claims and both are still checked below.
     A grey ellipse with writing in it really is a balloon nine times out of
     ten, the cost of being wrong about the name is one keypress, and no shape
-    is handed to the typesetter on the strength of it — which is the thing this
+    is handed to the typesetter on the strength of it - which is the thing this
     test was written to protect."""
     import copy
 
@@ -380,12 +380,12 @@ def test_the_two_passes_share_one_set_of_rules():
 def test_a_balloon_found_by_the_rescue_pass_is_renamed_too():
     """Renaming happens in one place, after both searches, and not beside each
     `_apply`. This black balloon's outline has a gap in it, so the page-wide
-    pass loses the run of dark out into the page and only `_second_pass` — the
-    one that seals the hole — finds it. It still has to come back a bubble."""
+    pass loses the run of dark out into the page and only `_second_pass` - the
+    one that seals the hole - finds it. It still has to come back a bubble."""
     from mangatl.detect import balloon as mod
 
     page = _black_page()
-    # A dark channel from the balloon out to the page edge — the black-balloon
+    # A dark channel from the balloon out to the page edge - the black-balloon
     # version of the broken tail `_local_balloon` exists for. The run of dark
     # now reaches the border, so the page-wide pass throws it out.
     cv2.line(page, (125, 155 + 70), (125, H - 1), 8, 4)

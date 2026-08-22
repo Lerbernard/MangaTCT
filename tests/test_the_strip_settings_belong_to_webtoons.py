@@ -3,17 +3,17 @@
 Three things lee asked for at once, looking at the two boxes in Settings ▸
 Language & direction:
 
-* *"this setting shoud only be a thing for manhwa and manhua"* — a manga
+* *"this setting shoud only be a thing for manhwa and manhua"* - a manga
   chapter is never re-cut, so on manga those were controls for something that
   could not happen;
-* *"change teh value to be a more understandable metrics"* — they said 2400
+* *"change teh value to be a more understandable metrics"* - they said 2400
   and 6000, which are pixels, which is a unit nobody thinks a page in. They are
   now MULTIPLES OF THE PAGE WIDTH, which reads as a shape, means the same on a
   690px strip and a 1600px one, and for the ceiling is the genuinely correct
   unit: the detector letterboxes a whole page into 1024px, so what costs you
   text is how many times taller than wide the page is;
 * *"add a check box oprion in the files uoload page to turn on and off the
-  automated merging thing and have it on by default"* — the switch put where
+  automated merging thing and have it on by default"* - the switch put where
   the decision is being made, not three screens away.
 
 And *"add a loading bar in the file page when the files are getting
@@ -307,7 +307,7 @@ def test_the_file_tab_switch_is_there_for_a_webtoon(screen, medium):
 
 def test_it_follows_the_menu_on_ITS_OWN_screen(screen):
     """There are two format menus and they are the same question on two
-    screens. The File tab's switch has to follow the File tab's menu — that is
+    screens. The File tab's switch has to follow the File tab's menu - that is
     the one in front of the person while they choose a folder."""
     open_on, br = screen
     _p, base = open_on("manga")

@@ -11,7 +11,7 @@ Measured on his chapter 1, all 67 pages, 240 boxes:
 
 The block head boxes printed type properly. It is the drawn effects that get
 clipped, because their box comes off the segmentation mask or off CRAFT, and
-neither of those measures where the brush went — only where it most looked like
+neither of those measures where the brush went - only where it most looked like
 writing. And that 39% is a floor: the measure only counted a mark as the box's
 own if the box already held half of it, so page 003's 쿵, where the box covers
 about a quarter of the stroke, was recorded as spilling nothing.
@@ -19,7 +19,7 @@ about a quarter of the stroke, was recorded as spilling nothing.
 **Growing a box to its ink has been tried before and made things worse.** On
 page 8 the はら box grew from (729,26,86,261) to (709,0,126,342), taking in the
 balloon edge and the girl's hair; on page 13 the ぽん box slid off the writing
-and onto the birdcage below it. The difference here is a SHARE rule — a mark is
+and onto the birdcage below it. The difference here is a SHARE rule - a mark is
 only followed if the box already holds that fraction of it, so a balloon wall
 clipping the corner, a hairline crossing it, a panel rule touching its edge are
 none of them the box's to follow.
@@ -29,7 +29,7 @@ percentile 2.06x. The 30 biggest were cropped and looked at one at a time and
 every one covers the effect where the old box cut it.
 
 The runaway guard is a share of the PAGE and not a multiple of the box, because
-that is what the failure is — the reasoning `craft_cap` is written on, that a
+that is what the failure is - the reasoning `craft_cap` is written on, that a
 rectangle this big is a panel and not writing. A multiple was tried first and
 it is the wrong shape: page 039's effect needs 6.1x and lands at 5.1% of the
 page, which is fine, while page 043's box is already a fifth of the page and
@@ -95,7 +95,7 @@ def test_a_mark_the_box_barely_touches_is_not_followed():
 
 
 def test_the_share_is_what_makes_that_work():
-    """The same geometry with the share dropped to a tenth follows the wall —
+    """The same geometry with the share dropped to a tenth follows the wall -
     so the test above is measuring the share and not something else about the
     fixture."""
     g = _page()
@@ -155,7 +155,7 @@ def test_a_box_that_already_fits_is_left_alone():
 def test_the_mask_comes_back_with_the_rest_of_the_stroke():
     """The text mask doubles as what the cleaner paints out. A box that covers
     the effect over a mask that does not would leave the tail of it on the
-    page — worse than the clipping, because nothing on screen says so."""
+    page - worse than the clipping, because nothing on screen says so."""
     g = _page()
     _stroke(g, 100, 100, 200, 40)
     _bb, mask = CT._grow_to_the_stroke(g, (150, 100, 100, 40), 0.40, 0.12)
@@ -254,7 +254,7 @@ def test_with_the_grow_off_it_stays_clipped(monkeypatch):
 def test_the_cleaner_gets_the_rest_of_the_stroke(monkeypatch):
     """`text_mask` is what Clean paints out. A box that covers the effect over
     a mask that does not leaves the tail of it on the page and nothing on
-    screen says so — worse than the clipping lee reported."""
+    screen says so - worse than the clipping lee reported."""
     g = _page(1024, 1024)
     _stroke(g, 200, 500, 500, 60)
     got = _run(monkeypatch, g, (400, 500, 600, 560), sfx_grow=0.40,
@@ -278,13 +278,13 @@ def test_the_widened_box_keeps_its_breathing_room(monkeypatch):
 # ---------------------------------------------------------- where it is used
 
 def test_a_sound_effect_grows_on_its_own_number():
-    """This used to read `if r.kind != "sfx": continue` — nothing else was
+    """This used to read `if r.kind != "sfx": continue` - nothing else was
     allowed to grow at all, on the strength of the 1% above.
 
     That 1% was the wrong measurement, and lee found the box it missed: the
     measure only counted a mark as the box's own if the box already held HALF
     of it, and his em dash is a nine-pixel tail on a mark the box holds 92% of.
-    Dialogue grows now too, on `text_grow` and a much higher share — see
+    Dialogue grows now too, on `text_grow` and a much higher share - see
     `test_the_whole_run_of_writing.py`. What this holds is that the two are
     still two: the loose 0.40 measured on brush strokes is for the brush
     strokes, and nothing else picks it up."""

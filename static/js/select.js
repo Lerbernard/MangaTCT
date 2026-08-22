@@ -1,10 +1,10 @@
-/* select.js — Photoshop-style selection (marquee / lasso / magic wand),
+/* select.js - Photoshop-style selection (marquee / lasso / magic wand),
    bucket fill, free transform, and paste-as-layer for the paint engine.
    Split-file module. Classic script: shares globals with the other modules
    and must load in the order editor.html lists. No build step.
 
    Everything these tools produce is an ordinary 'patch' layer (an image at
-   x,y) — the same shape the clone stamp and the heal tool already make — so
+   x,y) - the same shape the clone stamp and the heal tool already make - so
    undo, the layer list, hiding, deleting, and server sync all work on the
    new tools without any new plumbing. The selection itself is session-local,
    like in Photoshop: it constrains the brush, heal, clone and fill while it
@@ -15,7 +15,7 @@ let selTool=null;            // null | 'rect' | 'lasso' | 'wand' | 'fill'
 let selMask=null;            // page-resolution canvas; alpha>0 = selected
 let selBBoxCache;            // undefined = stale, null = empty selection
 /* Bumped every time the mask itself changes. The marching ants' edge ring is
-   the expensive part of drawing them — four full-page composites — and it
+   the expensive part of drawing them - four full-page composites - and it
    does NOT change between animation frames; only the stripes running through
    it do. Without this the ants cost a whole-page erosion eight times a
    second, on top of everything else, for as long as a selection exists. */
@@ -27,13 +27,13 @@ let xf=null;                 // free-transform session
 let xfDrag=null;
 
 /* =======================================================================
-   Pure logic — no DOM. Kept separate so tests can run it in plain node.
+   Pure logic - no DOM. Kept separate so tests can run it in plain node.
    ======================================================================= */
 
 /* Flood fill over RGBA pixel data from (sx,sy): every 4-connected pixel
    whose channels are all within `tol` of the START pixel joins. Returns a
    Uint8Array mask (1 = inside). The tolerance is against the seed colour,
-   not the neighbour — that is what keeps a soft gradient from leaking the
+   not the neighbour - that is what keeps a soft gradient from leaking the
    fill across the whole page. */
 function floodMask(data,w,h,sx,sy,tol){
   const out=new Uint8Array(w*h);
@@ -129,7 +129,7 @@ function xfFreeze(t){
   return t.quad;
 }
 /* Where a point inside the source lands, for u,v in [0,1] across the quad.
-   Bilinear, which is what a free deform IS — a projective map is the other
+   Bilinear, which is what a free deform IS - a projective map is the other
    tool (Perspective) and would move the two corners you are not touching. */
 function xfQuadPoint(q, u, v){
   const a=(1-u)*(1-v), b=u*(1-v), c=u*v, d=(1-u)*v;
@@ -137,7 +137,7 @@ function xfQuadPoint(q, u, v){
           y:q[0].y*a+q[1].y*b+q[2].y*c+q[3].y*d};
 }
 /* The affine that carries source triangle s onto destination triangle d.
-   Returned as canvas's [a,b,c,d,e,f]. Degenerate triangles give null — they
+   Returned as canvas's [a,b,c,d,e,f]. Degenerate triangles give null - they
    have no inverse and drawing one is a divide by zero, not a thin sliver. */
 function xfTriMatrix(s, d){
   const x1=s[1].x-s[0].x, y1=s[1].y-s[0].y;
@@ -152,7 +152,7 @@ function xfTriMatrix(s, d){
 }
 /* Push a triangle's corners out from its own middle. Neighbouring triangles
    are clipped to touching edges, and a clip is antialiased on both sides of
-   that edge — so without this every seam in the mesh shows as a pale hairline
+   that edge - so without this every seam in the mesh shows as a pale hairline
    across the picture. */
 function xfGrow(tri, by){
   const cx=(tri[0].x+tri[1].x+tri[2].x)/3, cy=(tri[0].y+tri[1].y+tri[2].y)/3;
@@ -347,7 +347,7 @@ function selWandAt(p,mode){
 }
 
 /* =======================================================================
-   Bucket fill — flood from the click, clipped to the selection if there is
+   Bucket fill - flood from the click, clipped to the selection if there is
    one, kept as a normal deletable layer.
    ======================================================================= */
 function selFillAt(p){
@@ -402,17 +402,17 @@ function selCopy(){
     if(!b) return;
     selClipObj.size=b.size;
     try{ await navigator.clipboard.write([new ClipboardItem({'image/png':b})]); }
-    catch(_){/* clipboard permission denied — the in-app copy still works */}
+    catch(_){/* clipboard permission denied - the in-app copy still works */}
   },'image/png');
-  toast('Selection copied — Ctrl+V pastes it as a new layer.');
+  toast('Selection copied - Ctrl+V pastes it as a new layer.');
 }
-/* Lift what is selected straight into its own layer — Photoshop's Ctrl+J.
+/* Lift what is selected straight into its own layer - Photoshop's Ctrl+J.
 
    lee: *"with the select tool i shud be abke to copy a oiece o fthe image
    that i selcted and copy and paste it as a lyer that i can edit"*. Copy and
    paste already did this, but only through Ctrl+C then Ctrl+V, with nothing
-   on screen to say so. This is one press: the pixels inside the selection —
-   the page as it looks right now, artwork and paint together — become a layer
+   on screen to say so. This is one press: the pixels inside the selection -
+   the page as it looks right now, artwork and paint together - become a layer
    sitting exactly where they came from, already picked up in the transform so
    the next thing you do is move it.
 
@@ -420,12 +420,12 @@ function selCopy(){
    to try: hide it or delete it and the page is as it was. */
 function selLift(){
   if(!selHasMask()){
-    toast('Select a piece of the page first — marquee, lasso or wand.');
+    toast('Select a piece of the page first - marquee, lasso or wand.');
     return null;
   }
   const bb=selBBox();
   // EVERYTHING that is drawn there, including the band painted over the
-  // typesetting — `cloneSnapshot` is the plate and the paint underneath only,
+  // typesetting - `cloneSnapshot` is the plate and the paint underneath only,
   // which is right for a clone stamp reading from beneath the text and wrong
   // here. lee, when the transform still took selections itself: *"the fre
   // tansfor too shoude be able to move everything when i slect it"*. The lift
@@ -553,8 +553,8 @@ function selClipHealMask(mc,x0,y0){
 }
 
 /* Called by the paint tools when one of them switches on, and by
-   stopBrush() when the view or tab changes. The selection mask survives —
-   that is the point of selecting before painting — only the tool mode and
+   stopBrush() when the view or tab changes. The selection mask survives -
+   that is the point of selecting before painting - only the tool mode and
    any half-done transform stop. */
 function selToolOff(){
   if(selTool){ selTool=null; selToolUI(); }
@@ -564,7 +564,7 @@ function selOnStopBrush(){
   selToolOff();
   selRedrawAnts();
 }
-/* Called by showPage — a selection belongs to one page. */
+/* Called by showPage - a selection belongs to one page. */
 function selClear(){
   xfCancel();
   selShape=null; selTool=null;
@@ -577,12 +577,12 @@ function selClear(){
    Free transform
    ======================================================================= */
 /* `mode` is 'distort' when the tool should come up with its corners already
-   free — Ctrl+T. Without it the box behaves as it always has: corners scale,
+   free - Ctrl+T. Without it the box behaves as it always has: corners scale,
    edges stretch, the ring outside a corner turns. */
 function xfToggle(mode){ xf ? xfApply() : xfStart(null, mode); }
 
 /* `want` names the layer to pick up. Without it the transform guesses: a live
-   selection first, otherwise whatever is highlighted in the layer list — and
+   selection first, otherwise whatever is highlighted in the layer list - and
    after a paste both are true at once, so it floated the OLD selection's
    pixels while the new layer sat somewhere else entirely. Two copies on
    screen from one paste. lee: *"theer a duplicate copy at teh bottom right of
@@ -590,7 +590,7 @@ function xfToggle(mode){ xf ? xfApply() : xfStart(null, mode); }
    and wants it in your hands now says which one. */
 function xfStart(want, mode){
   if(xf) return;
-  // The paint canvas only lives in the Edit (typeset) view — setView() hides
+  // The paint canvas only lives in the Edit (typeset) view - setView() hides
   // it everywhere else; the Cleaned view shows strokes baked in server-side.
   if(view!=='typeset'){ toast('Free transform works in the Typeset view, '+
                               'where the paint tools live.'); return; }
@@ -612,23 +612,23 @@ function xfStart(want, mode){
     // images that are on teh page, teh select too shoud just be there and do
     // nothing  no new image shoud be made until i hit copy and past"*.
     //
-    // So the transform moves LAYERS — a shape, a stroke, a pasted picture —
+    // So the transform moves LAYERS - a shape, a stroke, a pasted picture -
     // and a selection is left to the things a selection is for: fencing the
     // brush, filling, and Ctrl+J / copy-and-paste, which are the two ways a
     // new layer is deliberately made.
     const l=want || layers.find(l=>l.id===layerSel && l.visible!==false);
-    if(!l){ toast('The transform moves images and shapes — pick one in the '+
+    if(!l){ toast('The transform moves images and shapes - pick one in the '+
                   'layer list, or press J to lift a selection into its own '+
                   'layer first.'); return; }
     // A locked layer is not picked up either.
     if(l.locked){ toast('That layer is locked.'); return; }
     layerSel=l.id;
-    // A shape moved by the ordinary transform stays a shape — two points and
+    // A shape moved by the ordinary transform stays a shape - two points and
     // an angle, nothing baked. Pulled OUT OF TRUE it cannot: a record that
     // holds two corners cannot hold four. So distort rasterises it first, the
     // way Photoshop does when a vector layer is handed to a warp, and undo
     // puts the shape back because the patch REPLACES it rather than joining
-    // it. lee: *"it shoud only work on images and shapes not text"* — shapes
+    // it. lee: *"it shoud only work on images and shapes not text"* - shapes
     // are in, and this is the price of their being in.
     if(l.type==='shape' && mode==='distort'){
       const cv=$('paint');
@@ -683,7 +683,7 @@ function xfStart(want, mode){
       // Put the shape back on screen.
       //
       // `rest` above is the stack WITHOUT this shape, and building it leaves
-      // the canvas in that state — so from the moment the transform was armed
+      // the canvas in that state - so from the moment the transform was armed
       // until the first drag frame, the shape you had just drawn was not on
       // the page at all. It came back when you clicked it, because a click is
       // a drag frame. lee: *"when i make e shape and clcik the freen transform
@@ -697,7 +697,7 @@ function xfStart(want, mode){
       return;
     }
     if(l.type==='patch'){
-      if(!l.img){ toast('That layer is still loading — try again.'); return; }
+      if(!l.img){ toast('That layer is still loading - try again.'); return; }
       src=document.createElement('canvas');
       src.width=l.img.naturalWidth||l.img.width;
       src.height=l.img.naturalHeight||l.img.height;
@@ -735,14 +735,14 @@ function xfStart(want, mode){
 }
 
 /* Write the transform back onto the shape it belongs to. Called on every
-   drag, so the shape itself is what you see moving — no ghost, no baked
+   drag, so the shape itself is what you see moving - no ghost, no baked
    preview, and letting go is simply the last of these. */
 function xfSyncVector(){
   const t=xf; if(!t||!t.vector) return;
   const l=t.vector;
   const w=Math.abs(t.w*t.sx), h=Math.abs(t.h*t.sy);
   const sx=t.sgn.x*(t.sx<0?-1:1), sy=t.sgn.y*(t.sy<0?-1:1);
-  // The geometry is written straight away — everything that asks where the
+  // The geometry is written straight away - everything that asks where the
   // shape is must get today's answer, not last frame's. Only the DRAWING
   // waits for a frame.
   l.pts=[{x:t.cx-sx*w/2, y:t.cy-sy*h/2},
@@ -934,7 +934,7 @@ function selMove(e){
       }
     }else if(d.h.type==='edge'){
       if(xf.quad && d.t0q){
-        // The whole edge travels — its two corners keep their distance from
+        // The whole edge travels - its two corners keep their distance from
         // each other, which is what dragging a side does in every editor.
         const i=d.h.i, j=(d.h.i+1)%4;
         const dx=p.x-d.start.x, dy=p.y-d.start.y;
@@ -1080,7 +1080,7 @@ function selRedrawAnts(){
   // Animated diagonal stripes, drawn on their OWN canvas and applied to the
   // ring in one composite. Drawing them straight onto the ring with
   // 'source-in' cleared everything the stripe did not cover, so every stripe
-  // erased the one before it and only the last survived — off the page.
+  // erased the one before it and only the last survived - off the page.
   if(!_selStripeTmp) _selStripeTmp=document.createElement('canvas');
   const st=_selStripeTmp;
   if(st.width!==bw||st.height!==bh){ st.width=bw; st.height=bh; }
@@ -1113,9 +1113,9 @@ function selRedrawAnts(){
    The ring is `mask` minus the mask ERODED by one step, and erosion is the
    INTERSECTION of the four one-pixel shifts, not their union. The original
    subtracted each shifted copy from the mask in turn, which subtracts the
-   union — and the union of the four shifts covers every pixel of any solid
+   union - and the union of the four shifts covers every pixel of any solid
    shape, so the ring came out completely empty and the marching ants never
-   appeared at all. lee: *"these 3 just dont work"* — the marquee, the lasso
+   appeared at all. lee: *"these 3 just dont work"* - the marquee, the lasso
    and the wand were all selecting correctly and showing nothing for it.
 
    It is also the expensive part: five full-page composites. It only changes
@@ -1153,8 +1153,8 @@ function selEdgeRing(w,h,d){
 function drawXfChrome(g,lw){
   const t=xf;
   // A pixel transform floats the pixels being moved above the page; a SHAPE
-  // transform has no floating copy at all — the shape itself is what moves,
-  // repainted on the paint canvas as you drag — so there is nothing to draw
+  // transform has no floating copy at all - the shape itself is what moves,
+  // repainted on the paint canvas as you drag - so there is nothing to draw
   // here but the box and its handles.
   if(t.src){
     g.save();
@@ -1201,6 +1201,24 @@ if(typeof window!=='undefined' && typeof document!=='undefined'){
       return;
     }
     if(writing) return;
+    /* M MERGES IN WHATEVER VIEW YOU ARE LOOKING AT.
+       lee: *"when i clcik the selct tool to slect a bunch of [boxes] and clik
+       m ... nothing happens but if i manaualy do it it works"*.
+
+       Everything below this line is the PAINT tools, and paint only exists on
+       the typeset view - so the gate on the next line is right for them and
+       was quietly wrong for M. Boxes are selected on every view; the select
+       tool arms on every view; the right-click menu offers Merge on every
+       view. The one way in that did not work was the key the menu tells you
+       to press.
+
+       The tool-toggle half of M stays below the gate, where the tool it
+       toggles lives. */
+    if(!(e.ctrlKey||e.metaKey||e.altKey) && (e.key==='m'||e.key==='M')
+       && typeof selMulti!=='undefined' && selMulti.size>1
+       && typeof mergeSelected==='function'){
+      e.preventDefault(); e.stopPropagation(); mergeSelected(); return;
+    }
     if(typeof view==='undefined'||view!=='typeset') return;
     if((e.ctrlKey||e.metaKey)&&(e.key==='d'||e.key==='D')){
       e.preventDefault(); e.stopPropagation(); selDeselect(); return;
@@ -1210,18 +1228,28 @@ if(typeof window!=='undefined' && typeof document!=='undefined'){
     }
     if((e.ctrlKey||e.metaKey)&&(e.key==='v'||e.key==='V')&&selClipObj){
       // If the browser withholds the clipboard, no paste event will follow
-      // this keypress — fall back to the in-app copy after a beat.
+      // this keypress - fall back to the in-app copy after a beat.
       _pasteHandled=false;
       setTimeout(()=>{ if(!_pasteHandled) selPasteInternal(); },200);
       return;
     }
     if(e.ctrlKey||e.metaKey||e.altKey) return;
+    // M MERGES WHEN THERE IS SOMETHING TO MERGE.
+    //
+    // lee: *"add an m shoortcut foe that"*, and M was already the pixel
+    // marquee. They cannot both have it and they do not have to: with two or
+    // more BOXES selected, marking an area of artwork for the brush is not
+    // what anybody means by M, and with nothing selected merging is not a
+    // thing that exists. So the selection decides, and neither tool loses a
+    // key it was ever pressed for.
+    // ...and with nothing selected to merge, M is the pixel marquee. The
+    // merge half of this ran above, before the typeset gate.
     if(e.key==='m'||e.key==='M') toggleSelTool('rect');
     else if(e.key==='l'||e.key==='L') toggleSelTool('lasso');
     else if(e.key==='w'||e.key==='W') toggleSelTool('wand');
     else if(e.key==='g'||e.key==='G') toggleSelTool('fill');
     else if(e.key==='e'||e.key==='E') toggleEraser();
-    // T is the transform, and the transform has its corners free — lee asked
+    // T is the transform, and the transform has its corners free - lee asked
     // for Ctrl+T and then, once he heard that Chrome keeps that one for
     // opening a tab: *"isntead of control t just make it t"*. Scale and rotate
     // is still there, in the same toolbox slot, for when a box should stay a
@@ -1264,7 +1292,7 @@ if(typeof window!=='undefined' && typeof document!=='undefined'){
       URL.revokeObjectURL(url);
       const img=$('img'); if(!img||!img.naturalWidth){ return; }
       // Our own Ctrl+C also lands on the system clipboard, so our own copy
-      // comes back here as a plain image with no idea where it came from —
+      // comes back here as a plain image with no idea where it came from -
       // and got dropped in the middle of the view while the original stayed
       // put. Two of everything, from one copy and one paste. Matched on the
       // SIZE OF THE IMAGE, not the size of the file: the browser re-encodes
@@ -1292,7 +1320,7 @@ if(typeof window!=='undefined' && typeof document!=='undefined'){
       const x=Math.round(cx-cc.width/2), y=Math.round(cy-cc.height/2);
       const st=selPushPatch(cc,x,y,1,'#7fd7c4','Pasted image');
       layerSel=st.id;
-      // straight into free transform to place it — as soon as the patch
+      // straight into free transform to place it - as soon as the patch
       // image has decoded, which is what xfStart() needs to float it
       selDeselect();      // ditto: the selection is not the pasted image
       const tick=setInterval(()=>{

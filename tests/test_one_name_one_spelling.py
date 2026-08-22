@@ -1,8 +1,8 @@
-"""One man, one spelling — and one sheet for a person.
+"""One man, one spelling - and one sheet for a person.
 
 lee, reading the finished English of a 46-page chapter: *"and try to fix teh
 cause of every issue"*. Two of the issues were about names, and both had the
-same shape — a rule the prompt states and nothing anywhere enforces.
+same shape - a rule the prompt states and nothing anywhere enforces.
 
 **Chrysos and Chryses.** 크리서스 came back "Laszlo Chrysos." on page 41 and
 "Count Laszlo Chryses" on page 45. Neither page did anything wrong on its own.
@@ -75,7 +75,7 @@ def test_the_order_is_the_order_they_appeared():
 
 def test_the_whole_of_lees_chapter():
     """Run over all 46 pages of finished English this returns the fourteen
-    proper nouns in it and nothing else — and TWO of them are the same man,
+    proper nouns in it and nothing else - and TWO of them are the same man,
     which is the bug."""
     lines = ["Tell me, Laszlo.", "So she's Duchess Edel Lancaster.",
              "Master of Calliope, the empire's largest mercenary guild,",
@@ -111,8 +111,8 @@ def test_a_different_first_letter_is_taken_as_a_different_person():
     """Adel against Edel is 0.75 alike and this deliberately says nothing.
 
     It is a real drift that gets missed, and that is the trade being made: a
-    transliteration wanders in the MIDDLE and at the END — Chrysos/Chryses,
-    Turiss/Turis — while a different opening letter is far more often a
+    transliteration wanders in the MIDDLE and at the END - Chrysos/Chryses,
+    Turiss/Turis - while a different opening letter is far more often a
     different character. Precision is what buys this check its keep. A flag
     that fires on every page is a flag nobody reads, and then Chryses gets
     through too.
@@ -123,7 +123,7 @@ def test_a_different_first_letter_is_taken_as_a_different_person():
 
 def test_it_never_rewrites_anything():
     """Two similar names CAN be two people. A machine that quietly renamed
-    somebody's character would be a worse fault than the one it fixes — so
+    somebody's character would be a worse fault than the one it fixes - so
     this reports a pair and the region gets flagged."""
     used, fresh = ["Chrysos"], ["Chryses"]
     name_drift(used, fresh)
@@ -148,7 +148,7 @@ class _P:
 
 def test_a_name_the_prose_used_is_remembered():
     """Read off the PROSE. Nobody proposes a surname and no speaker label
-    carries one — the narration box is where it lives and where it drifted."""
+    carries one - the narration box is where it lives and where it drifted."""
     ctx = SeriesContext()
     remember_said(ctx, _P([_R(0, "Laszlo Chrysos.")]))
     assert ctx.names_seen == ["Chrysos"], ctx.names_seen
@@ -219,7 +219,7 @@ def test_the_heroines_maiden_name_is_refused():
 def test_the_ducal_house_beside_it_is_not():
     """The entry that must survive, and it is on lee's own sheet one row
     away: a house shares a SURNAME with a character. Sharing a surname is
-    what a house does — it is the GIVEN name that says this is the person
+    what a house does - it is the GIVEN name that says this is the person
     again under another surname."""
     sheet = {}
     assert merge_glossary(
@@ -310,7 +310,7 @@ def test_the_same_spelling_twice_is_not_flagged():
 
 def test_the_check_does_not_need_the_story_switched_on():
     """This is about one chapter agreeing with ITSELF, not about a sheet
-    anybody is keeping — and `already_said` travels either way."""
+    anybody is keeping - and `already_said` travels either way."""
     ctx = SeriesContext(story=False)
     translate_page(_page(), ctx=ctx, client=_says("Laszlo Chrysos."))
     pg = _page()

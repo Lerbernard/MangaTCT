@@ -1,6 +1,6 @@
 """Removed. Nothing imports this file, and it does nothing if you do.
 
-There was a second AI pass at Find text here — the one built after the first
+There was a second AI pass at Find text here - the one built after the first
 was taken out, and deliberately not the same thing. It asked a model where the
 writing was and what kind each piece was, in overlapping tiles down a webtoon
 page, and then SNAPPED every rectangle it got back onto the ink underneath, so
@@ -10,7 +10,7 @@ the prompt, the corner reader that coped with three different orderings
 
 lee: *"remoeve teh whole ai box deection and just keep what we have now"*.
 
-So Find text is measurement again, from the first pass to the last — free,
+So Find text is measurement again, from the first pass to the last - free,
 offline, no key, no coins, and it gives the same answer twice. What "what we
 have now" means, and it is a good deal more than it was a week ago:
 
@@ -37,7 +37,7 @@ carries settings nothing reads.
 None of the OTHER AI in this project was touched, and none of it lived here:
 the reader (ocr.py), the translator (translate.py), the proofreader and the
 hosted cleaner are all where they were and all still on. `detect/craft.py` is
-NOT AI in this sense either — it is a text detector that runs offline on the
+NOT AI in this sense either - it is a text detector that runs offline on the
 machine, it has no key and costs no coins, and it is doing load-bearing work in
 the measured pass.
 """

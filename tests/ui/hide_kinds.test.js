@@ -4,7 +4,7 @@
    teh option to hide tehm not option to hide sfx if i selected all 3 i shoud
    get the option to desleect all 3".
 
-   So the switches offered are the ones there are boxes for — on THIS page
+   So the switches offered are the ones there are boxes for - on THIS page
    normally, and across the chapter when "every page" is on, or a group could
    never be put away from a page that happens not to contain it. */
 const {JSDOM}=require('jsdom');

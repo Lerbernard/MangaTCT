@@ -92,7 +92,7 @@ def test_a_step_on_a_service_this_app_no_longer_offers_is_left_alone():
 
 
 def test_an_old_project_json_that_has_not_been_saved_since_still_works(tmp_path):
-    """Read off disk, migrated on load, and the run finds its key either way —
+    """Read off disk, migrated on load, and the run finds its key either way -
     the per-step boxes are not deleted, because a key is the one setting in
     here it would be rude to throw away on the strength of a migration."""
     p = _proj(tmp_path)

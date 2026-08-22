@@ -1,4 +1,4 @@
-/* coins.js — TCT Coins: the count in the top bar and the purse behind it.
+/* coins.js - TCT Coins: the count in the top bar and the purse behind it.
 
    lee: *"i wan you to impiment a credit syste using coins $1 is 100 coins ...
    also add a coin count in the ui at the top"*, then *"remove teh real money
@@ -6,7 +6,7 @@
    recnetly part and the top up just have a buy coin button that will link to a
    page on the website"*.
 
-   So: whole coins and nothing else. No dollars anywhere on the screen — a coin
+   So: whole coins and nothing else. No dollars anywhere on the screen - a coin
    is the unit the app is priced in, and putting a currency beside it invites
    the question of which currency, in which country, at today's rate. Where
    coins come from is a link, not an exchange rate.
@@ -20,7 +20,7 @@ let wallet = null;
 
 /* Prices are worked out on the SERVER, for whichever pages you ask about:
    /api/coins?pages=… is the run's price and ?page=n is that one page on its
-   own. Never assembled here out of per-page numbers added together — a price
+   own. Never assembled here out of per-page numbers added together - a price
    is whole coins rounded up once over the whole run, and twenty-three pages
    rounded up one at a time would be twenty-three coins whatever was on them,
    which is the flat rate lee explicitly did not want. */
@@ -39,8 +39,8 @@ async function refreshCoins(){
 
 /* The same prices for a SUBSET of the chapter, without disturbing the ones
    the panel and the low-balance mark are reading. The two are different
-   questions asked of the same endpoint — "what would this chapter cost" and
-   "what would this run cost" — and one answer cannot be both. */
+   questions asked of the same endpoint - "what would this chapter cost" and
+   "what would this run cost" - and one answer cannot be both. */
 async function quoteCoins(query){
   try{ return await api('/api/coins' + (query||'')); }catch(e){ return null; }
 }
@@ -49,7 +49,7 @@ async function quoteCoins(query){
    run that is spending draws a number the purse has not been re-read for.
 
    `low` is under what one more chapter would cost at today's models rather
-   than a fixed number — a hundred coins is plenty for Gemini and nothing at
+   than a fixed number - a hundred coins is plenty for Gemini and nothing at
    all for Opus. */
 function paintCount(coins){
   const n = $('coinN'); if(!n) return;
@@ -72,7 +72,7 @@ function paintCoins(w){
 
 /* While a run is spending. `spent` is what THIS run has taken so far and
    `wallet.balance` is what the last read of the purse saw, so the difference
-   is the live figure — and it is drawn, not stored. Storing it would make the
+   is the live figure - and it is drawn, not stored. Storing it would make the
    next poll subtract the same spend from the already-reduced number, and the
    count would fall twice as fast as the money. */
 function coinsSpending(spent){
@@ -98,7 +98,7 @@ const COIN_STEP_NAMES = {ocr:'Read text', translate:'Translate',
                          proofread:'Proofread', clean:'Clean'};
 
 /* panels.js defines `esc` too, and these are classic scripts sharing one
-   global scope — a second `function esc` here silently replaces whichever
+   global scope - a second `function esc` here silently replaces whichever
    loaded first, for everybody. Own name, own file. */
 function coinEsc(s){ return String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -117,8 +117,8 @@ function drawWallet(){
                 : '') +
     `</span><span class="wamt">${coinsFor(k)}</span></div>`).join('');
   // Said out loud, with the model named. An unpriced model is charged at the
-  // dearest rate on the list — the right way round, since charging an unknown
-  // model as free is a bill this app eats — but it is an eightfold difference
+  // dearest rate on the list - the right way round, since charging an unknown
+  // model as free is a bill this app eats - but it is an eightfold difference
   // and nobody would guess it from the number.
   const warn = odd.size ? `<div class="wnote warn">` +
     [...odd].map(k => coinEsc((w.models||{})[k] || COIN_STEP_NAMES[k])).join(', ') +
@@ -145,7 +145,7 @@ function drawWallet(){
 
    lee: *"i ran out of coins to test stuff"* and *"just add coins to the editor
    not teh website"*. So there is a button, and it is behind
-   `MANGATL_TEST_PURSE` on the machine the editor runs on — see
+   `MANGATL_TEST_PURSE` on the machine the editor runs on - see
    `coins.can_top_up`, which is also the only thing that decides whether this
    draws at all. On an account it never appears, because on an account the
    client cannot write a balance and a button that always failed would be
@@ -192,7 +192,7 @@ function accountRow(w){
 
    The password is posted to the editor's own server, which passes it to Google
    and keeps nothing. What comes back and is kept is a refresh token, in the
-   person's own folder — see `account.py`. */
+   person's own folder - see `account.py`. */
 function walletSignIn(making){
   const pop = $('walletPop'); if(!pop) return;
   pop.innerHTML =
@@ -284,7 +284,7 @@ async function walletSignOut(){
 
 /* lee: *"just have a buy coin button that will link to oa page on the
    website"*. A new tab, and the address comes from the server so there is one
-   place it is written down — the editor is a thing somebody runs on their own
+   place it is written down - the editor is a thing somebody runs on their own
    machine and a card number has no business inside it. */
 function buyCoins(){
   const url = (wallet && wallet.buy_url) || '';

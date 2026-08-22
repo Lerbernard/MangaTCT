@@ -5,7 +5,7 @@
 
    The two things a mode has to get right are the folder name and what gets
    posted. A box sheet is not the finished chapter, so it must not land in the
-   folder the finished chapter went to — and the suffix has to come off the
+   folder the finished chapter went to - and the suffix has to come off the
    name as it was before ANY mode touched it, or clean -> boxes reads
    "chapter-cleaned-boxes". */
 const {JSDOM}=require('jsdom');

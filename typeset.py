@@ -1,4 +1,4 @@
-"""Typesetting — the stage that decides whether output looks hand-typeset.
+"""Typesetting - the stage that decides whether output looks hand-typeset.
 
 Two ideas do most of the work:
 
@@ -8,7 +8,7 @@ Two ideas do most of the work:
    shape real typesetters use, for free.
 
 2. The full translation ALWAYS goes in. When it runs long the fitter breaks
-   lines harder and drops the size — never swapping the wording, never
+   lines harder and drops the size - never swapping the wording, never
    splitting words, never letting text spill over the artwork.
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ from . import kinds as _kinds
 
 # ---------------------------------------------------------------- glyph safety
 # Comic typesetting fonts cover surprisingly little beyond ASCII. Any character
-# the chosen font has no glyph for renders as a tofu box (□) in the EXPORT —
+# the chosen font has no glyph for renders as a tofu box (□) in the EXPORT -
 # the editor preview is browser-rendered and quietly substitutes another font,
 # which is why the boxes only ever show up at the end. The rule here is
 # absolute: nothing reaches the page unless the font can draw it.
@@ -39,7 +39,7 @@ from . import kinds as _kinds
 _NORMALIZE = {
     "‘": "'", "’": "'", "‚": "'", "′": "'",
     "“": '"', "”": '"', "„": '"', "″": '"',
-    # long dashes stay em-dashes now — the font list only offers faces that
+    # long dashes stay em-dashes now - the font list only offers faces that
     # can draw one, so it renders instead of turning to tofu
     "–": "—", "—": "—", "―": "—", "⸺": "—",
     "…": "...",
@@ -71,13 +71,13 @@ def normalize_text(t: str) -> str:
 
 # Asterisks around a word are a CHAT convention for "this is an action or a
 # sound", and models reach for them constantly on sound effects and on wordless
-# bubbles — *TURN*, *pant* *pant*, *sniff*. No typesetter draws them. lee: *"make
+# bubbles - *TURN*, *pant* *pant*, *sniff*. No typesetter draws them. lee: *"make
 # it so that sfx never have these * on the beginning and end"*.
 #
 # Only a matched PAIR comes off, and only with something between the two. That
 # is what leaves a MASKED word alone: "f***" and "sh*t" have no pair wrapping
-# text, so they come through exactly as they are. The app never censors — see
-# `added_masking` in translate.py, and the rule about it in the prompt — but a
+# text, so they come through exactly as they are. The app never censors - see
+# `added_masking` in translate.py, and the rule about it in the prompt - but a
 # page is allowed to mask its own word, and when it does, that mask is part of
 # what the page says and has to survive the trip.
 _STARRED = re.compile(r"\*([^*]+)\*")
@@ -116,7 +116,7 @@ def _font_coverage(path: str):
 
 def font_supports(path: str, ch: str) -> bool:
     """Can this font draw `ch`? Unknowable coverage (no fontTools, odd file)
-    counts as yes — better to keep a font we cannot inspect than to hide
+    counts as yes - better to keep a font we cannot inspect than to hide
     everything."""
     cov = _font_coverage(path)
     if cov is None:
@@ -126,18 +126,18 @@ def font_supports(path: str, ch: str) -> bool:
 
 def sanitize_for_font(t: str, font_path: str,
                      substitutes: bool = False) -> str:
-    """The text, made drawable by this font — if it is allowed to be.
+    """The text, made drawable by this font - if it is allowed to be.
 
     With `substitutes` on, every uncovered character either maps to a covered
     stand-in, decomposes to a covered base letter (ō -> o), or is dropped
     outright: a missing character reads better than a tofu box.
 
-    With it OFF — the default — the text comes back normalized and otherwise
+    With it OFF - the default - the text comes back normalized and otherwise
     untouched. The face you chose is the face the words are set in, and a
     character it cannot draw is left there to be seen rather than quietly
     swapped for one it can. See `TypesetConfig.substitutes`.
     """
-    # The whitespace tidy is not a substitution and happens either way — a
+    # The whitespace tidy is not a substitution and happens either way - a
     # run of spaces and a stray one at the end are about the TEXT. Callers
     # rely on it: `layout_from_override` keeps a line's own indent and passes
     # the rest through here, so a version that left the leading spaces in
@@ -149,7 +149,7 @@ def sanitize_for_font(t: str, font_path: str,
         return tidy(t)
     out = []
     for ch in t:
-        # The em-dash is KEPT even when the font lacks the glyph — the
+        # The em-dash is KEPT even when the font lacks the glyph - the
         # renderer draws it by hand (see em_dash_glyph). This is what lets a
         # comic font that ships only a hyphen still show a real long dash.
         if ch == "\n" or ch == "—" or ord(ch) in cov:
@@ -177,8 +177,8 @@ _BAD_BREAK_BEFORE = {"a", "an", "the", "of", "to", "in", "on", "at", "is", "it"}
 MIN_LEADING = 1.20
 """The tightest line gap the FITTER may choose for itself.
 
-A multiple of the type size. It bounds the automatic answer — the sweep of
-leadings and the emergency wrap — and nothing else. A number typed into the
+A multiple of the type size. It bounds the automatic answer - the sweep of
+leadings and the emergency wrap - and nothing else. A number typed into the
 panel is a person deciding, and it stands however tight: lee, having asked for
 the floor in the first place, then asked for exactly that. The browser has the
 same number in panels.js and a test holds the two together."""
@@ -194,7 +194,7 @@ class TypesetConfig:
     min_font: int = 12          # hard floor; below this we flag for a human
     font_step: int = 1
     # Line gap, as a multiple of the type size. The floor is MIN_LEADING and
-    # nothing — fitted, typed or loaded — goes under it. It used to be 1.00,
+    # nothing - fitted, typed or loaded - goes under it. It used to be 1.00,
     # and set that tight the ascenders on one line touch the descenders on the
     # one above and the block reads as a grey mass. lee, looking at his own
     # pages: *"make teh minimun line gap be 1.20"*.
@@ -204,10 +204,10 @@ class TypesetConfig:
     # the chord alone is not enough on its own: it gives a wide bubble plenty
     # of air and a narrow one almost none, and it knows nothing about the type
     # size, which is what the eye actually judges "too close to the edge"
-    # against. So the gutter is the largest of three claims — a fraction of
+    # against. So the gutter is the largest of three claims - a fraction of
     # the chord, a fraction of an em, and a hard pixel floor.
     # `margin` is a SECOND helping of clearance on top of the erosion below,
-    # and it used to be 0.86 — a 221px balloon came out with 144px of usable
+    # and it used to be 0.86 - a 221px balloon came out with 144px of usable
     # chord, and the typesetting shrank to match. The erosion already leaves the
     # gutter `gutters()` asks for, in every direction, so almost all of the
     # chord is usable; what is left here is the small extra pull-in that the
@@ -239,7 +239,7 @@ class TypesetConfig:
     # Layout scoring. Taking the largest font that merely *fits* produces
     # nine cramped one-word lines; a typesetter would drop a size for balance.
     w_ragged: float = 0.80      # penalise unused width on each line
-    w_small: float = 3.60       # penalise small type — readers notice this most
+    w_small: float = 3.60       # penalise small type - readers notice this most
     w_orphan: float = 0.90      # penalise one-word lines that sit half empty
     # Penalise lines that differ in length from each other. This is the term
     # that reads the SHAPE of the block, and it is now one of the largest in
@@ -247,7 +247,7 @@ class TypesetConfig:
     # and inside an oval that lets a stack of one-word stubs near the poles
     # score as tidy. Comparing the lines to one another is what sees it.
     w_balance: float = 3.20
-    # A block that leaves most of its balloon empty — "ARE YOU ALL RIGHT?" as a
+    # A block that leaves most of its balloon empty - "ARE YOU ALL RIGHT?" as a
     # 16pt two-line ribbon in a bubble that takes it at 23 on four lines, or
     # "I'M SORRY." as a 19pt one-liner where 28 on two fits. `small` cannot see
     # this: it prices type against the size range and knows nothing about the
@@ -263,13 +263,13 @@ class TypesetConfig:
     # stops looking stranded. A third is where lee's approved rows sit (the
     # thinnest, "THAT PRINCESS NEVER HAD ANY POWER...", covers 0.33) and where
     # the rejected one does not ("IT'S TRUE... SHE CAN'T USE HER HEALING POWER
-    # ANYMORE, BUT—" covered 0.20 before this term existed). Raising it toward
+    # ANYMORE, BUT-" covered 0.20 before this term existed). Raising it toward
     # a half starts pushing "SO. WE / NEED TO / TALK." into a five-stub column
     # to buy height it does not need.
     vfill_target: float = 0.30
     # How much the LAST line counts in the shape penalties. Prose lets it run
     # short for free; comic typesetting wants the block to look deliberate, so
-    # it counts — just less than the lines above it.
+    # it counts - just less than the lines above it.
     w_last_line: float = 0.45
     w_cpl: float = 3.80         # penalise deviation from comfortable line length
     ideal_cpl: int = 16         # characters per line a typesetter aims for
@@ -278,7 +278,7 @@ class TypesetConfig:
     # Penalise tall stacks of lines. It has to hold its own against `w_vfill`
     # and `w_small` above, which both reward buying a bigger size with another
     # line break: at 0.25 a six-line column of single words was cheap enough to
-    # win. Raising it is what keeps "MY HARD / WORK PAID / OFF TOO—" three
+    # win. Raising it is what keeps "MY HARD / WORK PAID / OFF TOO-" three
     # lines instead of six.
     w_lines: float = 1.00
     soft_max_lines: int = 5     # a sentence rarely needs more than this
@@ -289,7 +289,7 @@ class TypesetConfig:
     # about the SHAPE it is being poured into: in a tall narrow bubble many
     # short lines is not a stack, it is the shape doing what it was drawn to
     # do. This is the fraction of the rows the bubble's usable height affords
-    # that a block may spend before anybody calls it a stack — discounted from
+    # that a block may spend before anybody calls it a stack - discounted from
     # 1.0 because the top and bottom of a rounded bubble are too narrow to
     # typeset right across.
     rows_afforded: float = 0.70
@@ -299,13 +299,13 @@ class TypesetConfig:
 # glossary lists them. lee: *"Look for a manga translation guide to see what
 # type of bubble i shoud use instad of speech bubble outide bubble etc"*.
 #
-# Every one of these except the last two is a BALLOON — round, scalloped,
+# Every one of these except the last two is a BALLOON - round, scalloped,
 # jagged or square, it is still a closed shape with a tail, so the geometry is
 # identical and only the typesetting differs. `freefloat` is dialogue with no
 # balloon around it at all (a typesetter calls this open typesetting), and `sfx` is
 # a drawn sound, which answers to its own shape.
 # The three families. What a box IS finer than this is a sub-type, which a
-# person makes and names — see kinds.py. Nothing in the typesetter reads a
+# person makes and names - see kinds.py. Nothing in the typesetter reads a
 # sub-type directly: everything asks which family a box is in.
 KINDS = _kinds.FAMILIES
 
@@ -316,7 +316,7 @@ KINDS = _kinds.FAMILIES
 # exactly as it did, and it is permission rather than an instruction.
 #
 # Thought and caption are set at normal size and told apart by the FACE. That
-# is what a sub-type's own font is for, and it is what a typesetter does too — an
+# is what a sub-type's own font is for, and it is what a typesetter does too - an
 # italic for thought.
 #
 # Keyed on the SUB-TYPE, not the family: it is a burst that is set large, and a
@@ -340,7 +340,7 @@ def can_typeset(path: str) -> bool:
     """Whether a font can be TYPESET with, not merely opened.
 
     `usable_font` only says the file loads. A machine has plenty of fonts that
-    load perfectly and contain no letters at all — icon sets, dingbats, symbol
+    load perfectly and contain no letters at all - icon sets, dingbats, symbol
     and emoji faces. Choosing one of those used to wipe the page: the text is
     made drawable by the chosen font before it is measured (sanitize_for_font
     drops what the font cannot draw), so against a face with no alphabet every
@@ -348,7 +348,7 @@ def can_typeset(path: str) -> bool:
 
     A font that cannot draw the alphabet is not a typesetting font, so it is
     refused at the point it is chosen instead. A handful of missing letters is
-    tolerated — the test is "has an alphabet", not "is complete".
+    tolerated - the test is "has an alphabet", not "is complete".
     """
     if not usable_font(path):
         return False
@@ -362,7 +362,7 @@ def can_typeset(path: str) -> bool:
 def keeps_the_words(raw: str, safe: str) -> bool:
     """Whether sanitising against a font left the line still readable.
 
-    Under a font missing the letters, `sanitize_for_font` returns a stub — the
+    Under a font missing the letters, `sanitize_for_font` returns a stub - the
     punctuation, an em dash, nothing. That is not a line of dialogue any more,
     and laying it out is how a page ends up blank.
     """
@@ -386,7 +386,7 @@ def font_for(cfg: "TypesetConfig", kind: str, override: str = "") -> str:
     The family step is the one that matters now there are sub-types: a thought
     balloon with no face of its own is still a balloon, and should be typeset
     in the balloon face rather than dropping all the way through to the
-    project default — which on a page of sound effects is a different face
+    project default - which on a page of sound effects is a different face
     again.
     """
     fam = _kinds.family_of(kind or "")
@@ -428,7 +428,7 @@ def default_font_path() -> str:
     if env and os.path.exists(env):
         # Absolute, even when the setting is relative. `.env` in the repository
         # says `MANGATL_FONT=fonts/CCWildWords.ttf`, which resolves fine and is
-        # then a DIFFERENT STRING from the same file's entry in the font list —
+        # then a DIFFERENT STRING from the same file's entry in the font list -
         # so the menu could not find the face it was showing and fell back to
         # printing the filename, extension and all. Everything else in the app
         # hands round absolute paths; this was the one that did not.
@@ -478,7 +478,7 @@ def _font(path: str, size: int):
     """Load a face, falling back to the default rather than failing.
 
     A font the user picked may have moved or be unreadable. Losing the whole
-    page render over that is not acceptable — typeset it in the default face and
+    page render over that is not acceptable - typeset it in the default face and
     let the flag surface the problem."""
     try:
         return ImageFont.truetype(path, size)
@@ -512,13 +512,13 @@ def ink_extents(path: str, size: int, descenders: bool) -> tuple[float, float]:
 
     * A line box is `size * leading` tall, but the letters only fill part of
       it. Measuring the bubble's chord across the whole box makes every line
-      narrower than it needs to be — worst at the top and bottom of an oval,
+      narrower than it needs to be - worst at the top and bottom of an oval,
       where the box corners hang out over the curve but no ink ever reaches
       them. Measuring across the ink band instead is what lets the fitter use
       a bubble's real width.
 
     * "mm" centres on the font's ascender/descender box. All-caps typesetting
-      never uses the descender, so the line comes out sitting low (or high —
+      never uses the descender, so the line comes out sitting low (or high -
       it depends on the face). Centring on the ink instead puts the text
       where the eye expects it.
 
@@ -544,8 +544,8 @@ def _has_descenders(text: str) -> bool:
 # stand-in was a filled rectangle, and it showed: dead straight, square
 # cornered, obviously a machine part sitting in a row of wobbling hand-drawn
 # letters. So borrow the shape instead. Take the em-dash outline out of a
-# Comic Sans-alike — real Comic Sans when the machine has it, the bundled
-# Comic Neue otherwise — and rescale it to the host font's own stroke weight
+# Comic Sans-alike - real Comic Sans when the machine has it, the bundled
+# Comic Neue otherwise - and rescale it to the host font's own stroke weight
 # and to a proper em of length. The ends keep the donor's rounding.
 
 _EM_DONORS = (
@@ -589,7 +589,7 @@ def em_dash_donor() -> str:
 def _glyph_ink(path: str, size: int, ch: str):
     """One character's ink, cropped tight.
 
-    Returns (mask, top, stroke) — an 8-bit PIL image of just the ink, the y of
+    Returns (mask, top, stroke) - an 8-bit PIL image of just the ink, the y of
     its first row relative to an "mm"/"lm" anchor, and the median thickness of
     its inked columns. Thickness is a median rather than the bounding height
     because a hand-drawn hyphen is a tilted wedge: its box is far taller than
@@ -670,7 +670,7 @@ def gutters(size: int, bubble_h: float, cfg: "TypesetConfig") -> tuple[float, fl
     Both are the largest of the claims in the config, so a small bubble still
     gets real air and a large one is not padded out of proportion. The edge
     figure also carries the outline the renderer paints around each glyph,
-    which the width measurements know nothing about — without it a line that
+    which the width measurements know nothing about - without it a line that
     "fits" can still have its stroke sitting on the bubble edge.
     """
     em = size * cfg.pad_em
@@ -689,8 +689,8 @@ def _row_chords(mask: np.ndarray):
     array passes instead of a `flatnonzero` per row.
 
     The passes are made over the mask's bounding box, not the mask. These masks
-    are page-sized whatever the balloon is — a 90x200 bubble arrives inside a
-    960x1365 field of zeros — and reversing a page to read it backwards copies
+    are page-sized whatever the balloon is - a 90x200 bubble arrives inside a
+    960x1365 field of zeros - and reversing a page to read it backwards copies
     the whole thing. Cropping first is what makes the vectorised version
     actually faster than the loop it replaced rather than merely tidier.
     """
@@ -719,7 +719,7 @@ def chord_profile(mask: np.ndarray) -> tuple[np.ndarray, int, int]:
 
     Returns (widths, y_top, y_bottom). Uses the span between the first and last
     set pixel, so a bubble with a tail reports the tail rows as narrow, which is
-    exactly what we want — text should not run into the tail.
+    exactly what we want - text should not run into the tail.
     """
     rows, first, last = _row_chords(mask)
     ys = np.flatnonzero(rows)
@@ -730,7 +730,7 @@ def chord_profile(mask: np.ndarray) -> tuple[np.ndarray, int, int]:
 
 
 def band_width(widths: np.ndarray, ya: int, yb: int) -> float:
-    """Narrowest chord across rows [ya, yb) — the safe width for a line."""
+    """Narrowest chord across rows [ya, yb) - the safe width for a line."""
     ya = max(0, ya)
     yb = min(len(widths), max(ya + 1, yb))
     seg = widths[ya:yb]
@@ -748,7 +748,7 @@ def band_center(mask: np.ndarray, ya: int, yb: int) -> float:
 
 
 def chord_edges(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """First and last set pixel of every row — the two ends of its chord.
+    """First and last set pixel of every row - the two ends of its chord.
 
     `chord_profile` measures how WIDE each row is, which is all you need to
     ask whether a line fits. It is not enough to ask whether a whole block
@@ -762,7 +762,7 @@ def chord_edges(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def band_span(left: np.ndarray, right: np.ndarray,
               ya: int, yb: int) -> tuple[float, float]:
-    """The columns every row of band [ya, yb) has — its common chord.
+    """The columns every row of band [ya, yb) has - its common chord.
 
     Narrower than the narrowest row when the rows are staggered, which is the
     honest answer: a line of type spans the whole band, so a column only one
@@ -779,7 +779,7 @@ class _RowRanges:
     """The same three band questions as above, answered in constant time.
 
     `band_width` and `band_span` are three tiny reductions over a slice of a
-    row profile, and the fit search asks them about a million times a page —
+    row profile, and the fit search asks them about a million times a page -
     once per line, per line count, per placement, per leading, per size. Each
     one is a few microseconds of numpy call overhead over a dozen-odd floats,
     and that overhead was a third of the whole typesetting time.
@@ -788,7 +788,7 @@ class _RowRanges:
     every window of exactly 2^j rows, built by folding the level below onto
     itself, so any range is covered by two overlapping power-of-two windows and
     answered by combining them. Overlap is harmless because min and max are
-    idempotent — counting a row twice does not change the smallest or largest.
+    idempotent - counting a row twice does not change the smallest or largest.
     Building costs a handful of full-array ops per bubble; every question after
     that is two lookups, and a whole block's worth of bands is asked at once.
 
@@ -848,7 +848,7 @@ class _RowRanges:
 def line_axis(spans: list, used: list) -> float:
     """The one vertical line a whole block of text is centred on.
 
-    Every line of a block shares a centre — that is what a block IS, on the
+    Every line of a block shares a centre - that is what a block IS, on the
     page and in every typesetting guide there is. Centring each line on its
     own chord instead makes them wander in anything that is not left-right
     symmetric, and lee's narration blocks came down the page as a staircase,
@@ -861,8 +861,8 @@ def line_axis(spans: list, used: list) -> float:
     either edge, so the block's axis is any point inside every one of those
     intervals, and the one to pick is the one nearest the middle of the shape
     at that height. Asking the question this way round costs nothing: a block
-    that fits its bands still fits them. Asking it the other way round — the
-    strip every line could reach WHATEVER it turned out to say — throws size
+    that fits its bands still fits them. Asking it the other way round - the
+    strip every line could reach WHATEVER it turned out to say - throws size
     away, and cost lee's two-lobed bud two points on words that fitted it.
 
     When the intervals do not all overlap, the shape is too lopsided to hold
@@ -891,8 +891,8 @@ class BubbleGeom:
     hard against the curve, which is exactly the "too close to the edge" a
     reader sees in a round bubble even when the arithmetic says it fits.
 
-    So the safe area is the bubble ERODED by the gutter — every point at least
-    that far from the outline in any direction — and chords are taken across
+    So the safe area is the bubble ERODED by the gutter - every point at least
+    that far from the outline in any direction - and chords are taken across
     that instead. On a rectangle it comes to the same thing; on a circle it
     pulls the top and bottom lines in, which is the whole point.
     """
@@ -964,7 +964,7 @@ def _break_penalty(prev_word: str, next_word: str) -> float:
     return p
 
 
-# NO hyphenation, ever — lee tried it and hated it. The fitter uses line
+# NO hyphenation, ever - lee tried it and hated it. The fitter uses line
 # breaks and size alone; a word is never split. A word wider than the box at
 # the absolute floor falls through to the clamped-and-flagged path instead.
 #
@@ -984,9 +984,9 @@ _DOTS = ".…"
 def author_breaks(word: str) -> list[str]:
     """`word` cut at the dashes and dot runs already in it.
 
-    A dash keeps the piece before it — GLOW-SAN! is GLOW- then SAN!, the way
+    A dash keeps the piece before it - GLOW-SAN! is GLOW- then SAN!, the way
     it is set on the page, because a line ending in a bare GLOW reads as a
-    different word. A row of dots keeps the piece after it — CLOSELY... is
+    different word. A row of dots keeps the piece after it - CLOSELY... is
     CLOSELY then ..., because the dots are the pause and the pause belongs
     with what comes next.
 
@@ -996,7 +996,7 @@ def author_breaks(word: str) -> list[str]:
 
     Nothing empty is ever appended, so there is no filter on the way out. A
     `[p for p in parts if p]` here would have swallowed the leading-ellipsis
-    guard below — with the filter in place, dropping the guard changed
+    guard below - with the filter in place, dropping the guard changed
     nothing, and a rule that cannot be told from its own absence is not a
     rule anybody can rely on.
     """
@@ -1008,7 +1008,7 @@ def author_breaks(word: str) -> list[str]:
                 cur += word[i]
                 i += 1
             # Material on both sides or it is not a break: a trailing dash is
-            # just how the line ends, and a leading one (—WELL, an interrupted
+            # just how the line ends, and a leading one (-WELL, an interrupted
             # speaker) would otherwise be left standing alone on a line of its
             # own, which is the one thing a dash must never do.
             if i < n and cur.strip(_DASHES):
@@ -1049,7 +1049,7 @@ def rejoin_author_breaks(lines: list, toks: list, glue: list) -> list:
 
     The fitter is handed the pieces spaced apart so it may break between them;
     two pieces that end up on one line are one word again, and must be drawn
-    as one — GLOW- SAN! with a space in it is not a word anybody wrote.
+    as one - GLOW- SAN! with a space in it is not a word anybody wrote.
     """
     out, at = [], 0
     for ln in lines:
@@ -1070,7 +1070,7 @@ def wrap_to_width(text: str, measure: Callable[[str], float],
                   space_w: float, width: float) -> list[str]:
     """Break `text` into as many lines as it takes to fit `width`.
 
-    Resizing a text box should reflow the words, not shrink them — the same
+    Resizing a text box should reflow the words, not shrink them - the same
     thing happens in any word processor. The line count falls out of the
     width rather than being fixed in advance, which is why `break_lines`
     cannot be used directly; once the count is known that function is used to
@@ -1165,22 +1165,22 @@ _DROPS = (0.0, 0.125, 0.25, 0.375, 0.625, 0.75, 0.875, 1.0)
 
 def _placements(rng: "_RowRanges", band_top: float, slack: float, n: int,
                 line_h: float, ink_h: float, cfg: "TypesetConfig"):
-    """Where down the shape the block may sit — the bands for each option.
+    """Where down the shape the block may sit - the bands for each option.
 
     The block used to be nailed to the middle of the available height. In a
     symmetric oval that is exactly right: the chord is widest across the
     centre, so anywhere else is narrower. In anything NOT symmetric it throws
     room away, and the shapes the fitter is handed are very often not
-    symmetric — a balloon shared between the two blocks of a split line is cut
+    symmetric - a balloon shared between the two blocks of a split line is cut
     straight across, which leaves each half a wedge. The top half of lee's
-    "MY HARD WORK PAID OFF TOO— / —SO TAKE CARE NOW!" balloon runs from a 70px
+    "MY HARD WORK PAID OFF TOO- / -SO TAKE CARE NOW!" balloon runs from a 70px
     chord at its top to 158px at its bottom, and centring a three-line block
     in it measured the lines against ~110px of the ~150px they could have had.
     That is the bulk of why both halves of a split bubble came out small: not
     the scoring, the placement.
 
     What comes back is the centred block and, when some other height is
-    materially roomier, that one too — as CANDIDATES, both scored. Picking the
+    materially roomier, that one too - as CANDIDATES, both scored. Picking the
     roomier one outright is wrong and the sweep says so plainly: `ragged`
     measures how much of its chord a line leaves empty, so handing a layout a
     wider band makes it score WORSE, and choosing on width alone turned "NO
@@ -1201,7 +1201,7 @@ def _placements(rng: "_RowRanges", band_top: float, slack: float, n: int,
     tops = [band_top + slack / 2]
     if slack > 1.0:
         tops += [band_top + slack * f for f in _DROPS]
-    # `np.rint` rounds halves to even, which is what Python's `round` does —
+    # `np.rint` rounds halves to even, which is what Python's `round` does -
     # the band edges land on exactly the rows the scalar loop chose.
     grid = np.asarray(tops, dtype=np.float64)[:, None] \
         + np.arange(n, dtype=np.float64) * line_h
@@ -1291,8 +1291,8 @@ def _candidates(
     def _settle(top, slack, n, used):
         """Slide a block back to the most central height its lines still fit.
 
-        The search over heights above exists to find ROOM: in a wedge — which
-        is what half a split balloon is — the widest chords are at one end, and
+        The search over heights above exists to find ROOM: in a wedge - which
+        is what half a split balloon is - the widest chords are at one end, and
         a block measured across the middle is measured against width it did not
         have to accept. That is a good way to choose the breaks and a bad way
         to choose where the words end up sitting, and lee's page had "LET'S
@@ -1303,8 +1303,8 @@ def _candidates(
         lines are broken, their widths are fixed, and every height is asked the
         one question that matters: do THESE lines still fit there? Of the
         heights that say yes, the block takes the one nearest the middle. The
-        size and the breaks are untouched — this cannot cost a point of type,
-        because a height is only accepted if every line already fits it — and
+        size and the breaks are untouched - this cannot cost a point of type,
+        because a height is only accepted if every line already fits it - and
         the block ends up as central as its own shape allows, which in a
         symmetric bubble is dead centre.
 
@@ -1342,7 +1342,7 @@ def _candidates(
             continue
 
         if fixed is not None:
-            # The breaks are already decided — somebody typed them. All that is
+            # The breaks are already decided - somebody typed them. All that is
             # left to choose is where the block sits, and that is chosen by the
             # same scoring as a fresh fit, so a hand-broken block lands exactly
             # where the fitter would have put those same lines.
@@ -1364,9 +1364,9 @@ def _candidates(
 
         # Every line is scored, the last one at a discount. Prose typesetting
         # lets the last line run short for free, and that is what used to let
-        # "DON'T WORRY / ABOUT IT — / REALLY." come out as four one-word
+        # "DON'T WORRY / ABOUT IT - / REALLY." come out as four one-word
         # lines: the ugly stub at the bottom cost nothing. A reader sees the
-        # block, not the sentence, so the whole block is what gets judged —
+        # block, not the sentence, so the whole block is what gets judged -
         # discounted at the end, because some slack there is normal.
         wts = [1.0] * n
         if n > 1:
@@ -1378,9 +1378,9 @@ def _candidates(
 
         # Raggedness alone is measured against each line's OWN chord, and in an
         # oval that lets a tall stack cheat: every line of "DON'T / WORRY /
-        # ABOUT IT — / REALLY." fills its own narrow band near the poles, so it
+        # ABOUT IT - / REALLY." fills its own narrow band near the poles, so it
         # scores as tidy while looking like a column. Compare the lines to each
-        # other as well — a typesetter judges the SHAPE of the block, and wants
+        # other as well - a typesetter judges the SHAPE of the block, and wants
         # the lines close to the same length.
         w_long = max(used) or 1.0
         imbalance = sum(w * ((w_long - u) / w_long) ** 2
@@ -1392,7 +1392,7 @@ def _candidates(
         # so a single word "filled" its line. "UNBELIEVABLE" alone in a bubble
         # is not an orphan, and neither is a one-line layout.
         # A stub is only an orphan if some OTHER line holds more than one word
-        # — that is the line it could have been joined to. When every line is a
+        # - that is the line it could have been joined to. When every line is a
         # single word the breaking had no choice: "HELLO, / EVERYONE!" is two
         # words and two lines, and there is no arrangement of it that is not
         # one word per line. Charging it as two orphans was what made the
@@ -1406,7 +1406,7 @@ def _candidates(
             w for w, ln, u in zip(wts, lines, used)
             if len(ln.split()) == 1 and u < 0.65 * w_long) / tot_w
 
-        # How little of the bubble's height the block covers — but only once it
+        # How little of the bubble's height the block covers - but only once it
         # covers less than `vfill_target` of it, and zero above that.
         #
         # This was `1 - block_h/usable_h`: a straight reward for filling more
@@ -1416,7 +1416,7 @@ def _candidates(
         # exactly what it could not afford to be. Measured across the eight
         # balloons lee marked up, the difference between the layout he rejected
         # in a tall narrow bubble and the one he approved in a wide one is
-        # componentwise non-negative on all seven terms — so NO reweighting of
+        # componentwise non-negative on all seven terms - so NO reweighting of
         # them, at any values, ranks both the way he does. The monotone shape
         # is what forbids it: any weight big enough to lift a starved block
         # also lifts a comfortable one.
@@ -1426,7 +1426,7 @@ def _candidates(
         # balloon, and below about a third of the height it stops reading as
         # typesetting in a bubble and starts reading as a ribbon floating in an
         # ocean of white. Above that line the layout is fine and the term has
-        # no opinion — how big to go from there is `small`'s question, and
+        # no opinion - how big to go from there is `small`'s question, and
         # "don't crowd the bubble" is the gutter's. It is priced steeply (10.0)
         # because it is a floor, not a preference; on a well-filled block it
         # contributes nothing at all.
@@ -1446,13 +1446,13 @@ def _candidates(
         fill = block_h / max(1.0, usable_h)
         tgt = max(1e-6, cfg.vfill_target)
         vfill = max(0.0, (tgt - fill) / tgt)
-        # How small this is — measured against the sizes THIS balloon can
+        # How small this is - measured against the sizes THIS balloon can
         # actually take, not against the settings dialog.
         #
         # It used to divide by `max_font - min_font`, and that is what left
         # page 8 under-set. lee runs 10-34, so in a small balloon whose text
         # cannot exceed 16pt no matter how it breaks, the whole live ladder is
-        # 10..16 and the step from 14 to 16 — a third of everything on offer —
+        # 10..16 and the step from 14 to 16 - a third of everything on offer -
         # registered as 8% of a 24pt span, about 0.29 of score. Any layout at
         # 14 that broke a shade more evenly than the one at 16 bought the
         # smaller type for less than it was worth, and "PLEASE, LISTEN TO WHAT
@@ -1465,7 +1465,7 @@ def _candidates(
         small = min(1.0, max(0.0, 1 - (size - cfg.min_font) / span))
 
         # Short lines are the main tell of automated typesetting. Penalise lines
-        # below the comfortable length hard, above it only gently — the chord
+        # below the comfortable length hard, above it only gently - the chord
         # width already caps how long a line can get.
         # The target is the comfortable length, unless the text is shorter than
         # that or the bubble is too narrow to hold it. It deliberately does NOT
@@ -1490,10 +1490,10 @@ def _candidates(
         # lines at 12pt inside a balloon that had room for seven at 19pt, which
         # is the opposite of the failure this whole model exists to fix. So the
         # cap is a floor, and past it another line is allowed for every
-        # `relax_cpl` characters — the point being that lines never have to get
+        # `relax_cpl` characters - the point being that lines never have to get
         # shorter than that to buy the extra line. Raising the flat cap instead
         # does fix the long sentences, and it also turns "MY HARD WORK PAID OFF
-        # TOO—" into six stubs; the length term is what tells those apart.
+        # TOO-" into six stubs; the length term is what tells those apart.
         #
         # Both of those count characters, and a count of characters knows
         # nothing about the BALLOON. In a tall narrow bubble a lot of short
@@ -1526,7 +1526,7 @@ def _candidates(
         #
         # Every line of the block sits on ONE axis. Centring each on its own
         # chord instead is defensible in a circle, where every chord shares a
-        # centre and the answer is the same either way — and it is what put
+        # centre and the answer is the same either way - and it is what put
         # lee's narration blocks down the page as a staircase, one step per
         # line, because the shape they were measured in was the ragged
         # outline of the Japanese they replace and no two of its chords agree.
@@ -1543,7 +1543,7 @@ def _candidates(
         if want_features:
             # The score is a linear combination of these seven and nothing
             # else, so handing them out lets the bench ask whether ANY set of
-            # weights ranks the layouts the way a typesetter would — a question
+            # weights ranks the layouts the way a typesetter would - a question
             # no amount of scanning the weights can answer.
             yield score, layout, dict(
                 stack=stack, ragged=ragged, imbalance=imbalance,
@@ -1557,7 +1557,7 @@ def _feasible_top(text, mask, cfg: TypesetConfig, geom) -> int:
     """The largest size at which this text fits in this shape at all.
 
     Walked from the top down and stopped at the first size that yields
-    anything, so the sizes it touches are exactly the ones that do not fit —
+    anything, so the sizes it touches are exactly the ones that do not fit -
     which bail out early and cost almost nothing. It is the top of the ladder
     `small` is measured on: how small a layout is only means something next to
     how big this balloon would ever have let it be.
@@ -1584,7 +1584,7 @@ def _best(text: str, mask: np.ndarray, cfg: TypesetConfig) -> Optional[TextLayou
     it at 19pt: three sizes are typeset instead of twenty-five.
 
     Sizes ABOVE `_feasible_top` are skipped for the same reason and with more
-    certainty — `_feasible_top` just walked them and none of them fitted.
+    certainty - `_feasible_top` just walked them and none of them fitted.
     """
     best_score, best = INF, None
     geom = BubbleGeom(mask)          # the distance transform, once for all sizes
@@ -1608,8 +1608,8 @@ def place_lines(lines, mask, cfg: TypesetConfig, size: int, leading: float,
 
     The fitter centres every line on the balloon's own chord at that line's
     height and centres the block on the paper inside the outline. Anything
-    that rebuilds a layout some other way — centring in the bounding
-    rectangle, say — puts the same words somewhere else, and the difference is
+    that rebuilds a layout some other way - centring in the bounding
+    rectangle, say - puts the same words somewhere else, and the difference is
     visible the moment the two paths swap over. This is the one place that
     arithmetic lives, so they cannot drift apart.
 
@@ -1648,18 +1648,18 @@ def _plain_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     The sweep starts at `min_font` and only goes down, which looks timid and
     is not. Starting it at `max_font` and keeping any size whose every line
     lands on paper the mask owns was tried, on page 8's "HOW RUDE OF THEM..."
-    — the one region on that page still typesetting at the floor. It changed
+    - the one region on that page still typesetting at the floor. It changed
     nothing: the white gap it sits in is 59px at its widest and ragged down
     the right where the art cuts in, so no size above the floor gets a line
     inside it. What is wrong with that region is not its size but that it is
     free text on art being held inside a sliver of background; the box it
     should typeset in is bigger than the white the detector handed it.
 
-    It wraps on the AUTHOR'S breaks, not on spaces — the same rule and the
+    It wraps on the AUTHOR'S breaks, not on spaces - the same rule and the
     same three lines as `_spill_fit`. Every path above this one already breaks
     at a dash or a row of dots before it shrinks anything; this one did not,
     and it is the only one that shrinks past the legibility floor. So
-    GLOW-SAN! — one word, nothing to wrap on — came out as a single line at
+    GLOW-SAN! - one word, nothing to wrap on - came out as a single line at
     7pt in a box that had room for GLOW- over SAN! at the minimum. Making the
     type illegible to avoid a line break the author himself wrote in is the
     wrong way round. lee: *"all box type shoud do the line break thing wjhen
@@ -1678,19 +1678,19 @@ def _plain_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
         # every pixel inside the box.
         #
         # But never under MIN_LEADING. This is the FITTER choosing, and the
-        # floor binds every automatic answer — the docstring on MIN_LEADING
+        # floor binds every automatic answer - the docstring on MIN_LEADING
         # names this very path and it did not honour it: it set `leading=1.0`
         # and packed the lines at the ink height, which is the tight grey mass
         # the floor exists to prevent. lee, looking at his own page:
         # *"trhe nimimun line gap is not ebeing enforced ty the typesetter"*.
         # The way out of a box this cramped is a smaller size, not a smaller
-        # gap — and the sweep below is already walking the sizes down.
+        # gap - and the sweep below is already walking the sizes down.
         ink_h = _font(path, size).getbbox("Ahgjy")[3]
         lh = max(float(size) * MIN_LEADING, ink_h * 0.95)
         lines, cur = [], ""
         ok = True
         for k, tk in enumerate(toks):
-            # A piece that follows a dash rejoins with NO space — GLOW- SAN!
+            # A piece that follows a dash rejoins with NO space - GLOW- SAN!
             # with a space in it is not a word anybody wrote.
             trial = tk if not cur else (cur + tk if glue[k] else cur + " " + tk)
             if _text_w(path, size, trial) <= avail_w or not cur:
@@ -1729,7 +1729,7 @@ def _spill_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     narrow column: the English runs across, so the box is routinely the wrong
     shape for the words rather than the wrong size. Squeezing the English into
     it means 8pt type on a 1365px page, which is not typesetting, it is a
-    footnote. And there is no balloon here — the words sit on artwork, where a
+    footnote. And there is no balloon here - the words sit on artwork, where a
     typesetter would simply set them bigger and let them cover the drawing.
 
     lee: *"outside text and sfx shoud be able to got outside teh box if the
@@ -1737,7 +1737,7 @@ def _spill_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
 
     So: `min_font`, never below, wrapped to the box's own width where it can
     and past it where it cannot, centred on the box so it spills evenly rather
-    than growing off one side. Inside a balloon this would be wrong — the
+    than growing off one side. Inside a balloon this would be wrong - the
     paper is the limit and `_plain_fit` still holds there.
 
     Spilling is the LAST thing tried, not the first, and it still takes every
@@ -1746,7 +1746,7 @@ def _spill_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     create new line if its too big for the box"*. Wrapping on spaces alone
     left that as a single 23-character word nothing could break, so it went
     out sideways over the drawing when it could have been four lines standing
-    in the box. It breaks where the author already put a dash — the same rule,
+    in the box. It breaks where the author already put a dash - the same rule,
     and the same code, as `_fit_on_author_breaks` above.
     """
     if not text.split():
@@ -1761,7 +1761,7 @@ def _spill_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     toks, glue = author_break_tokens(text)
     lines, cur = [], ""
     for k, tk in enumerate(toks):
-        # A piece that follows a dash rejoins with NO space — GLOW- SAN! with
+        # A piece that follows a dash rejoins with NO space - GLOW- SAN! with
         # a space in it is not a word anybody wrote.
         trial = tk if not cur else (cur + tk if glue[k] else cur + " " + tk)
         if _text_w(path, size, trial) <= avail_w or not cur:
@@ -1786,8 +1786,8 @@ def _spill_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
 def balloon_lobes(mask: np.ndarray, glyph: "Optional[np.ndarray]") -> list:
     """The two lobes of a double balloon, or nothing.
 
-    The same reading of the outline the detector does — a dent facing a dent is
-    a neck, and a chord between them divides the balloon — asked here of a
+    The same reading of the outline the detector does - a dent facing a dent is
+    a neck, and a chord between them divides the balloon - asked here of a
     balloon that arrived as ONE region. A chapter found before the detector
     could see necks is full of those, and re-running Find text on it would
     throw away every translation on the page; this reads the neck off the
@@ -1812,7 +1812,7 @@ def _typesetting_ink(shape: np.ndarray, glyph: np.ndarray) -> np.ndarray:
 
     A page reloaded from disk has no saved masks: `region_from_record` rebuilds
     the ink as `(gray <= INK) & (bubble > 0)` off a polygon that traces the
-    balloon's OUTER edge — so the dark RIM of the balloon comes back as ink
+    balloon's OUTER edge - so the dark RIM of the balloon comes back as ink
     too. That ring hugs the waist from both sides and hides the neck, which is
     why a double balloon typeset as one blob after a reload but not before.
     A rim runs along the border; a letter sits inside it. So each blob of ink
@@ -1849,7 +1849,7 @@ def _two_lobe_fit(region: TextRegion, text: str, mask: np.ndarray,
 
     A balloon drawn as two overlapping ovals holds ONE sentence written across
     the waist, and typesetting it as a single paragraph runs the middle lines
-    straight through the pinch — so the fitter shrinks the whole speech until
+    straight through the pinch - so the fitter shrinks the whole speech until
     the widest line clears the narrowest part. That is why lee's double
     balloons came out tiny.
 
@@ -1857,7 +1857,7 @@ def _two_lobe_fit(region: TextRegion, text: str, mask: np.ndarray,
     fills the first lobe, the rest fills the second, and both are typeset at
     one size so it still reads as one voice. Which word the break falls on is
     chosen by the lobes' own areas and then nudged either way. If the balloon
-    has a neck, the division happens — the shape of the balloon decides, not
+    has a neck, the division happens - the shape of the balloon decides, not
     the length of this particular sentence, so the same balloon always letters
     the same way.
 
@@ -1916,7 +1916,7 @@ def _two_lobe_fit(region: TextRegion, text: str, mask: np.ndarray,
     # a reader cannot see any reason for the difference. A balloon with a neck
     # in it is TWO places to put words, and a typesetter puts words in both,
     # every time. So the only thing left that can refuse the division is
-    # readability — if dividing drops the type under the floor a human has to
+    # readability - if dividing drops the type under the floor a human has to
     # check while merged clears it, merged wins, because too small to read is
     # worse than run together.
     if size < cfg.min_font and whole is not None \
@@ -1924,7 +1924,7 @@ def _two_lobe_fit(region: TextRegion, text: str, mask: np.ndarray,
         return None
 
     # Both lobes re-typeset at the one size they can share, and each handed
-    # the box it occupies — the same re-description every other block gets, so
+    # the box it occupies - the same re-description every other block gets, so
     # a lobe on its own is an ordinary paragraph in an ordinary box.
     one = replace(cfg, min_font=size, max_font=size,
                   absolute_floor=min(size, cfg.absolute_floor))
@@ -1964,7 +1964,7 @@ def pull_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     """Move a block back over its own box, as far as its share allows.
 
     Only for a block that SHARES a balloon. A block alone in one is typeset
-    into the balloon on purpose — that is what makes it big and centred, and
+    into the balloon on purpose - that is what makes it big and centred, and
     dragging it onto the narrow column the Japanese stood in would undo it.
 
     Two blocks in one balloon are a different question. Each is fitted into
@@ -1976,7 +1976,7 @@ def pull_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     so that teh text goes where teh box is"*, and then, over a picture of it
     still happening: *"this is still happening look into it"*.
 
-    Nothing here re-fits, so nothing here costs a point of size — trimming the
+    Nothing here re-fits, so nothing here costs a point of size - trimming the
     share does, and on a balloon whose boxes are narrow Japanese columns it
     costs half of it. The block keeps the size the share bought it and is
     simply carried over to where it belongs, by the largest fraction of the
@@ -2038,7 +2038,7 @@ def keep_on_page(lay: TextLayout, cfg: TypesetConfig,
 
     Leaving the box is the point; leaving the PAGE is not. A block allowed to
     run past its own box can run past the edge of the scan too, and typesets
-    outside the image are not typesetting — they are gone, with nothing on the
+    outside the image are not typesetting - they are gone, with nothing on the
     page to say a word is missing. This only ever SLIDES: the size, the breaks
     and the angle are already settled, and a block wider than the whole page
     is left where it is because there is nowhere to put it.
@@ -2079,7 +2079,7 @@ def keep_on_page(lay: TextLayout, cfg: TypesetConfig,
 def enforce_bounds(region: TextRegion, lay: TextLayout,
                    cfg: TypesetConfig,
                    mask: "Optional[np.ndarray]" = None) -> TextLayout:
-    """Guarantee every line sits inside the balloon — not inside its bounding box.
+    """Guarantee every line sits inside the balloon - not inside its bounding box.
 
     Origins are centres (the renderer draws with an "mm" anchor), so a line is
     inside when its half-width and half-height fit either side of its origin.
@@ -2101,7 +2101,7 @@ def enforce_bounds(region: TextRegion, lay: TextLayout,
         mask = region.place_mask()
     if mask is None or not lay.lines:
         return lay
-    # A block that is bigger than its region ON PURPOSE — outside text or a
+    # A block that is bigger than its region ON PURPOSE - outside text or a
     # sound effect set at the minimum rather than shrunk under it. Clamping
     # every line into the region would undo the spill in the same breath it
     # was made, and what it actually does is stack all fourteen lines on the
@@ -2145,13 +2145,13 @@ def anchor_to_frame(lay: TextLayout, cfg: TypesetConfig) -> TextLayout:
 
     A word processor's text box IS the layout: the words wrap to its width, sit
     centred in it, and move when it moves. This app had three separate answers
-    to "where does line 3 go" — the fitter's, the browser's preview, and the
-    box you type into — and they agreed only by luck. What lee saw was the
+    to "where does line 3 go" - the fitter's, the browser's preview, and the
+    box you type into - and they agreed only by luck. What lee saw was the
     words jumping the moment he clicked them, because clicking swapped one
     answer for another.
 
-    So the fitter still decides everything that matters — the size, the breaks,
-    which chord of the balloon each line sits in — and then this hands the
+    So the fitter still decides everything that matters - the size, the breaks,
+    which chord of the balloon each line sits in - and then this hands the
     result over as a box plus the one piece of arithmetic every other engine
     already uses to fill a box. Nothing here re-fits and nothing here moves a
     block: the frame is drawn around where the lines already are.
@@ -2160,7 +2160,7 @@ def anchor_to_frame(lay: TextLayout, cfg: TypesetConfig) -> TextLayout:
     if not lines or not lay.line_origins:
         return lay
     if lay.fixed:
-        # Already two blocks in one box — a speech divided between the lobes
+        # Already two blocks in one box - a speech divided between the lobes
         # of a double balloon, or an effect running along its own axis. Its
         # lines are NOT evenly spaced down one box and re-deriving them from
         # one is what would drag the second half back up into the waist.
@@ -2194,7 +2194,7 @@ def apply_align(lay: "TextLayout", cfg: TypesetConfig, how: str) -> "TextLayout"
 
     The renderer draws each line CENTRED on its origin, so aligning is a matter
     of moving each origin by half the difference between that line and the
-    widest one — the frame does not move and nothing else has to know.
+    widest one - the frame does not move and nothing else has to know.
     """
     if how not in ("left", "right") or not lay.lines or not lay.line_origins:
         return lay
@@ -2213,7 +2213,7 @@ def _chord_at(m: np.ndarray, ya: float, yb: float) -> tuple[int, int]:
     """Leftmost and rightmost column the shape occupies across rows [ya, yb].
 
     Every row in the band has to hold the line, so this is the INTERSECTION of
-    the rows' spans, not their union — on a curve the narrowest row is the one
+    the rows' spans, not their union - on a curve the narrowest row is the one
     that decides, and taking the union is how a line's corners ended up out
     past the outline.
     """
@@ -2275,7 +2275,7 @@ def fit_sfx_region(region: TextRegion, text: str,
                      angle, vertical, 1.0, 0)
     # The sweep stops at the MINIMUM, not at the absolute floor. An effect
     # that will not fit the space the original filled comes back at the
-    # minimum, bigger than that space, and stays that way — it is drawn on
+    # minimum, bigger than that space, and stays that way - it is drawn on
     # artwork, and running past the box beats being too small to read.
     # lee: *"outside text and sfx shoud be able to got outside teh box if the
     # text size is bellow the miimum"*.
@@ -2304,14 +2304,14 @@ def fit_sfx_region(region: TextRegion, text: str,
                           "the original filled")
     # `spills` is NOT set here. Whether the words stick out of the BOX is
     # `clamp_to_box`'s question and it is asked two lines after this returns;
-    # `lay.fitted` answers a different one — whether they fit the space the
-    # original ink filled — and it already sets `fit_ok` and the flag. Setting
+    # `lay.fitted` answers a different one - whether they fit the space the
+    # original ink filled - and it already sets `fit_ok` and the flag. Setting
     # both from one number made a mutant of the other indistinguishable.
     return TextLayout(
         lines=lay.lines, font_size=lay.size,
         leading=round(run / max(1, len(lay.lines)) / max(1, lay.size), 3),
         line_origins=origins, font_path=path, fit_ok=bool(lay.fitted),
-        # sfx.py reports the tilt the way the page reads it — clockwise
+        # sfx.py reports the tilt the way the page reads it - clockwise
         # positive. A layout's `rotate` turns the other way, the way PIL and
         # the browser preview both already turn it.
         rotate=-float(lay.angle),
@@ -2328,7 +2328,7 @@ def _fit_on_author_breaks(text: str, mask: np.ndarray, cfg: TypesetConfig
     which is exactly the condition lee named. The pieces are handed to the
     fitter spaced apart so it may break between them, and any pair it chose
     NOT to break is put back together as one word before the lines are placed
-    — which makes every line no wider than the fitter measured, never wider,
+    - which makes every line no wider than the fitter measured, never wider,
     so a layout that fitted still fits.
 
     The origins from the spaced-out fit are kept as they are. Re-placing the
@@ -2338,7 +2338,7 @@ def _fit_on_author_breaks(text: str, mask: np.ndarray, cfg: TypesetConfig
     moves both ends inward and leaves the centre alone. Measured, the rejoin
     takes 5.88px off a line at 14pt and never adds any.
 
-    Returns None when there is no dash or dot run to break at — the caller
+    Returns None when there is no dash or dot run to break at - the caller
     then falls through to the shrink-and-flag path exactly as before.
     """
     toks, glue = author_break_tokens(text)
@@ -2354,8 +2354,8 @@ def _fit_on_author_breaks(text: str, mask: np.ndarray, cfg: TypesetConfig
 
 
 # How many lines a block may be given when the alternative is putting it on
-# the artwork. `max_lines` is taste — a nine-line balloon looks wrong and the
-# scorer is tuned to avoid one — but taste is not worth typesetting over
+# the artwork. `max_lines` is taste - a nine-line balloon looks wrong and the
+# scorer is tuned to avoid one - but taste is not worth typesetting over
 # somebody's drawing for, and a tall narrow column is exactly what a typesetter
 # reaches for in a tall narrow lobe.
 DESPERATE_LINES = 24
@@ -2369,12 +2369,12 @@ def _narrower_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     the outline: *"if the text is going out of the text bot it shoud make teh
     with smaller if posible"*.
 
-    More lines IS a smaller width — the fitter's line count is what decides
+    More lines IS a smaller width - the fitter's line count is what decides
     how wide a line may be, and every count is measured against the balloon's
     own chord at that height. So there is nothing to write here but the search
     that already exists, with the one limit lifted that was stopping it: a lobe
     narrow enough to need eleven lines was refused at nine and the block went
-    to `_plain_fit`, which wraps into the bounding RECTANGLE — and the corners
+    to `_plain_fit`, which wraps into the bounding RECTANGLE - and the corners
     of a rectangle drawn round a round lobe are outside the lobe. That is the
     overflow, and it is why raising the cap fixes it rather than shrinking the
     type again.
@@ -2383,8 +2383,8 @@ def _narrower_fit(text: str, mask: np.ndarray, cfg: TypesetConfig
     both failed, so a chapter that typesets normally never comes near it.
 
     Running the author's breaks again with the cap lifted was tried here and
-    taken out. It reads like the obvious combination — the dash shortens a
-    line, the lifted cap pays for the extra line it costs — and it is
+    taken out. It reads like the obvious combination - the dash shortens a
+    line, the lifted cap pays for the extra line it costs - and it is
     unreachable: the cap only binds when the text has many pieces, and when it
     has many pieces the plain search at 24 lines has already found something.
     A sweep of four hyphenated texts over 60 lobe shapes found no case where
@@ -2401,7 +2401,7 @@ def fit_region(region: TextRegion, cfg: TypesetConfig,
     """Lay the translation out, and turn it with the box if the box is turned.
 
     A box somebody rotated is stored as a tilted rectangle, so `place_mask()`
-    is a tilted shape — and fitting into that directly would set the lines
+    is a tilted shape - and fitting into that directly would set the lines
     level inside a leaning box, which is a staircase, not turned text. So the
     fit is done against the box UPRIGHT and the finished block is turned about
     the same centre the box turns about. The renderer already does that for any
@@ -2410,7 +2410,7 @@ def fit_region(region: TextRegion, cfg: TypesetConfig,
     lee: *"alow me to rotate boxes ... the box and the text together"*.
 
     Not a sound effect: those are already laid along an axis of their own,
-    letter by letter, and the turn reaches them by moving that axis — see the
+    letter by letter, and the turn reaches them by moving that axis - see the
     region endpoint. Sending one through here would replace that with a block
     of level lines in a box.
     """
@@ -2431,7 +2431,7 @@ def fit_region(region: TextRegion, cfg: TypesetConfig,
 
 def _fit_region(region: TextRegion, cfg: TypesetConfig,
                 mask: "Optional[np.ndarray]" = None) -> TextLayout:
-    """Best-scoring layout of the full translation — line breaks before
+    """Best-scoring layout of the full translation - line breaks before
     shrinking, shrinking before clamping, never overflowing, and a word is
     never split.
 
@@ -2459,13 +2459,13 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
 
     m = mask > 0
     # the text is made drawable by THIS region's font before anything is
-    # measured — the export must never show a tofu box
+    # measured - the export must never show a tofu box
     safe_text = sanitize_for_font(region.dst_text, cfg.font_path,
                                   cfg.substitutes)
     if not keeps_the_words(region.dst_text, safe_text) and cfg.substitutes:
         # The font chosen for this region cannot draw its dialogue: a symbol
         # face, or one with no lowercase. Typeset it in something that can
-        # rather than laying out the stub that is left — text in the wrong
+        # rather than laying out the stub that is left - text in the wrong
         # face is a thing you can see and put right, an empty bubble is not.
         for alt in spares:
             if alt == cfg.font_path:
@@ -2478,7 +2478,7 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
                                   f"typeset in {os.path.basename(alt)}")
                 break
     # ...and with substitutes off, say when the face is short of something.
-    # The words are still set in it — this is a remark, not a rescue.
+    # The words are still set in it - this is a remark, not a rescue.
     if not cfg.substitutes and cfg.font_path and region.dst_text:
         missing = [c for c in set(normalize_text(region.dst_text))
                    if c not in "\n\t " and not font_supports(cfg.font_path, c)]
@@ -2497,13 +2497,13 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
                           fit_ok=False)
 
     if _kinds.family_of(region.kind) == "sfx":
-        # A sound effect answers to its own shape, not to a bubble's chords —
+        # A sound effect answers to its own shape, not to a bubble's chords -
         # but it still has to stay in its box, or near enough. See clamp_to_box.
         lay = fit_sfx_region(region, text, cfg)
         if lay is not None:
             return clamp_to_box(region, lay, cfg)
 
-    # The full translation goes in, always — line breaks and size do the
+    # The full translation goes in, always - line breaks and size do the
     # fitting, and a word is never split.
     lay = _best(text, m, cfg)
     # A balloon with a waist in it typesets as two lobes if that typesets bigger.
@@ -2515,13 +2515,13 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
 
     # Nothing fit above the legibility floor with the spaces alone. Before
     # dropping under it, break where the author already put a dash or a row of
-    # dots — see `author_breaks`. It costs nothing and it is what a typesetter
+    # dots - see `author_breaks`. It costs nothing and it is what a typesetter
     # does.
     lay = _fit_on_author_breaks(text, m, cfg)
     if lay is not None:
         return lay
 
-    # Outside text has no balloon to stay inside — the only thing under it is
+    # Outside text has no balloon to stay inside - the only thing under it is
     # the drawing. Rather than dropping under the minimum size to stay in a
     # box that was never the right shape for English, set it AT the minimum
     # and let it run out onto the artwork. lee: *"outside text and sfx shoud
@@ -2529,7 +2529,7 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
     #
     # BEFORE the narrower fit below, and that order is the whole point. The
     # box round free text is where the JAPANESE ink was, and Japanese runs
-    # down the page in a narrow column — so there is nearly always a way to
+    # down the page in a narrow column - so there is nearly always a way to
     # cram English into it by stacking one word per line, and the narrower fit
     # will find it. That is not typesetting, it is a tower. What lee asked for on
     # this kind of box is the opposite: leave it, at a size somebody can read.
@@ -2539,8 +2539,8 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
             return lay
 
     # SPEECH, still homeless. A balloon IS a wall, so before dropping under
-    # the legibility floor to stay inside one, let the block be narrower —
-    # more lines, shorter ones — than the line cap normally permits.
+    # the legibility floor to stay inside one, let the block be narrower -
+    # more lines, shorter ones - than the line cap normally permits.
     # lee: *"if the text is going out of the text box it shoud make teh with
     # smaller if posible"*.
     lay = _narrower_fit(text, m, cfg)
@@ -2552,7 +2552,7 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
     lay = _plain_fit(text, m, cfg)
     if lay is not None:
         # Only say it shrank if it shrank. This path used to flag every layout
-        # it returned, including the ones that came back AT the minimum — and
+        # it returned, including the ones that came back AT the minimum - and
         # now that it breaks at the author's dashes it reaches the minimum far
         # more often. A red bar on a page that is perfectly well typeset
         # teaches people to stop reading the red bars.
@@ -2575,8 +2575,8 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
 
 # How thick an outline is when nobody has chosen one.
 #
-# Typesetting that sits out on the artwork — sound effects, and the free-floating
-# lines that belong to no balloon — has no white paper behind it, so the edge
+# Typesetting that sits out on the artwork - sound effects, and the free-floating
+# lines that belong to no balloon - has no white paper behind it, so the edge
 # is the only thing keeping it legible against tone and detail; a single pixel
 # reads as a smudge at page size. Typesetting inside a balloon has the balloon
 # doing that job and wants no more than a hairline.
@@ -2599,7 +2599,7 @@ def clamp_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     got a wide short line: CRASH!! in a 120x260 box came out 237 wide and hung
     59px out of each side, over the artwork.
 
-    `enforce_bounds` is no good here — it clamps line by line into a mask and
+    `enforce_bounds` is no good here - it clamps line by line into a mask and
     would straighten a leaning effect back up, which is exactly what an effect
     must not do. This only makes the letters SMALLER, keeps the angle, and
     keeps the effect centred where it was.
@@ -2629,7 +2629,7 @@ def clamp_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     # *"outside text and sfx shoud be able to got outside teh box if the text
     # size is bellow the miimum"*.
     #
-    # An effect the fitter already set below the minimum is not GROWN here —
+    # An effect the fitter already set below the minimum is not GROWN here -
     # the guard three lines down does that, and it is the only thing that
     # needs to: this function only ever shrinks.
     floor = cfg.min_font
@@ -2665,8 +2665,8 @@ def on_art(region) -> bool:
     but artwork behind it, whatever it is called.
 
     Asked by FAMILY, not by the literal kind. The three kinds a box starts
-    with are the family names, but a sub-type is its own string — `caption`,
-    `whisper`, `impact` — so `kind in ("freefloat", "sfx")` was false for every
+    with are the family names, but a sub-type is its own string - `caption`,
+    `whisper`, `impact` - so `kind in ("freefloat", "sfx")` was false for every
     box a person had actually typed, and outside text and sound effects fell
     through to the balloon test below.
 
@@ -2694,7 +2694,7 @@ ON_PAGE_PX = 24        # how much of a block must stay reachable
 def _frame_on_page(frame, shape) -> tuple:
     """A block's box, dragged back until part of it is on the paper again.
 
-    A frame is free to hang over the edge — that is how a sound effect runs
+    A frame is free to hang over the edge - that is how a sound effect runs
     off the side of a panel. What it may not do is leave altogether: a block
     whose whole box is past the edge is not drawn, not clickable and not
     reachable by any means, so the only thing left to do with it is delete the
@@ -2712,7 +2712,7 @@ def _frame_on_page(frame, shape) -> tuple:
 
 
 def _empty_layout(region, cfg, ov) -> "TextLayout":
-    """A text block with nothing in it — kept, not thrown away.
+    """A text block with nothing in it - kept, not thrown away.
 
     Emptying a box is an edit like any other, and the box has to survive it:
     at the size it was, where it was, so it can be clicked and typed into
@@ -2721,7 +2721,7 @@ def _empty_layout(region, cfg, ov) -> "TextLayout":
     on it to add text or dleete it"*.
 
     It keeps its FRAME, which is what everything downstream uses to know where
-    the block is — the editor draws a placeholder there, and the exporter
+    the block is - the editor draws a placeholder there, and the exporter
     draws nothing at all, which is right: an empty block is empty.
     """
     size = int(ov.get("font_size") or cfg.min_font)
@@ -2746,14 +2746,14 @@ def empty_layout_for(region, cfg: TypesetConfig | None = None,
     """The layout for a block whose words have been deleted.
 
     Deleting the text is an edit, and an edit has to take. `typeset_page` skips
-    a block with nothing to set — there is nothing to fit — so the typesetting
+    a block with nothing to set - there is nothing to fit - so the typesetting
     from the run before it stayed on the page and the deletion looked like it
     had been refused. lee: *"the etxt box still rejexcts me deleteing all teh
     text"*. Whoever knows a block HAD typesetting calls this instead of leaving
     it alone.
 
     `was` is the layout it is losing, and what it leaves behind is that block's
-    own frame and size — lee: *"stay the last size it was"*. Falling back to
+    own frame and size - lee: *"stay the last size it was"*. Falling back to
     the region's box instead put an emptied balloon back at box size and
     12pt, so the box you clicked afterwards was not the box you had emptied.
     """
@@ -2773,13 +2773,13 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
     """Rebuild a layout from a human's edits rather than fitting afresh.
 
     `mask` is the shape to typeset into, and it must be the SAME shape the fit
-    used — for half of a split balloon that is the re-cut half, not the whole
+    used - for half of a split balloon that is the re-cut half, not the whole
     balloon. Rebuilding against the whole balloon is what sent both halves of
     a shared bubble to the same centre and laid them over each other.
     """
     ov = region.layout_override or {}
     raw = list(ov.get("lines") or [])
-    # Every line as it was typed — blank ones and leading spaces included.
+    # Every line as it was typed - blank ones and leading spaces included.
     # They used to be stripped and dropped, so a blank line between two
     # paragraphs could not be typed at all and an indent was thrown away.
     # lee: *"allow the text bx to acces line breaks without text and empty
@@ -2787,7 +2787,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
     lines = [str(l) for l in raw]
     if "lines" in ov and not any(l.strip() for l in lines):
         # Emptied on purpose. The box stays, at the size it was, with nothing
-        # in it — a text layer you can click and type into again, or delete.
+        # in it - a text layer you can click and type into again, or delete.
         # lee: *"if i dlete all teh text from a text box its shoud accesp the
         # edit and stay the last size it was"*. Returning None here is what
         # made an empty box snap back to whatever the fitter last produced.
@@ -2802,7 +2802,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
     size = int(ov.get("font_size") or cfg.min_font)
     size = max(cfg.absolute_floor, min(size, 200))
     path = font_for(cfg, region.kind, ov.get("font") or "")
-    # Hand-edited lines go through the same glyph guarantee as fitted text —
+    # Hand-edited lines go through the same glyph guarantee as fitted text -
     # but a line that sanitises to nothing is kept as a blank rather than
     # dropped, because a blank line is a thing somebody typed on purpose.
     if ov.get("caps"):
@@ -2844,7 +2844,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
 
     # Resizing the box scales the text with it: find the biggest size whose
     # wrapped words still fit the frame. Growing the box grows the text,
-    # shrinking it shrinks the text — like any drawing program.
+    # shrinking it shrinks the text - like any drawing program.
     if ov.get("fit"):
         text = " ".join(lines)
         avail_w = max(8, fw - 2 * PAD_PX)
@@ -2897,7 +2897,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
     # A block nobody has moved is placed the way the fitter places it: each
     # line centred on the balloon's own chord at that height. Centring in the
     # bounding rectangle instead is what made typesetting jump the moment it was
-    # clicked — selecting a block wrote an override, and the override put the
+    # clicked - selecting a block wrote an override, and the override put the
     # very same words somewhere else. Only once the block has actually been
     # dragged, turned or resized does it become a free-standing frame centred
     # on its own rectangle, which is what a person moving it expects.
@@ -2907,7 +2907,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
     # A speech divided between the two lobes of a double balloon carries its
     # own line positions, because there is no single box whose even spacing
     # would reproduce them. Selecting or dragging such a block must not
-    # re-derive them — that is the jump lee filmed, in its last hiding place.
+    # re-derive them - that is the jump lee filmed, in its last hiding place.
     keep = ov.get("origins") if ov.get("fixed") else None
     kept = bool(keep and len(keep) == len(lines)
                 and not ov.get("fit") and not ov.get("wrap"))
@@ -2933,7 +2933,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
                              (None, "") else default_stroke(region)),
                      fit_ok=True, score=0.0, fixed=kept)
     # Not moved by hand, so the box is drawn round where the fitter put the
-    # words — rather than round the bubble, which is a different rectangle and
+    # words - rather than round the bubble, which is a different rectangle and
     # was the other half of the jump.
     if not hand_placed and _kinds.family_of(region.kind) != "sfx":
         lay = anchor_to_frame(lay, cfg)
@@ -2941,7 +2941,7 @@ def layout_from_override(region: TextRegion, cfg: TypesetConfig,
 
 
 # What an override says about WHERE the words go, HOW they break and HOW BIG
-# they are — the fitter's own job. Everything else in an override (the face,
+# they are - the fitter's own job. Everything else in an override (the face,
 # the colours, the outline, the shadow, the letter-spacing) is how the
 # typesetting is DRESSED, which is a choice about the page rather than a
 # correction to the fit, and none of it is thrown away by a re-run.
@@ -2954,7 +2954,7 @@ def clear_fitting(region) -> None:
 
     Pressing Typeset means "lay this page out again". A region that was hand
     corrected carries `locked` in its override, and a locked region skips the
-    fitter entirely — so on any page that had been touched, Typeset appeared
+    fitter entirely - so on any page that had been touched, Typeset appeared
     to do nothing at all. Dropping the placement keys puts the region back in
     the fitter's hands while the font and colours chosen for it survive.
     """
@@ -2973,7 +2973,7 @@ def _stacked_share(regions: list) -> dict:
     them where the JAPANESE stopped and started. That is the right cut for
     finding them and the wrong one for typesetting them, because the English is
     not the same length as the Japanese it replaces and it does not break in
-    the same places. lee's "MY HARD WORK PAID OFF TOO— / —SO TAKE CARE NOW!"
+    the same places. lee's "MY HARD WORK PAID OFF TOO- / -SO TAKE CARE NOW!"
     is the case: the twenty-six-character half was given the narrow top of the
     balloon and the eighteen-character half the wide middle, so one came out
     at 14pt with no room to grow and the other at 18pt with a third of its
@@ -2981,7 +2981,7 @@ def _stacked_share(regions: list) -> dict:
 
     So divide the balloon's AREA in proportion to how much there is to typeset.
     Equal area per character is equal type size, which is what a typesetter sets
-    out to do — both halves in one voice, as big as the balloon will carry.
+    out to do - both halves in one voice, as big as the balloon will carry.
     """
     masks = _same_shape_masks(regions)
     if masks is None:
@@ -3031,8 +3031,8 @@ def _claim_the_same_paper(masks: list) -> bool:
     hand names the whole thing, and on the way back in every region rebuilds
     its outline from its OWN stored polygon, which is why lee sees a balloon
     change after he has set it. Two blocks owning one balloon both centre
-    themselves in it and are drawn one on top of the other — his SO PLEASE,
-    EVERYONE, KEEP TO YOUR PLACE IN LINE with the —OKAY? printed through it.
+    themselves in it and are drawn one on top of the other - his SO PLEASE,
+    EVERYONE, KEEP TO YOUR PLACE IN LINE with the -OKAY? printed through it.
 
     A tenth of the smaller area is far more than the hairline a real pair of
     shares leaves and far less than a second claim on the same balloon, so
@@ -3055,7 +3055,7 @@ def _nearest_ink_cut(regions: list, masks: list) -> dict:
     """Divide one balloon by asking every pixel which block it is nearest.
 
     A last resort, for a balloon whose blocks all claim the whole of it and
-    which no band would divide — the balloon is too thin to give a band away,
+    which no band would divide - the balloon is too thin to give a band away,
     or one block has too few letters to be worth one. "Whose pixel is this" is
     a question the Japanese can always answer, so each block keeps the run of
     paper around its own writing and the two are never printed through each
@@ -3096,7 +3096,7 @@ def _nearest_ink_cut(regions: list, masks: list) -> dict:
 # code used to divide a shared balloon into bands and give each block the
 # balloon's full width, because English sets in horizontal lines and a block
 # squeezed into the narrow column the Japanese stood in letters tiny. That is
-# still true — and it is why one block's words ran clear across the other
+# still true - and it is why one block's words ran clear across the other
 # block's box, which is the thing lee has now asked twice to never happen.
 #
 # Both cannot hold. Full width means crossing the other box; staying in your
@@ -3118,7 +3118,7 @@ def _box_confined(regions: list, masks: list) -> dict:
     * one piece, because a paragraph goes in one place.
 
     Only for a balloon with more than one block in it. A block alone in a
-    balloon still gets the whole balloon — there is nobody to run into, the
+    balloon still gets the whole balloon - there is nobody to run into, the
     box and the balloon are the same speech, and typesetting it into the balloon
     is what makes it big and centred.
     """
@@ -3168,7 +3168,7 @@ def _box_confined(regions: list, masks: list) -> dict:
 def _clip_to_box(region, share):
     """`share` trimmed back to this block's own box plus `BOX_LEEWAY`.
 
-    Returns None when the trim leaves nothing that covers the box — a share
+    Returns None when the trim leaves nothing that covers the box - a share
     that has to be thrown away is worse than a share that is too generous.
 
     The neck cut says WHERE a balloon divides. It does not say that a block
@@ -3178,16 +3178,16 @@ def _clip_to_box(region, share):
     itself down the middle of the trunk and the word lands at the balloon's
     waist. Trimming to the box is what puts it back in the lobe.
 
-    It costs point size — on the two-lobe fixture, 34pt becomes 17 and 25
-    becomes 12 — and that is the whole trade. lee: *"that fine the size dnst
+    It costs point size - on the two-lobe fixture, 34pt becomes 17 and 25
+    becomes 12 - and that is the whole trade. lee: *"that fine the size dnst
     mattaer as long as it in the box"*.
 
     Unlike `_box_confined` this does NOT then keep the largest connected
     piece. That step is there because the nearest-box cut genuinely
-    fragments — it hands out pixels by ownership, and ownership is not
+    fragments - it hands out pixels by ownership, and ownership is not
     contiguous. This trim is a share intersected with a dilated rectangle,
-    and on every balloon shape tried for it — a ring, a deep wedge, a
-    detached tail, a hairline slicing the shoulder off — it either comes back
+    and on every balloon shape tried for it - a ring, a deep wedge, a
+    detached tail, a hairline slicing the shoulder off - it either comes back
     in one piece or leaves a crumb the fitter lays out identically either
     way. Code that cannot be told from its own absence does not stay.
     """
@@ -3224,7 +3224,7 @@ def _confine_all(regions: list, shares: dict) -> dict:
 
     Known and left alone: this runs AFTER the cut has been chosen, and the cut
     is chosen by measuring the untrimmed shares. So the winner is the best
-    division, not necessarily the one that typesets largest once trimmed — on
+    division, not necessarily the one that typesets largest once trimmed - on
     the strangled fixture in test_pipeline.py the straight cut wins at 19 and
     20 and comes out at 17 and 13, where the cut down the middle would have
     come out at 16 and 14. One point on the smaller block. Scoring the trimmed
@@ -3256,7 +3256,7 @@ def _prop_cut(regions: list, masks: list, texts: list,
 
     The bands are handed out in the order the JAPANESE sits along the cut, so a
     block always lands on the ink it is replacing. Reading `regions` in the
-    order they arrive is not the same thing — `_balloon_groups` returns
+    order they arrive is not the same thing - `_balloon_groups` returns
     whatever union-find happened to build, which is not a position at all.
     """
     u = np.zeros(masks[0].shape[:2], dtype=np.uint8)
@@ -3264,7 +3264,7 @@ def _prop_cut(regions: list, masks: list, texts: list,
         u = np.maximum(u, (m > 0).astype(np.uint8))
     # The detector's cut leaves a hairline of blank pixels between the shares,
     # and it runs across the direction it divided in. Seal it along the axis
-    # this cut integrates over — otherwise a band's whole profile reads zero
+    # this cut integrates over - otherwise a band's whole profile reads zero
     # there and the proportion is measured through a slot. One axis only: a
     # round kernel would push the balloon outward at every concavity, and the
     # point here is to divide the shape, not to grow it.
@@ -3310,7 +3310,7 @@ def _prop_cut(regions: list, masks: list, texts: list,
 
 
 def _row_proportional_cut(regions: list, masks: list, texts: list) -> dict:
-    """The bands stacked one above another — see `_prop_cut`."""
+    """The bands stacked one above another - see `_prop_cut`."""
     return _prop_cut(regions, masks, texts, vertical=False)
 
 
@@ -3351,7 +3351,7 @@ def _balloon_groups(regions: list) -> list:
     Only for a block that is typeset INTO a balloon, though. `attach_balloons`
     hands a balloon to dialogue and narration and to nothing else, on the
     grounds that an effect has no balloon and belongs on the ink's own
-    footprint — but free-text detection stores that footprint in the same
+    footprint - but free-text detection stores that footprint in the same
     `bubble_mask` field, so an effect arrives here looking exactly like a share
     of a balloon. lee's GRRRR is drawn across the left flank of the balloon
     saying STARING AT A MAN'S BODY LIKE THAT, and the two masks touch; grouped
@@ -3403,7 +3403,7 @@ def neck_cuts(mask: np.ndarray, dents: int = NECK_DENTS,
               min_depth: float = 0.0, min_facing: float = 0.0):
     """Every way a balloon's own outline says it is more than one lobe.
 
-    Two overlapping ovals meet at two corners, one on each side of the neck —
+    Two overlapping ovals meet at two corners, one on each side of the neck -
     the only two places the outline turns back on itself. So a dent in the
     convex hull is a candidate end of the dividing chord, and the chord between
     two dents is the line the artist would have drawn.
@@ -3418,25 +3418,25 @@ def neck_cuts(mask: np.ndarray, dents: int = NECK_DENTS,
     pair whose SHALLOWER dent is deepest first. That is the deepest pair there
     is, which is what was tried before and is still right far more often than
     anything else; what has changed is only that being wrong about it is no
-    longer fatal. Ties — and a tail's two dents are usually near enough equal to
-    tie — go to the pair spanning the narrower gap, because a neck is a WAIST.
+    longer fatal. Ties - and a tail's two dents are usually near enough equal to
+    tie - go to the pair spanning the narrower gap, because a neck is a WAIST.
 
     Nothing about an outline can tell a neck from a tail; only the writing can,
-    and this function has never seen the writing. It yields candidates —
-    `(labels, count)` straight out of `cv2.connectedComponents` — and the caller
+    and this function has never seen the writing. It yields candidates -
+    `(labels, count)` straight out of `cv2.connectedComponents` - and the caller
     believes whichever one puts the text where the text actually is.
 
     `min_depth` is in pixels, and is for callers who have no second opinion to
     fall back on. Any chord across any shape divides it into two, so a caller
-    that is asking "is this one balloon or two" — rather than "which of these
-    two blocks is where" — has to be told what a dent is first, or a plain oval
+    that is asking "is this one balloon or two" - rather than "which of these
+    two blocks is where" - has to be told what a dent is first, or a plain oval
     with a hair of anti-aliasing on its rim is a two-lobed balloon.
 
     `min_facing` is the other half of that, and it is what a waist actually is.
     Where two ovals cross, the outline dives inward from BOTH sides towards the
     same line: dent A points along the chord at dent B, and dent B points back
-    along it at dent A. A balloon that is one angular shape — lee's shout
-    balloon with a step cut into its left flank — has dents too, but they are
+    along it at dent A. A balloon that is one angular shape - lee's shout
+    balloon with a step cut into its left flank - has dents too, but they are
     unrelated: one bites in from the left, the other up from the bottom, and
     the chord between them runs across the balloon rather than through a waist.
     Scoring each dent's inward direction against the chord separates the two,
@@ -3498,7 +3498,7 @@ def neck_cuts(mask: np.ndarray, dents: int = NECK_DENTS,
         cv2.line(cut, pts[i], pts[j], 0, 3)
         # 4-connectivity, and it has to be said by name: the second POSITIONAL
         # argument is the output array, so `4` there is silently discarded and
-        # the default 8 used instead — which walks diagonally straight through
+        # the default 8 used instead - which walks diagonally straight through
         # a cut one pixel at a time and joins the two lobes back together.
         n, lab = cv2.connectedComponents(cut, connectivity=4)
         if n - 1 >= 2:
@@ -3508,7 +3508,7 @@ def neck_cuts(mask: np.ndarray, dents: int = NECK_DENTS,
 def _ink_sides(regions: list, lab: np.ndarray) -> "Optional[dict]":
     """Which lobe each block's Japanese is in, or None if it is in both.
 
-    A block must keep essentially ALL of its ink — nine tenths — on one side of
+    A block must keep essentially ALL of its ink - nine tenths - on one side of
     the chord, and no two blocks may claim the same side. A chord that runs
     down the middle of a single lobe fails both ways, which is what tells a
     burst balloon's spikes from a real neck.
@@ -3536,7 +3536,7 @@ def _ink_sides(regions: list, lab: np.ndarray) -> "Optional[dict]":
 def _lobe_cut(regions: list, masks: list, cfg: TypesetConfig) -> dict:
     """A balloon drawn as two lobes, divided the way it was drawn.
 
-    Two overlapping ovals meet at two corners, one on each side of the neck —
+    Two overlapping ovals meet at two corners, one on each side of the neck -
     the only two places the outline turns back on itself. Everywhere else the
     balloon bulges outward. So the deepest pair of dents in its convex hull IS
     the neck, and the chord between them is the line the artist would have
@@ -3545,7 +3545,7 @@ def _lobe_cut(regions: list, masks: list, cfg: TypesetConfig) -> dict:
     This does not have to typeset larger than the proportional cuts to be
     adopted, only close. A cut across or down the middle is a guess at where the
     English should go; lobes are not a guess, they are the page saying it. lee's
-    page 013 makes the difference plain — cut down the middle, the first block
+    page 013 makes the difference plain - cut down the middle, the first block
     typesets a point bigger but sits jammed against the balloon's right edge with
     the trunk's whole left side empty, because it is centred in its half rather
     than in the oval it belongs to. Its caller keeps this cut over anything that
@@ -3557,7 +3557,7 @@ def _lobe_cut(regions: list, masks: list, cfg: TypesetConfig) -> dict:
     a jagged outline: page 030's balloon has two 50px defects on opposite
     flanks, and the chord between them runs straight down the middle of one
     single lobe, cutting the first block's own Japanese in half. So each block
-    must keep essentially ALL of its ink — nine tenths — on its own side of the
+    must keep essentially ALL of its ink - nine tenths - on its own side of the
     chord, which the spike cut misses by a mile and a real neck passes exactly.
     And both lobes have to actually hold their text, or the division is a
     finding about the outline that the dialogue cannot live with.
@@ -3590,7 +3590,7 @@ def _measure(regions: list, shares: dict, cfg: TypesetConfig) -> tuple:
     """What a division is worth: (smallest type it typesets at, how much of its
     own Japanese the worst-served block keeps).
 
-    Size is the first question — a block starved down to 8pt is the failure
+    Size is the first question - a block starved down to 8pt is the failure
     this whole mechanism exists to prevent. But two divisions of the same
     balloon often typeset at exactly the same size and put the words in
     completely different places, and then the second number decides: a block of
@@ -3607,7 +3607,7 @@ def _off_balloon(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     Nothing else in the fitter asks this, because nothing else has to: a line
     is kept inside the BOX around its shape, and for an ordinary balloon the
     box is a fair stand-in for the balloon. For a crescent it is not, and for
-    two overlapping balloons the grouping has run together it is not at all —
+    two overlapping balloons the grouping has run together it is not at all -
     lee's page 008 has a pair like that, and a cut straight across them scores
     a beautiful 21pt by laying the first line over the gap between the two.
 
@@ -3617,7 +3617,7 @@ def _off_balloon(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     page 008's lower pair got through the gate that was built for exactly it:
     only the last two lines of I'M SORRY. WE HAVE TO BE GETTING BACK. reach
     across into the balloon behind, so 8% on the line lee can see came out as
-    4.7% overall — a third of a point under the bar — and the cut that carried
+    4.7% overall - a third of a point under the bar - and the cut that carried
     the dialogue over the neck was adopted as the best available. Measured a
     line at a time the two cases separate cleanly on every balloon to hand: an
     honest fit on a solid balloon loses nothing at all and the worst honest
@@ -3664,8 +3664,8 @@ def _score_cut(regions: list, shares: dict, cfg: TypesetConfig) -> tuple:
 
 # How much larger another division has to typeset before it is allowed to
 # overrule a cut the balloon's own outline asked for, and how much of its own
-# Japanese each block has to keep when it does. lee's page 013 — the balloon he
-# twice sent back saying the two blocks must stay in their own lobes — is
+# Japanese each block has to keep when it does. lee's page 013 - the balloon he
+# twice sent back saying the two blocks must stay in their own lobes - is
 # beaten by nine percent, which is a typesetter's judgement call. The balloons he
 # is complaining about now are beaten by ninety, which anyone can see.
 #
@@ -3673,7 +3673,7 @@ def _score_cut(regions: list, shares: dict, cfg: TypesetConfig) -> tuple:
 # replaces is not a better division. Three quarters is the floor, not half,
 # because of page 008's farewell balloon: cut straight across, the lower band
 # spans both lobes and typesets two points larger, and it does it by dragging
-# each block off its own lobe and centring it on the whole balloon — which is
+# each block off its own lobe and centring it on the whole balloon - which is
 # the thing lee has now sent back five times. That cut keeps 62% of each
 # block's own writing; the cut on page 030 that genuinely rescues a strangled
 # lobe keeps 86%. The gap between them is wide enough to legislate in.
@@ -3682,8 +3682,8 @@ NECK_CUT_KEEPS_ITS_OWN = 0.75
 
 # A line drawn along the edge of a curved balloon always clips a little white
 # off the corners of its own box, so "on the balloon" cannot mean every pixel.
-# A twentieth is the most an honest LINE loses — page 008's widest honest fit
-# loses 4% on its worst line — and the cuts that lay a line across the gap
+# A twentieth is the most an honest LINE loses - page 008's widest honest fit
+# loses 4% on its worst line - and the cuts that lay a line across the gap
 # between two balloons lose 6% to 12% on it.
 SPILL_ALLOWED = 0.05
 
@@ -3698,7 +3698,7 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
     horizontal lines, so a typesetter stacks the two blocks and gives each the
     balloon's full width. On lee's page 030 the columns overlap over four
     fifths of their height, so `detect.balloon` divided that balloon down the
-    middle and handed the shorter block a 104px strip — narrower than the word
+    middle and handed the shorter block a 104px strip - narrower than the word
     DISRESPECTFUL...! at any size the fitter is allowed to use, so it fell
     through to the emergency wrap and came out at 8pt beside its neighbour's
     18. Cut straight across instead and the same balloon typesets them at 22
@@ -3709,14 +3709,14 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
     artist put a block in each. Cut across and both blocks centre themselves in
     the trunk, leaving the whole left lobe empty white; the words end up
     nowhere near the Japanese they replace. Cut down the middle instead and
-    each block goes back in its own lobe — 17pt on six lines and 16pt on four,
+    each block goes back in its own lobe - 17pt on six lines and 16pt on four,
     where the page's own typesetter used about 15 and 10.
 
     Which cut is right cannot be decided from the ink alone: it depends on how
     much English there is and how the balloon is shaped. So typeset it every way
     and measure. A division that is only ever adopted after it demonstrably
-    typesets larger — or typesets just as large while keeping each block on its
-    own ink — cannot make any page worse than the geometry it replaces, and
+    typesets larger - or typesets just as large while keeping each block on its
+    own ink - cannot make any page worse than the geometry it replaces, and
     ties keep the detector's answer.
     """
     if cfg is None:
@@ -3739,7 +3739,7 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
         # More than one block in this balloon, and no neck the artist drew to
         # divide it at? Then each block letters where its own box is. lee:
         # *"the typesetting shoud not be putting text across 2 boxes it shoud
-        # never happen — for buble text make it so that teh text goes where teh
+        # never happen - for buble text make it so that teh text goes where teh
         # box is with a little leeway"*.
         #
         # It comes ahead of the bands below, which are the thing that put one
@@ -3754,7 +3754,7 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
                 continue
         texts = [(r.dst_text or "").strip() for r in group]
         # What every candidate has to beat is the arrangement already in the
-        # regions — usually the detector's own division, which is disjoint and
+        # regions - usually the detector's own division, which is disjoint and
         # perfectly good. But when the blocks claim the same paper it is not a
         # division at all, and it scores brilliantly for the worst possible
         # reason: both blocks letter themselves into the whole balloon, at the
@@ -3783,7 +3783,7 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
                 best, keep = got, cand
         if lobes:
             # The neck the artist drew is the best guess at where the balloon
-            # divides, so it stands — but it is a guess, not a fact, and on
+            # divides, so it stands - but it is a guess, not a fact, and on
             # some balloons it hands each block a strip narrower than the words
             # going into it and the page comes out at eleven point beside a
             # neighbour's twenty-two. Let a cut that is plainly larger take it.
@@ -3806,8 +3806,8 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
             # blocks still own the same paper. Anything disjoint beats leaving
             # them to print through each other.
             out.update(_confine_all(group, _nearest_ink_cut(group, masks)))
-    # A linked pair the balloon grouping never reached — no bubble mask to
-    # group by — still gets the cut it has always had. There is nothing to
+    # A linked pair the balloon grouping never reached - no bubble mask to
+    # group by - still gets the cut it has always had. There is nothing to
     # measure it against there, so nothing to choose between.
     for rs in _linked_groups(regions):
         if not any(r.id in done for r in rs):
@@ -3836,7 +3836,7 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
     for r in page.regions:
         if r.dst_text:
             # ALL CAPS for THIS block. Capitals are wider, so they go on
-            # before the fit rather than over the top of one — uppercasing a
+            # before the fit rather than over the top of one - uppercasing a
             # finished layout is how a line ends up past the edge of its
             # balloon. The project-wide switch (`cfg.uppercase`) still applies
             # to everything; this is one block saying so for itself.
@@ -3849,8 +3849,8 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
                 manual = layout_from_override(r, cfg, share)
             fresh = manual if manual is not None else fit_region(r, cfg, share)
             # Typesetting already on the page is never traded for typesetting that
-            # shows nothing. Whatever the reason — a font that cannot draw the
-            # words, a mask that came back empty — the run before this one put
+            # shows nothing. Whatever the reason - a font that cannot draw the
+            # words, a mask that came back empty - the run before this one put
             # something readable in the bubble and this one did not, so the
             # bubble keeps what it had. That is what stops a change of font
             # from emptying a page that was already typeset.
@@ -3879,7 +3879,7 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
             # the region squared a leaning effect back up.
             #
             # Every block now carries a frame, so "has a frame" no longer says
-            # anything about whether it was placed by hand — asking that
+            # anything about whether it was placed by hand - asking that
             # question of the frame is how strict containment quietly stopped
             # containing anything at all.
             # A block that is deliberately bigger than its box is NOT
@@ -3897,8 +3897,8 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
             if r.layout and cfg.strict_containment and not free:
                 r.layout = enforce_bounds(r, r.layout, cfg, share)
             # Last: the box the words actually occupy, and the lines placed
-            # from it. Everything downstream — the browser's preview, the box
-            # you type into, the export — fills a box the same way, so from
+            # from it. Everything downstream - the browser's preview, the box
+            # you type into, the export - fills a box the same way, so from
             # here on there is one answer to where a line goes.
             if r.layout and _kinds.family_of(r.kind) != "sfx" and manual is None:
                 r.layout = anchor_to_frame(r.layout, cfg)
@@ -3909,14 +3909,14 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
             # EVERY layout, not only the ones marked as leaving their box.
             # lee, with CLACK hanging off the right margin: *"a text shoud
             # never be set outside of the page like this"*. A sound effect is
-            # never marked as spilling — the clamp is its authority and it is
-            # measured against its own footprint, not the page — so nothing at
+            # never marked as spilling - the clamp is its authority and it is
+            # measured against its own footprint, not the page - so nothing at
             # all was keeping one on the paper. For a block already inside the
             # page this is arithmetic that comes to zero and returns the same
             # layout, so it costs the other several thousand regions nothing.
             #
-            # A page with no artwork loaded has no edges to respect — the
-            # typesetting panel lays out against geometry alone — so there is
+            # A page with no artwork loaded has no edges to respect - the
+            # typesetting panel lays out against geometry alone - so there is
             # nothing to do and nothing to measure against.
             _shape = getattr(getattr(page, "image", None), "shape", None)
             if r.layout and _shape is not None:
@@ -3935,8 +3935,8 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
     # And the colours, recorded onto the layouts.
     #
     # The exporter works its colours out afresh every time it draws, so an
-    # exported page has always been right. The BROWSER cannot do that — it has
-    # no page to look at — so it typesets from `layout.fg`/`edge`/`stroke`, and
+    # exported page has always been right. The BROWSER cannot do that - it has
+    # no page to look at - so it typesets from `layout.fg`/`edge`/`stroke`, and
     # nothing was ever writing them. They sat at the dataclass defaults, black
     # on white, and every bubble in the editor came out black with a thin white
     # halo no matter what it was standing on. On a dark panel that is invisible

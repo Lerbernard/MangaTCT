@@ -1,6 +1,6 @@
 """Half the sound-effect boxes had no writing in them.
 
-lee's chapter 1, all 67 pages, every box the detector drew — 194 of them, and
+lee's chapter 1, all 67 pages, every box the detector drew - 194 of them, and
 each one looked at. **18 of the 36 boxes it called a sound effect were on
 artwork**: sword blades, a face, two buildings, clothing, a gold ornament, a
 leg, a bed, and five times on the little trailing ellipses of a thought
@@ -11,7 +11,7 @@ over once the block head has had its turn, and the mask fires on a drawn line
 as happily as on a written one.
 
 **Six cheap ways of telling writing from drawing were measured on those 36
-boxes and not one of them separates** — number of marks, how even the marks are
+boxes and not one of them separates** - number of marks, how even the marks are
 in size, ink density, how thin the longest stroke is, how many holes it has,
 which pass made the box. The two distributions sit on top of each other in
 every one. This is the useful negative result: the leftover mask ink genuinely
@@ -25,12 +25,12 @@ and no new dependency:
      2 of 18 artwork boxes    0.10 and 0.19 of the box covered
     17 of 18 real effects     0.07 to 0.53
 
-So the bar is any overlap at all. Not a fraction — a fraction would be a number
+So the bar is any overlap at all. Not a fraction - a fraction would be a number
 to tune and the measurement will not support one, with real effects down at
 0.07 and two artwork boxes up at 0.19.
 
 **What it costs.** One real effect in eighteen: page 036's 휘잉, a thin
-hand-drawn vertical scrawl on pale paper, scored 0.000 — and still 0.000 with
+hand-drawn vertical scrawl on pale paper, scored 0.000 - and still 0.000 with
 CRAFT's `low_text` swept down to 0.15, so no amount of generosity recovers it.
 A veto can afford to be generous where a detector cannot, and it was tried:
 
@@ -41,7 +41,7 @@ A veto can afford to be generous where a detector cannot, and it was tried:
 
 lee: *"Missed SFX is worse"* than a box to delete. So this is a setting he owns
 and not a law, and it is on by default because 16 gone for 1 lost is the better
-default — not because losing one is fine.
+default - not because losing one is fine.
 
 **Run for real over the whole chapter, it does exactly that and no more.** 257
 boxes with the switch off, 240 with it on: 16 artwork boxes gone, one real
@@ -51,7 +51,7 @@ artwork boxes CRAFT does see survive, as measured.
 **An earlier version of this file claimed the veto also added nine boxes, seven
 of them real effects.** That was wrong, and the reason is worth keeping. The
 "before" it was measured against had been recorded before easyocr was installed
-in the container, so CRAFT contributed nothing to it — seven of those nine were
+in the container, so CRAFT contributed nothing to it - seven of those nine were
 boxes CRAFT adds with the veto on or off. A before-and-after has to move one
 thing, and that one did not.
 """
@@ -94,7 +94,7 @@ def _fake_craft(monkeypatch, boxes, ok=True):
 
     Both the `sys.modules` entry AND the attribute on the package, because
     `from . import craft` prefers the attribute when some earlier test has
-    already imported the real thing — which is why the first version of this
+    already imported the real thing - which is why the first version of this
     passed alone and failed under `-n 4`, in whichever worker happened to have
     touched CRAFT first.
     """
@@ -145,7 +145,7 @@ def test_any_overlap_at_all_is_enough():
 def test_both_rectangles_include_their_far_edge():
     """`_harvest` returns the last row and column of the ink and CRAFT returns
     polygon corners, so a piece ending on the box's first column shares one
-    column of pixels with it — an overlap. One pixel clear of it is not."""
+    column of pixels with it - an overlap. One pixel clear of it is not."""
     assert CT._seen_by([(0, 10, 10, 100)], 10, 10, 100, 100) is True
     assert CT._seen_by([(0, 10, 9, 100)], 10, 10, 100, 100) is False
     assert CT._seen_by([(100, 10, 200, 100)], 10, 10, 100, 100) is True
@@ -211,7 +211,7 @@ def test_turning_it_off_keeps_the_box(monkeypatch):
 
 def test_nothing_is_refused_when_easyocr_is_missing(monkeypatch):
     """A veto needs an opinion. With easyocr absent, or on a format that does
-    not run CRAFT, nothing may be refused — silently dropping every sound
+    not run CRAFT, nothing may be refused - silently dropping every sound
     effect because an optional dependency is missing is the worst outcome
     available, and it would look exactly like the detector getting worse."""
     got = _run(monkeypatch, [(20, 20, 60, 60)], ok=False)
@@ -233,8 +233,8 @@ def test_nothing_is_refused_when_the_format_does_not_run_craft(monkeypatch):
 
 def test_the_block_heads_own_boxes_are_never_refused():
     """The veto sits in the COVERAGE pass only. The block head is the best
-    thing here at dialogue — CRAFT was brought in to add to it, not to overrule
-    it — and a balloon CRAFT happened to miss must not vanish."""
+    thing here at dialogue - CRAFT was brought in to add to it, not to overrule
+    it - and a balloon CRAFT happened to miss must not vanish."""
     import inspect
 
     src = inspect.getsource(CT.detect_comictext)
@@ -287,7 +287,7 @@ def test_the_switch_is_not_on_the_page_any_more():
     only visible effect is on a format it was never measured on is a setting
     to get wrong.
 
-    Still READ, though — see the test below. A project.json that turned it off
+    Still READ, though - see the test below. A project.json that turned it off
     is still obeyed, and putting the tick back is one line of HTML.
     """
     from where import PKG
@@ -300,7 +300,7 @@ def test_the_switch_is_not_on_the_page_any_more():
 
 def test_a_project_that_turned_it_off_is_still_obeyed():
     """With the tick gone the setting is Python-side only, and it has to keep
-    working — otherwise removing a control silently changed what every project
+    working - otherwise removing a control silently changed what every project
     that used it does."""
     import inspect
 

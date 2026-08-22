@@ -8,16 +8,16 @@ profread"*.
 
 Four separate promises, and each one is a test below.
 
-**Labelled.** The file names every box the way the page does — the page's own
-file name and the number drawn on the box sheet — so a person filling it in
+**Labelled.** The file names every box the way the page does - the page's own
+file name and the number drawn on the box sheet - so a person filling it in
 never has to look at a region id, and a line that comes back finds the box it
 was written for.
 
 **Overrides.** Whatever is in the file wins. Not "fills in the empty ones":
 the point of translating by hand is usually that the machine's answer was
 wrong, so a block with words in it replaces what the box says now. What is
-NOT overridden is the styling — the face, the ink, the frame somebody dragged
-where they wanted it — because none of that was a translation.
+NOT overridden is the styling - the face, the ink, the frame somebody dragged
+where they wanted it - because none of that was a translation.
 
 **Or just typing it in.** That half needs no new code: the text panel already
 writes `dst_text`, and this file only checks the two routes end at the same
@@ -25,7 +25,7 @@ place.
 
 **Greys out.** Read text, Translate and Proofread are the three steps that
 call a model. In manual mode nothing is going to, so they go quiet. This is a
-MODE somebody chose, not a lock the app imposed — which is exactly the
+MODE somebody chose, not a lock the app imposed - which is exactly the
 difference from the step gates lee had removed, and why turning it off gives
 all three straight back.
 """
@@ -354,7 +354,7 @@ def test_the_words_are_tidied_the_same_way_the_panel_tidies_them(tmp_path):
 
 def test_the_re_typeset_afterwards_does_not_sweep_up_a_hand_drawn_box(tmp_path):
     """New words arriving re-typesets the page as a courtesy. Nobody pressed
-    Typeset, so the reset that button carries must not come with it — a box
+    Typeset, so the reset that button carries must not come with it - a box
     lee drew himself is his, and a translation file is no reason to delete it.
     """
     from mangatl import editor
@@ -402,7 +402,7 @@ def test_pressing_typeset_still_sweeps_it_up(tmp_path):
 
 
 def test_a_hand_drawn_box_survives_a_page_with_nothing_to_typeset(tmp_path):
-    """The early return — no words anywhere, nothing to un-typeset — used to
+    """The early return - no words anywhere, nothing to un-typeset - used to
     be a way out of the function that never put the boxes back."""
     from mangatl import editor
     p = _project(str(tmp_path / "t"), pages=1)
@@ -542,7 +542,7 @@ def _screen(fn, manual_on):
 @pytest.mark.skipif(not browserpool.available(), reason="chromium unavailable")
 def test_the_three_model_steps_go_grey_in_manual_mode():
     """lee: *"the manual tranlat button should grey out the read text
-    translate and profread"*. Those three and no others — Find text is not a
+    translate and profread"*. Those three and no others - Find text is not a
     model, Clean, Typeset and Export are not translations."""
     def check(pg, p):
         got = pg.evaluate(_STEPS)
@@ -573,7 +573,7 @@ def test_pressing_a_greyed_step_does_nothing():
 @pytest.mark.skipif(not browserpool.available(), reason="chromium unavailable")
 def test_turning_it_off_gives_the_three_straight_back():
     """A MODE, not a lock: nothing has to happen first for these to work
-    again — that is the whole difference from the step gates lee had
+    again - that is the whole difference from the step gates lee had
     removed."""
     def check(pg, p):
         pg.evaluate("""() => { proj.settings.manual_translate = false;
@@ -610,7 +610,7 @@ def test_the_switch_lives_beside_the_text_it_is_about():
     """lee: *"move teh ill translate myselt to the translation tab"*.
 
     It spent a while in Settings ▸ Translation engine, which is where you go
-    to decide a thing once — not where you go to DO it. Typing a chapter in by
+    to decide a thing once - not where you go to DO it. Typing a chapter in by
     hand happens against the text list, and that is where the switch and its
     template buttons are now.
     """

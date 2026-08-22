@@ -1,7 +1,7 @@
 /* Where the Side-by-side switch lives, and when.
 
    It sat out in the open beside "Snap boxes", on every tab and in every
-   view — including the Original view, where the reference pane it opens is
+   view - including the Original view, where the reference pane it opens is
    the same picture twice, and the Results and Settings tabs, where there is
    no page on screen at all. lee asked for it beside the "Translated text"
    switch and only where it does something. */

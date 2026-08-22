@@ -1,4 +1,4 @@
-"""mangatl detection diagnostic — run:  python diag.py
+"""mangatl detection diagnostic - run:  python diag.py
 Prints what the model outputs on THIS machine and saves diag_004.png."""
 import sys, os
 here = os.path.dirname(os.path.abspath(__file__))     # ...\mangatl

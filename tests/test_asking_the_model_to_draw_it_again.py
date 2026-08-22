@@ -13,7 +13,7 @@ more: every rule that kept it from drawing ON the artwork also kept it from
 drawing most of the lines.
 
 The other tool draws. What it had never been given is the WHOLE of what the
-clean painted, in one go, on the page as it arrived — on a box that needed the
+clean painted, in one go, on the page as it arrived - on a box that needed the
 second pass it gets two masks over the same box at two different times, and the
 two answers meet somewhere in the middle. So the boxes the second pass touched,
 and only those, get one more call each with a mask over everything that
@@ -24,8 +24,8 @@ in a box, because a redraw that WORKS puts detail back and every such measure
 goes up when it succeeds. There is exactly one way for the answer to be worse
 rather than different, and it is specific: the model is handed the page with
 the words still on it, so it can draw the words back. That is what is measured,
-in the writing's own footprint, and nothing else. The other failure — an answer
-that erases the area instead of drawing it — is `_gave_up`, which every model
+in the writing's own footprint, and nothing else. The other failure - an answer
+that erases the area instead of drawing it - is `_gave_up`, which every model
 call in this file already goes through.
 """
 import numpy as np
@@ -50,7 +50,7 @@ def _hard_page():
 
 
 def _easy_page():
-    """Plain black on white — one route, no second pass, nothing to redraw."""
+    """Plain black on white - one route, no second pass, nothing to redraw."""
     img = np.full((160, 460, 3), 250, np.uint8)
     cv2.putText(img, "ORDINARY", (30, 110), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
                 (12, 12, 12), 4)
@@ -83,7 +83,7 @@ def _draws(seen=None):
 
 
 def _parrots(sub, sm):
-    """A model that hands the page straight back — words and all."""
+    """A model that hands the page straight back - words and all."""
     return sub.copy()
 
 
@@ -104,7 +104,7 @@ def _routes(pg):
 
 def test_with_no_model_nothing_is_asked_and_nothing_is_done():
     """Not even the local repair `_run_neural` falls back to. There is no
-    question here that a local fill answers — the box has a finished clean on
+    question here that a local fill answers - the box has a finished clean on
     it already."""
     pg, r = _page(_hard_page())
     out = I.inpaint_page(pg, neural=None)
@@ -166,7 +166,7 @@ def test_it_is_asked_about_everything_the_clean_painted():
 
 def test_and_it_is_asked_on_the_page_as_it_arrived():
     """Not on the plate. Handed its own answer the model redraws its own
-    reconstruction — two stacked generations, each with its own noise floor —
+    reconstruction - two stacked generations, each with its own noise floor -
     and the point here is to replace both earlier answers, not to sit on top
     of them."""
     seen = []
@@ -181,7 +181,7 @@ def test_and_it_is_asked_on_the_page_as_it_arrived():
 
 
 def test_a_model_that_draws_the_words_back_is_refused():
-    """It is handed the page WITH the writing on it, so it can — and a model
+    """It is handed the page WITH the writing on it, so it can - and a model
     that hands its input straight back has done exactly that. This is the one
     way the answer can be worse rather than merely different, and it is the one
     thing this step checks.
@@ -218,7 +218,7 @@ def test_a_model_that_erases_the_area_is_refused_too():
     did not: *"the ai seem to have given up and just made teh white box"*.
 
     Said structurally because it is a fact about where the call is made from,
-    and because a flat answer on flat paper is the RIGHT answer — the fixtures
+    and because a flat answer on flat paper is the RIGHT answer - the fixtures
     that would exercise it here are `_gave_up`'s own.
     """
     import inspect
@@ -261,8 +261,8 @@ def test_a_few_pixels_of_cleaning_are_not_worth_a_call():
 
 
 def test_the_report_counts_it_apart_from_the_routes():
-    """"redrawn" is not a route a box took instead of another one — it is the
-    cleaner going back over a box a third time — so it is counted separately,
+    """"redrawn" is not a route a box took instead of another one - it is the
+    cleaner going back over a box a third time - so it is counted separately,
     the same as "second pass"."""
     pg, r = _page(_hard_page())
     I.inpaint_page(pg, neural=_draws(), neural_all=False)

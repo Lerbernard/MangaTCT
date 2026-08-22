@@ -7,15 +7,15 @@ It has never looked at the artwork.
 
 lee's chapter 1, measured: **690 x 167,617**, cut into 105 tiles of exactly
 1600px. Of the 104 cuts, **86 land on ink, 63 go through a speech balloon, and
-38 go through the typesetting itself** — one of them straight across the middle of
+38 go through the typesetting itself** - one of them straight across the middle of
 지구인 용사 소환!, leaving half the glyph heights on one file and half on the
 next. Neither half is readable. The reader cannot read it, the cleaner would
 have to erase half a word on one page and half on another, and the English has
 nowhere to go.
 
 So the tiles are not pages and must not be treated as pages. This module joins
-them back into the strip they came from and cuts it again at the **gutters** —
-the rows where the artist drew nothing — which is what a typesetter does by hand
+them back into the strip they came from and cuts it again at the **gutters** -
+the rows where the artist drew nothing - which is what a typesetter does by hand
 before starting.
 
 On that chapter: 81 gutters, and cutting only at them gives 43 pages with
@@ -37,11 +37,11 @@ from . import imgio
 
 # A row is a gutter when nothing is drawn on it. Both tests matter: `std`
 # catches texture and typesetting, and the range catches a hard edge in an
-# otherwise even row — a panel border crossing an empty margin.
+# otherwise even row - a panel border crossing an empty margin.
 FLAT_STD = 4.0
 FLAT_RANGE = 14
 
-# A single flat row is a coincidence — a scanline between two panels of the
+# A single flat row is a coincidence - a scanline between two panels of the
 # same tone. A band of them is a gutter.
 MIN_GUTTER = 6
 
@@ -60,7 +60,7 @@ TARGET_H = 2400
 MAX_H = 6000
 
 # How much taller or shorter than the target a page may be while still counting
-# as "near enough" — the window a gutter is looked for in.
+# as "near enough" - the window a gutter is looked for in.
 NEAR = (0.45, 1.9)
 
 
@@ -83,7 +83,7 @@ def row_profile(paths: list[str]) -> np.ndarray:
 
 
 def gutters(flat: np.ndarray, min_band: int = MIN_GUTTER) -> list[int]:
-    """The middle row of every band of empty rows — the places it may be cut."""
+    """The middle row of every band of empty rows - the places it may be cut."""
     if not len(flat):
         return []
     d = np.diff(np.concatenate([[0], flat.view(np.int8), [0]]))
@@ -151,7 +151,7 @@ def looks_sliced(sizes: list[tuple[int, int]]) -> bool:
     Deliberately narrow, because being wrong here rearranges somebody's
     chapter. All four have to hold:
 
-    * more than a handful of images — three tiles is a three-page short;
+    * more than a handful of images - three tiles is a three-page short;
     * every one the same WIDTH, which a scan of paper pages never is;
     * all but the last the same HEIGHT, to the pixel. That is the signature of
       a machine slicing by count. Pages drawn as pages differ by a few pixels

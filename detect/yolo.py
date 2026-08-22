@@ -99,7 +99,7 @@ def _region_from_mask(gray, mask, rid: int, kind: str = "bubble"):
         return None
     outer = max(cnts, key=cv2.contourArea)
 
-    # The DRAWN box hugs the text, not the whole balloon — so the region sits on
+    # The DRAWN box hugs the text, not the whole balloon - so the region sits on
     # the words like a caption box. The bubble shape is still kept as the mask
     # (and polygon), so typesetting can still fill the whole balloon at typeset.
     return TextRegion(
@@ -145,7 +145,7 @@ def _containment(inner, outer) -> float:
 
 
 def _looks_like_text(region: TextRegion) -> bool:
-    """Reject artwork the text model grabbed by mistake — a face, hair, a solid
+    """Reject artwork the text model grabbed by mistake - a face, hair, a solid
     black shape. Typesetting is built from THIN strokes, so the thickest point of
     real text is small relative to the block; a filled blob is not.
     """
@@ -164,8 +164,8 @@ def _dedup_overlap(regions: list[TextRegion], cover: float = 0.85,
                    iou: float = 0.6) -> list[TextRegion]:
     """Drop only TRUE duplicate detections, keeping genuinely separate bubbles.
 
-    Two boxes over the same bubble — a text box almost entirely inside its own
-    bubble, or a bubble outlined twice (an outer ring and its inner white) —
+    Two boxes over the same bubble - a text box almost entirely inside its own
+    bubble, or a bubble outlined twice (an outer ring and its inner white) -
     are duplicates and one is removed. Two DIFFERENT bubbles that merely touch
     or overlap (a sentence split across two adjacent bubbles) are NOT: they only
     partly cover each other, so they both survive and can be linked instead.
@@ -193,7 +193,7 @@ def _separate_overlaps(regions: list[TextRegion], gray: np.ndarray
 
     Where regions' ink overlaps, each glyph blob is given WHOLE to the region
     whose centre is nearest, then every region that took part in an overlap is
-    shrunk to hug only the text it kept — its drawn box included. Two bubbles
+    shrunk to hug only the text it kept - its drawn box included. Two bubbles
     can still sit side by side, but no glyph and no box is shared, so nothing is
     read or shown twice. Regions emptied out are dropped. Regions that never
     overlapped anything are left exactly as they were.
@@ -212,14 +212,14 @@ def _separate_overlaps(regions: list[TextRegion], gray: np.ndarray
                 min(ay + ah, by + bh) - max(ay, by) > 0)
 
     # Pairs of regions whose DRAWN boxes overlap. These are the ones that were
-    # sitting on top of each other — usually one line the artist split across
-    # touching balloons — so they get separated AND linked together.
+    # sitting on top of each other - usually one line the artist split across
+    # touching balloons - so they get separated AND linked together.
     pairs = [(j, k)
              for j in range(len(regs)) for k in range(j + 1, len(regs))
              if _boxes_touch(_box(regs[j]), _box(regs[k]))]
     involved = {j for pr in pairs for j in pr}
     if not involved:
-        return regions                       # no boxes overlap — leave it be
+        return regions                       # no boxes overlap - leave it be
 
     H, W = gray.shape[:2]
     owner = np.full((H, W), -1, np.int32)
@@ -259,7 +259,7 @@ def _separate_overlaps(regions: list[TextRegion], gray: np.ndarray
         if j in involved:
             mine = owner == j
             if int(mine.sum()) < 20:
-                continue                     # reassigned away entirely — drop
+                continue                     # reassigned away entirely - drop
             r.text_mask = (mine.astype(np.uint8) * 255)
             yy, xx = np.nonzero(mine)
             x0 = max(0, int(xx.min()) - TEXT_PAD)
@@ -302,7 +302,7 @@ def _separate_overlaps(regions: list[TextRegion], gray: np.ndarray
 
 
 def _auto_link_balloons(regions: list[TextRegion]) -> None:
-    """Link bubbles whose BALLOONS overlap — one line split across touching
+    """Link bubbles whose BALLOONS overlap - one line split across touching
     balloons. Text boxes are tight now and rarely overlap, so linking keys off
     the balloon shape (the bubble mask) instead. Merges into any existing links.
     """
@@ -368,7 +368,7 @@ def detect_hybrid(page: Page, weights: str, conf: float = 0.30,
 
     bubbles = detect(page, weights, conf)
     # Merge duplicate detections of the SAME balloon here, while the boxes still
-    # cover the whole balloon — two detections of one bubble overlap heavily and
+    # cover the whole balloon - two detections of one bubble overlap heavily and
     # collapse to one, so one balloon yields one box (and can't split into two
     # overlapping text boxes later). Genuinely separate balloons overlap less and
     # survive.

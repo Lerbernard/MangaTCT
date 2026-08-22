@@ -9,20 +9,20 @@ page 1:
   cleaning sfx tht are slected"*
 
 The cause is one line in `models.place_mask()`: a sound effect is handed **its
-own ink** as its area, because for TYPESETTING that is right — an sfx is drawn
+own ink** as its area, because for TYPESETTING that is right - an sfx is drawn
 along an axis of its own and belongs exactly where the original was, not
 spread over a rectangle drawn round it. For CLEANING it is ruinous. Every
 measurement the cleaner makes about the area around the writing is then taken
 over the writing itself:
 
 * `ink_and_background`'s rim vote reads `area & ~erode(area, 7x7)`, which for a
-  mask of strokes is nearly the whole mask — so "is the background dark?" is
+  mask of strokes is nearly the whole mask - so "is the background dark?" is
   answered by looking at the letters.
 * `_flat_from` stands off the ink to sample a background and finds nothing.
 * `_with_halo`'s halo is a subset of the ink, so it can add nothing.
 
 When that vote comes back `inverted`, `inpaint_page` used to throw the
-detector's mask away and replace it with `_letterlike(polar)` — the letter-
+detector's mask away and replace it with `_letterlike(polar)` - the letter-
 shaped part of an Otsu split of the page. On a plain dark sfx over dark hatched
 artwork the split hands back the bright hatch lines, `_letterlike` keeps a few
 specks of them, and the sound effect is left on the page with a fraction of it
@@ -31,7 +31,7 @@ rubbed out.
 The replacement's own justification cannot apply to an sfx: it exists because a
 dark-ink detector mask on a black panel is the PANEL rather than the words, and
 an sfx's mask comes off the segmentation head and is the mark itself. So it is
-skipped for sfx — `inverted` still stands, because the halo, the stroke
+skipped for sfx - `inverted` still stands, because the halo, the stroke
 completion and the ghost check all need to know which way the ink runs.
 
 The second half is the safety net lee asked for: the empty-mask fallback now
@@ -61,7 +61,7 @@ def _draw(base, txt, size, fill, sw=0, edge=255, xy=(110, 140)):
 
 
 def _hatched():
-    """Dark artwork with fine bright hatching over it — what lee's sfx sit on."""
+    """Dark artwork with fine bright hatching over it - what lee's sfx sit on."""
     a = np.full((H, W), 30, np.uint8)
     for y in range(0, H, 9):
         cv2.line(a, (0, y), (W, y - 70), 90, 2)
@@ -72,7 +72,7 @@ def _sfx_page(sw=0, edge=15, fill=15, size=54, txt="GUBA"):
     """The page, and the mask the segmentation head would return for the mark.
 
     The mask is taken by drawing the same mark on black, so it is exactly the
-    ink and nothing else — which is what that head gives, and the reason its
+    ink and nothing else - which is what that head gives, and the reason its
     answer is worth keeping.
     """
     img = _draw(_hatched(), txt, size, fill, sw, edge)
@@ -81,7 +81,7 @@ def _sfx_page(sw=0, edge=15, fill=15, size=54, txt="GUBA"):
 
 
 def _dark_panel():
-    """White typesetting on a black panel — the case the replacement exists for.
+    """White typesetting on a black panel - the case the replacement exists for.
 
     Here the detector's dark-ink mask really IS the panel, so replacing it is
     right, and this file must not break that.
@@ -102,7 +102,7 @@ def _gone(before, after, tm):
 
     Not "how many pixels changed", which was the old measure and cannot tell a
     repair from a residue. These marks sit on hatching, and the redraw step
-    carries the hatch lines back across the patch — putting a pixel back to
+    carries the hatch lines back across the patch - putting a pixel back to
     what the artwork had there is the whole object of that step, and it counts
     as a pixel that did not change.
     """
@@ -140,7 +140,7 @@ def test_a_plain_dark_sound_effect_on_dark_art_is_erased():
 
 
 def test_an_outlined_sound_effect_on_dark_art_is_erased():
-    """lee's page 1, box 2 — the same mark drawn with a white keyline round
+    """lee's page 1, box 2 - the same mark drawn with a white keyline round
     it, which is how most sound effects over artwork are drawn."""
     img, tm = _sfx_page(sw=5, edge=250)
     r, page, erased, _moved = _clean(img, tm, "sfx")
@@ -167,7 +167,7 @@ def test_the_polarity_vote_is_meaningless_for_a_sound_effect():
 
 def test_the_detectors_mask_is_kept_for_a_sound_effect():
     """The change itself. Whatever `ink_and_background` votes, an sfx erases
-    what the segmentation head found — most of it, and not a few specks of
+    what the segmentation head found - most of it, and not a few specks of
     hatching."""
     img, tm = _sfx_page()
     x, y, w, h = cv2.boundingRect(tm)
@@ -188,7 +188,7 @@ def test_the_detectors_mask_is_kept_for_a_sound_effect():
 
 def test_white_typesetting_on_a_black_panel_still_gets_the_split():
     """The replacement stays where it belongs. Here the detector's dark-ink
-    mask is the panel, and erasing it would take the artwork with it — so the
+    mask is the panel, and erasing it would take the artwork with it - so the
     letter-shaped part of the split is what gets erased, and only a small
     fraction of the panel mask is touched."""
     img, tm = _dark_panel()
@@ -227,7 +227,7 @@ def test_an_emptied_mask_falls_back_to_what_the_detector_found():
 
     Every filter in the chain is a judgement about WHICH ink to erase, and
     none of them is a reason to erase none of it. Emptied here by forcing the
-    containment filter to return nothing — the fallback must still put the
+    containment filter to return nothing - the fallback must still put the
     detector's mask back and say so in the flag."""
     img, tm = _sfx_page()
     x, y, w, h = cv2.boundingRect(tm)
@@ -250,8 +250,8 @@ def test_an_emptied_mask_falls_back_to_what_the_detector_found():
 
 
 def test_the_fallback_reaches_past_the_letterlike_filter():
-    """The bug inside the bug. The fallback used to fall back to `base_u8` —
-    the detector's mask AFTER `_letterlike` had run on it — and `_letterlike`
+    """The bug inside the bug. The fallback used to fall back to `base_u8` -
+    the detector's mask AFTER `_letterlike` had run on it - and `_letterlike`
     is the filter most able to empty it. Empty it there, and the old fallback
     had nothing to give back."""
     img, tm = _dark_panel()

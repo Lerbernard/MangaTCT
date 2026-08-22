@@ -9,13 +9,13 @@ under it is erased so the English can go on top. The whole chain assumes there
 is something there.
 
 This one stands for nothing that was there. It is a place on the page where
-you want words — a caption, a note, a sign the artist left blank — so every
+you want words - a caption, a note, a sign the artist left blank - so every
 link in that chain has to be told to leave it alone:
 
 * the rectangle is kept exactly as drawn, because there is no ink to tighten
   onto and tightening would collapse it onto whatever line art it caught;
 * nothing under it is erased, because the artwork under it is the artwork;
-* the reader skips it — there is nothing to read, and reading a crop of bare
+* the reader skips it - there is nothing to read, and reading a crop of bare
   art hands the translator whatever the engine hallucinated from it;
 * the proofreader skips it, because there is no source to check it against and
   these are not a translation to be corrected;
@@ -98,7 +98,7 @@ def _place(pg, x0f=0.15, y0f=0.70, x1f=0.70, y1f=0.85):
     pg.mouse.up()
     # The drag POSTs the new box and the panel opens when the reply lands. A
     # flat 2200ms sleep was long enough on an idle machine and not on a busy
-    # one — `test_it_is_typeset_the_moment_it_is_made` went red once in a
+    # one - `test_it_is_typeset_the_moment_it_is_made` went red once in a
     # full run and never once on its own. Wait for the box instead.
     pg.wait_for_function(
         "() => regions.some(r => r.own_text) "
@@ -184,7 +184,7 @@ def test_it_arrives_with_no_outline(stage):
     """lee: *"the text created by the text box creator sould not have any
     outline by deafult"*. A stroke is there to push typesetting away from the
     artwork it is sitting on; this is not replacing anything, so there is
-    nothing to push away from — and it is a decision you can still make in the
+    nothing to push away from - and it is a decision you can still make in the
     panel."""
     pg, p, errs = stage
     _place(pg)
@@ -210,7 +210,7 @@ def test_it_appears_at_once(stage):
 
 
 def test_two_of_them_do_not_collide(stage):
-    """The typeset copy used to be written back to the END of the list — and
+    """The typeset copy used to be written back to the END of the list - and
     `reorder` had already re-sorted it, so it landed on somebody else's box and
     two boxes ended up carrying the same id."""
     pg, p, errs = stage
@@ -288,7 +288,7 @@ def test_the_reader_skips_it():
 
 
 def test_the_proofreader_skips_it():
-    """No source to check it against, and it is not a translation to correct —
+    """No source to check it against, and it is not a translation to correct -
     it is what the person wanted the page to say."""
     from mangatl import translate as T
     from mangatl.models import Page, TextRegion
@@ -326,7 +326,7 @@ def test_it_survives_being_saved_and_read_back(stage):
     p.save()
     from mangatl.project import Project
     again = Project(None, p.output_dir)
-    # A reload with no pages at all is not "own_text was lost" — it is the
+    # A reload with no pages at all is not "own_text was lost" - it is the
     # whole chapter gone, and the message has to say which. It found this:
     # a transient field set on the series context was written into
     # project.json, `SeriesContext(**saved)` refused the key, `load` raised

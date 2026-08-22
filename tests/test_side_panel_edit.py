@@ -4,7 +4,7 @@ lee: *"whne i add text to the side panel in the original tab it hsoud stay and
 not clear when i clcik off"*.
 
 The two text boxes in the inspector saved on `change`, and a browser fires
-`change` on BLUR — which never happens if the element is removed from the page
+`change` on BLUR - which never happens if the element is removed from the page
 while it still has focus. Clicking the page, or another row, or anything else
 that redraws the list did exactly that: the textarea was gone before it could
 report itself, and the typing went with it.
@@ -14,11 +14,11 @@ and everything that rebuilds the list writes them out first (`flushEdit`, called
 by `setRegions` and by `renderList`).
 
 A note on what this test can and cannot prove. Chromium DOES fire `change` when
-a focused, modified field is removed — measured here, one event — so the old
+a focused, modified field is removed - measured here, one event - so the old
 code survives this test and the mutation passes. Firefox, which is what lee
 runs, does not: removing the element drops the pending change silently, and the
-typing goes with it. So what is locked below is the CONTRACT — type, redraw the
-list, the text is still there and has reached the server — which now holds
+typing goes with it. So what is locked below is the CONTRACT - type, redraw the
+list, the text is still there and has reached the server - which now holds
 without depending on any browser's behaviour on removal.
 """
 import shutil
@@ -83,14 +83,14 @@ def test_typing_survives_clicking_away():
             box = "#list .lrow.on .rinline textarea:nth-of-type(2)"
             # typed, not `fill`: Playwright's fill dispatches a `change` event
             # of its own, which is exactly the event the browser does NOT send
-            # when a focused element is removed — filling would hide the bug
+            # when a focused element is removed - filling would hide the bug
             pg.click(box)
             pg.keyboard.type("HELLO THERE")
 
             # The exact thing that loses it: the list is rebuilt while the
             # textarea still has focus. A removed element never blurs, so it
             # never fires `change`, so nothing hears the typing. Anything that
-            # redraws the list does this — a save elsewhere, a poll landing, a
+            # redraws the list does this - a save elsewhere, a poll landing, a
             # click that re-selects.
             pg.evaluate("renderList()")
             pg.wait_for_timeout(900)
@@ -125,7 +125,7 @@ def test_the_typesetting_panel_is_not_rebuilt_under_your_hands():
     back"*.
 
     Every field in the typesetting panel saves on `change`, and a browser fires
-    `change` on blur — so a field that is removed from the page while it still
+    `change` on blur - so a field that is removed from the page while it still
     has focus never reports the value typed into it, and the rebuilt panel shows
     whatever the server last said. Chromium fires the event on removal, Firefox
     does not, which is why it looked random.
@@ -197,8 +197,8 @@ def test_changing_the_text_anywhere_retires_the_old_typesetting():
     Proofreading has always dropped the fitting when IT changed a line; an edit
     by hand is the same event and now does the same.
 
-    Only the FITTING is dropped. Everything chosen about how it looks — colour,
-    outline, glow, rotation — is dressing and survives.
+    Only the FITTING is dropped. Everything chosen about how it looks - colour,
+    outline, glow, rotation - is dressing and survives.
     """
     from mangatl import editor
     import json as _json

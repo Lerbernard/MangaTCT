@@ -2,21 +2,21 @@
 
 Three things lee asked for, looking at the typesetting panel:
 
-* *"get rid of the seach font in teh pictyure"* — there were two. The font
+* *"get rid of the seach font in teh pictyure"* - there were two. The font
   PICKER has a search inside its dropdown, which is where it belongs; above it
   sat a second, permanent one filtering the same list. That one is gone.
-* *"make teh up and down button look better"* — both browsers draw their own
+* *"make teh up and down button look better"* - both browsers draw their own
   spinner on a number box and neither can be made to look like the other:
   Chromium's `::-webkit-inner-spin-button` can be painted, Firefox's cannot be
   touched at all, and lee works in Firefox. Both natives are off now and one is
   built out of two real buttons, so it is the same control everywhere.
-* *"make teh side bar more organized"* — fourteen controls in one unbroken
+* *"make teh side bar more organized"* - fourteen controls in one unbroken
   strip, now folded into five named groups that remember whether they were
   open.
 
 These run in Chromium because that is what is installed. The browser lee uses
-is Firefox, and the one thing that genuinely differs between them — a `change`
-event on an element removed while focused — is not what any of this rests on.
+is Firefox, and the one thing that genuinely differs between them - a `change`
+event on an element removed while focused - is not what any of this rests on.
 """
 import json
 import threading
@@ -99,8 +99,8 @@ def _panel(fn, root=scratch("_tmp_tidy")):
 
 def test_there_is_no_loose_font_search_in_the_panel():
     """There used to be one inside the custom picker's own menu, and the rule
-    was that it was the only one. The picker is a native <select> now — the
-    browser's own type-ahead is the search — so there should be no search box
+    was that it was the only one. The picker is a native <select> now - the
+    browser's own type-ahead is the search - so there should be no search box
     in this panel at all."""
     def check(pg, p):
         boxes = pg.evaluate(
@@ -110,13 +110,28 @@ def test_there_is_no_loose_font_search_in_the_panel():
     _panel(check)
 
 
+def test_the_panel_is_pinned_to_one_width():
+    """lee, with two screenshots of the panel at two widths: *"make thsi side
+    bar a consistent size"*. `width` on a flex item is only its basis - the
+    item still refuses to shrink below its widest child, so one wide row on
+    one page moved the panel and the artwork with it. min and max close both
+    doors; overflow-x makes a too-wide child that page's problem."""
+    css = (PKG / "static" / "css" / "editor.css").read_text(encoding="utf-8")
+    rule = css[css.index("#side{"):]
+    rule = rule[:rule.index("}")]
+    assert "width:330px" in rule
+    assert "min-width:330px" in rule and "max-width:330px" in rule
+    assert "flex:0 0 330px" in rule
+    assert "overflow-x:hidden" in rule
+
+
 def test_the_panel_is_grouped():
     def check(pg, p):
         titles = pg.evaluate(
             "[...document.querySelectorAll('#inspector details.grp > summary')]"
             ".map(s=>s.textContent.trim())")
         # Paragraph and Character, the way a typesetter's panels are laid out.
-        # "This box" is gone — its two menus are at the head of the panel, so
+        # "This box" is gone - its two menus are at the head of the panel, so
         # what a box IS is the first thing you read rather than a fold at the
         # bottom. lee: *"remove the this box section too"*.
         assert titles == ["Paragraph", "Character", "Colour",
@@ -175,7 +190,7 @@ def test_a_box_with_a_slider_beside_it_is_left_plain():
 def test_the_buttons_change_the_value_and_save_it():
     """Changing the number on screen is half of it. Every field in these panels
     saves on `input` or `change`, and a value set from script fires neither by
-    itself — so a stepper that only wrote the box would look like it worked and
+    itself - so a stepper that only wrote the box would look like it worked and
     lose the change."""
     def check(pg, p):
         before = pg.evaluate("+document.getElementById('lySize').value")
@@ -285,7 +300,7 @@ def test_no_native_spinner_is_left_showing_underneath():
 def test_the_settings_boxes_save_when_stepped():
     """Not every field in the app saves on `input`. Min pt and Max pt in the
     settings sheet save on `change`, which a value written from script does not
-    fire by itself — so the stepper has to send both."""
+    fire by itself - so the stepper has to send both."""
     import shutil
     import threading
     from http.server import ThreadingHTTPServer
@@ -321,7 +336,7 @@ def test_the_settings_boxes_save_when_stepped():
 
 def test_the_value_lands_in_the_region_before_any_request_is_made():
     """The panel is built FROM the region, and it is rebuilt on all sorts of
-    things — a save landing, a poll, a stepper being released. Anything typed
+    things - a save landing, a poll, a stepper being released. Anything typed
     that is not written into the region at once is a field that snaps back to
     the last answer the server gave while the new one is still in flight.
 
@@ -333,7 +348,7 @@ def test_the_value_lands_in_the_region_before_any_request_is_made():
         pg.evaluate("""(()=>{const i=document.getElementById('lySize');
             i.value = String(+i.value + 5);
             i.dispatchEvent(new Event('input',{bubbles:true}));})()""")
-        # read it back in the SAME tick — before any request could return
+        # read it back in the SAME tick - before any request could return
         after = pg.evaluate("regions.find(r=>r.id===1).layout.font_size")
         assert after == before + 5, (before, after)
     _panel(check)
@@ -381,7 +396,7 @@ def test_a_single_press_moves_exactly_one():
 
 def test_the_panel_is_not_rebuilt_while_a_stepper_is_down():
     """A button that leaves the page between the press and the release never
-    reports a click at all — which is how this failed in Firefox and not in
+    reports a click at all - which is how this failed in Firefox and not in
     Chromium."""
     def check(pg, p):
         b = pg.locator("#lySize ~ .numbtn.up").bounding_box()
@@ -400,7 +415,7 @@ def test_the_panel_is_not_rebuilt_while_a_stepper_is_down():
 
 def test_a_step_still_lands_if_the_box_was_replaced_under_it():
     """The panel is held still while a stepper is down, so this should not
-    happen — but `stepNum` is called from a timer that outlives any one frame,
+    happen - but `stepNum` is called from a timer that outlives any one frame,
     and writing into a node that has left the page fails silently. It finds the
     box again by name."""
     def check(pg, p):
@@ -418,7 +433,7 @@ def test_a_step_still_lands_if_the_box_was_replaced_under_it():
 def test_chromium_is_left_on_its_own_scrollbar_rules():
     """The fence has to actually fence. Chromium answers True to
     `selector(::-webkit-scrollbar)`, so the `@supports not` block is skipped
-    and `scrollbar-color` never reaches it — which is what keeps the painted
+    and `scrollbar-color` never reaches it - which is what keeps the painted
     bar rather than the pale standard one with its stepper arrows.
 
     If this ever flips, the pale bar comes straight back and nothing else in
@@ -440,7 +455,7 @@ def test_the_outline_arrow_does_not_snap_the_value_back():
 
     Typing worked because nothing rebuilds mid-keystroke. The arrow saves, the
     save rebuilds the panel, and every style field in it read the SAVED copy of
-    the value rather than the live one — so the rebuild put back the number
+    the value rather than the live one - so the rebuild put back the number
     from before the press, and `||1` turned the miss into a 1.
     """
     def check(pg, p):
@@ -471,7 +486,7 @@ def test_every_style_field_reads_the_live_copy():
 
 
 def test_the_font_picker_has_no_geometry_of_its_own():
-    """Three tests stood here — the list visible wherever the panel is
+    """Three tests stood here - the list visible wherever the panel is
     scrolled, the open list no taller than the room it has, and closing it
     putting its inline sizing back. All three were about a menu positioned by
     hand: fixed to the viewport because an absolutely positioned child cannot

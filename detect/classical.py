@@ -35,7 +35,7 @@ def _glyph_holes(hier, idx, contours, blob_area, cfg):
     """Child contours of blob `idx` that plausibly are glyphs.
 
     Returns (count, largest_area). The caller accepts either several glyph
-    holes, or a single SUBSTANTIAL one — a bubble holding nothing but 「!?」
+    holes, or a single SUBSTANTIAL one - a bubble holding nothing but 「!?」
     or 「…」 is one connected shape, and demanding two glyphs silently
     dropped every such bubble.
     """
@@ -134,7 +134,7 @@ class OutlineConfig:
     """Detect the bubble's dark OUTLINE and take the region it encloses.
 
     The white-blob method fails whenever a bubble's interior connects to the
-    white page background — the merged blob then touches the page border and is
+    white page background - the merged blob then touches the page border and is
     rejected. That is the dominant failure mode on many chapters. A closed dark
     outline still separates interior from background, so this method recovers
     them.
@@ -171,7 +171,7 @@ def _neck_split(bubble_mask, glyph, cfg) -> list:
 
     A balloon drawn as two overlapping ovals is one enclosure, so the outline
     detector finds one region in it, reads one block of Japanese out of it and
-    hands the translator one speech — and two speeches come back merged into a
+    hands the translator one speech - and two speeches come back merged into a
     single paragraph, typeset across the waist as though the artist had drawn
     a circle. lee has asked for this three times and it is the last thing on
     the page still doing it: MAKE THEM BOTH SAY IN THEIR OWN BOX.
@@ -186,7 +186,7 @@ def _neck_split(bubble_mask, glyph, cfg) -> list:
     rather than a chip off the rim; every character must land wholly on one side,
     which is what stops a chord slipping between two columns of a perfectly
     ordinary balloon; and both sides must actually hold writing, which is what
-    throws away the balloon's TAIL — a tail leaves two dents as deep as any neck
+    throws away the balloon's TAIL - a tail leaves two dents as deep as any neck
     and the piece it cuts off is empty. Fail any of them and the next candidate
     is tried; fail them all and the balloon stays one region, exactly as before.
 
@@ -250,7 +250,7 @@ def _neck_split(bubble_mask, glyph, cfg) -> list:
 
 
 def _reading_key(part):
-    """Top to bottom, then right to left — the order Japanese is read in."""
+    """Top to bottom, then right to left - the order Japanese is read in."""
     ys, xs = np.nonzero(part)
     if xs.size == 0:
         return (1 << 30, 0)
@@ -381,8 +381,8 @@ def _edge_density(gray, bubble_mask, glyph) -> float:
 
     A bubble fill is flat paper: after masking out the typesetting (plus a small
     halo for its anti-aliased rim) almost nothing has gradient. A face, a
-    horse, a fistful of screentone — anything that merely LOOKS like a bubble
-    to the shape checks — is full of drawn edges. Measured on a real chapter,
+    horse, a fistful of screentone - anything that merely LOOKS like a bubble
+    to the shape checks - is full of drawn edges. Measured on a real chapter,
     true bubbles sit at 0.000-0.011 and art impostors at 0.02-0.30, so a
     threshold between the two removes most false boxes without touching a
     single real one.
@@ -400,7 +400,7 @@ def _add_new(out: list, taken: list, found: list) -> None:
     """Keep what a later pass found and an earlier one did not.
 
     A lobe of a two-lobed balloon passes through here on its own feet, because
-    it was given its OWN outline and its own box at the moment it was divided —
+    it was given its OWN outline and its own box at the moment it was divided -
     the two halves share a `link`, not a rectangle. Were they instead to share
     the whole balloon's rectangle, the second would look exactly like a
     duplicate of the first and half of what the balloon says would be dropped
@@ -448,7 +448,7 @@ def detect_inverted(page: Page, cfg: ClassicalConfig | None = None
                     ) -> list[TextRegion]:
     """White-on-black typesetting: shouts, flashbacks, narration boxes sitting
     on dark art. It is the white-blob detector run on the NEGATIVE of the
-    page — a dark shape enclosing light glyphs becomes a light shape
+    page - a dark shape enclosing light glyphs becomes a light shape
     enclosing dark glyphs, which is exactly what detect() knows how to find.
     Coordinates and masks land on the same pixels either way, so cleaning
     and typesetting work unchanged."""
@@ -458,8 +458,8 @@ def detect_inverted(page: Page, cfg: ClassicalConfig | None = None
         cfg.max_area_frac = 0.25
         # A dark aura bubble's fill is wispy ink, not flat paper, so the
         # strict edge-density cut would erase every one of them. Only the
-        # degenerate case — an interior so busy no clean fill remains, e.g. a
-        # window pane full of lattice — reads near 1.0; cut only that.
+        # degenerate case - an interior so busy no clean fill remains, e.g. a
+        # window pane full of lattice - reads near 1.0; cut only that.
         cfg.max_edge_density = 0.5
     img = page.image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
@@ -491,7 +491,7 @@ def detect_combined(page: Page) -> list[TextRegion]:
 
 def _mark_narration(r: TextRegion) -> None:
     """A straight-sided rectangle full of text is a narration / caption box,
-    not a speech bubble — flag it so it typesets as narration. Rounded bubbles
+    not a speech bubble - flag it so it typesets as narration. Rounded bubbles
     fill only ~60-86% of their bounding box; a rectangle fills ~95%+, which
     separates the two cleanly. Never touches sfx or free-floating text."""
     if r.kind not in ("bubble",):

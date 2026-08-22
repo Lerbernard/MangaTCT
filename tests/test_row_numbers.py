@@ -1,13 +1,13 @@
 """The number on the page and the number in the list are the same number.
 
-lee sent two screenshots — the sidebar and the page — and said *"i notices that
+lee sent two screenshots - the sidebar and the page - and said *"i notices that
 the box 5 and box 7 ar swith look into that"*. He was right, and the cause is
 not the reading order at all: both views print `(r.order??0)+1` off the same
 array, so they cannot disagree in one render. One of them was simply not
 redrawn.
 
 Every region POST ends with `reorder(p, i)` on the server, which compacts the
-order values — so **any** reply can come back renumbered. Three call sites
+order values - so **any** reply can come back renumbered. Three call sites
 replaced `regions` and then refreshed the typesetting and the sidebar but never the
 boxes: `saveTypesetting` (twice, including its undo) and `autoFit`. The badges kept
 the numbers from before. `showPage` had the same shape of hole from the other
@@ -15,7 +15,7 @@ side: it refreshed the list immediately but only drew the boxes later, from the
 image's load handler, so a reply that renumbered a cached page left the badges
 stale until something else happened to redraw them.
 
-Reproduced before the fix, with four boxes whose orders were 0, 1, 2, 4 — the
+Reproduced before the fix, with four boxes whose orders were 0, 1, 2, 4 - the
 state a compaction changes:
 
     server orders before: [0, 1, 2, 4]
@@ -68,7 +68,7 @@ def _project(root):
         cv2.rectangle(img, (120 + k * 190, 120), (200 + k * 190, 270),
                       (30, 30, 30), 2)
     p.add_uploaded("p0.png", cv2.imencode(".png", img)[1].tobytes())
-    # orders 0, 1, 2, 4 — a gap, which the next reorder() will compact away.
+    # orders 0, 1, 2, 4 - a gap, which the next reorder() will compact away.
     # Gaps are ordinary: anything that renumbers mid-session produces one.
     p.pages[0].regions = [
         {"id": k, "kind": "bubble", "order": o,
@@ -130,8 +130,8 @@ def test_the_page_and_the_list_never_disagree_about_a_number():
             # And a reload draws the boxes from the DATA, not from the
             # picture's load handler. `showPage` refreshes the list the moment
             # the reply lands but used to leave the boxes until the image
-            # arrived, so a page whose render is slow — or cached and re-fetched
-            # — showed the new numbers in the list beside the old ones on the
+            # arrived, so a page whose render is slow - or cached and re-fetched
+            # - showed the new numbers in the list beside the old ones on the
             # page. Proven by making the picture never arrive at all.
             p.pages[0].regions[-1]["order"] = 9        # renumber on the server
             pg.evaluate("window.readyImage=()=>new Promise(()=>{});"
@@ -179,7 +179,7 @@ def test_the_sidebar_text_behaves_like_text():
                 "document.querySelector('#list .lrow')"
                 ".getAttribute('draggable')") == "false", \
                 "the row is draggable, so its text cannot be selected"
-            # The three-dot grip is gone — lee: *"remove teh 3 dots"*. The
+            # The three-dot grip is gone - lee: *"remove teh 3 dots"*. The
             # whole head is the handle, which is what `armRowDrag` is armed
             # from, so there is more of it to grab and none of it is a speck.
             assert pg.evaluate("!document.querySelector('#list .lgrip')"), \
@@ -212,7 +212,7 @@ def test_the_sidebar_text_behaves_like_text():
                 "armRowDrag(g);"
                 "return g.closest('.lrow').draggable;})()") is True
 
-            # a select() called by hand — from the page, a link, the keyboard —
+            # a select() called by hand - from the page, a link, the keyboard -
             # is never blocked by a selection left lying about in the list
             assert pg.evaluate("String(window.getSelection())").strip() == \
                 "テストの文章"
@@ -235,7 +235,7 @@ def test_the_sidebar_text_behaves_like_text():
 
 def test_only_one_place_replaces_the_region_list():
     """The guard that keeps it fixed. Fifteen sites each remembered their own
-    subset of "redraw the boxes, the typesetting, the list" — three of them got it
+    subset of "redraw the boxes, the typesetting, the list" - three of them got it
     wrong, and nothing said so. `setRegions` in core.js is the only writer now."""
     pat = re.compile(r"(?<![\w.$])regions\s*=\s*(?!=)")
     offenders = []
@@ -271,7 +271,7 @@ def test_the_row_is_dragged_by_its_grip_not_by_its_text():
     css = CSS.read_text(encoding="utf8")
     assert ".lrow .rowhead{" in css and "cursor:grab" in css
     assert ".lrow .tx{" in css and "user-select:text" in css
-    # The text boxes below the head fit their text and have no grip at all —
+    # The text boxes below the head fit their text and have no grip at all -
     # lee: *"get rid of teh expanding on the boxes ... it shou djust always
     # fit the text"*. See growBox() in panels.js.
     assert "resize:none" in css

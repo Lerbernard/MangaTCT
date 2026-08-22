@@ -1,9 +1,9 @@
-"""One balloon, one box — and inside that box, one section per clump.
+"""One balloon, one box - and inside that box, one section per clump.
 
 lee, on the boxes the finder drew: "the boxes shoud be around the bubbles no 2
 of them split randomly, each bubbles shoud have their own box". What he sent
 back was a single shout balloon with a dead-flat horizontal seam across the
-middle of it — box 11 stopped part way down, box 12 started seven pixels lower,
+middle of it - box 11 stopped part way down, box 12 started seven pixels lower,
 and between them they divided one outline.
 
 That seam does not come from the neck finder, whose lobes are irregular and
@@ -90,7 +90,7 @@ def _one_balloon():
 
 
 def _two_balloons():
-    """Two separate ovals — lee's picture 1, which he sent back as CORRECT."""
+    """Two separate ovals - lee's picture 1, which he sent back as CORRECT."""
     img = np.full((H, W), 246, np.uint8)
     cv2.ellipse(img, (350, 400), (130, 170), 0, 0, 360, 255, -1)
     cv2.ellipse(img, (620, 620), (85, 80), 0, 0, 360, 255, -1)
@@ -150,7 +150,7 @@ def test_each_section_keeps_its_own_writing_and_only_its_own():
     for r, other in zip(regions, regions[::-1]):
         mine = r.text_mask > 0
         share = r.bubble_mask > 0
-        # Nearly all of my own writing — the few strokes that fall short are
+        # Nearly all of my own writing - the few strokes that fall short are
         # the ones running under the rim, which is outside the balloon's
         # filled outline and so outside every share.
         assert float((mine & share).sum()) >= 0.9 * float(mine.sum())
@@ -185,7 +185,7 @@ def test_the_sections_survive_a_save_and_a_load():
 
     Store the whole balloon's outline against both sections and they both get
     the whole balloon back on reload, and the two speeches are typeset on top
-    of each other again — with nothing in the editor to show why.
+    of each other again - with nothing in the editor to show why.
     """
     from mangatl.project import region_record, region_from_record
 
@@ -206,7 +206,7 @@ def test_typesetting_typesets_each_section_inside_its_own_section():
     """lee: "the typsetting shoud still typeseet them in there own sections".
 
     Every line of each block's English has to land in that block's share of
-    the paper — the dot he drew is the centre of the share, not the centre of
+    the paper - the dot he drew is the centre of the share, not the centre of
     the balloon.
     """
     from mangatl.typeset import TypesetConfig, typeset_page
@@ -241,10 +241,10 @@ def test_a_two_lobed_balloon_keeps_its_two_lobes():
     """The outline detector already divided this one, and it was right to.
 
     Its regions arrive carrying a balloon of their own, and anything carrying
-    one is left alone — otherwise the section pass would re-divide a division
+    one is left alone - otherwise the section pass would re-divide a division
     that was already correct, and might do it differently.
     """
-    from tests.test_two_lobes import _two_lobed
+    from test_two_lobes import _two_lobed
 
     img = _two_lobed()
     regions = classical.detect_outline(Page(image=img))

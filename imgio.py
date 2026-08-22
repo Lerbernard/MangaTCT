@@ -18,7 +18,7 @@ Reading the bytes in Python and handing those to `imdecode` sidesteps the path
 altogether: `open()` goes through the wide API and OpenCV never sees a name.
 
 Everything that reads an image goes through here. A bare `cv2.imread` anywhere
-in the app is the bug coming back — `test_a_korean_filename_is_a_filename.py`
+in the app is the bug coming back - `test_a_korean_filename_is_a_filename.py`
 fails the build if one appears.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ def imread(path: str, flags: int = cv2.IMREAD_COLOR):
 
     Returns None exactly where `cv2.imread` would: the file is missing, is not
     an image, or is truncated past use. A caller that treats None as "unusable"
-    is still right — it just no longer gets told that about a perfectly good
+    is still right - it just no longer gets told that about a perfectly good
     file with an accent in its name.
     """
     try:
@@ -46,8 +46,8 @@ def imread(path: str, flags: int = cv2.IMREAD_COLOR):
         return cv2.imdecode(np.frombuffer(data, np.uint8), flags)
     except cv2.error:
         # A file the decoder cannot make sense of usually comes back empty,
-        # but not always: nought bytes — a half-finished upload, a file still
-        # being written — trips an assertion inside `imdecode` instead. That
+        # but not always: nought bytes - a half-finished upload, a file still
+        # being written - trips an assertion inside `imdecode` instead. That
         # is still "not an image" as far as anybody upstream is concerned, and
         # it must not take a whole run down with it.
         return None

@@ -1,4 +1,4 @@
-"""Writing with no balloon gets the empty paper around it — and nothing else.
+"""Writing with no balloon gets the empty paper around it - and nothing else.
 
 lee's page 10 is three panels of blank white paper with the narration printed
 straight onto them, no balloons anywhere. Two things went wrong there, and this
@@ -6,19 +6,19 @@ file locks the answer to both.
 
 The balloon finder walks outward from the writing until it meets an outline.
 With no balloon rim to stop it, it ran to the panel frame and handed the
-typesetter half a panel — so the English was set at 33pt straight across the
+typesetter half a panel - so the English was set at 33pt straight across the
 woman and the child. The finder wraps AROUND an obstacle, because it follows a
 run of connected paper, and the paper on that page reaches from one side of the
 panel to the other behind the figures.
 
 The fallback was no good either: with no balloon at all the region fell back to
-its own box, which is the box round the JAPANESE — a tall narrow column,
+its own box, which is the box round the JAPANESE - a tall narrow column,
 because that is how Japanese is set. On page 10 that typeset at 12pt beside
 Japanese printed at twice the size.
 
 `give_room` is the answer to both. The box grows in each direction
-independently until it MEETS something — artwork, the panel frame, another
-region's writing, the edge of the page — and stops there. A rectangle stops at
+independently until it MEETS something - artwork, the panel frame, another
+region's writing, the edge of the page - and stops there. A rectangle stops at
 an obstacle where a flood fill goes round it, and that difference is the whole
 fix: the area can only ever be blank paper, so the typesetting can only ever land
 on blank paper. No threshold decides that; the geometry does.
@@ -31,7 +31,7 @@ What is locked here:
 * it never shrinks anything, and never touches a region that has a balloon
 * sound effects are left where they were drawn
 * a hand-placed box is not overruled
-* the box the person SEES does not move — only the room the English may use
+* the box the person SEES does not move - only the room the English may use
 """
 import numpy as np
 import pytest
@@ -73,7 +73,7 @@ def _area(r):
 
 def test_a_caption_on_blank_paper_gets_the_paper():
     """More than the bare column the Japanese was set in, and no more than the
-    margin allows — see test_fits_the_box for that ceiling."""
+    margin allows - see test_fits_the_box for that ceiling."""
     from mangatl.detect.balloon import GROW_MARGIN
     g = _page()
     r = _region(1, g, 600, 120, 40, 300)
@@ -199,7 +199,7 @@ def test_it_stops_at_writing_the_page_does_not_show_as_ink():
     """Most writing stops the growth just by being dark. Not all of it does.
 
     White typesetting on a black panel comes back with a mask the cleaner built
-    from the INVERTED split, and those pixels are the light ones — so a scan
+    from the INVERTED split, and those pixels are the light ones - so a scan
     looking for dark ink walks straight through them. A sound effect is also
     never given a room of its own, so it is not in the paper already handed
     out either. Its mask has to stop the caption beside it on its own account,
@@ -221,7 +221,7 @@ def test_it_stops_at_writing_the_page_does_not_show_as_ink():
 def test_the_standoff_never_eats_into_the_box():
     """Room is kept clear of whatever stopped the growth. On an axis with no
     room to give, that clearance must not be taken out of the writing's own
-    box — the floor is always the box."""
+    box - the floor is always the box."""
     g = _page()
     r = _region(1, g, 600, 200, 60, 160)
     x, y, w, h = r.bbox

@@ -1,6 +1,6 @@
 """Sound effects come out bare.
 
-lee: *"make it so that sfx never have these * on the bdeginning and end"* — with
+lee: *"make it so that sfx never have these * on the bdeginning and end"* - with
 a picture of a page typeset `*TURN*`.
 
 The asterisks were not an accident and they were not the typesetter's. The
@@ -10,7 +10,7 @@ the model followed them onto sound effects too. Wrapping a word in asterisks is
 a CHAT convention for "this is a sound, not speech". No typesetter draws it.
 
 So both ends are dealt with. The prompt no longer shows the form and says
-plainly not to use it, and any pair that arrives anyway comes off at the door —
+plainly not to use it, and any pair that arrives anyway comes off at the door -
 in `normalize_text`, which every path that takes text from a machine already
 runs: the translator, the proofreader and an imported translations.json.
 

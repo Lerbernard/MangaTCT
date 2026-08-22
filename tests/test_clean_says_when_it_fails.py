@@ -1,15 +1,15 @@
-"""When the hosted cleaner refuses, say so — do not quietly smear the page.
+"""When the hosted cleaner refuses, say so - do not quietly smear the page.
 
 lee: *"the clenning didnt work"*. Two Modal screenshots came with it, both
 showing **401** on every call, the first with a 20s cold start and 73ms of
-execution — his own function ran and rejected the token, so this was never
+execution - his own function ran and rejected the token, so this was never
 Modal's edge proxy.
 
 What made it a week-long mystery is not the 401. It is that nothing in the app
 ever said the word:
 
 * `_ai_clean_call` caught every failure, wrote it into `_LAST_AI_CLEAN_ERROR`
-  — a variable no code anywhere read — and returned `cv2.inpaint(..., TELEA)`.
+  - a variable no code anywhere read - and returned `cv2.inpaint(..., TELEA)`.
   A Telea fill over a whole bubble of text is a grey-brown smudge, so the pages
   came back looking like a *bad clean* rather than like *no clean*, and the
   progress bar said "Ready".
@@ -20,7 +20,7 @@ ever said the word:
 
 Both are fixed here: the failure travels to the bar and to the heal toast in
 words that name the cause, and a token that is still the CHANGE-ME example
-reports itself as one. The token itself never leaves the server — only which of
+reports itself as one. The token itself never leaves the server - only which of
 the three states it is in.
 """
 import json
@@ -72,7 +72,7 @@ def _serve(handler):
 
 
 def _page(w=520, h=380):
-    """A bubble with writing in it — something a cleaner would have to erase."""
+    """A bubble with writing in it - something a cleaner would have to erase."""
     img = np.full((h, w, 3), 245, np.uint8)
     img[:, :, 0] = 235                             # faintly toned, not flat
     cv2.ellipse(img, (260, 180), (170, 110), 0, 0, 360, (255, 255, 255), -1)
@@ -137,7 +137,7 @@ def test_the_placeholder_token_is_its_own_state():
 
 
 def test_the_refusal_is_remembered_and_the_page_still_finishes():
-    """The run must not break — but the failure must not evaporate either.
+    """The run must not break - but the failure must not evaporate either.
     Before: the fill happened, `_LAST_AI_CLEAN_ERROR` was set, and no reader
     existed anywhere in the program."""
     from mangatl import editor
@@ -203,7 +203,7 @@ def test_pressing_clean_again_really_does_call_the_cleaner_again():
 
     It didn't, and it couldn't. The plate built during the 401s was written to
     `plate_cache/` like any other, so the second press found it on disk, reused
-    it in milliseconds and never went near the endpoint — which is also why his
+    it in milliseconds and never went near the endpoint - which is also why his
     Modal dashboard said "No activity". Pasting the right token would not have
     helped either: `_plate_stamp` keyed on the mode and the URL but not the
     token, so the smeared plate stayed valid.
@@ -231,7 +231,7 @@ def test_pressing_clean_again_really_does_call_the_cleaner_again():
         assert _Refuse.hits > first, \
             "the failed plate was cached, so Clean did nothing the second time"
 
-        # and a different token is a different plate — not the one from the 401s
+        # and a different token is a different plate - not the one from the 401s
         stamp_bad = editor._plate_stamp(p, 0)
         p.settings["clean_token"] = "k9Xq2vBn7wLt4sRd8pYc3mZa6hGu5jFe1oIb"
         assert editor._plate_stamp(p, 0) != stamp_bad, \
@@ -244,7 +244,7 @@ def test_pressing_clean_again_really_does_call_the_cleaner_again():
 
 
 def test_a_good_plate_is_still_cached():
-    """The guard above must not turn caching off in general — a page cleaned
+    """The guard above must not turn caching off in general - a page cleaned
     properly has to stay cleaned, or every visit re-runs the model."""
     from mangatl import editor
 
@@ -285,7 +285,7 @@ def test_a_good_plate_is_still_cached():
             "a good plate is being rebuilt every time, which costs money"
         assert editor.clean_warning(p) == ""
 
-        # Now throw the finished plate away but keep the per-region AI cache —
+        # Now throw the finished plate away but keep the per-region AI cache -
         # what happens after any change that alters the plate's identity. The
         # answers come back out of the cache, so the model still did this page
         # and the run must not report itself as having sent nothing.
@@ -316,7 +316,7 @@ def test_ai_on_but_nothing_sent_says_so():
     p = _project(root, "https://example.invalid/clean", "a-real-looking-token")
     try:
         editor.clear_clean_warning()
-        # a run that actually rebuilt a plate — otherwise "nothing was sent" is
+        # a run that actually rebuilt a plate - otherwise "nothing was sent" is
         # just the plate cache doing its job and is not worth saying
         editor._tally_clean({"built": 1})
         p.settings["ai_clean"] = "hard"
@@ -355,7 +355,7 @@ def test_ai_on_but_nothing_sent_says_so():
 
 
 def test_a_working_cleaner_clears_the_warning():
-    """Otherwise the bar nags forever about a call that has since succeeded —
+    """Otherwise the bar nags forever about a call that has since succeeded -
     and a stale warning is trusted about as much as no warning at all."""
     from mangatl import editor
 
@@ -439,7 +439,7 @@ def test_the_job_reply_carries_the_warning():
 def test_a_new_run_does_not_inherit_the_last_run_s_warning():
     """A warning describes the run being watched. Left standing, it would say
     "AI cleaning did not run" over a run in which cleaning was never asked for
-    — and a bar that cries wolf is read as decoration."""
+    - and a bar that cries wolf is read as decoration."""
     from mangatl import editor
     root = scratch("_tmp_clean_stale")
     p = _project(root, "", "")            # no cleaner at all this time
@@ -480,8 +480,8 @@ def test_a_new_run_does_not_inherit_the_last_run_s_warning():
 def test_the_heal_brush_names_the_reason_when_the_cleaner_refuses():
     """It used to fall back to the local brush and the toast guessed "not
     reachable" for every cause; then the reply started naming the cause. Now
-    there is nothing to fall back TO — lee: *"remoev teh regualr healing
-    brush, its ass"* — so the named cause is the whole answer, and it must
+    there is nothing to fall back TO - lee: *"remoev teh regualr healing
+    brush, its ass"* - so the named cause is the whole answer, and it must
     still be the specific one rather than a shrug."""
     from mangatl import editor
     import base64
@@ -536,7 +536,7 @@ def _deploy_file(tmp: Path, name: str, token: str, app: str) -> Path:
 def test_the_selftest_tells_a_wrong_token_from_a_stale_deployment(tmp_path,
                                                                   monkeypatch):
     """lee, with the first fix in place: *"CLEAN_TOKEN is the same in the app and
-    in the code can you look into it?"* — and the endpoint still answering 401,
+    in the code can you look into it?"* - and the endpoint still answering 401,
     194ms of execution, so his function really was running and really was
     refusing.
 
@@ -544,7 +544,7 @@ def test_the_selftest_tells_a_wrong_token_from_a_stale_deployment(tmp_path,
     either the string in Settings is not the string in the file, or it IS and the
     DEPLOYED image was built before the file changed, so the container still
     compares the old one. The self-test answers exactly that, by hashing the
-    saved token against each local deploy script — never printing either.
+    saved token against each local deploy script - never printing either.
     """
     from mangatl import editor
     srv, url = _serve(_Refuse)
@@ -615,7 +615,7 @@ def test_the_selftest_reports_a_working_cleaner(tmp_path, monkeypatch):
         r = editor.clean_selftest(p)
         assert r["ok"] is True, r
         assert "answered" in r["hint"]
-        # the test bypasses the cache — a page cleaned before must not answer
+        # the test bypasses the cache - a page cleaned before must not answer
         # for the endpoint, or the button would say "fine" about a dead one
         n = _Ok.hits
         editor.clean_selftest(p)
@@ -824,7 +824,7 @@ def test_the_bar_and_the_field_both_say_it(tmp_path):
             pg.wait_for_timeout(700)
             # what the same screen said before this change, reproduced by
             # applying the old rule ("(saved)" for anything non-empty) to the
-            # same project — for the picture, and labelled as such
+            # same project - for the picture, and labelled as such
             pg.evaluate("$('clean_token').placeholder='(saved)';"
                         "$('clean_token').classList.remove('bad')")
             pg.locator("#aicfg").screenshot(path=str(shots / "field_before.png"))
@@ -857,8 +857,8 @@ def test_the_bar_and_the_field_both_say_it(tmp_path):
 
 
 def test_the_failure_is_never_swallowed_again():
-    """`_ai_clean_call` may keep the Telea fallback — a run must not break over
-    a network — but it may not keep it *silently*. The record is the fix; this
+    """`_ai_clean_call` may keep the Telea fallback - a run must not break over
+    a network - but it may not keep it *silently*. The record is the fix; this
     fails if the recording line is ever removed from the handler."""
     src = (PKG / "editor.py").read_text(encoding="utf8")
     body = src[src.index("def _ai_clean_call("):]
@@ -886,7 +886,7 @@ def test_the_failure_is_never_swallowed_again():
 
 
 def test_the_token_is_never_sent_to_the_browser():
-    """The settings reply must carry the STATE, not the secret — and the
+    """The settings reply must carry the STATE, not the secret - and the
     warning must not quote it either."""
     from mangatl.project import Project
     root = scratch("_tmp_clean_secret")
@@ -909,14 +909,14 @@ def test_the_token_is_never_sent_to_the_browser():
 
 
 def test_a_refused_call_repairs_locally_at_the_right_size():
-    """lee: *"the clenner is clenning boxes that the ai shoud"* — with a picture
+    """lee: *"the clenner is clenning boxes that the ai shoud"* - with a picture
     of a dark panel wiped grey where a bubble had been.
 
     That smear is the model's own mask being filled by a local method. The wide
     mask (`NEURAL_PAD` past the typesetting) is a favour to a model that redraws
     whatever it is shown; a plain fill over the same area replaces artwork with a
     guess. The refusal now reaches `_run_neural`, which repairs the region with
-    the TIGHT mask instead — the typesetting and a couple of pixels of its edge.
+    the TIGHT mask instead - the typesetting and a couple of pixels of its edge.
 
     Measured on 24 synthetic typesettings over real pages: tight beat wide on 22,
     mean error 39.3 against 45.6.

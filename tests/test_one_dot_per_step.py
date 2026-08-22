@@ -1,7 +1,7 @@
 """lee, with four screenshots, on the round after the round.
 
-* *"only these should be default"* — a picture of the Box types list he wants.
-* *"this shoud only show the 3 main type"* — the legend over the page had a
+* *"only these should be default"* - a picture of the Box types list he wants.
+* *"this shoud only show the 3 main type"* - the legend over the page had a
   chip for every sub-type as well.
 * *"the side bar shoud only be visible on the edit tab"*
 * *"the text still revert to the last state when i remove all the text"*
@@ -111,7 +111,7 @@ def test_a_dot_is_filled_only_when_that_page_has_had_that_step(ed):
 
 
 def test_the_step_bar_still_counts_the_same_pages(ed):
-    """The bar and the dots are one rule asked twice — the bar reads the same
+    """The bar and the dots are one rule asked twice - the bar reads the same
     per-page answer the dots draw, so they cannot drift apart."""
     pg, _p, errs = ed
     same = pg.evaluate("""(()=>{
@@ -137,10 +137,11 @@ def test_the_legend_is_the_three_main_types(ed):
     browserpool.settled(pg)
     chips = pg.evaluate(
         "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
-    # The three main types are BUTTONS now — see
-    # `tests/ui/the_legend_draws_the_box.test.js`. Still the same words.
-    assert chips == ["1 Bubble text", "2 Outside text", "3 Sound effect",
-                     "unsure"], chips
+    # The three main types are BUTTONS now - see
+    # `tests/ui/the_legend_draws_the_box.test.js`. Still the same words,
+    # with the select-boxes tool on the end of the row.
+    assert chips == ["1 Bubble text", "2 Freefloat text", "3 Sound effect",
+                     "unsure", "Select boxes"], chips
     assert not errs, errs[:2]
 
 
@@ -168,7 +169,7 @@ def test_the_move_a_shape_tool_is_gone_and_nothing_went_with_it(ed):
     """lee: *"remove teh move a shape tool its redundent"*. Clicking a shape
     picks it up now, so a tool whose whole job was to make that click work is
     a tool that asks you to arm something before you may point at what you can
-    already see. The arrow itself stays — V, and the page click."""
+    already see. The arrow itself stays - V, and the page click."""
     pg, _p, errs = ed
     pg.evaluate("setView('typeset')")
     browserpool.settled(pg)
@@ -188,7 +189,7 @@ def test_double_clicking_the_hand_goes_to_actual_size(ed):
     It used to call `fitPage`, and the readout used to call the fit "100%", so
     on a page already fitted the double-click changed nothing but the scroll
     position. lee: *"double clciking teh hadns dosnt change teh zoom it jyst
-    centers it"* — it did exactly what the readout said, which was the
+    centers it"* - it did exactly what the readout said, which was the
     problem."""
     pg, _p, errs = ed
     pg.evaluate("setView('typeset')")
@@ -229,8 +230,8 @@ def test_double_clicking_the_hand_goes_to_actual_size(ed):
 
 def test_emptying_the_box_empties_the_words(ed):
     """lee: *"the text still revert to the last state when i remove all the
-    text"*. The typesetting went and the sentence stayed, so the next Typeset —
-    which throws hand corrections away on purpose and fits from `dst_text` —
+    text"*. The typesetting went and the sentence stayed, so the next Typeset -
+    which throws hand corrections away on purpose and fits from `dst_text` -
     put the old typesetting straight back."""
     pg, p, errs = ed
     pg.evaluate("setView('typeset')")
@@ -274,7 +275,7 @@ def test_it_is_still_empty_after_typeset(ed):
 def test_the_preloaded_list_is_the_one_in_the_picture():
     """lee: *"only these should be default"*. Four under Bubble text, three
     under Outside text, two under Sound effect. A preload is a starting point,
-    not a catalogue — every one is a row somebody reads past before reaching
+    not a catalogue - every one is a row somebody reads past before reaching
     their own, and a shout, a yell and an angry line are one kind of typesetting
     asked for three times."""
     from mangatl import kinds as K

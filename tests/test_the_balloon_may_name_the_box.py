@@ -6,7 +6,7 @@ lee::
     teh bubble if it fins teh bubble then lable it a bubble box if it cant fins
     it labble it a outsude test, te test need to be fast, is that posible?
 
-Yes to the test, yes to fast, and **no to the second half** — which is the
+Yes to the test, yes to fast, and **no to the second half** - which is the
 interesting part, so the measurement is written out here rather than in a note
 somebody has to go looking for.
 
@@ -19,18 +19,18 @@ already called bubble or narration, and nothing was ever renamed on it.
 
 FAST, as a number. Measured over 55 pages of two chapters: offering the search
 to the free-floating blocks as well costs **0.05s a page against 17.9s
-detecting them — 0.3%**. It is the same page, the same labelled runs of paper,
+detecting them - 0.3%**. It is the same page, the same labelled runs of paper,
 and a handful more blocks asking which one they are in.
 
-WHAT PROMOTING BUYS: 1 box in 21 over those 55 pages. Small — `_classify_kind`
-does not often call something free when it is sitting in a findable balloon —
+WHAT PROMOTING BUYS: 1 box in 21 over those 55 pages. Small - `_classify_kind`
+does not often call something free when it is sitting in a findable balloon -
 but it is free, it is positive evidence, and the same rule was already running
 on the inverted pass for black balloons.
 
 WHY DEMOTING IS NOT HERE. Measured on the same 55 pages, "no balloon found"
-fires on **71 of 132 dialogue boxes — 54%**. Split by chapter it is 73% and 5%,
+fires on **71 of 132 dialogue boxes - 54%**. Split by chapter it is 73% and 5%,
 which is the first sign it is measuring the artwork and not the label. Cropping
-all twelve of a sample settles it: they are **caption panels** — a pale
+all twelve of a sample settles it: they are **caption panels** - a pale
 rectangle filling the panel with narration set in it. This pass refuses those
 deliberately. Such a rectangle touches the page edge, or fails `min_gain`
 because the text box already fills it, or is not a drawn balloon at all.
@@ -82,7 +82,7 @@ def _in_a_balloon(kind):
 
 
 def _on_bare_paper(kind):
-    """No outline anywhere — nothing encloses the block."""
+    """No outline anywhere - nothing encloses the block."""
     page = _page()
     return page, _region(_ink(page, 170, 195), kind)
 
@@ -106,7 +106,7 @@ def test_outside_text_with_no_balloon_stays_outside_text():
 
 
 def test_a_caption_is_not_renamed_by_finding_its_box():
-    """Promotion is for free text only. A caption in a balloon is a caption —
+    """Promotion is for free text only. A caption in a balloon is a caption -
     somebody said so, and this pass has nothing to say about it."""
     page, r = _in_a_balloon("narration")
     assert attach_balloons(page, [r]) == 1
@@ -116,7 +116,7 @@ def test_a_caption_is_not_renamed_by_finding_its_box():
 
 def test_a_sound_effect_is_left_alone_entirely():
     """It has no balloon and the ink's own footprint is the right place for
-    it — and a sound effect that happens to be drawn across a balloon must not
+    it - and a sound effect that happens to be drawn across a balloon must not
     be turned into dialogue."""
     page, r = _in_a_balloon("sfx")
     attach_balloons(page, [r])
@@ -149,8 +149,8 @@ def test_a_caption_panel_is_exactly_what_the_pass_refuses():
     """Why demoting would have been wrong, as a fixture rather than a claim.
 
     A caption panel is a pale rectangle filling the panel with the narration in
-    it. The balloon search refuses it — `min_gain` alone does, because the text
-    box already fills the rectangle — and it is dialogue all the same. This is
+    it. The balloon search refuses it - `min_gain` alone does, because the text
+    box already fills the rectangle - and it is dialogue all the same. This is
     the shape that 54% of the demotes turned out to be.
     """
     page = _page(200, 400, 255)

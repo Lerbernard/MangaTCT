@@ -9,14 +9,14 @@ It was a custom widget: the native select hidden, a div mirroring it, a search
 box, a recents band, a menu positioned by hand, and a click handler writing the
 pick back through whichever select was live at the time. Each round fixed the
 failure in front of it and the next one arrived. It is a native `<select>` now
-— the browser opens it, scrolls it, filters it on type-ahead, and cannot leave
+- the browser opens it, scrolls it, filters it on type-ahead, and cannot leave
 it open over a panel that has since been rebuilt.
 
 What is left to get wrong is the panel around it. The typesetting panel redraws
 itself constantly and already knew not to redraw out from under a field
 somebody is using: every control saves on `change`, which fires on BLUR, and an
 element removed while it still has focus never blurs. So a redraw asked for
-while a field has focus is deferred until that field blurs — and:
+while a field has focus is deferred until that field blurs - and:
 
 * a deferred redraw runs a TICK after the blur, so the interaction that caused
   it has finished; and
@@ -109,7 +109,7 @@ def test_the_picker_is_a_select(panel):
 
 
 def test_using_it_while_a_redraw_is_waiting_leaves_the_panel_alive(panel):
-    """*"isnt repsosive after that"* — the half that survives the redesign.
+    """*"isnt repsosive after that"* - the half that survives the redesign.
 
     A select takes focus when it is used, which defers the redraw onto it. If
     that wait is never released, every later redraw returns early and nothing
@@ -121,11 +121,11 @@ def test_using_it_while_a_redraw_is_waiting_leaves_the_panel_alive(panel):
         .map(o=>o.value).filter(Boolean)""")
     assert opts, "no fonts offered"
     # Reaching for the picker is what takes focus off the field the redraw is
-    # waiting on — the blur, and the whole reason the wait exists.
+    # waiting on - the blur, and the whole reason the wait exists.
     pg.focus("#lyFont")
     pg.select_option("#lyFont", opts[0])
     pg.wait_for_timeout(600)
-    # The picker itself now holds the wait, which is right — it has focus and
+    # The picker itself now holds the wait, which is right - it has focus and
     # is being used. What must not happen is the wait outliving it.
     pg.evaluate("document.activeElement && document.activeElement.blur()")
     pg.wait_for_timeout(800)
@@ -158,7 +158,7 @@ def test_picking_a_font_from_it_sticks(panel):
 def test_a_wait_on_a_field_that_has_gone_is_released(panel):
     """The panel replaces its own HTML constantly, so the field a redraw is
     waiting on can simply cease to exist. `blur` does not reliably fire for an
-    element removed while focused — Chromium sends it, Firefox does not — and
+    element removed while focused - Chromium sends it, Firefox does not - and
     a wait released by nothing else leaves the panel dead."""
     pg, _p, errs = panel
     # Chromium does send the blur, so the state Firefox leaves behind is set
@@ -182,7 +182,7 @@ def test_a_wait_on_a_field_that_has_gone_is_released(panel):
 
 def test_nothing_of_the_old_widget_is_left_on_the_page(panel):
     """It hung two `window` listeners per open so the page moving would put it
-    away, and the panel could remove the whole thing while it was open — a pair
+    away, and the panel could remove the whole thing while it was open - a pair
     of listeners per open, holding a node that is not on the page. None of that
     exists to leak now, and this is what says so."""
     pg, _p, errs = panel

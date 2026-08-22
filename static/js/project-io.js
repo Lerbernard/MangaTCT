@@ -1,4 +1,4 @@
-/* project-io.js — Export dialog + zip download, new chapter, settings dialog, custom kinds, staged uploads + drag-drop.
+/* project-io.js - Export dialog + zip download, new chapter, settings dialog, custom kinds, staged uploads + drag-drop.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -10,7 +10,7 @@ async function exportDialog(){
   $('expDir').value = d.current || '';
   $('expName').value = d.name || 'pages';
   const so=$('expScope');
-  so.options[1].textContent = 'Only this page — ' +
+  so.options[1].textContent = 'Only this page - ' +
     (proj.pages[cur] ? proj.pages[cur].name : '');
   so.value='all';
   $('expMode').value='full';
@@ -26,14 +26,14 @@ async function exportDialog(){
 
 /* Cleaned-only pages, and box sheets, are different things from the finished
    ones, so they must not land on top of them. Steer the folder name instead of
-   silently overwriting a chapter someone already exported — and put the name
+   silently overwriting a chapter someone already exported - and put the name
    back if they change their mind. The suffix is always taken from the name as
    it was BEFORE any mode touched it, so going clean -> boxes cannot stack up
    as "chapter-cleaned-boxes". */
 const EXP_SUFFIX={clean:'-cleaned', boxes:'-boxes'};
 const EXP_BLURB={
   full:'The finished pages are written as PNGs into a folder of their own.',
-  clean:'The cleaned art is written as PNGs with no English on it — the raws '+
+  clean:'The cleaned art is written as PNGs with no English on it - the raws '+
     'with the Japanese erased. This does not tick the Export step.',
   boxes:'The original pages are written as PNGs with the boxes drawn on: the '+
     'same colours per text type, the same reading-order numbers and the same '+
@@ -85,10 +85,10 @@ async function doExport(){
 }
 
 /* After exporting you are usually done with this chapter, so offer to clear
-   it out — but never do it without asking. */
+   it out - but never do it without asking. */
 async function newChapter(){
   const yes=await ask('Start a new project?',
-    'This clears everything for this story — pages, boxes, translations, the '+
+    'This clears everything for this story - pages, boxes, translations, the '+
     'synopsis, character names and custom bubble types. Your fonts and '+
     'translation settings are kept. Export first (Settings ▸ Export '+
     'everything) if you want to reuse this series’ content next chapter. '+
@@ -164,7 +164,7 @@ async function downloadTranslationsJson(){
 
 /* ---------------- file picking ---------------- */
 /* What each medium normally IS. The dropdown used to spell it out in the
-   option itself — "Manga — Japanese, reads right to left" — which made the
+   option itself - "Manga - Japanese, reads right to left" - which made the
    other two boxes beside it look like decoration, and left them saying "Same
    as the source material", a value that is not an answer to the question the
    label asks. lee: *"istad oaf saying manga- jappeneese ....., it shiud just
@@ -181,7 +181,7 @@ const MEDIA={
 };
 function mediumDefaults(m){ return MEDIA[m] || MEDIA.manga; }
 
-/* `which` is 'pk' for the new-project screen and 'set' for the settings page —
+/* `which` is 'pk' for the new-project screen and 'set' for the settings page -
    the same two boxes under different ids. */
 function mediumChosen(which){
   const p = which==='pk' ? 'pk' : '';
@@ -194,7 +194,7 @@ function mediumChosen(which){
   stripSettings();
 }
 
-/* The formats that are DELIVERED as one long strip — the same set as
+/* The formats that are DELIVERED as one long strip - the same set as
    `STRIP_MEDIA` in project.py, and it has to stay the same set: this one
    decides what is on screen and that one decides what actually happens.
    lee: *"this setting shoud only be a thing for manhwa and manhua"*. */
@@ -202,7 +202,7 @@ const STRIP_MEDIA=['manhwa','manhua'];
 
 /* `which` picks the menu to ask, because there are two and they are the same
    question on two screens: `pkMedium` on the File tab, `medium` in Settings.
-   The File tab's switch has to follow the File tab's menu — that is the one
+   The File tab's switch has to follow the File tab's menu - that is the one
    the person is looking at while they choose a folder. */
 function stripMedium(which){
   const el=$(which==='pk' ? 'pkMedium' : 'medium');
@@ -214,7 +214,7 @@ function stripMedium(which){
   return STRIP_MEDIA.indexOf(m)>=0;
 }
 
-/* Open or close the strip controls — both sets. On manga these are controls
+/* Open or close the strip controls - both sets. On manga these are controls
    for something that cannot happen: a manga chapter is never re-cut, however
    much the files look like a strip. lee: *"the setting shoud not be there for
    manga"*, said the second time about the File tab, which the first pass
@@ -241,7 +241,7 @@ function stripPixels(){
   const tall=+($('strip_tall')||{}).value||3.5;
   const top=Math.max(+($('strip_tall_max')||{}).value||8.5, tall);
   el.textContent = w
-    ? `On this chapter — ${w}px wide — that is about `
+    ? `On this chapter - ${w}px wide - that is about `
       + `${Math.round(w*tall).toLocaleString()}px a page, and anything past `
       + `${Math.round(w*top).toLocaleString()}px is reported.`
     : 'Open a chapter to see what that comes to in pixels.';
@@ -262,9 +262,9 @@ function stripSwitch(on){
 const MEDIUM_HINT={
   manga:'Japanese, read right to left. Uses manga-ocr, which is the strongest '+
         'reader for Japanese comic typesetting.',
-  manhwa:'Korean, read left to right. Uses easyocr — install it with '+
+  manhwa:'Korean, read left to right. Uses easyocr - install it with '+
          '<code>pip install easyocr</code>.',
-  manhua:'Chinese, read left to right. Uses easyocr — install it with '+
+  manhua:'Chinese, read left to right. Uses easyocr - install it with '+
          '<code>pip install easyocr</code>.'};
 function mediumHint(){
   const m=$('pkMedium').value, d=$('pkDirection').value;
@@ -278,6 +278,13 @@ function openSettingsDlg(){
   // Settings is now a full page (a tab), not a modal. The synopsis, cast,
   // terms and the project file live on the Manga settings page next to it.
   fillCkFont(); renderCustomKinds();
+  // ...and it opens on whatever the NAV says is open. The markup used to
+  // answer that question twice - one button carrying `on` and one section
+  // carrying `on` - and the two had drifted apart, so Settings opened showing
+  // the Synopsis with `Story settings` highlighted beside it.
+  const lit = document.querySelector('#setNav .setnav-btn.on');
+  if(lit && typeof setSettingsTab === 'function')
+    setSettingsTab(lit.dataset.sec);
   if(typeof setTab==='function') setTab('settings');
 }
 function openMangaDlg(){ if(typeof setTab==='function') setTab('manga'); }
@@ -291,7 +298,7 @@ function fillCkFont(){
 }
 /* ---- box types: three families, and sub-types under them ----
 
-   Three main types — balloon, outside text, sound effect — each with an
+   Three main types - balloon, outside text, sound effect - each with an
    undeletable default that carries the family's colour, and up to five of
    your own under it whose colour can only be a SHADE of that. See
    `mangatl/kinds.py`; the tables live in frames.js.
@@ -318,7 +325,7 @@ function renderCkFamilies(){
   el.innerHTML=KIND_FAMILIES.map(f=>{
     const n=subsOf(f).length, full=n>=SUBS_PER_FAMILY;
     return `<option value="${f}"${f===cur?' selected':''}${full?' disabled':''}>`+
-           `${_fesc(FAMILY_LABELS[f])}${full?' — full':''}</option>`;
+           `${_fesc(FAMILY_LABELS[f])}${full?' - full':''}</option>`;
   }).join('');
   el.value=cur;
 }
@@ -341,14 +348,14 @@ function renderCkLimit(){
     el.style.display=(full||all)?'':'none';
     el.textContent=all
       ? `Every main type has its ${SUBS_PER_FAMILY}.`
-      : `${FAMILY_LABELS[fam]} has its ${SUBS_PER_FAMILY} — remove one, or pick another main type.`;
+      : `${FAMILY_LABELS[fam]} has its ${SUBS_PER_FAMILY} - remove one, or pick another main type.`;
   }
 }
 function renderCustomKinds(){
   const el=$('ckList'); if(!el) return;
   el.innerHTML = KIND_FAMILIES.map(f=>{
     const subs=subsOf(f);
-    // The default's row carries the family's FONT — the one every sub-type
+    // The default's row carries the family's FONT - the one every sub-type
     // under it falls back to. It used to say "the default" and the face was
     // set in another section entirely, which is the same question asked in
     // two places. lee: *"merge the fonts selctor with the bubble insatd of
@@ -377,7 +384,7 @@ function renderCustomKinds(){
         <select class="fontsel ckft" style="flex:1"
                 onchange="setKindFont('${k.key}', this.value)">
           <!-- A sub-type with no face of its own typesets in its family's, and
-               the row says WHICH — it used to show the first font in the list
+               the row says WHICH - it used to show the first font in the list
                as though it had been chosen. lee: *"it shoud just say the
                font, do that for all of the spot fonts are used"*. -->
           <option value=""${k.font?'':' selected'}
@@ -395,8 +402,8 @@ function renderCustomKinds(){
   if(typeof fontWidget==='function')
     el.querySelectorAll('select.fontsel').forEach(fontWidget);
 }
-/* The face for a whole family. `bubble` is the project default — the one
-   everything falls back to — so it lands in `settings.font`; the other two are
+/* The face for a whole family. `bubble` is the project default - the one
+   everything falls back to - so it lands in `settings.font`; the other two are
    rows in `settings.fonts`. The hidden selects in the Fonts section are kept
    in step because `saveSettings` reads them. */
 function setFamilyFont(fam, path){
@@ -434,7 +441,7 @@ function addCustomKind(){
   $('ckName').value=''; _ckColor=null;     // the next one takes the next shade
   saveSettings(); renderCustomKinds(); kindsChanged();
 }
-/* Renaming is the only thing about a sub-type that can be edited in place —
+/* Renaming is the only thing about a sub-type that can be edited in place -
    its family is what it IS, and changing that would silently move every box
    already using it into another family. Delete it and make another. */
 /* Everything that draws a box type, brought up to date at once.
@@ -462,7 +469,7 @@ function cycleKindColor(key){
   const k=(proj.settings.custom_kinds||[]).find(x=>x.key===key); if(!k) return;
   const fam=familyOf(key);
   // Its own shade stays in play; the ones its siblings hold do not. A colour
-  // can never leave the family — that is the whole point of the families.
+  // can never leave the family - that is the whole point of the families.
   const avail=_ckAvail(fam, k.color);
   if(avail.length<2){ toast(`No other free ${FAMILY_LABELS[fam].toLowerCase()} shade.`); return; }
   const i=Math.max(0, avail.indexOf((k.color||'').toLowerCase()));
@@ -490,24 +497,24 @@ function tctpWhere(path){
 }
 async function saveProject(){
   // Pressed from the rail, so show the screen that says what happened and
-  // where it went — otherwise Save is a button that gives no answer.
+  // where it went - otherwise Save is a button that gives no answer.
   setTab('new'); setFileTab('save');
   // No file chosen yet means Save has nowhere to go, and asking is what Save
-  // as is for — so it asks, once, and remembers.
+  // as is for - so it asks, once, and remembers.
   if(!(proj.settings||{}).project_file) return saveProjectAs();
   tctpSay('Saving…');
   const j=await api('/api/project_save','POST',{});
   if(j.error) return tctpSay(j.error, true);
   proj.settings.project_file=j.path;
-  tctpSay(`Saved — ${Math.round((j.bytes||0)/1048576)} MB.`);
+  tctpSay(`Saved - ${Math.round((j.bytes||0)/1048576)} MB.`);
   tctpWhere(j.path);
 }
 async function saveProjectAs(){
   setTab('new'); setFileTab('save');
   const pick=await api('/api/pick_project','POST',{save:true});
   if(!pick.path){
-    // Nothing chosen. Either the person changed their mind — in which case
-    // saying anything would be noise — or this machine cannot show a file
+    // Nothing chosen. Either the person changed their mind - in which case
+    // saying anything would be noise - or this machine cannot show a file
     // dialog at all, and then the browser's own download is the way out and
     // needs nothing from the operating system.
     if(!(await api('/api/can_browse')).ok) return downloadProject();
@@ -517,7 +524,7 @@ async function saveProjectAs(){
   const j=await api('/api/project_save','POST',{path:pick.path});
   if(j.error) return tctpSay(j.error, true);
   proj.settings.project_file=j.path;
-  tctpSay(`Saved — ${Math.round((j.bytes||0)/1048576)} MB.`);
+  tctpSay(`Saved - ${Math.round((j.bytes||0)/1048576)} MB.`);
   tctpWhere(j.path);
 }
 async function openProject(){
@@ -544,12 +551,12 @@ async function adoptProject(pending){
   renderPages();
   if(proj.pages.length) showPage(0);
   tctpWhere(j.path||'');
-  tctpSay(`Opened ${j.name||'project'} — ${j.pages} pages.`);
+  tctpSay(`Opened ${j.name||'project'} - ${j.pages} pages.`);
   setTab('edit');
 }
 function downloadProject(){
-  // The browser's own copy. Not a button of its own — lee replaced that with
-  // the story context — but it is what Save as falls back to on a machine
+  // The browser's own copy. Not a button of its own - lee replaced that with
+  // the story context - but it is what Save as falls back to on a machine
   // with no file dialog, which is any headless install.
   tctpSay('Building the file…');
   location.href='/api/project_file';
@@ -558,7 +565,7 @@ function downloadProject(){
 
 function exportSettings(){
   // Everything about this manga travels in one file: the technical settings
-  // (fonts, backend, custom bubble types) AND the series content — the
+  // (fonts, backend, custom bubble types) AND the series content - the
   // synopsis, the character names, and the glossary. Continue a series next
   // chapter by starting fresh and importing this back.
   const ctx=proj.context||{};
@@ -605,14 +612,18 @@ async function importSettings(inp){
       : {settings:imported};
     const j=await api('/api/settings','POST',body);
     if(j.error) return;
-    // Apply in place — re-read the project and repopulate the panels — instead
+    // Apply in place - re-read the project and repopulate the panels - instead
     // of a full page reload, so the page selection and view are kept. Importing
     // again just replaces the current settings.
     await loadProject();
     if(proj.pages[cur]) showPage(cur);
+    // ...and onto the two boxes on step 2, so what was imported is visible
+    // there and not only in Settings. Without this, typing nothing and
+    // pressing Done would write the empty boxes back over the import.
+    pkFillContext();
     toast('Story context imported.');
     const m=$('pkJsonMsg');
-    if(m){ m.textContent='Imported — '+f.name; m.classList.remove('bad'); }
+    if(m){ m.textContent='Imported - '+f.name; m.classList.remove('bad'); }
     const d=$('pkDoneBtn');
     if(d){ d.disabled=false; d.title=''; }
   }catch(e){
@@ -648,7 +659,7 @@ async function savePickerChoices(){
 function showPicker(on){
   on = !!on;
   // The tab bar is the one place that decides which screen is up, so opening
-  // or closing this from anywhere else goes through it — and the flag stops
+  // or closing this from anywhere else goes through it - and the flag stops
   // the two calling each other for ever.
   if(typeof setTab==='function' && !showPicker._busy){
     showPicker._busy = true;
@@ -669,7 +680,7 @@ function showPicker(on){
   }
   $('picker').classList.toggle('on',on);
   // The overlay starts under the top bar rather than over it, so it has to be
-  // told how tall the bar actually is — that changes with the window, and a
+  // told how tall the bar actually is - that changes with the window, and a
   // number written into the stylesheet would be right at one width only.
   const top=$('top');
   if(on && top) document.documentElement.style.setProperty(
@@ -704,18 +715,18 @@ function changeChapter(){showPicker(true);}
 
    One screen asked for the language, the pages AND a settings file at once,
    with the .json button sitting between "Add pages from a folder" and the drop
-   zone as though it were a third way of adding pages. It is not — it is the
+   zone as though it were a third way of adding pages. It is not - it is the
    thing you do after, once, and most of the time not at all.
 
    So: pages first, Next; then the settings file, with Done or Skip. Nothing
-   about what the buttons DO changed — the pages upload where they always did,
+   about what the buttons DO changed - the pages upload where they always did,
    and importing still happens the moment a file is chosen. What changed is
    that the second question is not asked until the first is answered. */
 let pkStepNow = 1;
 function pkStep(n){
   pkStepNow = n;
   // Done is for "I added the file". With no file added it is a second Skip
-  // wearing the primary colour, which is the button people press — and then
+  // wearing the primary colour, which is the button people press - and then
   // they have skipped the step without meaning to.
   // lee: *"done shoud not work if no file was uploaded"*.
   const done=$('pkDoneBtn');
@@ -727,10 +738,49 @@ function pkStep(n){
     el.classList.toggle('on', Number(el.dataset.step) <= n));
   const t=$('pkTitle');
   if(t) t.textContent = n===1 ? 'Open a chapter' : 'Add a settings file';
+  if(n===2) pkFillContext();
+}
+/* The two story-context boxes on step 2 are a VIEW of the project's own
+   title and synopsis, not a second copy of them. Filled from the project
+   whenever the step is shown, and again after an import, so a context that
+   arrived from last chapter's file is on the screen and can be corrected
+   before it is used - and so coming back to this step later shows what is
+   already there rather than two empty boxes over a synopsis you wrote. */
+function pkFillContext(){
+  const t=$('pkStoryTitle'), s=$('pkStorySynopsis');
+  if(!t || !s || !proj || !proj.context) return;
+  t.value = proj.context.title || '';
+  s.value = proj.context.synopsis || '';
+  // Only a box that has been FILLED from the project may be saved back to it.
+  // Two empty boxes are "this step was never shown" until they have been, and
+  // writing those over a synopsis the project already had would lose it.
+  pkFillContext.primed = true;
+  pkContextTyped();
+}
+/* Writing one is adding one. Done was shut until a FILE had been imported,
+   which was right when a file was the only way to answer this step; with
+   somewhere to type, refusing the button to somebody who has just written a
+   synopsis would send them to Skip - the button that means "I did nothing". */
+function pkContextTyped(){
+  const t=$('pkStoryTitle'), s=$('pkStorySynopsis'), d=$('pkDoneBtn');
+  if(!d || !t || !s) return;
+  if(t.value.trim() || s.value.trim()){ d.disabled=false; d.title=''; }
+}
+/* Saved on the way out rather than on every keystroke: this is one short
+   burst of typing that ends in a button, and `/api/settings` writes the
+   project file each time it is called. Skip saves too - pressing Skip after
+   typing a synopsis means "no settings FILE", not "throw away what I wrote". */
+async function pkSaveContext(){
+  const t=$('pkStoryTitle'), s=$('pkStorySynopsis');
+  if(!t || !s || !proj || !proj.context || !pkFillContext.primed) return;
+  const title=t.value, syn=s.value;
+  if(title===(proj.context.title||'') && syn===(proj.context.synopsis||'')) return;
+  await api('/api/settings','POST',{title:title, synopsis:syn});
+  await loadProject();
 }
 /* Next carries whatever is staged, and is not a dead end when nothing is:
    opening this again on a chapter that is already loaded is a real thing to
-   do — you came back for the settings file. */
+   do - you came back for the settings file. */
 async function pkNext(){
   if(staged.length){ await loadStaged(); return; }   // loadStaged goes on to 2
   if(proj && proj.pages && proj.pages.length){ pkStep(2); return; }
@@ -740,7 +790,8 @@ async function pkNext(){
    already happened when the file was chosen, so there is nothing left to
    confirm. Two names because "Done" on a screen you did nothing with reads as
    though you missed a step. */
-function pkFinish(){
+async function pkFinish(){
+  await pkSaveContext();
   showPicker(false);
   setTab('edit');
 }
@@ -778,7 +829,7 @@ function renderStaged(){
   const kb=n=>n<1024*1024 ? Math.round(n/1024)+' KB'
                           : (n/1048576).toFixed(1)+' MB';
   $('stagedCount').textContent=`${staged.length} page${staged.length>1?'s':''} ready`;
-  $('stagedNote').textContent='They load in this order — page 1 at the top.';
+  $('stagedNote').textContent='They load in this order - page 1 at the top.';
   $('stagedList').innerHTML=staged.map((f,i)=>`
     <div class="sf">
       <span class="i">${i+1}</span>
@@ -800,7 +851,7 @@ async function loadStaged(){
 }
 
 /* The bar on the File tab. `at` is a fraction, or null for "working on
-   something with no count to give" — the re-cut, which is one long step on the
+   something with no count to give" - the re-cut, which is one long step on the
    server. lee: *"add a loading bar in the file page when the files are getting
    processed"*. */
 function pkBar(at, what){
@@ -829,7 +880,7 @@ async function _uploadFiles(fileList, append){
   if(!files.length){say('No images in that selection.');return;}
   pkBar(0, `Reading ${files.length} file${files.length===1?'':'s'}…`);
   if(!append){
-    // Starting a chapter clears the last one — that is what starting one
+    // Starting a chapter clears the last one - that is what starting one
     // means, and there is no separate "Clear this project" button any more.
     // lee: *"remoev teh close this project it shoud do it by default"*.
     // `keep_settings` keeps the fonts and the translation engine and drops the
@@ -868,7 +919,7 @@ async function _uploadFiles(fileList, append){
   if(fin.strip && fin.strip.after){
     const s=fin.strip;
     say(`Re-cut ${s.before} strip slices into ${s.after} pages.`);
-    toast(`That chapter arrived as ${s.before} slices of one long strip — `
+    toast(`That chapter arrived as ${s.before} slices of one long strip - `
         + `joined back up and cut into ${s.after} pages in the gaps between `
         + `panels.` + (s.over ? ` ${s.over} had to run past the height you `
         + `asked for to reach a gap rather than cut through the artwork: `
@@ -876,7 +927,7 @@ async function _uploadFiles(fileList, append){
   }
   if(append){
     // Adding to a chapter that is already open. This screen was never up, so
-    // there is nothing to advance and nothing to close — you are here to look
+    // there is nothing to advance and nothing to close - you are here to look
     // at the pages you just added.
     setTab('edit');
   } else {
@@ -887,7 +938,7 @@ async function _uploadFiles(fileList, append){
     pkStep(2);
   }
   await loadProject();
-  // Land on the first page that was just added, not the one already open —
+  // Land on the first page that was just added, not the one already open -
   // otherwise adding pages looks like nothing happened.
   // The server says where the pages landed; guessing an index was what made
   // "add pages" appear to do nothing.
@@ -925,7 +976,7 @@ drop.addEventListener('drop',async ev=>{
 });
 
 /* The second screen takes a drop too. Anything that can be clicked to open a
-   file dialog should also accept the file being dragged onto it — half the
+   file dialog should also accept the file being dragged onto it - half the
    point of a drop zone is not having to find the folder twice. */
 const dropJson=$('dropJson');
 if(dropJson){
@@ -951,14 +1002,14 @@ if(dropJson){
    is built here out of two real buttons. Same control everywhere, big enough
    to hit, and it can be styled.
 
-   The buttons go INSIDE the box — the wrapper takes the size the input had —
+   The buttons go INSIDE the box - the wrapper takes the size the input had -
    so wrapping one changes nothing about the layout around it. */
 let numHeld = false;          // a stepper is being pressed right now
 
 function stepNum(inp, dir){
   // The panel is rebuilt whenever a save comes back, and a rebuild replaces
   // this very input. Find it again by name rather than writing into a node
-  // that is no longer on the page — that is what made a second press appear
+  // that is no longer on the page - that is what made a second press appear
   // to do nothing at all.
   if(!inp.isConnected && inp.id){
     const again = document.getElementById(inp.id);
@@ -982,14 +1033,14 @@ function stepNum(inp, dir){
 /* Press and hold to keep going, the way a native spinner does. The step runs
    on POINTER DOWN, not on `click`: a click only fires if the button is still
    on the page when the mouse comes up, and pressing one of these saves, which
-   rebuilds the panel — so the button could be replaced between the press and
+   rebuilds the panel - so the button could be replaced between the press and
    the release and the click would never arrive. lee, in Firefox: *"it donsent
    update at all right now"*. */
 function holdStep(inp, dir){
   // A repeat that never stops is a runaway: it saves on every step, and a save
   // storm makes the whole app stop answering. So the release is listened for
-  // in every way the pointer can leave — up, cancel, the window losing focus,
-  // the tab going away — and on top of that the run is CAPPED. Nothing here
+  // in every way the pointer can leave - up, cancel, the window losing focus,
+  // the tab going away - and on top of that the run is CAPPED. Nothing here
   // depends on one particular event arriving.
   holdStep.stop && holdStep.stop();          // never two at once
   numHeld = true;
@@ -1023,7 +1074,7 @@ function dressNumbers(root){
     inp.dataset.dressed='1';
     const wrap = document.createElement('span');
     wrap.className = 'numwrap';
-    // A box with a width of its own hands it to the wrapper — otherwise the
+    // A box with a width of its own hands it to the wrapper - otherwise the
     // wrapper stretches to the whole row and the buttons, which hang off ITS
     // right edge, end up floating somewhere off to the side of the box they
     // belong to. The gradient angle did exactly that.
@@ -1049,8 +1100,8 @@ function dressNumbers(root){
   });
 }
 
-// Panels are rebuilt from scratch all over the app — every render, every
-// dialog, every list redraw — so rather than remembering to call this in each
+// Panels are rebuilt from scratch all over the app - every render, every
+// dialog, every list redraw - so rather than remembering to call this in each
 // of them, watch for boxes arriving.
 (function watchNumbers(){
   if(typeof MutationObserver !== 'function') return;

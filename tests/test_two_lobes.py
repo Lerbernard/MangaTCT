@@ -2,13 +2,13 @@
 
 A balloon drawn as two overlapping ovals is ONE enclosure. The outline detector
 finds enclosures, so it found one region, read one block of Japanese out of it,
-sent the translator one speech and got one paragraph back — which was then
+sent the translator one speech and got one paragraph back - which was then
 typeset straight across the waist as though the artist had drawn a circle.
 lee's page has two of them: "I'M SORRY, ADA..." in the bud and "...IT'S MY OWN
 WEAKNESS THAT DID THIS TO YOU." in the trunk, merged into a single block.
 
 The machinery to typeset each lobe separately was already there and already
-tested — it just never fired, because it needs two regions sharing one balloon
+tested - it just never fired, because it needs two regions sharing one balloon
 before it has anything to divide. So the division is made where the evidence
 is: at detection, off the shape of the outline, before a single word has been
 read.
@@ -113,7 +113,7 @@ def test_the_two_halves_are_read_as_one_sentence():
 
 
 def test_each_lobe_gets_its_own_half_of_the_balloon():
-    """Not the whole balloon each — that is the same merge one step later.
+    """Not the whole balloon each - that is the same merge one step later.
 
     Whatever the typesetter works out for a shared balloon, it measures against
     what the detector already said. Hand both halves the whole balloon and what
@@ -135,13 +135,13 @@ def test_the_typesetter_keeps_the_division_and_typesets_it_big():
 
     Merged, this balloon holds one nine-word paragraph and typesets it small
     across the waist. Divided, each lobe letters its own speech, and lee asked
-    for exactly that — each block in its own box.
+    for exactly that - each block in its own box.
 
     It used to say *and bigger*: 34pt and 25pt, against about 15 and 10 from
     the page's own typesetter. But big and in the box turned out to be two
     different things. A lobe and the trunk are one piece of paper either side
     of the neck, so a block free to use its whole side of the division reaches
-    across the waist to get there — at 34pt this block's words start 60px
+    across the waist to get there - at 34pt this block's words start 60px
     outside its own box, on his page the word HUH!? left the top lobe entirely
     and sat at the balloon's waist. Trimming the share back to the box costs
     exactly half the point size, and lee called it: *"that fine the size dnst
@@ -164,7 +164,7 @@ def test_the_typesetter_keeps_the_division_and_typesets_it_big():
         assert kept > 0.9, (r.id, kept)      # its own lobe, all of it
         lay = fit_region(r, cfg, shares[r.id])
         assert lay.lines, r.id
-        # Nothing is dropped to make it fit — a translation goes in whole.
+        # Nothing is dropped to make it fit - a translation goes in whole.
         assert " ".join(lay.lines).split() == said.split(), (r.id, lay.lines)
         assert lay.font_size >= cfg.min_font, (r.id, lay.font_size)
         x, y, w, h = (int(v) for v in r.bbox)
@@ -211,7 +211,7 @@ def test_the_box_is_what_costs_the_point_size():
 
 
 def test_the_division_survives_being_saved_and_reopened():
-    """Masks are not saved — a chapter is held as geometry.
+    """Masks are not saved - a chapter is held as geometry.
 
     So the outline stored for each half has to be the LOBE's outline. Store the
     whole balloon's and both speeches get the whole balloon back on reload, and
@@ -242,7 +242,7 @@ def test_the_whole_detector_keeps_the_two_lobes():
     """`detect_combined` is what actually runs, and it de-duplicates.
 
     Every later pass sees the same balloon again, and the two lobes carry the
-    same `bubble_bbox` on purpose — that is how the typesetter knows they are one
+    same `bubble_bbox` on purpose - that is how the typesetter knows they are one
     balloon to divide. Weighed one region at a time against what has already
     been taken, the second lobe therefore looks exactly like a duplicate of the
     first, and half of what the balloon says is thrown away between detection
@@ -278,7 +278,7 @@ def test_a_chord_may_not_slip_between_two_columns_of_one_balloon():
     """The dangerous false positive, and the reason for two separate guards.
 
     An ordinary balloon holding a wide gap between two groups of columns offers
-    a chord that divides the writing perfectly without touching a character —
+    a chord that divides the writing perfectly without touching a character -
     so "no character is cut in half" cannot be the only test. What refuses this
     page is that the oval has no dent deep enough to hang a chord on: a neck is
     a place the outline turns back on itself, and this outline never does.
@@ -292,7 +292,7 @@ def test_a_tail_is_not_a_neck():
     """A tail is a spike, and the hull spans it: two dents, as deep as a neck's.
 
     Nothing about the outline tells the two apart. What does is that the piece
-    a tail's chord cuts off has no writing in it — so the candidate is dropped
+    a tail's chord cuts off has no writing in it - so the candidate is dropped
     and the real neck is tried next, instead of the balloon being cut at the
     first deep pair of dents and left at that.
     """
@@ -335,7 +335,7 @@ def _shout(scale=1.2, at=(330, 210)):
 
     ONE enclosure. The right-hand flank is a smooth arc; the LEFT is a
     staircase, with a deep step half way down and a spike below it, and the
-    typesetting sits in two clumps — a sentence up the right and a small あっ！
+    typesetting sits in two clumps - a sentence up the right and a small あっ！
     lower and to the left of it. Nothing about that makes it two balloons, and
     lee drew a single box round it by hand.
     """
@@ -362,8 +362,8 @@ def test_an_angular_balloon_is_one_box_not_two():
     """lee: "each bubbles shoud have their own box".
 
     Depth alone cannot tell a waist from a staircase. This outline has two
-    dents as deep as any neck's — the step in the flank and the spike under it
-    — and a chord between them separates the two clumps of writing without
+    dents as deep as any neck's - the step in the flank and the spike under it
+    - and a chord between them separates the two clumps of writing without
     cutting a character, so every other guard passes it. It is still one
     balloon, and cutting it hands the translator half a sentence twice.
     """
@@ -380,7 +380,7 @@ def test_the_dents_of_a_real_neck_still_face_each_other():
 
     A waist is two dents pointing at each other along the chord between them.
     lee's staircase bites in from one side twice; a two-lobed balloon dives in
-    from both. Measured on these two fixtures the difference is wide — the
+    from both. Measured on these two fixtures the difference is wide - the
     guard is set at 0.85 and the real neck scores near 1.
     """
     two = classical.detect_outline(Page(image=_two_lobed()))

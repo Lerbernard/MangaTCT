@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Guide | MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints - same boot as every other page.
+     This page loads nothing from a CDN, so there is no dead man here: nothing
+     is hidden that a missing script would fail to reveal. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t}catch(e){}</script>
+
+<style>
+/* Tabs, in the same shape the landing page draws them. This page has its own
+   copy because style.css belongs to the signed-in pages and the landing page
+   keeps its styles inline; a guide needs tabs and neither parent offers them. */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 22px}
+/* Filled plates, not outlines - lee: "use ful background color". Every state
+   names BOTH its background and its text, in this file's own variables
+   (style.css has --ink and --mut, not --fg and --dim2), so no state can ever
+   inherit its way to invisible text on the accent fill. */
+.tb{appearance:none;background:var(--panel2);color:var(--dim);
+ border:1px solid var(--line);border-radius:999px;padding:9px 18px;
+ font:inherit;font-size:15px;font-weight:600;cursor:pointer;
+ transition:color .15s ease,border-color .15s ease,background .15s ease}
+.tb:hover{color:var(--ink);background:var(--line);border-color:var(--line2)}
+.tb[aria-selected=true]{color:var(--on-accent);background:var(--accent);
+ border-color:var(--accent)}
+.tb[aria-selected=true]:hover{color:var(--on-accent);
+ background:var(--accent2);border-color:var(--accent2)}
+.tb:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.tabs.sub{margin:0 0 18px}
+.tabs.sub .tb{font-size:13.5px;padding:7px 14px}
+.pan[hidden]{display:none}
+figure.shot{margin:18px 0;border:1px solid var(--line);border-radius:14px;
+ overflow:hidden;background:var(--panel2)}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{padding:10px 14px;font-size:13.5px;color:var(--dim);
+ border-top:1px solid var(--line)}
+/* Narrow panel shots stay panel-sized. Stretched across the whole column
+   they came out enormous - lee: "soem screenshots are too big ... cgnage teh
+   layout to fit them". */
+figure.shot.tall{max-width:440px;margin-left:auto;margin-right:auto}
+figure.shot.fit{max-width:640px;margin-left:auto;margin-right:auto}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ba figure.shot{margin:0;position:relative}
+/* Not `.tag`: style.css owns that name for the pricing pill, and its
+   position:absolute;top:-11px floated my labels out of their figures and
+   onto the nearest heading. This one pins to its own image's corner. */
+.batag{position:absolute;top:10px;left:10px;z-index:1;
+ font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+ background:var(--panel);color:var(--dim);border:1px solid var(--line2);
+ padding:4px 11px;border-radius:999px}
+.batag.after{background:var(--accent);color:var(--on-accent);
+ border-color:var(--accent)}
+@media (max-width:700px){.ba{grid-template-columns:1fr}}
+.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+.steps li{counter-increment:s;position:relative;padding:0 0 14px 44px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;
+ width:28px;height:28px;border-radius:50%;background:var(--accent);
+ color:var(--on-accent);font-weight:700;display:flex;align-items:center;
+ justify-content:center;font-size:14px}
+.steps b{display:block;margin-bottom:2px}
+.steps p{margin:0;color:var(--dim);font-size:14.5px}
+kbd{background:var(--panel2);border:1px solid var(--line2);
+ border-bottom-width:2px;border-radius:6px;padding:1px 7px;
+ font:600 12.5px/1.6 ui-monospace,monospace;color:var(--ink)}
+table.keys{width:100%;border-collapse:collapse;font-size:14.5px}
+table.keys td{padding:8px 10px;border-top:1px solid var(--line)}
+table.keys td:first-child{white-space:nowrap;width:1%}
+.note{border-left:3px solid var(--accent);background:var(--panel2);
+ border-radius:0 10px 10px 0;padding:10px 14px;font-size:14.5px;
+ color:var(--dim);margin:14px 0}
+.note b{color:var(--fg)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+</style>
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb on" href="tutorial.html">Guide</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <a class="navb cta" id="acct" href="account.html">Account</a>
+    <button class="navb icon" id="theme" type="button" aria-label="Theme"></button>
+  </nav>
+</header>
+
+<main>
+  <h1>How to use MangaTCT</h1>
+  <p class="lede">Everything in the editor, explained for someone opening it
+    for the first time. Pick a tab. Every picture on this page is a real
+    screenshot of the app or a real page it worked on.</p>
+
+  <div class="tabs" role="tablist" id="maintabs">
+    <button class="tb" role="tab" aria-selected="true"  aria-controls="t-start">Start here</button>
+    <button class="tb" role="tab" aria-selected="false" aria-controls="t-steps">The seven steps</button>
+    <button class="tb" role="tab" aria-selected="false" aria-controls="t-boxes">Working with boxes</button>
+    <button class="tb" role="tab" aria-selected="false" aria-controls="t-set">Settings that matter</button>
+    <button class="tb" role="tab" aria-selected="false" aria-controls="t-tips">Tips and fixes</button>
+  </div>
+
+  <!-- ================================================== START HERE -->
+  <section class="sect" id="t-start" role="tabpanel">
+    <p class="eyebrow">Start here</p>
+    <h2>From a folder of raw pages to a translated chapter</h2>
+    <p class="lede">The short version. Each of these steps has its own tab
+      above with the details.</p>
+
+    <ol class="steps">
+      <li><b>Add your pages</b>
+        <p>Press "+ Add pages" at the top of the left rail, or drag a folder
+        straight onto the window. Pages keep their file names.</p></li>
+      <li><b>Run the steps across the top, left to right</b>
+        <p>Find text, Read text, Translate, Clean, Typeset, Export. Each one
+        works on every ticked page. You can rerun any step at any time.</p></li>
+      <li><b>Fix what you want between steps</b>
+        <p>Every box, every line of text and every colour stays editable the
+        whole way through. Nothing is locked in.</p></li>
+    </ol>
+
+    <figure class="shot">
+      <img src="assets/tut-workspace.jpg" loading="lazy"
+        alt="The whole editor: pages on the left, the manga page in the middle with numbered boxes on the text, the side panel on the right, the seven steps across the top">
+      <figcaption>The workspace. Left: your pages. Middle: the current page
+        with a numbered box on every piece of text. Right: the side panel,
+        where each box's text lives. Top: the seven steps.</figcaption>
+    </figure>
+
+    <div class="cols">
+      <div class="card">
+        <h3>The page rail</h3>
+        <p>Every page in the chapter, with a tick. Steps run on the
+        <b>ticked</b> pages, so unticking a page is how you leave it out of a
+        run without removing it. Drag pages to reorder them. The little dots
+        on each row show how far that page has come.</p>
+        <figure class="shot"><img src="assets/tut-pages.png" loading="lazy"
+          alt="The page rail with ticked pages and progress dots"></figure>
+      </div>
+      <div class="card">
+        <h3>What costs coins, what is free</h3>
+        <p>Finding text, cleaning and typesetting run on your own machine and
+        cost nothing, however often you rerun them. Reading text, translating
+        and proofreading call an AI and cost coins. The button always shows
+        the price before you press it, and a run you stop refunds the pages
+        it never did.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== THE SEVEN STEPS -->
+  <section class="sect" id="t-steps" role="tabpanel" hidden>
+    <p class="eyebrow">The seven steps</p>
+    <h2>What each step does</h2>
+    <p class="lede">Run them in order the first time. After that, rerun any
+      one of them whenever you change something.</p>
+
+    <div class="tabs sub" role="tablist" id="steptabs">
+      <button class="tb" role="tab" aria-selected="true"  aria-controls="s-find">1 Find text</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-read">2 Read text</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-tl">3 Translate</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-proof">4 Proofread</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-clean">5 Clean</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-type">6 Typeset</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="s-exp">7 Export</button>
+    </div>
+
+    <div class="pan" id="s-find" role="tabpanel">
+      <h3>Find text</h3>
+      <p>Puts a box on every piece of writing on the page: dialogue in
+      balloons, thoughts floating on the art, drawn sound effects. It runs on
+      your machine and costs nothing.</p>
+      <div class="ba">
+        <figure class="shot"><span class="batag">Before</span>
+          <img src="assets/tut-find-before.jpg" loading="lazy"
+            alt="A raw manga page, no boxes"></figure>
+        <figure class="shot"><span class="batag after">After</span>
+          <img src="assets/tut-find-after.jpg" loading="lazy"
+            alt="The same page with a coloured box on every piece of text"></figure>
+      </div>
+      <p class="note"><b>Wrong or missing boxes?</b> You never have to accept
+      what it found. Draw a box by hand, delete one, resize one, or merge
+      several. See the "Working with boxes" tab.</p>
+      <h3 style="margin-top:26px">Manhwa too</h3>
+      <p>Tall colour strips work the same way. Pick Manhwa in Settings and
+      Find text tunes itself for webtoon pages.</p>
+      <div class="ba">
+        <figure class="shot"><span class="batag">Before</span>
+          <img src="assets/tut-manhwa-before.jpg" loading="lazy"
+            alt="A colour manhwa scene, no boxes"></figure>
+        <figure class="shot"><span class="batag after">After</span>
+          <img src="assets/tut-manhwa-after.jpg" loading="lazy"
+            alt="The same manhwa scene with a box on each speech balloon"></figure>
+      </div>
+    </div>
+
+    <div class="pan" id="s-read" role="tabpanel" hidden>
+      <h3>Read text</h3>
+      <p>Reads the original writing inside every box, so the translator gets
+      the real words. Each box in the side panel fills in with what was
+      read. If two boxes overlap, each one is read on its own text only, so
+      nothing is read twice. This step calls the AI, so it costs coins; the
+      button shows the price first.</p>
+      <figure class="shot tall"><img src="assets/ui-list.jpg" loading="lazy"
+        alt="The side panel after reading: each box shows the original text">
+        <figcaption>After Read text, every box in the side panel carries the
+        original line.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="s-tl" role="tabpanel" hidden>
+      <h3>Translate</h3>
+      <p>Translates every box with the AI you picked in Settings. It uses
+      your glossary, your character sheet and your synopsis, so names stay
+      spelled one way and characters keep their voice.</p>
+      <figure class="shot"><img src="assets/ui-translation-real.jpg" loading="lazy"
+        alt="The translation view: original text and English side by side">
+        <figcaption>Original and translation side by side. Edit any line and
+        the page updates.</figcaption></figure>
+      <p class="note"><b>Want to translate it yourself?</b> Flip the "I'll
+      translate it myself" switch in the side panel and type into the boxes.
+      Nothing is sent anywhere and translation costs nothing.</p>
+    </div>
+
+    <div class="pan" id="s-proof" role="tabpanel" hidden>
+      <h3>Proofread</h3>
+      <p>An optional second pass for quality. A second AI reads the whole
+      chapter as one story and fixes what the first pass got wrong: a name
+      spelled two ways, a line that drifted from the glossary, a sentence
+      split oddly across two balloons. Skip it when you are happy with the
+      translation as it is.</p>
+    </div>
+
+    <div class="pan" id="s-clean" role="tabpanel" hidden>
+      <h3>Clean</h3>
+      <p>Wipes the original writing off the artwork and rebuilds what was
+      behind it. An optional AI cleaner for the hard spots can be switched
+      on in Settings.</p>
+      <div class="ba">
+        <figure class="shot"><span class="batag">Before</span>
+          <img src="assets/tut-clean-before.jpg" loading="lazy"
+            alt="A page with the original Japanese still on it"></figure>
+        <figure class="shot"><span class="batag after">After</span>
+          <img src="assets/tut-clean-after.jpg" loading="lazy"
+            alt="The same page with the writing wiped off and the art rebuilt"></figure>
+      </div>
+      <p class="note"><b>Already have cleaned pages?</b> You can hand the app
+      your own cleaned page for any page, and it will typeset onto that
+      instead.</p>
+    </div>
+
+    <div class="pan" id="s-type" role="tabpanel" hidden>
+      <h3>Typeset</h3>
+      <p>Sets the English into every balloon: picks a size that fits, breaks
+      the lines, centres the block, and keeps effects like outlines and
+      colour. Rerunning it is instant, so tweak as much as you like.</p>
+      <figure class="shot"><img src="assets/tut-typeset.jpg" loading="lazy"
+        alt="A finished typeset page in English">
+        <figcaption>The page from the Clean step, finished. Every line still
+        editable, box by box.</figcaption></figure>
+      <div class="cols">
+        <figure class="shot"><img src="assets/clip-fit.gif" loading="lazy"
+          alt="A short clip of text refitting inside a balloon as it is edited">
+          <figcaption>Text refits live as you edit it.</figcaption></figure>
+        <figure class="shot"><img src="assets/clip-font.gif" loading="lazy"
+          alt="A short clip of the font being changed for one bubble">
+          <figcaption>Any bubble can have its own font.</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="pan" id="s-exp" role="tabpanel" hidden>
+      <h3>Export</h3>
+      <p>Writes the finished pages to a folder as image files, ready to
+      post. You choose the format and the naming in Settings, and the
+      Results tab shows everything the chapter produced.</p>
+      <figure class="shot"><img src="assets/ui-export-real.jpg" loading="lazy"
+        alt="The export view with finished pages ready to save">
+        <figcaption>The finished chapter, one click from a folder of
+        files.</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- ================================================== BOXES -->
+  <section class="sect" id="t-boxes" role="tabpanel" hidden>
+    <p class="eyebrow">Working with boxes</p>
+    <h2>Every piece of text lives in a box</h2>
+    <p class="lede">Find text draws them, but they are yours: move them,
+      retype them, merge them, delete them. This tab is the toolbox.</p>
+
+    <div class="tabs sub" role="tablist" id="boxtabs">
+      <button class="tb" role="tab" aria-selected="true"  aria-controls="b-types">The three types</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="b-select">Selecting</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="b-fix">Fixing boxes</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="b-hide">Show and hide</button>
+    </div>
+
+    <div class="pan" id="b-types" role="tabpanel">
+      <h3>Bubble text, freefloat text, sound effects</h3>
+      <p>Every box is one of three types, and the type decides how it is
+      cleaned and typeset:</p>
+      <div class="cols">
+        <div class="card"><h3>Bubble text</h3><p>Dialogue inside a drawn
+          balloon. Cleaned to the balloon's shape, typeset centred inside
+          it.</p></div>
+        <div class="card"><h3>Freefloat text</h3><p>Words lying on the
+          artwork with nothing drawn around them: thoughts, captions,
+          labels.</p></div>
+      </div>
+      <div class="cols" style="margin-top:16px">
+        <div class="card"><h3>Sound effect</h3><p>Drawn sounds painted into
+          the picture. They get their own cleaning and their own styling, and
+          you can turn them at any angle.</p></div>
+        <div class="card"><h3>Changing a type</h3><p>Select a box and press
+          <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd>, or pick from its menu in
+          the side panel. The buttons above the page also set which type a
+          box you draw comes out as.</p></div>
+      </div>
+      <figure class="shot fit"><img src="assets/tut-legend.png" loading="lazy"
+        alt="The legend row: 1 Bubble text in red, 2 Freefloat text in green, 3 Sound effect in purple, and the Select boxes tool in blue">
+        <figcaption>The legend above the page. Each type has its colour, and
+        the blue button on the end is the box select tool.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="b-select" role="tabpanel" hidden>
+      <h3>Selecting boxes</h3>
+      <table class="keys">
+        <tr><td>Click</td><td>select one box</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + click</td><td>add another box to the selection</td></tr>
+        <tr><td><kbd>S</kbd></td><td>arm the box select tool, then drag a square: every box it touches is selected</td></tr>
+        <tr><td><kbd>Shift</kbd> + drag</td><td>with the tool armed, add to what is already selected</td></tr>
+        <tr><td>Click empty space</td><td>with the tool armed, clear the selection</td></tr>
+        <tr><td><kbd>Esc</kbd> or <kbd>S</kbd> again</td><td>put the tool away</td></tr>
+      </table>
+      <p style="margin-top:14px">The tool stays armed after a drag, so you can
+      sweep panel after panel without rearming it.</p>
+      <figure class="shot"><img src="assets/tut-boxselect.jpg" loading="lazy"
+        alt="The box select tool mid drag: a dashed blue square over the page">
+        <figcaption>Drag a square. Touching a box is enough, you do not have
+        to swallow it whole.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="b-fix" role="tabpanel" hidden>
+      <h3>Fixing what Find text got wrong</h3>
+      <table class="keys">
+        <tr><td>Draw</td><td>drag on empty page to draw a new box, in the type lit in the legend</td></tr>
+        <tr><td>Resize</td><td>drag any corner or edge of a selected box</td></tr>
+        <tr><td>Turn</td><td>every box has a rotation handle, for diagonal sound effects</td></tr>
+        <tr><td><kbd>Del</kbd></td><td>remove the selected box</td></tr>
+        <tr><td><kbd>M</kbd></td><td>merge the selected boxes into one box that fits them all</td></tr>
+        <tr><td><kbd>L</kbd></td><td>link a box to another bubble, for one sentence split across two balloons</td></tr>
+      </table>
+      <p style="margin-top:14px">Merging deletes the old boxes, draws one box
+      around everything they covered, and keeps their text joined in reading
+      order. Select two or more boxes and the Merge button also appears in
+      the side panel.</p>
+      <figure class="shot tall"><img src="assets/tut-side-merge.png" loading="lazy"
+        alt="The side panel with two boxes selected and the Merge button showing">
+        <figcaption>Two boxes selected: the side panel offers
+        Merge.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="b-hide" role="tabpanel" hidden>
+      <h3>Show and hide</h3>
+      <p>The "Show or hide" card on the side panel switches whole groups on
+      and off for the current page: hide the sound effects while you work on
+      dialogue, then bring them back. Tick "Apply to every page in the
+      chapter" to make it chapter wide. A hidden box is not deleted; it is
+      just out of your way, and no step touches it while it is hidden.</p>
+      <figure class="shot tall"><img src="assets/tut-side.png" loading="lazy"
+        alt="The side panel with the show or hide switches">
+        <figcaption>The eye icon on any single row does the same for one
+        box.</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- ================================================== SETTINGS -->
+  <section class="sect" id="t-set" role="tabpanel" hidden>
+    <p class="eyebrow">Settings that matter</p>
+    <h2>The handful worth knowing on day one</h2>
+    <p class="lede">Settings has a page for everything. These four are the
+      ones a new chapter actually needs.</p>
+
+    <div class="tabs sub" role="tablist" id="settabs">
+      <button class="tb" role="tab" aria-selected="true"  aria-controls="g-det">Detectors</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-fonts">Fonts</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-story">Story and glossary</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-ai">The AI</button>
+    </div>
+
+    <div class="pan" id="g-det" role="tabpanel">
+      <h3>Which detector finds your text</h3>
+      <p>Four cards, one choice. Each card shows how long it takes on your
+      chapter and a score from a hand-checked test of 226 pieces of text.
+      AnimeText is the default and wants its model file next to the app;
+      comic-text-detector is the built-in fallback and needs nothing
+      downloaded. A card that cannot run tells you exactly what it is
+      missing, in amber, on the card.</p>
+      <figure class="shot"><img src="assets/tut-cards.png" loading="lazy"
+        alt="The four detector cards with a time estimate and a score on each, and an amber note on the ones missing their model file">
+        <figcaption>Pick a card. The time is for your chapter, the score is
+        measured, and the amber line is what to download if you want that
+        card.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="g-fonts" role="tabpanel" hidden>
+      <h3>Fonts</h3>
+      <p>Add your own fonts and pick the default the typesetter uses. Any
+      single bubble can override it later. If a font is missing a character,
+      the typesetter can substitute a close one, and that switch is yours to
+      turn off.</p>
+      <figure class="shot"><img src="assets/ui-settings-fonts-real.jpg" loading="lazy"
+        alt="The font settings: the font list and the default face">
+        <figcaption>Your fonts, the default face, and the substitute
+        switch.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="g-story" role="tabpanel" hidden>
+      <h3>Story, characters, glossary</h3>
+      <p>Three lists that make the translation consistent:</p>
+      <ol class="steps">
+        <li><b>Synopsis</b><p>Two sentences about the story, so the
+          translator knows who is who.</p></li>
+        <li><b>Characters</b><p>Each name, spelled the way you want it, with
+          a word on how they speak.</p></li>
+        <li><b>Glossary</b><p>Terms that must always come out the same way:
+          places, skills, titles.</p></li>
+      </ol>
+      <p>Fill them once per series. A new chapter in the same folder keeps
+      the translation setup and clears the story content, ready for the
+      next one.</p>
+    </div>
+
+    <div class="pan" id="g-ai" role="tabpanel" hidden>
+      <h3>The AI</h3>
+      <p>Pick which model reads, translates and proofreads. Cheaper models
+      are fine for reading text; the better ones earn their price on
+      translation. The pricing page has a calculator that quotes a whole
+      chapter before you spend anything.</p>
+    </div>
+  </section>
+
+  <!-- ================================================== TIPS -->
+  <section class="sect" id="t-tips" role="tabpanel" hidden>
+    <p class="eyebrow">Tips and fixes</p>
+    <h2>The things everyone asks in the first week</h2>
+
+    <div class="cols">
+      <div class="card"><h3>Stop means stop</h3>
+        <p>The Stop button cancels the page being worked on, not just the
+        pages after it, and refunds the coins for every page the run never
+        reached.</p></div>
+      <div class="card"><h3>Redo one page</h3>
+        <p>Untick every page but one in the rail and rerun a step: it runs on
+        the ticked page alone. Right-clicking a page offers the same per
+        page actions.</p></div>
+    </div>
+    <div class="cols" style="margin-top:16px">
+      <div class="card"><h3>A slow first page is the models loading</h3>
+        <p>The detector models load when you pick their card, and the bar
+        says "Loading" while they do. If every page is slow, plug the laptop
+        in and set Windows to Best performance; the app prints a line about
+        any page that took too long, with where the time went.</p></div>
+      <div class="card"><h3>The page looks wrong after cleaning</h3>
+        <p>Paint over it. The Image view has brushes, fills and a healing
+        tool that work under the typesetting, and your strokes survive
+        recleaning.</p></div>
+    </div>
+
+    <h3 style="margin-top:30px">Keyboard shortcuts</h3>
+    <table class="keys">
+      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>set the selected box's type | choose what a drawn box becomes</td></tr>
+      <tr><td><kbd>S</kbd></td><td>box select tool on and off</td></tr>
+      <tr><td><kbd>M</kbd></td><td>merge the selected boxes</td></tr>
+      <tr><td><kbd>L</kbd></td><td>link a bubble to another bubble</td></tr>
+      <tr><td><kbd>Del</kbd></td><td>remove the selected box</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>put the current tool away</td></tr>
+      <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>previous page | next page</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>undo, everywhere, including a merge</td></tr>
+    </table>
+  </section>
+</main>
+
+<footer style="max-width:1040px;margin:0 auto;padding:0 22px 40px;color:var(--mut);font-size:13px">
+  Built by one person and a very patient robot.
+</footer>
+
+<script>
+/* Tabs: click, and arrow keys once a tab has focus - the same behaviour the
+   landing page's tab strips have, one copy per page by design. */
+function wire(stripId){
+  var strip = document.getElementById(stripId);
+  if (!strip) return;
+  var tabs = [].slice.call(strip.querySelectorAll('[role=tab]'));
+  function show(t){
+    tabs.forEach(function(o){
+      var on = o === t;
+      o.setAttribute('aria-selected', on ? 'true' : 'false');
+      var p = document.getElementById(o.getAttribute('aria-controls'));
+      if (p) p.hidden = !on;
+    });
+  }
+  strip.addEventListener('click', function(e){
+    var t = e.target.closest('[role=tab]');
+    if (t) show(t);
+  });
+  strip.addEventListener('keydown', function(e){
+    var i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;
+    if (n < 0 || n >= tabs.length) return;
+    e.preventDefault(); tabs[n].focus(); show(tabs[n]);
+  });
+}
+wire('maintabs'); wire('steptabs'); wire('boxtabs'); wire('settabs');
+
+/* The theme button: same storage key as every other page, no CDN needed. */
+(function(){
+  var d = document.documentElement, b = document.getElementById('theme');
+  function paint(){
+    var dark = d.dataset.theme !== 'light';
+    b.textContent = dark ? '☼' : '☾';
+  }
+  b.addEventListener('click', function(){
+    var next = (d.dataset.theme !== 'light') ? 'light' : 'dark';
+    d.dataset.theme = next;
+    try{ localStorage.setItem('tct-theme', next); }catch(e){}
+    paint();
+  });
+  paint();
+})();
+</script>
+</html>

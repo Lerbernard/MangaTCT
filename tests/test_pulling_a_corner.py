@@ -9,15 +9,15 @@ modifier keys. Dragging a corner SCALES; holding Ctrl (Cmd) while you drag it
 puts that corner exactly where the pointer is and leaves the other three where
 they were. That second one is what was missing here, and it is what this adds.
 
-**T arms it with the corners already loose.** lee asked for Ctrl+T — *"ctrl + t
+**T arms it with the corners already loose.** lee asked for Ctrl+T - *"ctrl + t
 shoud enable the tranform tool tahat allwos met ot move all teh corners
-independntly"* — and then, told that Chrome keeps that combination for opening
+independntly"* - and then, told that Chrome keeps that combination for opening
 a tab and a page cannot take it back: *"isntead of control t just make it t"*.
 So the key is T, and scale-and-rotate keeps its place under the same toolbox
 slot for when a box should stay a box.
 
 **Images and shapes, not text.** A shape moved by the ordinary transform stays
-a shape — two points and an angle, nothing baked. Pulled out of true it cannot:
+a shape - two points and an angle, nothing baked. Pulled out of true it cannot:
 a record that holds two corners cannot hold four. So distort RASTERISES it
 first, the way Photoshop does when a vector layer is handed to a warp, and undo
 puts the shape back because the patch replaces it rather than joining it.
@@ -25,13 +25,13 @@ puts the shape back because the patch replaces it rather than joining it.
 **Freezing is the trick.** A box described by a centre, a scale and an angle
 cannot describe a quadrilateral at all, so the first Ctrl-drag writes down
 where the four corners are at that moment and from then on the corners ARE the
-transform — `xfCorners` returns them, and the handles, the hit test, the dashed
+transform - `xfCorners` returns them, and the handles, the hit test, the dashed
 outline and the warp all follow from that one line.
 
 **The warp is bilinear**, drawn as a mesh: an 8x8 grid of cells, two triangles
 each, every triangle drawn with the affine that carries its own three source
 corners onto its own three destination corners and clipped to them. Bilinear
-because that is what a free deform IS — a projective map is the other tool
+because that is what a free deform IS - a projective map is the other tool
 (Perspective), and it would move the corners you are not touching. Two
 triangles for the whole quad would draw a folded parallelogram; the error falls
 off as the square of the cell size and eight is where it stops showing.
@@ -91,7 +91,7 @@ def _serve(fn, root=scratch("_tmp_corner")):
 
 
 # ------------------------------------------------------------- the pure parts
-# Evaluated in the page, because that is where they live — a classic script
+# Evaluated in the page, because that is where they live - a classic script
 # sharing globals, with no module boundary to import across.
 
 def test_a_corner_of_the_quad_is_the_corner_of_the_quad():
@@ -144,7 +144,7 @@ def test_a_flat_triangle_has_no_matrix():
 
 def test_the_mesh_triangles_are_grown_so_the_seams_do_not_show():
     """Neighbouring cells are clipped to a shared edge, and a clip is
-    antialiased on both sides of it — so without this every seam in the mesh
+    antialiased on both sides of it - so without this every seam in the mesh
     is a pale hairline across the picture."""
     def check(pg, p):
         got = pg.evaluate("""(()=>{
@@ -160,7 +160,7 @@ def test_the_mesh_triangles_are_grown_so_the_seams_do_not_show():
 def _pick_up(pg):
     """A selection LIFTED to its own layer, with the transform armed on it.
 
-    The lift is the point: the transform moves layers, not selections — a
+    The lift is the point: the transform moves layers, not selections - a
     selection is left to fence the brush and to be copied. lee: *"teh select
     too shoud just be there and do nothing  no new image shoud be made until i
     hit copy and past"*. J is that lift, and it is what puts something on the
@@ -186,7 +186,7 @@ def _drag(pg, handle, i, to, ctrl=False):
     """Drive one drag frame at a page point.
 
     `selMove` asks `canvasPt` where the pointer is, and that reads the canvas\'s
-    own geometry — so the honest way to say "the pointer is at this page point"
+    own geometry - so the honest way to say "the pointer is at this page point"
     is to answer that question directly for the length of the call.
     """
     pg.evaluate("""([handle,i,to,ctrl])=>{
@@ -279,7 +279,7 @@ def test_the_picture_is_actually_bent(tmp_path):
 
 def test_letting_go_bakes_the_bent_picture_and_not_the_flat_one():
     """Apply draws the transform once more, for keeps, into a patch layer. It
-    has to draw the SAME thing the preview was showing — the warp — or the
+    has to draw the SAME thing the preview was showing - the warp - or the
     picture snaps back to a rectangle at the moment you commit it, which is
     the worst possible time to find out."""
     def check(pg, p):
@@ -398,7 +398,7 @@ _WARP = """([quad, wantU, wantV])=>{
 
 def test_the_middle_of_the_picture_lands_where_the_map_says():
     """A bilinear warp is not affine, so the whole quad drawn as two triangles
-    comes out a folded parallelogram — the middle of the picture ends up
+    comes out a folded parallelogram - the middle of the picture ends up
     somewhere the map never sent it. The mesh is what fixes that, and this is
     the measurement that says by how much."""
     quad = [{"x": 40, "y": 40}, {"x": 360, "y": 90},
@@ -416,7 +416,7 @@ def test_the_middle_of_the_picture_lands_where_the_map_says():
 def test_the_mesh_has_no_seams_in_it():
     """Neighbouring cells are clipped to a shared edge and a clip is
     antialiased on BOTH sides of it, so an ungrown mesh draws a pale grid over
-    the picture — part-transparent pixels with solid pixels either side."""
+    the picture - part-transparent pixels with solid pixels either side."""
     quad = [{"x": 40, "y": 40}, {"x": 360, "y": 90},
             {"x": 300, "y": 340}, {"x": 60, "y": 250}]
 
@@ -576,7 +576,7 @@ def test_only_the_armed_tool_is_lit():
     his hand: *"only one tool sjou dbeselected at once and i dont now what
     this haft selection thing is but remove it"*.
 
-    What the slot still does is CHANGE ITS ICON to the tool it is set to —
+    What the slot still does is CHANGE ITS ICON to the tool it is set to -
     that is the thing that says which one it is.
     """
     def check(pg, p):

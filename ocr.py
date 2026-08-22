@@ -24,12 +24,13 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from . import stopping as _stopping
 from .models import Page, TextRegion
 
 MIN_SHORT_SIDE = 64     # model degrades badly on tiny crops
 PAD = 4
-# Below this many inked pixels there is no shape to measure — a speck of dust,
-# the tail of a neighbour's glyph — and the box itself is the better answer.
+# Below this many inked pixels there is no shape to measure - a speck of dust,
+# the tail of a neighbour's glyph - and the box itself is the better answer.
 MIN_INK = 12
 # How far outside the ink the outline is drawn. The line is 2px thick and it
 # is drawn ON the page the reader is sent, so it must clear the glyphs.
@@ -44,8 +45,20 @@ EASY_CODES = {"ja": "ja", "ko": "ko", "zh": "ch_sim", "en": "en",
 _engines: dict = {}
 
 
+# The engines that exist. A name that is not one of these is not a choice,
+# whatever a settings file says.
+ENGINES = ("manga-ocr", "easyocr")
+
+
 def choose_engine(lang: str = "ja", engine: str = "auto") -> str:
-    if engine and engine != "auto":
+    """Which offline engine reads this language.
+
+    Anything that is not the name of a real engine means "decide for me". It
+    has to, because projects on disk carry `ocr_engine: "ai"` - the editor
+    saved that string for a menu that no longer exists, and taken literally it
+    sent Japanese pages to easyocr, which reads a manga balloon as `多つ こ 鼻`.
+    """
+    if engine and engine in ENGINES:
         return engine
     return LANG_ENGINE.get(lang, "easyocr")
 
@@ -134,7 +147,7 @@ def _pixel_owner(page: Page):
     """Assign every inked pixel to exactly ONE region.
 
     Two overlapping boxes would otherwise read the glyphs in their shared area
-    twice — the same text OCR'd and translated in both. Each pixel goes to the
+    twice - the same text OCR'd and translated in both. Each pixel goes to the
     region whose centre is nearest (among the regions that actually cover it),
     so a glyph belongs to a single bubble. Returns (owner, id->index): owner is
     an int map, -1 where no region, else the owning region's index.
@@ -168,7 +181,7 @@ def ink_outline(region: TextRegion, owner: np.ndarray | None = None,
     A box is a rectangle, and a rectangle drawn round a sound effect running
     diagonally across a panel reaches halfway into the balloon beside it. The
     reader is then shown two rectangles lying on top of one another and asked
-    which of them the words in the overlap belong to — which is not a question
+    which of them the words in the overlap belong to - which is not a question
     a picture of two rectangles can answer. lee: *"teh two boxes are
     overlapping on eacher text and messing teh readding"*.
 
@@ -180,8 +193,8 @@ def ink_outline(region: TextRegion, owner: np.ndarray | None = None,
     Upright text is unaffected: the smallest turned rectangle round a block of
     vertical columns is the block, which is the box it already had.
 
-    Comes back None when there is nothing to measure — a box drawn on blank
-    artwork, a region loaded from a project saved before masks existed — and
+    Comes back None when there is nothing to measure - a box drawn on blank
+    artwork, a region loaded from a project saved before masks existed - and
     the caller falls back to the rectangle, which is all it ever had.
     """
     m = getattr(region, "text_mask", None)
@@ -294,7 +307,7 @@ def _draw_label(vis, r, ox: int, oy: int, tag_it: bool,
                 outline: np.ndarray | None = None) -> None:
     """Outline one region on `vis`, whose top-left corner is page (ox, oy).
 
-    A tagged region is the one being asked for — red outline, red number beside
+    A tagged region is the one being asked for - red outline, red number beside
     it. An untagged one is a neighbour that merely overlaps this crop: drawn
     grey and unnumbered, so the model can see that text belongs to somebody
     else.
@@ -322,7 +335,7 @@ def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
     Each corner is nudged outwards from the shape's middle and the paper under
     it is looked at; the emptiest wins. A number printed over a glyph costs the
     reader that glyph, and it used to be printed above the top-left corner of a
-    rectangle — which, once the shape is a slanted strip, is not even near the
+    rectangle - which, once the shape is a slanted strip, is not even near the
     words it names, and on a page of overlapping boxes was frequently sitting
     on the NEIGHBOUR'S text. Ties go to the highest corner, which is where a
     label belongs when nothing else decides it.
@@ -354,7 +367,7 @@ def _encode(vis, max_side: int) -> bytes:
     ways and it never won: it does nothing at all under `page_box_crops` (a
     crop is already scaled by its own characters, so the bytes come back
     identical), and on tiles it cost +50% and produced the WORST run of the
-    four — five misreads no other run made. Upscaling adds no information; it
+    four - five misreads no other run made. Upscaling adds no information; it
     only adds patches over a glyph, and that turned out not to be what the
     reader was short of.
 
@@ -375,7 +388,7 @@ def tile_grid(H: int, W: int, max_side: int, budget: int) -> tuple[int, int]:
 
     Ideally every tile is at most `max_side` on its long edge, so nothing is
     downscaled at all. When that needs more tiles than the budget allows, drop
-    whichever axis currently has the SMALLER tile dimension — growing that one
+    whichever axis currently has the SMALLER tile dimension - growing that one
     costs the least resolution, since the other axis is what the downscale is
     measured against.
     """
@@ -398,7 +411,7 @@ def tile_rects(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
                ) -> list[tuple[tuple[int, int, int, int], list]]:
     """Where to cut the page: [((x0, y0, x1, y1), [regions])].
 
-    Kept separate from the drawing so the geometry can be checked on its own —
+    Kept separate from the drawing so the geometry can be checked on its own -
     every region must land in exactly one rect, and land in it WHOLE.
     """
     img = page.image
@@ -449,20 +462,32 @@ def tile_rects(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
 def detail_for(medium: str = "") -> str:
     """What "Reading detail" means when nobody has chosen one.
 
-    A crop per box on the webtoons, the page cut up on manga. Measured over
-    lee's chapter 1, read four ways and scored against the printed pages: the
-    crops are the only mode that got page 011's `하이엘프 티리스` and page 066's
-    `드래건` — an unfamiliar string is what a whole-page read normalises toward
-    something it knows, and a close-up is what stops it. They are also **-37%**
-    on image tokens.
+    A crop per box, on every format now. Measured twice, on two formats, and
+    the crops won both.
 
-    Manga stays on tiles. The measurement is a Korean webtoon: 690px wide,
-    thousands tall, mostly artwork, with the writing set horizontally. A manga
-    page is a different shape with vertical typesetting and furigana beside it,
-    the crops were never scored on one, and a default is not the place to
-    guess.
+    The webtoons first: lee's chapter 1, read four ways and scored against the
+    printed pages. The crops are the only mode that got page 011's
+    `하이엘프 티리스` and page 066's `드래건` - an unfamiliar string is what a
+    whole-page read normalises toward something it knows, and a close-up is
+    what stops it. They are also **-37%** on image tokens.
+
+    Manga used to stay on tiles, on the honest grounds that the crops had
+    never been scored on one. They have been now: chapter 3, 23 pages, 225
+    boxes, read at 4 pieces, at 9 pieces and as a crop per box, each scored
+    against manga-ocr - which reads the pixels inside one box and therefore
+    cannot put an answer under the wrong number.
+
+        4 pieces   83% of the dialogue agreed, 16 boxes MISFILED, 7 pages
+        9 pieces   83% agreed, 20 misfiled, 9 pages
+        zoomed     96% agreed, 2 misfiled - and both of those are two boxes
+                   that really do hold the same words
+
+    Cutting the page FINER made it worse, which is the tell: the mistake is
+    not resolution, it is matching what was read to numbers drawn on a page.
+    A crop per box has one box in it and nothing to match. It is also the
+    cheaper mode, so there is nothing left on the other side of the scale.
     """
-    return "boxes" if str(medium or "").lower() in ("manhwa", "manhua") else "auto"
+    return "boxes"
 
 
 def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
@@ -474,7 +499,7 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
     Cutting the page into a grid first means each piece arrives at something
     close to its native resolution.
 
-    Every region is assigned to exactly ONE tile — the one its centre falls in —
+    Every region is assigned to exactly ONE tile - the one its centre falls in -
     so nothing is read twice. The tile is then GROWN to contain each of its
     regions whole, so a box straddling a grid line is never cut in half; the
     grid is only a way of dividing up the work, not a hard crop.
@@ -507,7 +532,7 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
                           (0, 0, 255) if r.id in ids else (168, 168, 168), 2)
         # The WORDS go back in front of the lines. Two boxes that sit beside
         # each other have a border between them, and it lands on whichever of
-        # them is nearer — on lee's panel, box 12's edge fell across 悪, which
+        # them is nearer - on lee's panel, box 12's edge fell across 悪, which
         # came back 悪魔 on one run and 聖女 on the next. A box is an
         # annotation; the glyph underneath it is the only thing on the page
         # that is being asked about, and nothing gets to cover it.
@@ -612,6 +637,20 @@ def page_box_crops(page: Page, glyph_px: int = BOX_GLYPH,
             cv2.polylines(vis, [_outset(_shape(q, x0, y0, shapes.get(q.id)))],
                           True,
                           (0, 0, 255) if q.id == r.id else (168, 168, 168), 2)
+        # EVERY OWNED PIXEL GOES BACK, whoever owns it.
+        #
+        # Blanking the neighbour's ink was tried here for exactly one run.
+        # `_pixel_owner` splits a SHARED glyph between two boxes by whichever
+        # centre is nearer, which is right when two rectangles overlap and
+        # their writing does not - and butchers the case it was tried for,
+        # where both boxes sit on the same column of text: half of each
+        # character was erased in each crop and both boxes came back holding
+        # a mangled line. The before/after is in the session notes.
+        #
+        # The reason this line is here in the first place stands: a box is an
+        # annotation, the glyph underneath is the only thing being asked
+        # about, and nothing gets to cover it. Reading one line into two boxes
+        # is answered in the PROMPT instead - see `build_ocr_system`.
         keep = owner[y0:y1, x0:x1] >= 0
         if keep.any():
             vis[keep] = img[y0:y1, x0:x1][keep]
@@ -642,8 +681,8 @@ def only_symbols(text: str) -> bool:
     """Is there no WRITING in this, only marks?
 
     lee: *"auto emove boxes taht are only symbol like ! or ....... etc"*. The
-    reader finds plenty of these — a lone `!`, a row of dots trailing off, a
-    `?!`, a heart — because the detector found ink there and ink is what it
+    reader finds plenty of these - a lone `!`, a row of dots trailing off, a
+    `?!`, a heart - because the detector found ink there and ink is what it
     was looking for. There is nothing to translate in any of them, and every
     one costs a line of the translator's attention and a box on the page.
 
@@ -651,12 +690,12 @@ def only_symbols(text: str) -> bool:
     typed out. A hand-written class is a list of the marks whoever wrote it
     happened to think of: the old one here had `…` and `・` and missed `♡`,
     `★`, `※` and every full-width bracket. A character counts as WRITING when
-    Unicode calls it a letter or a number — which is every script at once,
+    Unicode calls it a letter or a number - which is every script at once,
     Hangul and kana and Cyrillic included, with no list to keep up to date.
 
     Two deliberate exclusions from "letter":
 
-    * Modifier letters (`Lm`) — `ー`, `々`, `ゝ`. Unicode calls them letters
+    * Modifier letters (`Lm`) - `ー`, `々`, `ゝ`. Unicode calls them letters
       and inside a word they are, but a box holding nothing BUT them is a
       stretched sound, not a word. `ラーメン` still reads as writing; `ーー`
       does not.
@@ -682,8 +721,8 @@ def looks_like_garbage(text: str, region: TextRegion) -> str | None:
 
     Tuned for the vision reader, which reads the whole page at once (it does not
     "run away" like a per-crop decoder) and returns text with \\n line breaks.
-    So length is measured on VISIBLE characters only — line breaks must not
-    count — and the size test is deliberately loose: it exists only to catch a
+    So length is measured on VISIBLE characters only - line breaks must not
+    count - and the size test is deliberately loose: it exists only to catch a
     true runaway, never to second-guess a dense small-font bubble the model
     read correctly."""
     t = text.strip()
@@ -693,8 +732,8 @@ def looks_like_garbage(text: str, region: TextRegion) -> str | None:
     if not visible:
         return "ocr: empty"
     # The same question the "delete symbol-only boxes" switch asks, asked once
-    # and in one place. This one only FLAGS — the switch is what removes the
-    # box — so with the switch off a `!!` still arrives marked for review
+    # and in one place. This one only FLAGS - the switch is what removes the
+    # box - so with the switch off a `!!` still arrives marked for review
     # rather than sliding into the translation unremarked.
     if only_symbols(visible):
         return "ocr: punctuation only"
@@ -709,18 +748,34 @@ def looks_like_garbage(text: str, region: TextRegion) -> str | None:
 
 
 def ocr_page(page: Page, engine=None, lang: str = "ja",
-             engine_name: str = "auto") -> None:
+             engine_name: str = "auto", relabel: bool = False) -> None:
+    """Read every region on the page, and -- if asked -- say what each one IS.
+
+    `relabel` is the reordered pipeline. See `readkinds`: the label costs
+    nothing here because every region is read anyway, sound effects included,
+    and the alternative is a second neural net whose whole job is that one
+    question. Off by default and never on for a format it was not measured
+    on; `Project` decides.
+    """
     engine = engine or get_engine(lang, engine_name)
     try:
         owner, idx_of = _pixel_owner(page)   # so overlaps aren't read twice
     except Exception:
         owner, idx_of = None, {}
     for r in page.regions:
+        # Stop means stop. One check per REGION -- see `stopping` for why the
+        # checkpoint is here and not inside the engine call.
+        _stopping.check()
         # Somebody's own text box stands for no writing in the artwork. There
         # is nothing under it to read, and reading it anyway hands the
         # translator a crop of bare art and whatever the engine hallucinates
         # from it.
         if getattr(r, "own_text", False):
+            continue
+        # ...and a hand-corrected, LOCKED line is never overwritten by a
+        # re-read. The same rule the editor's AI path has always kept; it
+        # belongs here so that both readers keep it, rather than one of them.
+        if getattr(r, "locked", False) and (r.src_text or "").strip():
             continue
         img = prepare_crop(page.image, r, owner, idx_of.get(r.id, -1))
         try:
@@ -733,3 +788,13 @@ def ocr_page(page: Page, engine=None, lang: str = "ja",
         if bad:
             r.ocr_ok = False
             r.flagged = bad
+
+    # ...AND NOW EVERY BOX HAS BEEN READ, SO EVERY BOX CAN BE NAMED.
+    #
+    # Done here rather than in the detector because this is the first moment
+    # the evidence exists. Done AFTER the garbage check on purpose: a region
+    # the reader returned nothing usable for is one `looks_like_a_sound`
+    # should see as empty, which is the honest answer for a brush stroke.
+    if relabel:
+        from . import readkinds
+        readkinds.relabel(page.regions)

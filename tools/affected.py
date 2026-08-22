@@ -11,7 +11,7 @@ gets tested and then maybe at the end of the day you do a full test"*.
 The picking is deliberately generous. A test file is taken to cover a changed
 source file if it names the file, imports its module, or mentions any function,
 class or CSS selector whose definition line the change touched. When in doubt
-it is IN — a run that includes a few tests it needn't have costs seconds, and
+it is IN - a run that includes a few tests it needn't have costs seconds, and
 one that misses the test that would have caught the bug costs the afternoon.
 
 **This is not a substitute for the full run.** It is what to do in the minute

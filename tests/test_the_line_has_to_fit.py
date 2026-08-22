@@ -3,7 +3,7 @@
 **The lines were long.** Median English came back at 2.5x the Korean by
 character count, and page 006 at 2.6x: 110 characters of English in a bubble
 that held 42 of Korean. That is not a wrong translation, it is six-point type
-— the fitter has to put it somewhere. The request already carried
+- the fitter has to put it somewhere. The request already carried
 `src_char_count` per region and nothing told the model what to do with it.
 
 **Two em dashes** that the prompt forbids in as many words, both from Korean
@@ -76,7 +76,7 @@ def test_a_line_whose_source_has_a_dash_keeps_all_of_them():
 
 
 def test_a_lone_long_vowel_mark_is_not_the_page_reaching_for_a_dash():
-    """One ー is the ordinary long-vowel mark and turns up in normal words —
+    """One ー is the ordinary long-vowel mark and turns up in normal words -
     see `source_has_dash`. It must not buy the line an exemption."""
     assert T.strip_added_dashes("the Archmage—and Lord of Rainsword",
                                 "불멸의 대마법사이자ー") \

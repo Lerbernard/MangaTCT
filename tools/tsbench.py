@@ -1,8 +1,8 @@
-"""Typesetting bench — draw a sheet of bubbles and typeset them.
+"""Typesetting bench - draw a sheet of bubbles and typeset them.
 
 Not a test: an eyeball. Run it, open the PNG, and judge the typesetting the way
-a reader would. Every bubble here is a shape that shows up on a real page —
-tall ovals, wide ovals, near-circles, rectangles, tailed bubbles — paired with
+a reader would. Every bubble here is a shape that shows up on a real page -
+tall ovals, wide ovals, near-circles, rectangles, tailed bubbles - paired with
 a line of dialogue whose length is awkward for that shape.
 
     python3 tools/tsbench.py [out.png]
@@ -19,7 +19,7 @@ sys.path.insert(0, ".")
 from mangatl import render, typeset                       # noqa: E402
 from mangatl.models import Page, TextRegion               # noqa: E402
 
-# (w, h, text) — the shape of the bubble and what has to go in it.
+# (w, h, text) - the shape of the bubble and what has to go in it.
 CASES = [
     (150, 150, "WAIT."),
     (150, 150, "I DON'T UNDERSTAND."),

@@ -4,8 +4,8 @@ lee: *"make an account systme with isgn in and sign up and allow the user to
 secelt their usernam that need to be unique, do in with firebase ... and make
 te coisn be srored on teh firebase database"*.
 
-This is the editor's half of that. The other half is `firebase/` — the rules,
-the Cloud Functions and the Stripe webhook — and the split between them is the
+This is the editor's half of that. The other half is `firebase/` - the rules,
+the Cloud Functions and the Stripe webhook - and the split between them is the
 whole design:
 
 **The editor never writes a balance.** It runs on the customer's machine, so
@@ -21,7 +21,7 @@ lasts an hour and is fetched again when it does not.
 ## Where the keys come from
 
 Nothing in here is a secret. A Firebase web API key is an identifier, not a
-password — it says which project, and the rules say what may be done. So it can
+password - it says which project, and the rules say what may be done. So it can
 sit in a file in the repository, and it does: `site/config.js`, the one file
 that gets filled in, read by the website and by this.
 
@@ -30,7 +30,7 @@ that gets filled in, read by the website and by this.
     site/config.js                              the repository's own
 
 With none of them set, `configured()` is False and the editor keeps its local
-purse — which is what a fresh clone with no Firebase project should do.
+purse - which is what a fresh clone with no Firebase project should do.
 """
 from __future__ import annotations
 
@@ -198,7 +198,7 @@ def _write(d: dict) -> None:
 
 
 def sign_out() -> None:
-    """Forget the tokens. Nothing is revoked — signing out of this machine is
+    """Forget the tokens. Nothing is revoked - signing out of this machine is
     not signing out of the account."""
     with _LOCK:
         _write({})
@@ -355,7 +355,7 @@ def sign_up(email: str, password: str, username: str = "") -> dict:
 
     The name is claimed AFTER the account exists, because claiming it needs an
     ID token and there is no token until there is an account. If the name turns
-    out to be taken, the account is still made and still signed in — losing a
+    out to be taken, the account is still made and still signed in - losing a
     working account over a name somebody else already had would be the wrong
     way round, and the name can be set on the account page.
     """
@@ -456,7 +456,7 @@ def spend(coins: int, what: str = "ai", page: str = "", run: str = "") -> int:
 
 def refund(coins: int, run: str) -> int:
     """Give back part of a run that did not happen. Never more than that run
-    took — the function checks, because this one is asked by the client."""
+    took - the function checks, because this one is asked by the client."""
     coins = int(coins or 0)
     if coins <= 0 or not run:
         return 0
@@ -473,7 +473,7 @@ def state() -> dict:
 
     The balance goes through `balance()`, so a payment made on the website
     turns up in the editor within `FRESH_FOR` seconds without anybody pressing
-    anything — and a page turn in between costs no request at all, because
+    anything - and a page turn in between costs no request at all, because
     that is what the cache is for.
     """
     d = _read()
@@ -488,7 +488,7 @@ def state() -> dict:
 # ------------------------------------------------------------- from the shell
 
 def _main(argv=None) -> int:
-    """`python -m mangatl.account` — sign this machine in, and see who it is.
+    """`python -m mangatl.account` - sign this machine in, and see who it is.
 
         python -m mangatl.account                    who am I
         python -m mangatl.account signup you@x.com   make an account

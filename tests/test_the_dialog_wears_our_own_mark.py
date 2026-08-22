@@ -10,7 +10,7 @@ So the mark is drawn out to a PNG and a Windows `.ico` beside the SVG the
 editor inlines (`tools/make_icon.py`), and the dialog wears it.
 
 The drawing is not allowed to matter: a missing file, a Tk too old to read a
-PNG, a platform that ignores one of the two calls — the dialog is the point.
+PNG, a platform that ignores one of the two calls - the dialog is the point.
 """
 import os
 

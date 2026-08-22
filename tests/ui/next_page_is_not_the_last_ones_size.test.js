@@ -16,7 +16,7 @@
    and lags behind it: while the next picture is still on the wire it still
    reports the LAST page's size. So every fit computed in that window is a fit
    for the page you just left, and on a shorter page the stage stays as tall as
-   the old one — which puts the middle of the scroll range below the picture,
+   the old one - which puts the middle of the scroll range below the picture,
    and the picture at the top.
 
    Worse, and invisible: `applyZoom` took the width from the element and then

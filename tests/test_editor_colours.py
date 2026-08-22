@@ -1,7 +1,7 @@
 """The editor typesets in the same colours the export does.
 
 lee kept sending back the same picture: white Japanese on a black panel,
-replaced by English that came out black with a hairline white halo — unreadable
+replaced by English that came out black with a hairline white halo - unreadable
 on the artwork it was standing on. The exported page was always right, which is
 what made it confusing.
 
@@ -9,13 +9,13 @@ The exporter looks at the page every time it draws, so it can decide the
 colours afresh. The browser cannot: it has no page, only the record the server
 sends it, and it typesets from `layout.fg` / `layout.edge` / `layout.stroke`.
 Nothing was writing those. `render.assign_colours` existed but was called from
-nowhere, so every layout kept the dataclass defaults — black on white, stroke 1
-— no matter what it was drawn over.
+nowhere, so every layout kept the dataclass defaults - black on white, stroke 1
+- no matter what it was drawn over.
 
 So these pin the whole chain: laying a page out records the colours, the
 recorded colours agree with what the exporter works out live, they survive the
 trip through a saved record, and a normal white balloon is still black on
-white — a fix that turned every bubble white would be worse than the bug.
+white - a fix that turned every bubble white would be worse than the bug.
 """
 import numpy as np
 import pytest
@@ -146,7 +146,7 @@ def test_the_lit_label_is_not_left_to_cleartype():
 
     That is ClearType. Windows fakes a third of a pixel of horizontal
     resolution by lighting the red, green and blue subpixels of a pixel by
-    different amounts — invisible on black-on-white, and on DARK TEXT OVER A
+    different amounts - invisible on black-on-white, and on DARK TEXT OVER A
     SATURATED YELLOW the fringes have nothing to blend into, so the label
     picks up a colour it was never given. Every lit control here is that
     combination: the view switch, the open tab, every `.pri` button.
@@ -193,7 +193,7 @@ def test_the_unlit_view_label_is_readable():
 
 def test_the_name_is_one_word():
     """lee: *"remve teh gap between mangatctc"*. `.brand` is a flex row with a
-    gap, and a flex gap falls between EVERY child — so the space meant to sit
+    gap, and a flex gap falls between EVERY child - so the space meant to sit
     between the mark and the name also sat inside the name."""
     import re
     from pathlib import Path

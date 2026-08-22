@@ -3,17 +3,17 @@
 lee: *"the website need to fully work the same on chrome and on firefox"*.
 
 Only Chromium is installed here, so the browser-by-browser half of this cannot
-be run — what CAN be checked, and is checked below, is that the app never
+be run - what CAN be checked, and is checked below, is that the app never
 relies on one browser's mechanism without providing the other's. Every place
 the two engines diverge is a place this app has already been bitten:
 
-* the number spinner — Chromium's can be painted, Firefox's cannot be touched,
+* the number spinner - Chromium's can be painted, Firefox's cannot be touched,
   so both are switched off and one is built out of buttons
-* the range slider — `::-webkit-slider-thumb` and `::-moz-range-thumb` are
+* the range slider - `::-webkit-slider-thumb` and `::-moz-range-thumb` are
   different pseudo-elements and neither browser understands the other's
-* the scrollbar — Firefox takes two properties, Chromium a set of
+* the scrollbar - Firefox takes two properties, Chromium a set of
   pseudo-elements, and with neither given each drew its own pale native bar
-* a `change` event on a focused element that gets removed — Chromium fires it,
+* a `change` event on a focused element that gets removed - Chromium fires it,
   Firefox does not
 
 A rule the CSS depends on: **a selector list containing one selector the
@@ -68,7 +68,7 @@ def test_the_slider_track_is_drawn_for_both():
 def test_the_scrollbars_are_described_for_both():
     flat = CSS.replace(" ", "")
     # Chromium: pseudo-elements. Track, corner and the stepper arrows matter as
-    # much as the thumb — leave any of them out and a pale native part shows.
+    # much as the thumb - leave any of them out and a pale native part shows.
     for part in ("::-webkit-scrollbar{", "::-webkit-scrollbar-thumb{",
                  "::-webkit-scrollbar-track{", "::-webkit-scrollbar-corner{",
                  "::-webkit-scrollbar-button{"):
@@ -80,7 +80,7 @@ def test_the_scrollbars_are_described_for_both():
 
 def test_the_two_scrollbar_mechanisms_are_never_given_to_the_same_browser():
     """They are not additive, they FIGHT. From Chromium 121 the standard
-    `scrollbar-color` wins and the whole `::-webkit-scrollbar` set is dropped —
+    `scrollbar-color` wins and the whole `::-webkit-scrollbar` set is dropped -
     so giving both to everybody is exactly what put the pale native bar back in
     Chrome. Firefox's half has to be fenced behind a test for the thing only
     Chromium has.
@@ -121,7 +121,7 @@ def test_nothing_reaches_for_a_chromium_only_javascript_api():
 
 def test_requestanimationframe_is_never_assumed():
     """The UI tests run in jsdom, which has no rAF, and a bare call there
-    throws — inside a MutationObserver callback nothing catches it, so the
+    throws - inside a MutationObserver callback nothing catches it, so the
     console fills and whatever came after the call never happens.
 
     There is one guarded helper, `soon`, in core.js. Everything else uses it.
@@ -144,7 +144,7 @@ def test_a_field_is_never_trusted_to_report_itself_on_removal():
     """The divergence that has cost this app the most: Firefox does not fire
     `change` on an element removed while it still has focus, and Chromium does.
     Both lists in the panel are rebuilt constantly, so nothing may depend on
-    that event — there is a flush before every rebuild instead."""
+    that event - there is a flush before every rebuild instead."""
     panels = (JS_DIR / "panels.js").read_text("utf8")
     assert "flushTypesetEdit()" in panels, "the typesetting panel has no flush"
     # renderList flushes the list, renderInspector flushes the typesetting
@@ -156,7 +156,7 @@ def test_a_field_is_never_trusted_to_report_itself_on_removal():
 
 def test_the_stepper_does_not_depend_on_one_release_event():
     """A repeat that only stops on `mouseup` runs for ever if that one event is
-    missed — the pointer leaving the window, a context menu, the tab being
+    missed - the pointer leaving the window, a context menu, the tab being
     switched. Every browser loses a different one of those."""
     src = (JS_DIR / "project-io.js").read_text("utf8")
     for ev in ("mouseup", "pointerup", "pointercancel", "blur",
@@ -166,14 +166,14 @@ def test_the_stepper_does_not_depend_on_one_release_event():
 
 
 def test_the_release_is_listened_for_in_the_capture_phase():
-    """This is the whole bug, and it is not browser-specific — it just bit in
+    """This is the whole bug, and it is not browser-specific - it just bit in
     Chrome first.
 
     The paint tools and the frame handles call `stopPropagation()` on the way
     up, so a `mouseup` listener on `window` in the BUBBLE phase never runs when
     the pointer is anywhere near the page. The stepper's repeat is stopped by
     that listener. Miss it once and the repeat runs for ever, saving on every
-    step, and the app stops answering — lee: *"the page is froxoen and teh
+    step, and the app stops answering - lee: *"the page is froxoen and teh
     image is not chnaging"*.
 
     Capture runs first and cannot be cancelled by anything downstream.

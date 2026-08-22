@@ -1,8 +1,8 @@
 """Where the page actually sits in the workspace.
 
 lee, on the framing for the fourth time: *"try to fi the issue of teh image not
-being centered"*. Nothing in the suite measured this — `test_centred_pages.py`
-is about the Settings and Results cards, not the canvas — so the first thing
+being centered"*. Nothing in the suite measured this - `test_centred_pages.py`
+is about the Settings and Results cards, not the canvas - so the first thing
 was to ask the browser where the page is, in every state it can be in:
 
     first paint (tall page)     L  406 R  407 | T   14 B   14
@@ -22,7 +22,7 @@ than the picture, so centring the stage scrolled the picture off the top.
 
 These tests are the measurement, kept. They drive a real browser and ask where
 the picture ended up, because that is the only thing that answers the question
-— a stylesheet can say `centre` and lose.
+- a stylesheet can say `centre` and lose.
 """
 import shutil
 import threading
@@ -121,7 +121,7 @@ def test_and_back_to_a_taller_one():
 
 def test_two_pages_of_the_same_height_are_both_centred():
     """A control. If the fixture were centred whatever happened, the test above
-    would pass on the broken code too — it did not, but this says so."""
+    would pass on the broken code too - it did not, but this says so."""
     def go(pg):
         _centred(pg, "first")
         pg.evaluate("showPage(1)")
@@ -132,7 +132,7 @@ def test_two_pages_of_the_same_height_are_both_centred():
 
 def test_a_page_bigger_than_the_pane_is_centred_on_its_middle():
     """Zoomed past the window, "centred" means the middle of the page is in
-    front of you and the overhang is equal on both sides — which is a scroll
+    front of you and the overhang is equal on both sides - which is a scroll
     position, not a margin."""
     def go(pg):
         pg.evaluate("showPage(1)")

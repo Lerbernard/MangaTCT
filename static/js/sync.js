@@ -1,4 +1,4 @@
-/* sync.js — Brush cursor + tool sliders; serialize/load paint layers and debounced sync to the server; plate upload.
+/* sync.js - Brush cursor + tool sliders; serialize/load paint layers and debounced sync to the server; plate upload.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -62,8 +62,8 @@ function loadLayers(list){
     // Rewrite the saved overlay once from the full, decoded stack.
     //
     // A page painted before this was fixed can be carrying an overlay that is
-    // missing layers — written from a replay that ran a moment too early, or
-    // with a family folded away — and nothing on screen says so, because the
+    // missing layers - written from a replay that ran a moment too early, or
+    // with a family folded away - and nothing on screen says so, because the
     // screen is drawn from the editable layers and the plate is drawn from
     // the overlay. Opening the page puts it right, so the pages lee has
     // already worked on repair themselves rather than needing painting again.
@@ -84,7 +84,7 @@ function queueSync(){
 }
 /* Decode one layer's picture, and hand back a promise for it.
 
-   The layer's own `onload` already fills the same field — this does not
+   The layer's own `onload` already fills the same field - this does not
    replace it, it waits for it. A second decode of a data URL the browser is
    already decoding is cheap, and whichever finishes first wins. */
 function _decodeInto(st, src, dst){
@@ -99,7 +99,7 @@ function _decodeInto(st, src, dst){
 
    A patch is a PNG and an eraser's fence is a PNG, and a browser decodes
    those asynchronously. A replay that runs before one has landed draws one
-   layer fewer — harmless on screen, where the decode fires another repaint,
+   layer fewer - harmless on screen, where the decode fires another repaint,
    and permanent in the SAVE, which is the picture the cleaned plate and the
    exported page are built from. So the save waits. */
 async function layersReady(){
@@ -115,7 +115,7 @@ async function layersReady(){
 async function syncPaint(){
   clearTimeout(syncTimer);
   const prev=syncInflight;
-  // Nothing new to send, but a save may still be on the wire — anyone
+  // Nothing new to send, but a save may still be on the wire - anyone
   // awaiting a flush must wait for THAT, or a tab/page switch reads the
   // server before the strokes arrive and "loses" them.
   if(!paintDirty) return prev;
@@ -132,7 +132,7 @@ async function syncPaint(){
   // decodes at all, and a save that waits for it for ever is far worse than
   // one that goes without it: every stroke made after it would be lost, with
   // nothing on screen saying so. Something undrawable is not going to appear
-  // in the overlay whatever happens — after three goes, save the rest.
+  // in the overlay whatever happens - after three goes, save the rest.
   if(typeof replayIncomplete!=='undefined' && replayIncomplete
      && (syncPaint._tries||0) < 3){
     syncPaint._tries=(syncPaint._tries||0)+1;
@@ -141,7 +141,7 @@ async function syncPaint(){
   }
   syncPaint._tries=0;
   const L=layersBuf();
-  // The layers the PAGE has — the same set `repaintAll` just drew into the
+  // The layers the PAGE has - the same set `repaintAll` just drew into the
   // buffers. It used to be a different set from the one that filled them
   // (this one ignores the family master eyes, that one honoured them), so the
   // two disagreed about whether there was anything to send.
@@ -176,7 +176,7 @@ async function uploadPlate(file){
   record('plate', `Page ${cur+1}: your own cleaned file is now used`,
     async ()=>{ await api(`/api/page/${cur}/clean_plate`,'POST',{clear:true});
                 proj.pages[cur].custom_clean=false; showPage(cur); });
-  toast('This page now uses your cleaned file — Clean will skip it.');
+  toast('This page now uses your cleaned file - Clean will skip it.');
   showPage(cur);
   if(typeof renderSteps==='function') renderSteps();
 }

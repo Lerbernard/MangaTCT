@@ -6,7 +6,7 @@ the text size is bellow the miimum"*.
 The box round a piece of outside text is where the JAPANESE ink was, and
 Japanese runs down the page in a narrow column. The English runs across. So on
 a line of free text the box is routinely the wrong SHAPE rather than the wrong
-size, and squeezing English into it means 8pt type on a 1365px page — which is
+size, and squeezing English into it means 8pt type on a 1365px page - which is
 not typesetting, it is a footnote. There is no balloon under those words either:
 they sit on artwork, where a typesetter sets them at a readable size and lets
 them cover the drawing.
@@ -41,7 +41,7 @@ def _cfg(**kw):
 
 
 def _column(kind, text=LONG, box=(150, 150, 60, 100), page=(400, 400)):
-    """One region in a tall narrow box — the shape a Japanese column leaves."""
+    """One region in a tall narrow box - the shape a Japanese column leaves."""
     x, y, w, h = box
     m = np.zeros(page, np.uint8)
     cv2.rectangle(m, (x, y), (x + w, y + h), 255, -1)
@@ -92,7 +92,7 @@ def test_the_spill_is_shared_between_both_sides():
 
 
 def test_a_line_that_fits_is_left_alone():
-    """The spill is a last resort, not the normal path — an ordinary line of
+    """The spill is a last resort, not the normal path - an ordinary line of
     outside text is fitted the way it always was, and is not marked."""
     _r, lay = _fit("freefloat", text="OK")
     assert lay.spills is False
@@ -118,7 +118,7 @@ def test_an_effect_that_fits_its_own_footprint_is_not_marked():
 
 
 def test_the_clamp_still_shrinks_an_effect_that_can_afford_it():
-    """`clamp_to_box` is not switched off — it stops at the minimum. An effect
+    """`clamp_to_box` is not switched off - it stops at the minimum. An effect
     with room above that floor is still brought back towards its box."""
     from mangatl.typeset import clamp_to_box
     r = TextRegion(id=1, kind="sfx", bbox=(0, 0, 120, 60), dst_text="BOOM")
@@ -152,8 +152,8 @@ def test_speech_still_shrinks_rather_than_leaving_the_balloon():
 
 
 def test_a_narration_box_counts_as_speech():
-    """`narration` is a sub-type of the bubble family — it is a box on paper,
-    not words on art — so it keeps the balloon's rule."""
+    """`narration` is a sub-type of the bubble family - it is a box on paper,
+    not words on art - so it keeps the balloon's rule."""
     r, lay = _fit("narration")
     assert lay.spills is False
     assert lay.font_size < _cfg().min_font
@@ -228,7 +228,7 @@ def test_the_frame_travels_with_the_lines():
 def test_the_containment_pass_leaves_a_spilling_block_alone():
     """`enforce_bounds` clamps every line's ORIGIN into the region's own mask.
     Run over a block that is bigger than the region on purpose it stacks all
-    fourteen lines on the one row that fits — measured, origins
+    fourteen lines on the one row that fits - measured, origins
     (26,92),(26,106),(26,121)… become (26,146),(26,146),(26,146)…
 
     Asked of the clamp directly rather than through `typeset_page`, because
@@ -283,7 +283,7 @@ def test_speech_is_still_contained():
 
 def test_a_spilling_block_is_not_dragged_back_over_its_own_box():
     """`pull_to_box` carries a block that SHARES a balloon back over the box it
-    belongs to — the fix for lee's *"the typesetting shoud not be putting text
+    belongs to - the fix for lee's *"the typesetting shoud not be putting text
     across 2 boxes"*. That is right for two speeches in one balloon and wrong
     for a block that is deliberately bigger than its box: dragging it back is
     the spill being undone one step after it was made.
@@ -340,7 +340,7 @@ def test_the_export_draws_the_part_that_hangs_out_of_the_box():
     """The last place a spill can be undone, and the worst: `render_page`
     clips each block's layer to the region's own mask, so a block that leaves
     its box came out with the first and last letter of every line sliced off
-    — on the exported page, after everything upstream had got it right.
+    - on the exported page, after everything upstream had got it right.
     Caught on a real page, where OF COURSE printed as :OURSE.
     """
     from mangatl import render
@@ -382,7 +382,7 @@ def test_speech_is_still_cut_to_its_balloon_when_it_is_drawn():
     lay = page.regions[0].layout
     assert not lay.spills
     # Pushed out by hand. The fitter tries hard never to overflow a balloon,
-    # so a layout it produced cannot show whether the clip still works — this
+    # so a layout it produced cannot show whether the clip still works - this
     # is the guarantee BEHIND the fitter, and the only way to ask for it is to
     # hand it something that overflows.
     lay.line_origins = [(20, y) for _x, y in lay.line_origins]
@@ -444,7 +444,7 @@ def test_the_dash_stays_on_the_line_it_ends():
 def test_a_piece_that_fits_beside_its_neighbour_is_not_split_off():
     """The pieces are handed to the wrap spaced apart so it MAY break between
     them. Two that end up on one line are one word again and must be drawn as
-    one — VILLAINESS- IN- with a space in it is not a word anybody wrote.
+    one - VILLAINESS- IN- with a space in it is not a word anybody wrote.
 
     A box wide enough for most of the line but too short for two of them, so
     the spill runs and still has to fit pieces together."""
@@ -496,7 +496,7 @@ def test_a_sound_effect_is_never_set_off_the_edge_of_the_page():
     never be set outside of the page like this"*.
 
     Sliding a block back onto the paper only ever ran on layouts marked as
-    LEAVING their box, and a sound effect is never marked that way — the clamp
+    LEAVING their box, and a sound effect is never marked that way - the clamp
     is its authority, and the clamp is measured against the effect's own
     footprint, not against the page. So nothing at all was keeping one on."""
     page = _sfx_at(258, 20)
@@ -571,15 +571,15 @@ def _without_narrowing(r, m):
 
 def test_a_tall_narrow_balloon_gets_more_lines_rather_than_smaller_type():
     """lee: *"if the text is going out of the text bot it shoud make teh with
-    smaller if posible"*. A narrower line IS more lines — the line count is
-    what decides how wide a line may be — and the cap on it was taste, which
+    smaller if posible"*. A narrower line IS more lines - the line count is
+    what decides how wide a line may be - and the cap on it was taste, which
     is not worth typesetting over somebody's drawing for."""
     r, m = _lobe(70, 470)
     was, was_flag = _without_narrowing(r, m)
     r.flagged = None
     now = fit_region(r, _cfg(), mask=m)
 
-    # Without it the block came out of `_plain_fit` — a wrap into the bounding
+    # Without it the block came out of `_plain_fit` - a wrap into the bounding
     # RECTANGLE, which says so by reporting `fit_ok=False`; the corners of a
     # rectangle drawn round a balloon are outside the balloon, which is the
     # overflow lee was looking at.
@@ -605,7 +605,7 @@ def test_the_whole_translation_still_goes_in():
 
 def test_a_balloon_that_typesets_normally_is_untouched():
     """It is reached only after the ordinary fit and the author's own breaks
-    have both failed, so a chapter that typesets normally never comes near it —
+    have both failed, so a chapter that typesets normally never comes near it -
     and a nine-line balloon does not start appearing where a four-line one
     used to."""
     r, m = _lobe(240, 240, text="HELLO THERE, WHAT A DAY")
@@ -630,7 +630,7 @@ def test_the_narrower_fit_never_takes_the_spill_s_turn():
     the rule this file exists for.
 
     A box round free text is where the JAPANESE ink was, and Japanese runs
-    down the page in a narrow column — so there is nearly always a way to cram
+    down the page in a narrow column - so there is nearly always a way to cram
     English into one by stacking a word per line, and the narrower fit finds
     it. That is not typesetting, it is a tower. Put it in front of the spill and
     every piece of outside text on a page becomes one."""

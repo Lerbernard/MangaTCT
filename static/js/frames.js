@@ -1,4 +1,4 @@
-/* frames.js — showPage() orchestration, region boxes, drag/resize frames with live local re-wrap of text.
+/* frames.js - showPage() orchestration, region boxes, drag/resize frames with live local re-wrap of text.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -9,7 +9,7 @@
 let pageTicket=0;
 
 /* The cache keys the server hands out, remembered per page so anything that
-   builds an image URL outside showPage — the reference pane, the prefetcher —
+   builds an image URL outside showPage - the reference pane, the prefetcher -
    asks for the copy the browser already has instead of a fresh download. */
 var scanKey={}, vKey={};
 
@@ -18,7 +18,7 @@ var scanKey={}, vKey={};
    browser keeps the old picture painted until the new file has downloaded and
    DECODED, and both of those were happening after the click. So every picture
    now goes through here. `preloadImage` starts the download and holds the
-   Image object alive, which is what keeps the decoded bitmap in memory — a
+   Image object alive, which is what keeps the decoded bitmap in memory - a
    bare `new Image()` that goes out of scope leaves only the compressed bytes
    in the HTTP cache and the decode has to happen again. `readyImage` waits
    for the decode to finish, off screen, so that the assignment which follows
@@ -39,7 +39,7 @@ function preloadImage(url){
   }
   return p;
 }
-/* Resolves when the picture is decoded and ready to paint — or after the
+/* Resolves when the picture is decoded and ready to paint - or after the
    guard, because a slow or missing file must never leave you looking at the
    previous page with nothing happening. */
 function readyImage(url, guard){
@@ -58,7 +58,7 @@ function readyImage(url, guard){
     new Promise(res=>setTimeout(res, guard||4000))]);
 }
 /* The URL of a page in the view currently on screen. One definition, used by
-   showPage, the prefetcher and the reference pane alike — they were three
+   showPage, the prefetcher and the reference pane alike - they were three
    copies of the same string-building and they drifted, so a prefetch warmed a
    URL the swap then did not ask for. */
 function pageUrl(i, mode){
@@ -71,14 +71,14 @@ function pageUrl(i, mode){
 }
 
 async function showPage(i){
-  // Any pending stroke changes belong to the page being left — save them
+  // Any pending stroke changes belong to the page being left - save them
   // before switching. Nothing painted is ever thrown away by moving around.
   await syncPaint();
   const ticket=++pageTicket;
   const stamp=(typeof editStamp!=='undefined') ? editStamp : 0;
   closeCanvasEdit(true);
   layers=[]; layerSel=null; renderLayers();
-  // Selections are per PAGE — but plenty of things reload the SAME page in
+  // Selections are per PAGE - but plenty of things reload the SAME page in
   // place (saving typesetting, view switches, style tweaks), and clearing the
   // selection on those made it "vanish" moments after being drawn.
   if(showPage._last!==i && typeof selClear==='function') selClear();
@@ -86,7 +86,7 @@ async function showPage(i){
   cur=i; sel=null;
   // Start the picture downloading BEFORE the page's data comes back. The URL
   // needs only the cache key, and the prefetcher has already learned it for
-  // every neighbour — so the round trip for regions and the round trip for
+  // every neighbour - so the round trip for regions and the round trip for
   // the image now happen at the same time instead of one after the other.
   if(vKey[i]!==undefined||scanKey[i]!==undefined){
     preloadImage(pageUrl(i));
@@ -105,13 +105,13 @@ async function showPage(i){
   pageNoteIds=d.note_ids||[];    // ...and which boxes it is about
   kindsHere=d.kinds||[]; hiddenKinds=d.hidden||[];
   hiddenIds=d.hidden_ids||[]; hiddenRows=d.hidden_rows||[];
-  // Reloading the SAME page — a save, a tab switch, a view switch — draws the
+  // Reloading the SAME page - a save, a tab switch, a view switch - draws the
   // boxes straight away, because their old numbers are on screen right now and
   // this reply may have renumbered them. A different page waits for its own
   // picture to arrive: `applyZoom` redraws them at the new scale on load, and
   // drawing them here first would flash them at the last page's zoom.
   // An edit made while this was in the air means the answer describes the page
-  // as it was BEFORE it, so the boxes it carries are stale — see editStamp in
+  // as it was BEFORE it, so the boxes it carries are stale - see editStamp in
   // core.js. Everything else in the reply (the picture key, the kinds, the
   // note) is still good and is applied above and below.
   if(typeof editStamp === 'undefined' || stamp === editStamp)
@@ -125,7 +125,7 @@ async function showPage(i){
   // and the boxes drawn over it end up at different sizes.
   const wrapEl=$('canvasWrap');
   // Same page reloading (tab switch, save, boot's first poll) keeps the view
-  // you had — UNLESS the initial centring is still pending, in which case
+  // you had - UNLESS the initial centring is still pending, in which case
   // "the view you had" is just an uncentred scroll of 0,0 captured too
   // early. Boot used to lose the centring to exactly that race.
   const settled = typeof centerPending==='undefined' || !centerPending;
@@ -139,7 +139,7 @@ async function showPage(i){
   const fit=()=>{
     fitZoom=fitScale();
     // A page opens FITTED to the window. It opened at actual size for one
-    // round — lee asked for that when "100%" in the readout still meant the
+    // round - lee asked for that when "100%" in the readout still meant the
     // fit, and asked for it back the moment the readout started telling the
     // truth: *"ok make the defaut zoom fit the page"*. The whole page in front
     // of you is the right thing to start from; 100% is a keypress away.
@@ -152,8 +152,8 @@ async function showPage(i){
   };
   img.onload=fit;
   // ...and when the picture never arrives. `fit` is where the page is centred,
-  // and hanging it on `onload` alone meant that a page whose image 404s — one
-  // deleted underneath us, one from a chapter that has been put down — left
+  // and hanging it on `onload` alone meant that a page whose image 404s - one
+  // deleted underneath us, one from a chapter that has been put down - left
   // the view exactly where it was booted: scrolled to 0,0, which is deep
   // inside the stage's 46vmax margin and therefore a screen of nothing but
   // background. It reads as a broken editor. It is a missing page, and it is
@@ -165,12 +165,12 @@ async function showPage(i){
   // The URL used to end in the clock, so every visit to a page re-fetched and
   // re-decoded the whole image even when it was byte for byte the one already
   // in the browser. The server hands back a key that changes exactly when the
-  // page's appearance can have — so going back to a page you have seen is now
+  // page's appearance can have - so going back to a page you have seen is now
   // free, and a page that really did change still reloads.
   // The URL used to end in the clock, so every visit to a page re-fetched and
   // re-decoded the whole image even when it was byte for byte the one already
   // in the browser. The server hands back a key that changes exactly when the
-  // page's appearance can have — so going back to a page you have seen is now
+  // page's appearance can have - so going back to a page you have seen is now
   // free, and a page that really did change still reloads. The scan gets a key
   // of its own: it cannot change when a page is cleaned or typeset, so
   // hanging the render key on it only threw a good copy out of the cache.
@@ -189,8 +189,8 @@ async function showPage(i){
     && (typeof tab==='undefined' || tab==='edit')
     && ri && ri.dataset.page!==String(i);
   // Nothing goes on screen until it is DECODED. Both panes wait on both
-  // pictures, so they swap in the same frame — one pane flipping half a
-  // second before the other reads as a glitch — and the single-pane case
+  // pictures, so they swap in the same frame - one pane flipping half a
+  // second before the other reads as a glitch - and the single-pane case
   // waits on its one picture for the same reason: an undecoded assignment is
   // exactly the flash of the previous page's cleaning. `readyImage` has its
   // own guard, so a slow or missing file can only delay this, never stop it.
@@ -206,7 +206,7 @@ async function showPage(i){
 }
 
 /* Tell the server which page is on screen, so the background page-builder
-   works outwards from here — the pages you are about to click are the ones it
+   works outwards from here - the pages you are about to click are the ones it
    makes next. It ignores the nudge while it is already busy, so this is free
    to call on every page change. */
 function warmFrom(i){
@@ -223,13 +223,13 @@ function warmFrom(i){
 /* Pull the neighbouring pages into the browser's own cache.
 
    Assigning a new src leaves the PREVIOUS page on screen until the new one has
-   downloaded and decoded — which is the half-second of the old page's cleaning
+   downloaded and decoded - which is the half-second of the old page's cleaning
    you see after clicking Next. Nothing can swap an image that has not arrived
    yet, so the answer is for it to have arrived already: by the time the click
    happens the file is in the cache and the swap is immediate. */
 function prefetchAround(i){
   const n=(proj&&proj.pages)?proj.pages.length:0;
-  // Forwards first — Next is the click that actually happens — and two ahead,
+  // Forwards first - Next is the click that actually happens - and two ahead,
   // because reading a chapter is a run of Nexts, not a single step.
   [i+1,i+2,i-1,i+3].forEach(async k=>{
     if(k<0||k>=n) return;
@@ -252,32 +252,32 @@ function drawBoxes(){
   if(typeof syncMulti==='function') syncMulti();
   document.querySelectorAll('.box,.tagf,.bhint').forEach(e=>e.remove());
   const st=$('stage');
-  // Hide boxes hides everything overlaid on the page — the link connectors too.
+  // Hide boxes hides everything overlaid on the page - the link connectors too.
   if(boxesHidden()){
     st.querySelectorAll('.linksvg').forEach(e=>e.remove());
     drawText(); return;
   }
   // One balloon, one box. Regions carrying the same box_group are SECTIONS of
-  // one balloon — the sentence up the right of it and the small あっ！ below.
+  // one balloon - the sentence up the right of it and the small あっ！ below.
   // Both are still separate regions with their own reading, their own
   // translation and their own typesetting; what the grouping changes is only
   // how the page LOOKS, which was lee's complaint: "the boxes shoud be around
   // the bubbles no 2 of them split randomly".
   //
   // It used to draw a solid frame round the pair as well. lee, finding one on
-  // a burst holding two speeches and not knowing what it was — *"there a big
+  // a burst holding two speeches and not knowing what it was - *"there a big
   // box with no label or anything"*, then *"hide teh big box afterware it
   // dosnt need to be visibel"*. It was the only thing on the page with no
   // number chip and nothing to click, and what it says is already said by the
   // sections' own dashed outlines. So the GROUPING stays and the frame goes,
-  // in the editor and in the exported sheet alike — the sheet shows what the
+  // in the editor and in the exported sheet alike - the sheet shows what the
   // screen shows. This is the same end the balloon hint came to below.
   const bg={};
   regions.forEach(r=>{ const g=+(r.box_group||0);
     if(g>0){ (bg[g]=bg[g]||[]).push(r); } });
   const sectioned=r=>{ const g=+(r.box_group||0); return g>0 && bg[g] && bg[g].length>1; };
   // The balloon behind each box used to be drawn here as a faint dashed
-  // rectangle — a label saying "this is the room the English may use". lee, on
+  // rectangle - a label saying "this is the room the English may use". lee, on
   // finding it around a box on a page he was cleaning: *"there a thin dahed red
   // box around the box around the text what does it do and remove it"*. It
   // answered a question nobody was asking and looked like a second box, so it
@@ -285,7 +285,7 @@ function drawBoxes(){
   regions.forEach(r=>{
     // A text box you drew yourself, while it is the selected one and the
     // typesetting frame is therefore on screen: the frame IS its box. Drawing
-    // both put two outlines and two sets of handles around one rectangle —
+    // both put two outlines and two sets of handles around one rectangle -
     // lee, with a picture of exactly that: *"the etxt box still crated a new
     // box"*. Unselected it keeps its box, or there would be nothing to see
     // and nothing to click.
@@ -309,7 +309,7 @@ function drawBoxes(){
     d.style.cssText=`left:${x*scale}px;top:${y*scale}px;width:${w*scale}px;height:${h*scale}px`;
     // A box that has been turned leans on screen too. CSS turns about the
     // element's centre by default, which is the same centre `turned_box` on
-    // the server turns the rectangle about — so the outline drawn here and the
+    // the server turns the rectangle about - so the outline drawn here and the
     // outline the cleaner erases inside are the same four corners.
     const deg=turnOf(r);
     if(deg) d.style.transform=`rotate(${deg}deg)`;
@@ -323,7 +323,7 @@ function drawBoxes(){
     if(r.id===sel) addHandles(d);
   });
   drawLinks();
-  // The order numbers live in their OWN layer above every box — a numbered
+  // The order numbers live in their OWN layer above every box - a numbered
   // corner must never disappear under an overlapping neighbour's fill.
   regions.forEach(r=>{
     // No reading-order number on a box you drew yourself: the order is the
@@ -347,7 +347,7 @@ function drawBoxes(){
    a dashed connector between their centres so the pairing is obvious. */
 /* ---- colour system: three families, and shades within each ----
 
-   Three main box types — balloon, outside text, sound effect — each with an
+   Three main box types - balloon, outside text, sound effect - each with an
    undeletable default sub-type that carries the family's colour, and up to
    five more whose colours can only be SHADES of it. So the colour of a box
    says which family it is in before it says which sub-type, which is the way
@@ -356,10 +356,10 @@ function drawBoxes(){
    These tables are the same ones in `mangatl/kinds.py`, which is where the
    reasoning lives; a test parses this file and fails if the two drift apart.
    Yellow is the selected box and blue is a link, so no family may drift into
-   either — none of them does. */
+   either - none of them does. */
 const KIND_FAMILIES=['bubble','freefloat','sfx'];
-const FAMILY_LABELS={bubble:'Bubble text', freefloat:'Outside text', sfx:'Sound effect'};
-const DEFAULT_LABELS={bubble:'Regular speech', freefloat:'Outside text', sfx:'Sound effect'};
+const FAMILY_LABELS={bubble:'Bubble text', freefloat:'Freefloat text', sfx:'Sound effect'};
+const DEFAULT_LABELS={bubble:'Regular speech', freefloat:'Freefloat text', sfx:'Sound effect'};
 const KIND_COLORS={bubble:'#ed4545', freefloat:'#2cdd60', sfx:'#a550e2'};
 const FAMILY_SHADES={
   bubble:['#ffaebe','#ff8f72','#ff5c7e','#c26046','#c29184','#a16e78','#a12f46','#805f57','#5f1c1c','#5f4147'],
@@ -369,11 +369,11 @@ const FAMILY_SHADES={
 const SUBS_PER_FAMILY=10;
 /* One colour for every linked pair. lee: *"make the lunks just one color so
    all the link shoud be one color"*. Which link is which was never the
-   question — the question is only ever whether two boxes are joined. */
+   question - the question is only ever whether two boxes are joined. */
 /* A deeper blue. The old one was a pale cyan that read as a highlight
    rather than as a relationship, and at chip size on a dark panel it
    was almost white. lee: *"make the link a deapper blue"*. Nothing a
-   box can be is blue — the three families are red, green and purple —
+   box can be is blue - the three families are red, green and purple -
    so a blue row is always a linked row and never anything else. */
 const LINK_COLOR='#2a63d8';
 function linkColor(g){ return LINK_COLOR; }
@@ -382,7 +382,7 @@ function subTypes(){
   return ((typeof proj!=='undefined'&&proj.settings&&proj.settings.custom_kinds)
           ||[]).filter(k=>k&&k.key);
 }
-/* Which family a kind belongs to. An unknown one is a balloon — a box whose
+/* Which family a kind belongs to. An unknown one is a balloon - a box whose
    sub-type has been deleted still has to draw, still has to be cleaned, and
    still has to obey the switch that puts its family away. */
 function familyOf(kind){
@@ -392,7 +392,7 @@ function familyOf(kind){
 }
 function subsOf(family){ return subTypes().filter(k=>familyOf(k.key)===family); }
 /* Border colour for a box. A family's default carries the family colour;
-   anything else carries a shade of it — and a sub-type whose colour is not one
+   anything else carries a shade of it - and a sub-type whose colour is not one
    its own family issues is drawn in the family's first shade rather than in a
    colour that lies about which family it is in. */
 function kindColor(kind){
@@ -443,40 +443,43 @@ function drawLinks(){
       ln.setAttribute('stroke-dasharray','6 4');ln.setAttribute('opacity','0.9');
       svg.appendChild(ln);
     }
-    // No markers ON the boxes — linking only draws the connecting line, so a
+    // No markers ON the boxes - linking only draws the connecting line, so a
     // box keeps its text-type colour completely unchanged.
   });
   st.appendChild(svg);
 }
+/* The four corners, as (right?, bottom?) pairs. A turn ZONE sits just
+   outside each one - the same bargain the typeset frame already makes: press
+   the corner and you resize, step past it and you turn. lee: *"make the rotat
+   the same way as the text box with the corners allowiing me to rotate it"*.
+
+   It replaced a single handle on a stalk above the box, which was both a
+   second thing to learn and only ever offered on a box somebody drew. */
+const ROTZ=[[0,0],[1,0],[0,1],[1,1]];
+
 function addHandles(box){
-  box.querySelectorAll('.hd').forEach(h=>h.remove());
+  // BOTH classes, or every re-select stacks another four zones on the box.
+  box.querySelectorAll('.hd,.rotz').forEach(h=>h.remove());
   ['nw','ne','sw','se'].forEach(c=>{
     const h=document.createElement('div');
     h.className='hd '+c; h.dataset.c=c; box.appendChild(h);
   });
-  // ...and the turn handle, on a box somebody DREW and nothing else.
-  // lee: *"alow me to rotate boxes, only teh ser shoud be able to rotate them
-  // the detector boxes shoud be normal"*. A detected box's outline came off
-  // the artwork — it is a reading of where the writing is, and turning it
-  // would be turning the drawing rather than the box.
-  const r=(typeof regions!=='undefined'&&regions||[])
-            .find(q=>q.id==box.dataset.id);
-  if(r&&r.manual){
-    const h=document.createElement('div');
-    h.className='hd rot'; h.dataset.c='rot'; box.appendChild(h);
-  }
+  // ...and a turn zone outside each corner, on EVERY box. It used to be
+  // conditional on the box being hand-drawn, because a detected outline came
+  // off the artwork and turning it read as turning the drawing. lee asked for
+  // the other thing - *"alowm me to be able to rotate every box"* - and a
+  // detector is as able to be wrong about the angle as about the edges.
+  ROTZ.forEach(([rt,bt])=>{
+    const z=document.createElement('div');
+    z.className='rotz'+(rt?' r':'')+(bt?' b':'');
+    z.dataset.c='rot'; box.appendChild(z);
+  });
 }
-/* How far a box has been turned, in degrees clockwise — 0 on anything the
-   detector put down, which cannot be turned at all.
-
-   `turn`, not `angle`: a sound effect drawn by hand is given an angle the
-   moment it is drawn (the axis its artwork runs along), and reading that as a
-   turn would draw every one of them leaning. */
 function turnOf(r){
-  return (r&&r.manual) ? (+(r.turn||0)||0) : 0;
+  return r ? (+(r.turn||0)||0) : 0;
 }
 /* The translated view is the CLEANED page plus typesetting drawn here in the
-   browser. Editing then costs nothing — no round trip, no re-render — and the
+   browser. Editing then costs nothing - no round trip, no re-render - and the
    server stays the authority for the exported file. */
 function layoutOrigins(r, L){
   // A sound effect is the one thing not laid out in a box: it runs along its
@@ -492,7 +495,7 @@ function layoutOrigins(r, L){
   // Everything else is a text box, and this is the one piece of arithmetic
   // that fills one: lines centred on the box, evenly spaced down it. The
   // server places the box and then places its lines from the box with exactly
-  // this sum, and so does the editor you type into — three engines that used
+  // this sum, and so does the editor you type into - three engines that used
   // to disagree, which is why clicking a block made the words jump.
   //
   // No dx/dy here: a frame already has them baked in (both the server's and
@@ -501,7 +504,7 @@ function layoutOrigins(r, L){
   const [fx,fy,fw,fh]=frameOf(r);
   const lh=L.font_size*(L.leading||1.12);
   const top=fy+(fh-L.lines.length*lh)/2;
-  // Which edge the lines hang from. Centred unless asked otherwise — and the
+  // Which edge the lines hang from. Centred unless asked otherwise - and the
   // preview has to agree with the page, so this is the same sum the server
   // does in `apply_align`: every line is DRAWN centred on its origin, so
   // ranging it left or right is a matter of moving each origin by half the
@@ -517,7 +520,7 @@ function layoutOrigins(r, L){
     return [x, Math.round(top+(k+0.5)*lh)];
   });
 }
-/* How wide one line is in the face this block uses — measured in a canvas,
+/* How wide one line is in the face this block uses - measured in a canvas,
    because that is what the browser will actually draw with. */
 let _measCtx=null;
 function measureLine(text, L, r){
@@ -586,7 +589,7 @@ function drawFrame(){
     body.addEventListener('mousedown',e=>startFrame(e,r.id,'move'));
     el.appendChild(body);
   } else {
-    // While typing, the middle belongs to the caret — so the border is what
+    // While typing, the middle belongs to the caret - so the border is what
     // you grab to move it, as in Word.
     ['t','r','b','l'].forEach(side=>{
       const g=document.createElement('div');
@@ -636,12 +639,12 @@ function drawFrame(){
   });
 
   // Photoshop and InDesign both mark a box whose text no longer fits with a
-  // small badge on the frame rather than by hiding or shrinking anything —
+  // small badge on the frame rather than by hiding or shrinking anything -
   // you are told, and you decide. Same here: the words are all still drawn.
   if(overset(r)){
     const b=document.createElement('div');
     b.className='tover'; b.textContent='+';
-    b.title='The text is bigger than its box — drag a corner to fit it';
+    b.title='The text is bigger than its box - drag a corner to fit it';
     el.appendChild(b);
   }
 
@@ -679,7 +682,7 @@ function moveFrame(e){
     // grabbing anything anywhere moves nothing until you do.
     const cx=(fx+fw/2)*scale, cy=(fy+fh/2)*scale;
     const a1=Math.atan2(p.y-cy, p.x-cx)*180/Math.PI;
-    // seeded from where the button went DOWN, not from the first move —
+    // seeded from where the button went DOWN, not from the first move -
     // otherwise the first stretch of the drag is silently thrown away
     if(fdrag.aPrev==null){
       fdrag.aPrev=Math.atan2(fdrag.p0.y-cy, fdrag.p0.x-cx)*180/Math.PI;
@@ -688,7 +691,7 @@ function moveFrame(e){
     // The angle jumps 360 as it crosses the far side, so each step is wrapped
     // into half a turn and ADDED UP. Comparing against the start instead
     // meant a drag round the bottom-left corner came out three quarters the
-    // wrong way — and past a full turn it would have flipped every time.
+    // wrong way - and past a full turn it would have flipped every time.
     let step=a1-fdrag.aPrev;
     while(step>180) step-=360;
     while(step<-180) step+=360;
@@ -742,7 +745,7 @@ function onPage(fr){
 }
 
 function setFrame(r,f){
-  // A box may hang over the edge — a sound effect running off the side of a
+  // A box may hang over the edge - a sound effect running off the side of a
   // panel does exactly that. What it may not do is leave: a block whose whole
   // box is past the edge is not drawn, not clickable and not reachable at
   // all, and the only thing left to do with it is delete it and start again.
@@ -770,7 +773,7 @@ function setFrame(r,f){
 
 /* Resizing or re-wrapping turns a divided speech back into an ordinary block
    in an ordinary box: the person has taken it over, and from here the box is
-   the layout again — which is what they are expecting while they drag it. */
+   the layout again - which is what they are expecting while they drag it. */
 function unfix(r){
   const L=r.layout; if(!L||!L.fixed) return;
   L.fixed=false;
@@ -793,7 +796,7 @@ function resizeFlags(corner, invert){
     : {wrap:true, snug:(corner==='e'||corner==='w')};
 }
 
-/* Does the text run past its box? Measured the way the box is measured —
+/* Does the text run past its box? Measured the way the box is measured -
    widest line against the width, line count against the height. */
 function overset(r){
   const L=r&&r.layout;

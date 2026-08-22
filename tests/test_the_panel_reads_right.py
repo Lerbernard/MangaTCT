@@ -120,7 +120,7 @@ def test_a_sub_type_row_names_the_face_it_inherits(ed):
 def test_the_font_menu_is_the_browser_s_own(ed):
     """It was a widget: the select hidden, a div mirroring it, a menu placed by
     hand above or below depending on room. Four rounds of fixes and it still
-    did not work — lee: *"the text drop down still dosent work re design it and
+    did not work - lee: *"the text drop down still dosent work re design it and
     remake it so taht it works"*. So the control is the control. Where it opens
     and how far it scrolls are the browser's business, and there is nothing
     left here that can open off the window."""
@@ -140,8 +140,8 @@ def test_the_font_menu_is_the_browser_s_own(ed):
 # ------------------------------------------------------------ the settings
 
 def test_the_project_wide_all_caps_is_not_on_the_settings_page(ed):
-    """Capitals are a decision about a BLOCK — one shout in capitals on a page
-    that is not — and that switch is in the typesetting panel where the block
+    """Capitals are a decision about a BLOCK - one shout in capitals on a page
+    that is not - and that switch is in the typesetting panel where the block
     is. A project that had the old one on keeps it on."""
     pg, _p, errs = ed
     pg.evaluate("setTab('settings'); setSettingsTab('fonts')")
@@ -193,7 +193,7 @@ def test_the_settings_nav_is_readable_under_the_pointer(ed):
 
 def test_the_manual_chip_is_gone(ed):
     """Whether a box was drawn by hand or found by the detector is a fact
-    about how it got here, not about what it is — and it took a slot on a row
+    about how it got here, not about what it is - and it took a slot on a row
     that has to fit on one line."""
     pg, p, errs = ed
     assert p.pages[0].regions[0]["manual"] is True, "the fixture is not manual"
@@ -248,7 +248,7 @@ def test_a_locked_paint_layer_cannot_be_picked_up(ed):
 
 def test_the_zoom_steps_by_five_and_lands_on_round_numbers(ed):
     """It multiplied by 1.25, so from a fit of 43% the readout walked 54, 67,
-    84, 105 — every number arbitrary, and never 100."""
+    84, 105 - every number arbitrary, and never 100."""
     pg, _p, errs = ed
     read = "document.getElementById('zlabel').textContent"
     assert pg.evaluate(read) == "100%", pg.evaluate(read)
@@ -279,7 +279,7 @@ def test_the_zoom_steps_by_five_and_lands_on_round_numbers(ed):
 # --------------------------------------------------- it cannot leave the page
 
 def test_a_block_can_hang_over_the_edge_but_never_leave_it():
-    """A frame is free to overhang — a sound effect running off the side of a
+    """A frame is free to overhang - a sound effect running off the side of a
     panel does exactly that. What it may not do is leave altogether: a block
     whose whole box is past the edge is not drawn, not clickable and not
     reachable by any means. lee: *"the etxt box shifted out of the page and is
@@ -368,7 +368,7 @@ def test_a_page_opens_fitted(tmp_path):
 
 
 def test_the_picker_survives_the_panel_being_rebuilt(ed):
-    """The panel replaces its own HTML on a poll, a save, a selection — and a
+    """The panel replaces its own HTML on a poll, a save, a selection - and a
     redraw landing while the list was down took the list away mid-click.
     lee: *"it open onec and closes and dont work after"*.
 
@@ -397,7 +397,7 @@ def test_picking_a_face_takes_even_after_a_rebuild(ed):
     pg.focus("#lyFont")
     pg.select_option("#lyFont", opts[0])
     pg.wait_for_timeout(1500)
-    # the override is the durable answer — `r.style` is scratch, replaced
+    # the override is the durable answer - `r.style` is scratch, replaced
     # whenever the save's reply lands and the regions are rebuilt
     got = pg.evaluate("""[document.getElementById('lyFont').value,
         ((regions.find(r=>r.id===1).layout_override)||{}).font]""")
@@ -424,7 +424,7 @@ def test_the_gradient_wells_say_which_end_they_are(ed):
 
 def test_all_caps_shows_at_once(ed):
     """It is a change to what the letters look like, not to what the fitter
-    decides — so waiting on the round trip to see it was waiting for nothing,
+    decides - so waiting on the round trip to see it was waiting for nothing,
     and the first preview after a save can take seconds."""
     pg, _p, errs = ed
     was = pg.evaluate("regions.find(r=>r.id===1).layout.lines")
@@ -476,7 +476,7 @@ def test_a_style_edit_does_not_throw_the_page_cache_away(tmp_path):
 def test_typeset_puts_the_page_back_to_what_the_fitter_would_do(tmp_path):
     """lee: *"when i re typseet a page any custom chnages to text boxes or
     custom text box dshoud be removed"*. Without this there was no way back to
-    a clean layout short of undoing each block one at a time — the button that
+    a clean layout short of undoing each block one at a time - the button that
     was supposed to be the reset was the one thing that could not reset."""
     from mangatl import editor
     p = _project(str(tmp_path / "reset"))

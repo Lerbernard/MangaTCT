@@ -8,13 +8,13 @@ Three things have to be exactly right, and the rest is copy:
 * **the price**, because `PACKS` in `firebase/functions/purse.js` grants coins
   by pack id and the two have to agree;
 * **the tax code**, or Managed Payments refuses the sale at checkout in live
-  mode — see `going-live-with-payments.md`;
+  mode - see `going-live-with-payments.md`;
 * **tax behaviour: inclusive**, so $4.99 is what the customer pays anywhere in
   the world. This is not Stripe's default and cannot be changed after a price
   has been used.
 
 The **name** is what appears on the customer's card statement, on their Link
-receipt and in the Checkout Session — so it carries the brand and the size, not
+receipt and in the Checkout Session - so it carries the brand and the size, not
 a pack number. `pack3` means nothing on a bank statement.
 
 The **description** is what they read on the checkout page with their card in
@@ -22,12 +22,12 @@ their hand. One line, what they get, no adjectives.
 
 ---
 
-## 1 — `pack1`
+## 1 - `pack1`
 
 **Name**
 
 ```
-MangaTCT — 500 coins
+MangaTCT - 500 coins
 ```
 
 **Description**
@@ -40,12 +40,12 @@ MangaTCT — 500 coins
 
 ---
 
-## 2 — `pack2`
+## 2 - `pack2`
 
 **Name**
 
 ```
-MangaTCT — 1,050 coins
+MangaTCT - 1,050 coins
 ```
 
 **Description**
@@ -58,12 +58,12 @@ MangaTCT — 1,050 coins
 
 ---
 
-## 3 — `pack3`
+## 3 - `pack3`
 
 **Name**
 
 ```
-MangaTCT — 2,150 coins
+MangaTCT - 2,150 coins
 ```
 
 **Description**
@@ -76,12 +76,12 @@ MangaTCT — 2,150 coins
 
 ---
 
-## 4 — `pack4`
+## 4 - `pack4`
 
 **Name**
 
 ```
-MangaTCT — 5,400 coins
+MangaTCT - 5,400 coins
 ```
 
 **Description**
@@ -100,11 +100,11 @@ MangaTCT — 5,400 coins
 |---|---|
 | Type | One-off (not recurring) |
 | Currency | USD |
-| Tax behaviour | **Inclusive** — the price includes tax |
+| Tax behaviour | **Inclusive** - the price includes tax |
 | Product tax code | a digital-goods / SaaS code marked *Eligible for Managed Payments* |
-| Statement descriptor | leave it — Managed Payments sets it, and the customer sees `LINK.COM* MANGATCT` |
+| Statement descriptor | leave it - Managed Payments sets it, and the customer sees `LINK.COM* MANGATCT` |
 
-Then copy the four **`price_...`** ids — not the `prod_...` ids — into:
+Then copy the four **`price_...`** ids - not the `prod_...` ids - into:
 
 ```bat
 cd firebase\functions
@@ -116,7 +116,7 @@ node seed.js price_pack1=… price_pack2=… price_pack3=… price_pack4=…
 ## Where the coin numbers come from
 
 `firebase/functions/purse.js`. If you ever change a pack's size or price,
-change it there and re-run `seed.js` — the pricing page draws itself from
+change it there and re-run `seed.js` - the pricing page draws itself from
 `config/prices`, which `seed.js` writes, so the page cannot disagree with the
 server about what a pack is.
 
@@ -129,7 +129,7 @@ page, `seed.js` and `purse.js` together; nothing can hold Stripe.
 They are honest for a 20-page chapter on a mid-range model, read from the
 figures in `coins.py`: a 23-page chapter with 213 boxes quotes at **91 coins**
 on Gemini 3.6 Flash and **39** on Sonnet 5. Cleaning and typesetting cost
-nothing — they run on the customer's own machine.
+nothing - they run on the customer's own machine.
 
 They are estimates, and the descriptions say "about" and "around" for that
 reason. Do not tighten them into promises.

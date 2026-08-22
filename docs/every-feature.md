@@ -528,7 +528,7 @@ come to in pixels on the open chapter is printed underneath the boxes.
 | Label | Key | Type | Default | Options | What it changes |
 |---|---|---|---|---|---|
 | Reading detail | `ocr_detail` | menu | `auto` | **Whole page at once** (1 request a page), **Cut the page up** (up to 4), **Finest** (up to 9) | How many labelled tiles the page is cut into before the vision reader sees it. Each tile is one billed request |
-| Find text with | `find_with` | menu | `measured` | **Measured** (free, offline), **AI** | Whether the boxes are measured or asked for — see below |
+| Find text with | `find_with` | menu | `measured` | **Measured** (free, offline), **AI** | Whether the boxes are measured or asked for - see below |
 | Text detector | `detector` | menu, one option | `comictext` | comic-text-detector | Which box finder runs |
 | Model path | `weights` | text | empty | | The detector's weights file. Empty falls back to the classical detector |
 | Label box types | `auto_kind` | checkbox | **on** | | Each found block is labelled by family rather than all being called a bubble |
@@ -631,11 +631,11 @@ There is no free-text box: the menu is the only way to set a model.
 | Cleaner token | `clean_token` | password | empty | Shown as "set", or in red as "placeholder" if it is still the example value |
 | Test cleaner | button | | | One real call, and the answer in words |
 
-**A refused token is said once.** 401 and 403 are not flakes — they are the
+**A refused token is said once.** 401 and 403 are not flakes - they are the
 endpoint reading the token and rejecting it, and nothing about cleaning the
 next box changes the token. So the first refusal **latches for the run**: every
 later box goes straight to the local fill without a round trip, and one line is
-printed saying it will not ask again. Anything else — 429, 503, a network drop —
+printed saying it will not ask again. Anything else - 429, 503, a network drop -
 keeps being retried, because those are the endpoint being busy rather than the
 token being wrong.
 
@@ -645,7 +645,7 @@ both of which already clear the warning. Redeploying with the same token is
 covered by the same save.
 
 The traceback is printed only for a failure that has no message written for it.
-A refused token has one — `clean_warning` names the setting to change and why —
+A refused token has one - `clean_warning` names the setting to change and why -
 and before this, a chapter with eight boxes on it printed eight stack traces
 and nothing else, burying it. The count is still kept: the warning still says
 how many spots were filled in locally.
@@ -653,16 +653,16 @@ how many spots were filled in locally.
 ### Find text with AI
 
 **The model finds and labels. The pixels measure.** There was an AI box pass
-here before and lee removed it — *"nvm remove it its pretty bad remove the
-ai"* — and the mode he removed is the one being asked for now:
+here before and lee removed it - *"nvm remove it its pretty bad remove the
+ai"* - and the mode he removed is the one being asked for now:
 *"habe an ai detect the text and send back cordinates for boxes"*. The
 difference is that single rule, and everything in `detect/aidetect.py` exists
 to hold it.
 
 A vision model asked for a rectangle on a 720-wide page answers to within about
 ten to thirty pixels, and it does not know whether the tail of a brush stroke
-belongs to the word. So its rectangle is never a box. It is a **question** —
-"is there writing about here, and what sort" — and the box that comes back is
+belongs to the word. So its rectangle is never a box. It is a **question** -
+"is there writing about here, and what sort" - and the box that comes back is
 the union of the marks measured inside it. The measurer is CRAFT, which covers
 82% of the sound-effect ink on the page comic-text-detector's mask is black on.
 
@@ -679,46 +679,46 @@ where a stroke starts.
 | a sound effect labelled Outside text | the model says which it is |
 
 **The rules where the two meet.** A mark counts by its CENTRE and is then taken
-entire — a long stroke leaving the rectangle is still one stroke, a neighbour
+entire - a long stroke leaving the rectangle is still one stroke, a neighbour
 merely touching it is not. A snap that comes back more than three times the
 size of the question did not tighten anything, so the model's rectangle stands
 and the box is given a confidence below the editor's red/green line: an
 unmeasured box reads as the one to look at. A tall page goes up in overlapping
 1,600px windows, because a 720×7,000 page sent whole arrives with the writing a
-few pixels high — the same fault that blinds the measured detector at scale
+few pixels high - the same fault that blinds the measured detector at scale
 0.14. A balloon described by two windows is merged, not counted twice.
 
 **It cannot leave a page empty, and it says when it did not run.** No key, no
-service, a refused call, a reply that is not JSON — every one of them falls
+service, a refused call, a reply that is not JSON - every one of them falls
 through to the measured detector that was there before, so the worst case of
 choosing AI is the old behaviour.
 
 That fallback was **silent** for one turn, and it should not have been: a page
 of measured boxes looks exactly like a page the model found badly. lee: *"is
-the ai accualy finding the tetx whe i put find with ai?"* — a question nothing
+the ai accualy finding the tetx whe i put find with ai?"* - a question nothing
 on the screen could answer. It now writes one sentence into the same warning
 bar the cleaner uses, naming which half is missing: no key for that service,
 easyocr not installed so nothing could measure the boxes, the call refused, or
 the model found nothing on this page.
 
 What comes back rejoins the **same tail** every other detector's boxes go
-through — the box-type filter, the three default types, the sections, the
+through - the box-type filter, the three default types, the sections, the
 numbering, `measure_sfx`, the scoring, the reading order, and the commit that
 saves the page. It was an early `return` for one turn, which skipped all nine
 of those including the save, so the first page the model actually found text on
 would have raised before writing anything. Nobody hit it, because a page with
-no key falls through earlier and looks fine — which is exactly why it took a
+no key falls through earlier and looks fine - which is exactly why it took a
 test that stubs the socket rather than the function to find.
 
 **Which model, and what it costs.** Find text is now a **fourth AI step** with
 its own service and model boxes, alongside Read text, Translate and Proofread.
-The menu appears under Settings ▸ *FIND TEXT — the model that finds the boxes*,
+The menu appears under Settings ▸ *FIND TEXT - the model that finds the boxes*,
 and only while Find text is set to AI.
 
 It borrowed the reader's service for one turn, on the reasoning that the reader
 is already a vision step on a vision-capable model and a fourth menu is a
 fourth thing to leave set wrong. lee's first question on seeing the new
-option — *"what ai is it asking ?"* — is the answer to that reasoning: a step
+option - *"what ai is it asking ?"* - is the answer to that reasoning: a step
 whose service you cannot see is a step whose price you cannot check.
 
 It defaults to the same cheap vision model the reader defaults to. One call per
@@ -727,13 +727,13 @@ dearest model on the list would be paying a lot for something about to be
 thrown away. The model must be able to look at a picture.
 
 Priced and paid before the first page, like Read text, and quoted against
-**its own** model — the price and the call read the same box, or a chapter
+**its own** model - the price and the call read the same box, or a chapter
 costs three hundred coins after an estimate of thirty.
 
 `tests/test_ai_boxes.py` is the guard that was written when the old pass was
 removed, and it says re-adding one means coming and saying so out loud. It now
 carries that sentence, and guards this pass by its promise rather than by a
-list of names — which is what let a new pass under new names walk straight past
+list of names - which is what let a new pass under new names walk straight past
 it.
 
 ## 4.10 Settings with no control
@@ -942,14 +942,14 @@ A format nobody has tuned is read as manga: the measured numbers are a better
 answer than none.
 
 **The webtoons' first pass.** lee, with all three box types ticked: *"its still
-missing a lot of sfx"*, and the ones it did find came back in pieces — one
+missing a lot of sfx"*, and the ones it did find came back in pieces - one
 hand-drawn 촤악 as two boxes. Three of the five moved:
 
 | | manga | manhwa / manhua | why |
 |---|---|---|---|
-| `conf_thresh` | 0.40 | 0.40 | it was **0.22** here for one turn; lee's own chapter took it back — see *What the confidence cannot buy* below |
+| `conf_thresh` | 0.40 | 0.40 | it was **0.22** here for one turn; lee's own chapter took it back - see *What the confidence cannot buy* below |
 | `mask_thresh` | 0.30 | **0.20** | so the coverage pass, which re-reads the mask for ink the block head missed, has ink to find. A thin brush stroke on white is the weakest thing on the mask |
-| `split_gap` | 1.8 | **3.5** | both gaps are multiples of the median mark in the block. Hangul is written as separate syllable blocks with daylight between them, so the median mark is small and the gaps are large next to it — the arithmetic that cut one effect into two |
+| `split_gap` | 1.8 | **3.5** | both gaps are multiples of the median mark in the block. Hangul is written as separate syllable blocks with daylight between them, so the median mark is small and the gaps are large next to it - the arithmetic that cut one effect into two |
 | `split_height` | 1.8 | **3.5** | as above, across lines |
 | `nms_thresh` | 0.35 | 0.35 | nothing reported was two boxes ON TOP OF one another; they were side by side |
 | `join_x` / `join_y` | circle | **1.8 / 0.9** | how far one leftover mark reaches for another, as an ellipse instead of a circle - see below |
@@ -970,7 +970,7 @@ An ellipse does separate them, because **writing runs along a line**: marks of
 one effect are beside each other, different effects are stacked. `1.8` sideways
 by `0.9` vertically sits between the two measurements with room on both sides.
 Across all 36 pages it leaves the group COUNT unchanged (21) and produces no box
-over 5% of a page — it only makes the right groups bigger.
+over 5% of a page - it only makes the right groups bigger.
 
 Manga keeps the circle: `join_x` and `join_y` are `None` there, and `_harvest`
 falls back to `LEFT_NEAR` and the straight-line gap exactly as measured.
@@ -989,15 +989,15 @@ mask:   keep>0.20: 0.04% of the page   keep>0.05: 0.25% of the page
 on a page whose sound effects cover something like a sixth of it. Page 021
 returns the same 2 blocks at 0.05 as it does at 0.40. The effects are not in
 that head's output at **any** score, so there is no bar low enough to catch
-them — while the lowered bar did put boxes on an eye and a jewel on page 026.
+them - while the lowered bar did put boxes on an eye and a jewel on page 026.
 It is back at the measured 0.40 on every format, and a mutant
 (`tune-the-webtoons-drop-the-confidence-again`) fails the suite if it moves.
 
 ### A second pair of eyes
 
 Finding those effects is not this number's job, and it turned out not to be any
-of comic-text-detector's. Both its heads go blank on the same thing — **a
-coloured brush-drawn shape laid over artwork** — and that one fact is three of
+of comic-text-detector's. Both its heads go blank on the same thing - **a
+coloured brush-drawn shape laid over artwork** - and that one fact is three of
 the four defects reported:
 
 | what was reported | what it actually is |
@@ -1013,12 +1013,12 @@ on nothing**. Page 018 is the same shapes on white: the mask fires at 1.15% and
 the box covers the left half of the effect.
 
 Two things that did not fix it, both measured rather than assumed. Lowering
-`conf_thresh` — above. And showing the model less of the page at a time: it
+`conf_thresh` - above. And showing the model less of the page at a time: it
 letterboxes the whole page into 1024², so a 720×7,179 page arrives at scale
 **0.14** and a 40px syllable reaches it 5 pixels tall. Re-run in 720px windows,
 page 018 goes from 3 boxes to 7 and every one is a smaller fragment.
 
-**CRAFT** is easyocr's detector — already installed here for Korean OCR, so no
+**CRAFT** is easyocr's detector - already installed here for Korean OCR, so no
 new dependency, and detection only, so no recognition cost. It is trained on
 scene text: writing photographed on signs and shopfronts. Coloured writing on a
 busy background is the case it exists for.
@@ -1027,7 +1027,7 @@ Only the first of easyocr's two stages is used. `Reader.detect` runs CRAFT and
 then `group_text_box`, which merges characters into a line for the reader; on
 page 026 that merged three 하아 spread across a panel into one box covering a
 third of the page, at every setting tried. `get_textbox` is the stage before it
-— one box per character group — and those go through **the same reach the mask's
+- one box per character group - and those go through **the same reach the mask's
 own marks go through**, `comictext.reach_groups`, rather than a second copy of
 the rule.
 
@@ -1041,15 +1041,15 @@ and how big the biggest box is:
 | **0.50** | **0.8** | **30** | **1.8%** | **82.1%** |
 | 0.55 | 0.8 | 33 | 1.6% | 73.9% |
 
-`canvas_size`, `mag_ratio` and `text_threshold` moved nothing — every row of
-that sweep identical — so they are constants with the measurement written next
+`canvas_size`, `mag_ratio` and `text_threshold` moved nothing - every row of
+that sweep identical - so they are constants with the measurement written next
 to them, not tuning. Coverage bought by swallowing a panel is not coverage: at
 `low_text 0.30` one box covers 46% of the page and "covers 94% of the ink".
 
 **The reach for its pieces is not the mask's.** The mask's marks are stroke
 fragments, often a fraction of one syllable, so `join_x 1.8` is a fraction of a
 syllable; CRAFT's pieces are whole character groups, so the same 1.8 is 1.8
-syllables — and it swept all eight 하아 into one box covering 26% of the page.
+syllables - and it swept all eight 하아 into one box covering 26% of the page.
 Measured again on the same 36 pages:
 
 | `craft_x` / `craft_y` | groups on 026 | chapter groups |
@@ -1061,12 +1061,12 @@ Measured again on the same 36 pages:
 
 Page 026 holds eight effects, so eight is the answer and 0.50 undershoots. Of
 the two that reach eight, 0.30/0.05 fragments the chapter less, and on page 018
-— where the right answer is known — the two are identical. The ratio being 6:1
+- where the right answer is known - the two are identical. The ratio being 6:1
 rather than the mask's 2:1 is the same fact, sharper: CRAFT's pieces are whole
 syllables sharing a baseline, so two of one effect have almost no vertical gap.
 
 **Three rules where the two detectors meet.** A group over nothing becomes a new
-`sfx` region. A group over a BLOCK-HEAD region is dropped — CTD finds black
+`sfx` region. A group over a BLOCK-HEAD region is dropped - CTD finds black
 balloons with white typesetting, which nothing looking for dark ink can, so
 where they disagree about a balloon the block head is right. A group over a
 COVERAGE-PASS region grows it to the union of both, which is the half-box fix;
@@ -1074,7 +1074,7 @@ growing and not replacing, because the region carries the text mask the cleaner
 paints out.
 
 **And a group the size of a panel falls back to the pieces it was made of.** Not
-tuning — no reach avoids this. The bottom of page 026 is four 하아 cascading
+tuning - no reach avoids this. The bottom of page 026 is four 하아 cascading
 diagonally down a dress, and every consecutive pair of their nine syllables has
 **gx = 0 and gy = 0**: the bounding boxes overlap, because the cascade is
 diagonal. Zero gap is zero gap at every threshold. Nine boxes on nine syllables
@@ -1090,10 +1090,10 @@ End to end on real pages, with the tuning table as a chapter gets it:
 | 022 | 0 boxes | **6** | 0.7% |
 
 About 9s a page on CPU, on top of CTD's own time. Off unless the format asks for
-it, and off if easyocr is not installed — `craft_x` and `craft_y` are `None` for
+it, and off if easyocr is not installed - `craft_x` and `craft_y` are `None` for
 manga, so a manga chapter never calls it and cannot be made to.
 
-**`mask_thresh` is the one number in the webtoon column still unmeasured** —
+**`mask_thresh` is the one number in the webtoon column still unmeasured** -
 reasoned from what the knob does. It is kept because it feeds the coverage pass,
 which is the pass that works. Manga cannot move while it is being tried, which
 is what the table is for.
@@ -1850,7 +1850,7 @@ jamming them left would put a step down one edge.
 
 **The work on the page comes with it.** lee: *"also alow me to cut teh page
 after ive done so steps it"*. Boxes are geometry and geometry moves: each one
-goes to the half its CENTRE is in, measured from that half's own top edge —
+goes to the half its CENTRE is in, measured from that half's own top edge -
 the box, its outline, and the typesetting frame if it has one. The reading, the
 translation, the speaker, the type and whether it is hidden all travel with it.
 A box straddling the cut goes whole to the half holding most of it, clipped to

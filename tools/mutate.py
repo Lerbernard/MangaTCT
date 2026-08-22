@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """Break the code on purpose and see whether the tests notice.
 
-A test that passes proves nothing on its own — it passes against the right
+A test that passes proves nothing on its own - it passes against the right
 code and, far too often, against the wrong code as well. So each mutation
 below is a small, plausible wrong version of a line that was just written: a
 guard dropped, a comparison flipped, a field left unset. The tests are run
 against it. A mutation the tests still pass is a **survivor**, and it means
 one of two things, both worth knowing:
 
-* the behaviour is not tested — write the test; or
-* the line does not matter — take it out.
+* the behaviour is not tested - write the test; or
+* the line does not matter - take it out.
 
     python tools/mutate.py --list
     python tools/mutate.py                 # every mutation in the set
     python tools/mutate.py -k manual       # just the ones named `manual*`
 
 The original file is put back in a `finally`, so an interrupted run does not
-leave a mutant behind. **Do not kill this process with `pkill`** — that skips
+leave a mutant behind. **Do not kill this process with `pkill`** - that skips
 the restore, and everything measured afterwards is measured against a mutant.
 """
 import argparse
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# `tools/` sits inside the package, so one level up IS the package — the
+# `tools/` sits inside the package, so one level up IS the package - the
 # folder holding `editor.py`, `static/` and `tests/`. The parent of that is
 # what has to be on `sys.path` for `import mangatl` to work, and it is passed
 # to the test run rather than assumed, so this works from any directory and in
@@ -89,7 +89,7 @@ T_KEYS = ["tests/test_one_key_per_service.py"]
 T_BAR = ["tests/test_the_bar_holds_its_width.py"]
 T_WORD = ["tests/test_the_word_is_typesetting.py"]
 
-# The landing page. `T_SITE` is the CONTENT test only — not the one that asks
+# The landing page. `T_SITE` is the CONTENT test only - not the one that asks
 # whether index.html has been rebuilt, which every mutation here would trip
 # for the same uninteresting reason and which would make the whole set say
 # nothing. See `tests/test_the_website_is_built.py` for why they are apart.
@@ -100,8 +100,8 @@ T_TRIM = ["tests/test_a_menu_you_can_trust.py", "tests/test_per_step_models.py",
           "tests/test_model_gone.py"]
 T_MANUAL = ["tests/test_translating_it_yourself.py"]
 
-# The hand-run seeding script. Not executed by any test — it wants a
-# Firestore — so what is held is its source, and the property held is an
+# The hand-run seeding script. Not executed by any test - it wants a
+# Firestore - so what is held is its source, and the property held is an
 # ordering: refuse before you write.
 SEED = "firebase/functions/seed.js"
 T_SEED = ["tests/test_the_website.py"]
@@ -152,7 +152,7 @@ JS_CUT = "static/js/pagecut.js"
 # (`CTD` is defined above.)
 RO = "static/js/region-ops.js"
 T_TUNE = ["tests/test_find_text_is_tuned_per_format.py"]
-# One piece of writing, one box — the join, the empty-box sweep and the pair
+# One piece of writing, one box - the join, the empty-box sweep and the pair
 # of passes with two answers about one piece of ink; and paper is not a
 # balloon, which is the same message from lee and a different mechanism.
 BALLN = "detect/balloon.py"
@@ -160,6 +160,8 @@ T_ONEBOX = ["tests/test_one_piece_of_writing_one_box.py",
             "tests/test_comic_text_detector.py",
             "tests/test_find_text_is_tuned_per_format.py"]
 T_TOGETHER = ["tests/test_one_piece_of_writing_one_box.py"]
+T_ALONE = ["tests/test_a_box_only_craft_saw.py",
+           "tests/test_one_piece_of_writing_one_box.py"]
 CRA = "detect/craft.py"
 PJ = "static/js/project.js"
 FR2 = "static/js/frames.js"
@@ -221,6 +223,7 @@ T_GROW = ["tests/test_the_whole_run_of_writing.py",
 T_HANDSFX = ["tests/test_a_sound_effect_box_by_hand.py"]
 T_TALL = ["tests/test_a_page_too_long_to_read.py"]
 T_SFXTICK = ["tests/test_the_sound_effect_tick_is_live.py"]
+T_TWOFX = ["tests/test_two_effects_in_one_box.py"]
 CRF = "detect/craft.py"
 ED = "editor.py"
 AID = "detect/aidetect.py"
@@ -238,6 +241,50 @@ T_LAST = ["tests/test_the_chapter_before_this_one.py"]
 JS_IO = "static/js/project-io.js"
 JS_PJ = "static/js/project.js"
 HTM = "static/editor.html"
+PRJ_PY = "project.py"
+T_RAIL = ["tests/test_the_rail_and_the_story_you_type.py"]
+INP = "inpaint.py"
+MOD = "models.py"
+T_FOCUSGONE = ["tests/test_a_second_pass_for_the_hard_spots.py",
+               "tests/test_clean_routing.py"]
+# 93% of Find text is one net, and the layout its weights are stored in is the
+# only saving that leaves every box where it was.
+T_CPUFAST = ["tests/test_craft_gets_the_cpus_fast_path.py",
+             "tests/test_a_second_pair_of_eyes.py",
+             "tests/test_a_box_only_craft_saw.py"]
+# The emptiest box of all, which the sweep for empty boxes used to exempt.
+T_NOTHING = ["tests/test_a_box_with_nothing_in_it.py",
+             "tests/test_one_piece_of_writing_one_box.py",
+             "tests/test_find_text_is_tuned_per_format.py"]
+# A box the reader found nothing in.
+ED_PY = "editor.py"
+T_BLANK = ["tests/test_a_box_the_reader_found_nothing_in.py"]
+# Untick Sound effect and the second detector should not run.
+T_NOFX = ["tests/test_no_effects_no_craft.py",
+          "tests/test_find_text_is_tuned_per_format.py"]
+# A balloon whatever colour it is.
+CBU = "detect/comicbubble.py"
+T_COLOUR = ["tests/test_a_balloon_of_any_colour.py"]
+# Painted lettering is not dialogue.
+T_PAINT = ["tests/test_painted_lettering_is_not_dialogue.py"]
+DBCOO = "detect/dbcoo.py"
+T_BODIES = ["tests/test_the_artwork_has_to_show_its_letters.py"]
+T_WELD = ["tests/test_the_balloon_outranks_the_specialist.py",
+          "tests/test_two_specialists_in_the_settings.py"]
+SEG = "detect/mangaseg.py"
+T_SEG = ["tests/test_the_manga109_segmenter.py"]
+ANIM = "detect/animetext.py"
+T_ANIM = ["tests/test_one_detector_finds_all_of_it.py"]
+NOTICE = "NOTICE"
+T_LIC = ["tests/test_the_licence_is_stated.py"]
+RK = "readkinds.py"
+T_RK = ["tests/test_the_box_is_named_from_what_was_read.py"]
+STOPM = "stopping.py"
+BOXSEL = "static/js/boxselect.js"
+T_STOP = ["tests/test_stop_means_stop.py"]
+ROPS = "static/js/region-ops.js"
+PANELS = "static/js/panels.js"
+SELJS = "static/js/select.js"
 
 CARD = "tools/adcard.py"
 T_CARD = ["tests/test_the_card_at_the_end.py"]
@@ -807,8 +854,8 @@ MUTANTS = [
      "           + sh.chapter_in * max(0, int(chapter_boxes or 0))\n",
      "", T_COIN),
     # The bug this replaced: `max(boxes, chapter_boxes)` meant an explicit
-    # nought was read as "well, this page's worth", and a full-chapter run —
-    # which sends NO context — was quoted a hundred thousand tokens it never
+    # nought was read as "well, this page's worth", and a full-chapter run -
+    # which sends NO context - was quoted a hundred thousand tokens it never
     # sent.
     ("coin-the-chapter-context-is-only-this-page", COIN,
      "           + sh.chapter_in * max(0, int(chapter_boxes or 0))",
@@ -1679,7 +1726,7 @@ MUTANTS = [
      "        known = {p.path: p for p in self.pages}", T_LAST),
     # ---- the sound-effect tick, live again on every format
     #
-    # The nine `sfxoff-` mutants that were here all defended the OVERRIDE —
+    # The nine `sfxoff-` mutants that were here all defended the OVERRIDE -
     # `NO_SFX_MEDIA`, `detectable_kinds`, `sfxIsDetectable`, the Coming soon
     # pill. Every one of them mutated code that no longer exists. They are
     # replaced rather than deleted: the same defence, pointed at the thing
@@ -1696,13 +1743,19 @@ MUTANTS = [
      "    if True:\n"
      "        return found", T_SFXTICK),
     ("sfxtick-the-row-starts-ticked", HTM,
-     '    <label class="opt"><input type="checkbox" id="kSfx">',
-     '    <label class="opt"><input type="checkbox" id="kSfx" checked>',
+     '      <label class="optrow"><input type="checkbox" id="kSfx"',
+     '      <label class="optrow"><input type="checkbox" id="kSfx" checked',
      T_SFXTICK),
+    ("sfxtick-the-sub-options-never-appear", JS,
+     "  if(box) box.style.display = on ? '' : 'none';",
+     "  if(box) box.style.display = 'none';", T_SFXTICK),
+    ("sfxtick-the-sub-options-are-always-there", JS,
+     "  if(box) box.style.display = on ? '' : 'none';",
+     "  if(box) box.style.display = '';", T_SFXTICK),
     ("sfxtick-ticking-it-asks-for-nothing", JS,
      "  if($('kSfx').checked)    k.push('sfx');",
      "  if(false)                k.push('sfx');", T_SFXTICK),
-    # AFTER the loop that clears `disabled` on all three, not before it —
+    # AFTER the loop that clears `disabled` on all three, not before it -
     # before it, the loop undoes the mutation and the mutant measures nothing.
     ("sfxtick-the-row-is-greyed-out-again", JS,
      "  // The three ticks are alike, on every format.",
@@ -1711,15 +1764,12 @@ MUTANTS = [
      "          _s.closest('label').classList.add('disabled'); }\n"
      "  // The three ticks are alike, on every format.", T_SFXTICK),
     ("sfxtick-the-coming-soon-pill-comes-back", HTM,
-     "      <span><b>Sound effects</b><br>",
+     "        <span><b>Sound effects</b>",
      '      <span><b>Sound effects</b><span id="kSfxSoon" class="pill">'
      "Coming soon</span><br>", T_SFXTICK),
-    ("sfxtick-nobody-is-told-they-can-draw-one", HTM,
-     "      <i>Typeset with the SFX font and left out of the cleaning pass. You"
-     " can\n      also draw one by hand: a box on the Translation view, then"
-     " <b>3</b>.</i>",
-     "      <i>Typeset with the SFX font and left out of the cleaning pass.</i>",
-     T_SFXTICK),
+    # `sfxtick-nobody-is-told-they-can-draw-one` stood here. The row no
+    # longer says how to draw one by hand: lee asked for the whole box to
+    # be *"just be ine or 2 line"*, and that sentence was the third.
     # ---- a wall of sharp change, closed and roundish
     ("wall-the-rule-is-not-there-at-all", BALL,
      "    _shut_in_a_round_wall(gray, regions, cfg)\n", "", T_WALL),
@@ -1929,7 +1979,7 @@ MUTANTS = [
      '    t = re.sub(r",\\s*,+", ",", t)', "    t = t", T_FIT),
     # The anchor moved when the LEADING dash stopped being covered by this
     # exemption: `if not t or source_has_dash(src)` became two separate tests,
-    # and this mutant's old replacement — `if not t:` — is now what the
+    # and this mutant's old replacement - `if not t:` - is now what the
     # CORRECT source says, which the leftover check rightly read as a mutant
     # left on disk. Same claim, against the shape the exemption has now.
     ("fit-a-source-with-a-dash-loses-its-own", TR,
@@ -2032,7 +2082,7 @@ MUTANTS = [
     #
     # The budget is taken at a size the typesetter will actually set. It used
     # to be taken at min_font, which on the measured chapter was 11 against a
-    # median chosen size of 32 — the note fired zero times in 134 regions.
+    # median chosen size of 32 - the note fired zero times in 134 regions.
     ("size-the-budget-is-taken-at-the-floor", TR,
      "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
      "    return lo", T_SIZE),
@@ -2174,15 +2224,17 @@ MUTANTS = [
     ("turn-the-angle-is-read-as-radians", "models.py",
      "    a = math.radians(float(turn or 0.0))", "    a = float(turn or 0.0)",
      T_TURN),
-    ("turn-a-detector-box-counts-as-turned", PRJ,
-     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
-     '    return abs(float(rec.get("turn") or 0.0)) > 0.01', T_TURN),
+    # `turn-a-detector-box-counts-as-turned` stood here. Its replacement
+    # -- is_turned without the `manual` test -- is what the CORRECT source
+    # says now that every box may be turned, so the leftover check read it
+    # as a mutant left on disk. The claim it made lives on the other way
+    # up, as `turn-the-drawn-only-rule-comes-back-to-is_turned` below.
     ("turn-a-straight-box-counts-as-turned", PRJ,
-     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
-     '    return bool(rec.get("manual"))', T_TURN),
+     '    return abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return True', T_TURN),
     ("turn-a-measured-axis-is-read-as-a-turn", PRJ,
-     '    return bool(rec.get("manual")) and abs(float(rec.get("turn") or 0.0)) > 0.01',
-     '    return bool(rec.get("manual")) and abs(float(rec.get("angle") or 0.0)) > 0.01',
+     '    return abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return abs(float(rec.get("angle") or 0.0)) > 0.01',
      T_TURN),
     ("turn-the-turn-is-not-kept-on-the-record", PRJ,
      '        "turn": round(float(getattr(r, "turn", 0.0) or 0.0), 2),', "",
@@ -2200,11 +2252,27 @@ MUTANTS = [
     ("turn-every-box-moves-its-axis", ED,
      '                        if _kinds.family_of(rec.get("kind") or "") == "sfx":',
      "                        if True:", T_TURN),
-    ("turn-any-box-may-be-turned", ED,
+    # The refusal this used to delete is gone -- every box may be turned now.
+    # Same claim, the other way up: put the refusal BACK and the tests that say
+    # a detector box turns have to notice.
+    ("turn-only-a-drawn-box-may-be-turned-again", ED,
+     "                        was_turn = float(rec.get(\"turn\") or 0.0)",
      '                        if not rec.get("manual"):\n'
-     '                            return self._json(\n'
-     '                                {"error": "only a box you drew can be turned"})',
-     "                        pass", T_TURN),
+     '                            return self._json({"error": "no"})\n'
+     '                        was_turn = float(rec.get("turn") or 0.0)', T_TURN),
+    ("turn-the-drawn-only-rule-comes-back-to-is_turned", PRJ,
+     '    return abs(float(rec.get("turn") or 0.0)) > 0.01',
+     '    return bool(rec.get("manual")) and abs(\n'
+     '        float(rec.get("turn") or 0.0)) > 0.01', T_TURN),
+    ("turn-the-corner-zones-go-back-to-one-stalk", FR2,
+     "  ROTZ.forEach(([rt,bt])=>{",
+     "  [].forEach(([rt,bt])=>{", T_TURN),
+    ("turn-the-zones-stack-up-on-every-reselect", FR2,
+     "  box.querySelectorAll('.hd,.rotz').forEach(h=>h.remove());",
+     "  box.querySelectorAll('.hd').forEach(h=>h.remove());", T_TURN),
+    ("turn-there-are-no-longer-four-corners", FR2,
+     "const ROTZ=[[0,0],[1,0],[0,1],[1,1]];",
+     "const ROTZ=[[0,0]];", T_TURN),
     ("turn-the-outline-is-left-upright", ED,
      '                        rec["polygon"] = turned_box(rec["bbox"], rec["turn"])',
      "                        pass", T_TURN),
@@ -2452,7 +2520,7 @@ MUTANTS = [
      "            if True:", T_INK),
     # (No mutant for `>` vs `>=` against Otsu's threshold. OpenCV returns the
     #  value BELOW the cut, so `>=` keeps a ring whose distance lands exactly
-    #  on it — and the second split then takes that ring off again and hands
+    #  on it - and the second split then takes that ring off again and hands
     #  back the same answer. The two cover for each other, which makes it an
     #  equivalent mutant rather than a hole; the strict form is kept because
     #  it is what OpenCV means, not because a test can see it.)
@@ -2472,7 +2540,7 @@ MUTANTS = [
      "            style.update(_glow(img, ink_rings, beyond))", "            pass", T_INK),
     ("ink-the-blended-rim-counts-as-the-glow", INK,
      "    tail = steps[1:]", "    tail = steps[0:]", T_INK),
-    # (No mutant for a rising profile — an outline's shape — being read as a
+    # (No mutant for a rising profile - an outline's shape - being read as a
     #  glow. It cannot happen: a profile that rises is one the outline test has
     #  already claimed, and the glow is only asked when that test found
     #  nothing. The guard that used to be here was unreachable on all six
@@ -2530,7 +2598,7 @@ MUTANTS = [
     #  guarded. It was measured over a whole chapter read four ways and never
     #  won: nothing at all under a crop per box, and +50% for the worst of the
     #  four runs on tiles. `crop-a-piece-is-blown-up-again` below is what is
-    #  left of them — the one thing worth pinning is that nothing grows.)
+    #  left of them - the one thing worth pinning is that nothing grows.)
     ("crop-a-piece-is-blown-up-again", "ocr.py",
      "    H, W = vis.shape[:2]\n    m = max(H, W)\n    if m > max_side:",
      "    H, W = vis.shape[:2]\n    m = max(H, W)\n    if m != max_side:", T_CROP),
@@ -3363,7 +3431,7 @@ MUTANTS = [
 
     # ---- the price ids that go into Firestore by hand
     #
-    # `seed.js` is not run by any test — it needs a Firestore. What IS tested
+    # `seed.js` is not run by any test - it needs a Firestore. What IS tested
     # is its SOURCE, because the property that matters is an ordering: the
     # check happens before the write. These four mutants are the four ways to
     # break that ordering while leaving a file that still looks careful.
@@ -3506,11 +3574,98 @@ MUTANTS = [
      "      const want = vendorOf(have) || ven.value || makers[0];", T_TRIM),
     # There is deliberately NO mutant for "the switch sits below the list
     # instead of above it". The test asserts the order, but a mutation here is
-    # one find-and-replace and moving a block of markup is not — every version
+    # one find-and-replace and moving a block of markup is not - every version
     # of it was an attribute change that moved nothing, and a mutant that
     # cannot express the fault proves only that the suite survives a no-op.
 
+    # ---- Focus clean is gone.
+    ("focusgone-the-switch-is-read-again", INP,
+     "def focus_ink(bgr: np.ndarray, reach: int = FOCUS_REACH,",
+     "def in_focus(region) -> bool:\n"
+     "    return bool(getattr(region, \"focus\", False))\n"
+     "\n"
+     "\n"
+     "def focus_ink(bgr: np.ndarray, reach: int = FOCUS_REACH,", T_FOCUSGONE),
+    ("focusgone-the-stamp-was-not-bumped", INP,
+     'ALGO = "2026-08-15-a"', 'ALGO = "2026-08-13-e"', T_FOCUSGONE),
+    ("focusgone-the-flag-is-written-back-out", PRJ_PY,
+     '        "kind": str(r.kind), "order": int(r.order),',
+     '        "focus": bool(getattr(r, "focus", False)),\n'
+     '        "kind": str(r.kind), "order": int(r.order),', T_FOCUSGONE),
+    ("focusgone-the-plate-watches-it-again", "editor.py",
+     '    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"))\n'
+     '                for r in p.pages[i].regions)',
+     '    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"),\n'
+     '                 bool(r.get("focus", False)))\n'
+     '                for r in p.pages[i].regions)', T_FOCUSGONE),
+
+    # ---- The rail, and the story context you can type.
+    ("rail-the-title-never-comes-back-out", PRJ_PY,
+     '            "context": {"title": getattr(self.ctx, "title", "") or "",',
+     '            "context": {',
+     T_RAIL),
+    ("rail-the-ticks-forget-which-chapter-they-are-for", JS_PJ,
+     "    JSON.stringify({byName:true, chapter:_selChapter,",
+     "    JSON.stringify({byName:true, chapter:null,", T_RAIL),
+    ("rail-another-chapters-ticks-are-adopted", JS_PJ,
+     "  if(_selStored && _selStored.chapter===key){",
+     "  if(_selStored){", T_RAIL),
+    ("rail-the-ticks-are-thrown-away-on-every-reload", JS_PJ,
+     "  if(key===null || key===_selChapter) return;",
+     "  if(key===null) return;", T_RAIL),
+    ("rail-the-default-width-is-back-where-it-was", CSS,
+     "#pages{width:210px;", "#pages{width:168px;", T_RAIL),
+    ("rail-the-default-in-the-script-drifts-from-the-sheet", JS_PJ,
+     "const RAIL_MIN = 120, RAIL_MAX = 460, RAIL_DEFAULT = 210;",
+     "const RAIL_MIN = 120, RAIL_MAX = 460, RAIL_DEFAULT = 168;", T_RAIL),
+    ("rail-it-can-be-dragged-to-nothing", JS_PJ,
+     "  const w=Math.max(RAIL_MIN, Math.min(RAIL_MAX, Math.round(px)));",
+     "  const w=Math.round(px);", T_RAIL),
+    ("rail-the-width-is-not-remembered", JS_PJ,
+     "    try{ localStorage.setItem('mangatl_rail', String(w)); }catch(e){}",
+     "    try{ }catch(e){}", T_RAIL),
+    ("rail-the-handle-has-no-resize-cursor", CSS,
+     "#pagesGrip{flex:0 0 4px;cursor:col-resize;",
+     "#pagesGrip{flex:0 0 4px;cursor:default;", T_RAIL),
+    ("story-the-boxes-are-never-filled-from-the-project", JS_IO,
+     "  if(n===2) pkFillContext();", "  if(n===2) ;", T_RAIL),
+    ("story-what-was-typed-is-not-saved", JS_IO,
+     "  await pkSaveContext();\n", "", T_RAIL),
+    ("story-an-untouched-step-writes-its-empty-boxes-back", JS_IO,
+     "  if(!t || !s || !proj || !proj.context || !pkFillContext.primed) return;",
+     "  if(!t || !s || !proj || !proj.context) return;", T_RAIL),
+    ("story-typing-does-not-open-done", JS_IO,
+     "  if(t.value.trim() || s.value.trim()){ d.disabled=false; d.title=''; }",
+     "  if(false){ d.disabled=false; d.title=''; }", T_RAIL),
+
     # ---- One piece of writing, one box; and paper is not a balloon.
+    # ---- A box only CRAFT saw needs more than a graze.
+    ("alone-a-graze-is-enough-again", CTD,
+     "JOIN_ALONE = 0.20",
+     "JOIN_ALONE = 0.05", T_ALONE),
+    ("alone-the-bar-is-raised-so-high-nothing-mixed-ever-joins", CTD,
+     "JOIN_ALONE = 0.20",
+     "JOIN_ALONE = 0.99", T_ALONE),
+    ("alone-the-provenance-is-never-checked", CTD,
+     "            bar = share\n"
+     "            if (a.text_mask is None) != (b.text_mask is None):\n"
+     "                bar = max(share, JOIN_ALONE)\n",
+     "            bar = share\n", T_ALONE),
+    ("alone-the-bar-rises-when-BOTH-are-crafts-alone", CTD,
+     "            if (a.text_mask is None) != (b.text_mask is None):",
+     "            if (a.text_mask is None) or (b.text_mask is None):",
+     T_ALONE),
+    ("alone-the-bar-rises-when-neither-is-crafts-alone", CTD,
+     "            if (a.text_mask is None) != (b.text_mask is None):",
+     "            if (a.text_mask is None) == (b.text_mask is None):",
+     T_ALONE),
+    ("alone-the-raised-bar-can-lower-the-floor", CTD,
+     "                bar = max(share, JOIN_ALONE)",
+     "                bar = min(share, JOIN_ALONE)", T_ALONE),
+    ("alone-the-raised-bar-is-computed-and-then-dropped", CTD,
+     "                    and ox * oy >= bar * min(aw * ah, bw * bh)) \\",
+     "                    and ox * oy >= share * min(aw * ah, bw * bh)) \\",
+     T_ALONE),
     ("onebox-two-boxes-over-one-shout-stay-two", CTD,
      "    regions = _join_overlapping(regions, join_over)",
      "    regions = _join_overlapping(regions, None)", T_ONEBOX),
@@ -3520,9 +3675,12 @@ MUTANTS = [
     ("onebox-boxes-that-only-graze-are-joined-too", CTD,
      "JOIN_OVER = 0.05",
      "JOIN_OVER = 0.005", T_ONEBOX),
+    # The anchor here had gone stale - the line was rewritten as a `not (...)`
+    # some time ago and the mutant had been skipping silently ever since.
     ("onebox-the-overlap-is-measured-against-the-bigger-box", CTD,
-     "            if ox * oy < share * min(aw * ah, bw * bh):",
-     "            if ox * oy < share * max(aw * ah, bw * bh):", T_ONEBOX),
+     "                    and ox * oy >= bar * min(aw * ah, bw * bh)) \\",
+     "                    and ox * oy >= bar * max(aw * ah, bw * bh)) \\",
+     T_ONEBOX),
     ("onebox-two-families-are-joined-into-one-answer", CTD,
      "            if _kinds.family_of(a.kind) != _kinds.family_of(b.kind):\n"
      "                continue\n",
@@ -3734,7 +3892,8 @@ MUTANTS = [
      "    if False:\n"
      "        return False", T_FIVE),
     ("rays-a-burst-reads-as-bare-paper-again", CTD,
-     "                if _ring_rays(gray, r.bbox) >= RAYS_DENS:\n"
+     "                if _ring_rays(gray, r.bbox) >= RAYS_DENS \\\n"
+     "                        and _ink_chroma(img, r.bbox) < INK_CHROMA:\n"
      "                    continue",
      "                if False:\n"
      "                    continue", T_FIVE),
@@ -3859,9 +4018,9 @@ MUTANTS = [
      'ThreadPoolExecutor(max_workers=4, thread_name_prefix="craft")', T_TOGETHER),
     ("paper-the-margin-is-read-the-wrong-way-round", CTD,
      "            if _ring_paper(gray, r.bbox) >= loose_bubble:\n"
-     "                if _round_wall_around(gray, r.bbox, roundish=False):",
+     "                if _round_wall_around(gray, r.bbox, roundish=False,",
      "            if _ring_paper(gray, r.bbox) < loose_bubble:\n"
-     "                if _round_wall_around(gray, r.bbox, roundish=False):",
+     "                if _round_wall_around(gray, r.bbox, roundish=False,",
      T_PAPERBALL),
     # ---- the models lee asked to be added: Gemini 3.7, the GPT-5.6 tiers and
     # the Qwen 3.7 tiers, and the one of them that cannot be shown a page.
@@ -4050,6 +4209,689 @@ MUTANTS = [
      '    t = _EDGE_LEAD.sub(r"\\1", t, count=1)', T_DASH2),
     ("dash-a-word-cut-off-mid-hyphen-loses-it", TR,
      '(?:\\s*[\u2014\u2013]+|\\s+-+)(', '(?:\\s*[\u2014\u2013]+|\\s*-+)(', T_DASH2),
+    # ---- two sound effects in one box
+    ("twofx-the-box-never-comes-apart", CTD,
+     "                    got = _two_effects_in(cores)",
+     "                    got = None", T_TWOFX),
+    ("twofx-any-gap-is-a-break", CTD,
+     "SPLIT_GAP = 0.60", "SPLIT_GAP = 0.05", T_TWOFX),
+    ("twofx-no-gap-is-ever-a-break", CTD,
+     "SPLIT_GAP = 0.60", "SPLIT_GAP = 2.50", T_TWOFX),
+    ("twofx-a-speck-counts-as-an-effect", CTD,
+     "SPLIT_ALIKE = 0.35", "SPLIT_ALIKE = 0.05", T_TWOFX),
+    ("twofx-two-characters-are-split-too", CTD,
+     "SPLIT_LEAST = 3", "SPLIT_LEAST = 2", T_TWOFX),
+    ("twofx-the-sides-are-never-sized", CTD,
+     "    if min(big) < SPLIT_ALIKE * max(big):\n        return None",
+     "    if False:\n        return None", T_TWOFX),
+    ("twofx-the-gap-is-not-scaled-by-the-character", CTD,
+     "    return ((gx * gx + gy * gy) ** 0.5) / max(1, s)",
+     "    return (gx * gx + gy * gy) ** 0.5", T_TWOFX),
+    ("twofx-the-widest-link-is-a-span-not-a-step", CTD,
+     "    edges.sort(key=lambda t: t[0])\n    par = list(range(n))",
+     "    edges.sort(key=lambda t: -t[0])\n    par = list(range(n))", T_TWOFX),
+    ("twofx-a-character-just-outside-is-dropped", CTD,
+     "        if gx0 >= x - 6 and gx1 <= x + w + 6 \\\n"
+     "                and gy0 >= y - 6 and gy1 <= y + h + 6:",
+     "        if gx0 >= x and gx1 <= x + w \\\n"
+     "                and gy0 >= y and gy1 <= y + h:", T_TWOFX),
+    ("twofx-dialogue-is-split-as-well", CTD,
+     '                if _kinds.family_of(r.kind) == "sfx":',
+     "                if True:", T_TWOFX),
+    # ---- the big sound effects the cleaner cannot put back
+    # The rule is CALLED. `detect` is what the browser reaches, and it needs
+    # a page and the weights to run, so this is measured on the one thing a
+    # unit test can hold: the line is there and it is not conditional on
+    # anything else. The behaviour of the rule itself is the six below.
+    ("bigfx-the-rule-is-never-called", PRJ,
+     "        if no_big_sfx:\n"
+     "            im = page.image\n"
+     "            found = big_sfx(found,\n"
+     "                            im.shape[1] if im is not None else 0)",
+     "        pass", T_SFXTICK),
+    ("bigfx-the-bar-drops-to-200px", PRJ,
+     "BIG_SFX = 300 / 690", "BIG_SFX = 200 / 690", T_SFXTICK),
+    ("bigfx-nothing-is-ever-big-enough", PRJ,
+     "BIG_SFX = 300 / 690", "BIG_SFX = 900 / 690", T_SFXTICK),
+    ("bigfx-the-bar-is-taken-against-the-height", PRJ,
+     "                            im.shape[1] if im is not None else 0)",
+     "                            im.shape[0] if im is not None else 0)",
+     T_SFXTICK),
+    ("bigfx-only-the-height-counts-not-the-longest-side", PRJ,
+     "        big = max(bb[2], bb[3]) >= bar",
+     "        big = bb[3] >= bar", T_SFXTICK),
+    ("bigfx-only-the-width-counts", PRJ,
+     "        big = max(bb[2], bb[3]) >= bar",
+     "        big = bb[2] >= bar", T_SFXTICK),
+    ("bigfx-every-kind-is-cut-not-only-effects", PRJ,
+     '        if big and group_of(getattr(r, "kind", "")) == "sfx":',
+     "        if big:", T_SFXTICK),
+    ("bigfx-a-page-of-no-size-drops-everything", PRJ,
+     "    if not page_width or share <= 0:\n        return list(found)",
+     "    if False:\n        return list(found)", T_SFXTICK),
+    ("bigfx-the-endpoint-reads-absent-as-off", ED,
+     '                nobig = body.get("no_big_sfx") is not False',
+     '                nobig = body.get("no_big_sfx") is True', T_SFXTICK),
+    ("bigfx-the-default-is-off-in-the-signature", PRJ,
+     "               no_big_sfx: bool = True) -> None:",
+     "               no_big_sfx: bool = False) -> None:", T_SFXTICK),
+    ("bigfx-the-sub-tick-starts-unticked", HTM,
+     '        <input type="checkbox" id="kSfxBig" checked>',
+     '        <input type="checkbox" id="kSfxBig">', T_SFXTICK),
+    ("bigfx-one-route-forgets-to-send-it", JS,
+     "    await api('/api/detect_all','POST',{kinds, pages:[cur],"
+     " no_big_sfx:noBig});",
+     "    await api('/api/detect_all','POST',{kinds, pages:[cur]});",
+     T_SFXTICK),
+
+    # ---- CRAFT gets the CPU's fast path. 93% of Find text lives in one net,
+    # and the only saving that does not cost a box is the memory layout its
+    # weights are stored in.
+    ("cpufast-the-layout-is-never-asked-for", CRA,
+     "        lay_out_for_the_cpu(r)\n", "", T_CPUFAST),
+    ("cpufast-the-weights-are-put-back-the-slow-way", CRA,
+     "        reader.detector.to(memory_format=torch.channels_last)",
+     "        reader.detector.to(memory_format=torch.contiguous_format)",
+     T_CPUFAST),
+    ("cpufast-it-is-laid-out-again-on-every-page", CRA,
+     "        lay_out_for_the_cpu(r)\n"
+     "        _readers[langs] = r\n"
+     "    return _readers[langs]",
+     "        _readers[langs] = r\n"
+     "    lay_out_for_the_cpu(_readers[langs])\n"
+     "    return _readers[langs]", T_CPUFAST),
+    ("cpufast-a-torch-that-refuses-takes-find-text-down", CRA,
+     "    try:\n"
+     "        import torch\n"
+     "        reader.detector.to(memory_format=torch.channels_last)\n"
+     "    except Exception:\n"
+     "        pass",
+     "    import torch\n"
+     "    reader.detector.to(memory_format=torch.channels_last)", T_CPUFAST),
+    ("cpufast-the-reader-is-rebuilt-every-call", CRA,
+     "    if langs not in _readers:\n        import easyocr",
+     "    if True:\n        import easyocr", T_CPUFAST),
+    # The saving that was refused, and the test that refuses it. Lowering the
+    # canvas is the biggest number available in Find text and it is paid for
+    # in lost boxes -- 029 comes back with 6 of its 8.
+    ("cpufast-the-canvas-is-lowered-for-the-2x", CRA,
+     "CANVAS = 2560", "CANVAS = 1600", T_CPUFAST),
+    ("cpufast-the-canvas-drifts-a-little", CRA,
+     "CANVAS = 2560", "CANVAS = 2048", T_CPUFAST),
+    ("cpufast-the-page-is-magnified-first", CRA,
+     "MAG_RATIO = 1.0", "MAG_RATIO = 1.5", T_CPUFAST),
+
+    # ---- A box with nothing in it.
+    ("nothing-the-empty-box-is-exempt-again", CTD,
+     "    # under any threshold.\n"
+     "    n, _lab, st, _c = cv2.connectedComponentsWithStats(ink, 8)",
+     "    # under any threshold.\n"
+     "    if not ink.any():\n        return False\n"
+     "    n, _lab, st, _c = cv2.connectedComponentsWithStats(ink, 8)",
+     T_NOTHING),
+    ("nothing-an-empty-box-is-kept-by-the-mark-count", CTD,
+     "    if marks > STRAY_PIECES:\n        return False",
+     "    if marks >= STRAY_PIECES:\n        return False", T_NOTHING),
+    ("nothing-the-fill-is-never-under-anything", CTD,
+     "    return fill < fill_under", "    return fill <= 0.0", T_NOTHING),
+    ("nothing-a-tiny-box-is-judged-after-all", CTD,
+     "    if (x1 - x0) * (y1 - y0) < 400:\n        return False", "",
+     T_NOTHING),
+    ("nothing-the-sweep-runs-on-manga-too", CTD,
+     '        "stray_fill": None,\n', '        "stray_fill": 0.115,\n',
+     T_NOTHING),
+
+    # ---- A balloon of any colour.
+    ("colour-the-pass-runs-with-no-weights", CBU,
+     "    if not path or not os.path.isfile(path):\n        return False",
+     "    if False:\n        return False", T_COLOUR),
+    ("colour-it-overrules-the-measurement", CBU,
+     '        if getattr(r, "bubble_mask", None) is not None:\n            continue\n',
+     "", T_COLOUR),
+    ("colour-a-sound-effect-is-made-dialogue", CBU,
+     '        if _kinds.family_of(getattr(r, "kind", "bubble")) == "sfx":\n'
+     "            continue\n", "", T_COLOUR),
+    ("colour-a-balloon-that-holds-none-of-it-still-counts", CBU,
+     "HOLDS = 0.90", "HOLDS = 0.0", T_COLOUR),
+    ("colour-a-balloon-the-size-of-the-writing-counts", CBU,
+     "GAIN = 1.15", "GAIN = 1.0", T_COLOUR),
+    ("colour-the-biggest-balloon-wins-instead", CBU,
+     "            if best is None or area < (best[2] - best[0]) * (best[3] - best[1]):",
+     "            if best is None or area > (best[2] - best[0]) * (best[3] - best[1]):",
+     T_COLOUR),
+    ("colour-half-the-page-is-a-balloon", CBU,
+     "MAX_PAGE = 0.45", "MAX_PAGE = 0.99", T_COLOUR),
+    ("colour-a-tall-page-is-read-in-one-go", CBU,
+     "    if h <= w * TALL:\n        return [(0, h)]",
+     "    if True:\n        return [(0, h)]", T_COLOUR),
+    ("colour-the-windows-do-not-overlap", CBU,
+     "OVERLAP = 0.2", "OVERLAP = 0.0", T_COLOUR),
+    ("colour-only-the-first-colour-is-tried", CBU,
+     "        if len(out) == 2:\n            break",
+     "        if len(out) == 1:\n            break", T_COLOUR),
+    ("colour-a-shape-of-anything-is-a-balloon", CBU,
+     "SOLID = 0.55", "SOLID = 0.0", T_COLOUR),
+    ("colour-a-fill-that-runs-on-is-a-balloon", CBU,
+     "    return float((d[out] <= TONE).mean()) <= SPILLS", "    return True",
+     T_COLOUR),
+    ("colour-the-shape-need-not-beat-the-writing", CBU,
+     "        if float(got.sum()) < GAIN * max(1.0, float(tw * th)):\n"
+     "            continue\n", "", T_COLOUR),
+    ("colour-the-letters-are-left-as-holes", CBU,
+     "    piece[inv == 1] = 1", "    pass", T_COLOUR),
+    ("colour-a-sub-type-is-overwritten", CBU,
+     '        if _kinds.family_of(getattr(r, "kind", "bubble")) != "bubble":\n'
+     '            r.kind = "bubble"',
+     '        r.kind = "bubble"', T_COLOUR),
+    ("colour-find-text-never-calls-it", CTD,
+     "        _CB.name_the_balloons(img, regions, bubble_weights)", "",
+     T_COLOUR),
+    ("colour-it-runs-before-the-measurement", CTD,
+     "    from .balloon import attach_balloons\n    attach_balloons(gray, regions)",
+     "    from .balloon import attach_balloons", T_COLOUR),
+    ("colour-a-named-file-that-is-gone-is-used-anyway", PRJ_PY,
+     "            return named if os.path.isfile(named) else \"\"",
+     "            return named", T_COLOUR),
+
+    # ---- ...and what each box IS.
+    ("word-the-model-never-gets-a-say", CTD,
+     "        _CB.name_the_kinds(img, regions, bubble_weights, boxes=cb_boxes)",
+     "        pass", T_COLOUR),
+    ("word-it-is-asked-before-the-measuring", CTD,
+     "    if bubble_weights and cb_boxes:\n"
+     "        from . import comicbubble as _CB\n"
+     "        _CB.name_the_kinds(img, regions, bubble_weights, boxes=cb_boxes)\n",
+     "", T_COLOUR),
+    ("word-a-sound-effect-is-relabelled-too", CBU,
+     '        if kind not in ("bubble", "freefloat"):\n            continue',
+     "        if False:\n            continue", T_COLOUR),
+    ("word-a-guess-is-as-good-as-a-certainty", CBU,
+     "SURE = 0.50", "SURE = 0.0", T_COLOUR),
+    ("word-nothing-is-ever-sure-enough", CBU,
+     "SURE = 0.50", "SURE = 0.999", T_COLOUR),
+    ("word-a-box-it-barely-touches-still-votes", CBU,
+     "SAYS_OVER = 0.35", "SAYS_OVER = 0.0", T_COLOUR),
+    ("word-the-two-classes-are-swapped", CBU,
+     '        want = "bubble" if best[4] == 1 else "freefloat"',
+     '        want = "freefloat" if best[4] == 1 else "bubble"', T_COLOUR),
+    ("word-the-balloon-boxes-vote-as-well", CBU,
+     "    said = [b for b in boxes if b[4] in (1, 2)]",
+     "    said = [b for b in boxes if b[4] in (0, 1, 2)]", T_COLOUR),
+    ("word-the-first-box-wins-instead-of-the-best", CBU,
+     "            if o > over:\n                best, over = b, o",
+     "            if best is None:\n                best, over = b, o", T_COLOUR),
+    ("word-the-net-is-run-twice", CTD,
+     "        _CB.name_the_kinds(img, regions, bubble_weights, boxes=cb_boxes)",
+     "        _CB.name_the_kinds(img, regions, bubble_weights)", T_COLOUR),
+
+    # ---- no effects wanted, no second detector.
+    ("nofx-the-tick-is-ignored", CTD,
+     "    if craft_x and craft_y and want_sfx:",
+     "    if craft_x and craft_y:", T_NOFX),
+    ("nofx-the-tick-alone-decides", CTD,
+     "    if craft_x and craft_y and want_sfx:",
+     "    if want_sfx:", T_NOFX),
+    ("nofx-it-runs-only-when-nobody-asked", CTD,
+     "    if craft_x and craft_y and want_sfx:",
+     "    if craft_x and craft_y and not want_sfx:", T_NOFX),
+    ("nofx-the-default-is-off", CTD,
+     "                     want_sfx: bool = True",
+     "                     want_sfx: bool = False", T_NOFX),
+    ("nofx-the-project-never-passes-it", PRJ_PY,
+     '                want_sfx=("sfx" in kinds),\n', "", T_NOFX),
+    ("nofx-the-project-passes-the-wrong-tick", PRJ_PY,
+     '                want_sfx=("sfx" in kinds),',
+     '                want_sfx=("bubble" in kinds),', T_NOFX),
+
+    # ---- a box the reader found nothing in
+    ("blank-the-sweep-never-runs", ED_PY,
+     '    if p.settings.get("drop_empty") is not False:',
+     "    if False:", T_BLANK),
+    ("blank-an-outage-empties-the-page", ED_PY,
+     "    if len(empty) == len(live):\n"
+     "        return []            # the reader had an outage, not a page of bad boxes\n",
+     "", T_BLANK),
+    ("blank-a-locked-box-is-thrown-out-too", ED_PY,
+     "            and not getattr(r, \"locked\", False)\n", "", T_BLANK),
+    ("blank-a-box-somebody-typed-is-thrown-out-too", ED_PY,
+     '            if not getattr(r, "own_text", False)\n',
+     "            if True\n", T_BLANK),
+    ("blank-a-translated-box-is-thrown-out-too", ED_PY,
+     '            and not (getattr(r, "dst_text", "") or "").strip()]',
+     "            ]", T_BLANK),
+    ("blank-whitespace-counts-as-text", ED_PY,
+     '    empty = [r for r in live if not (getattr(r, "src_text", "") or "").strip()]',
+     '    empty = [r for r in live if not (getattr(r, "src_text", "") or "")]',
+     T_BLANK),
+    ("blank-the-setting-is-off-by-default", PRJ_PY,
+     '            "drop_empty": True,', '            "drop_empty": False,',
+     T_BLANK),
+
+    # ---- painted lettering is not dialogue
+    ("paint-the-rays-escape-is-never-vetoed", CTD,
+     "                if _ring_rays(gray, r.bbox) >= RAYS_DENS \\\n"
+     "                        and _ink_chroma(img, r.bbox) < INK_CHROMA:",
+     "                if _ring_rays(gray, r.bbox) >= RAYS_DENS:", T_PAINT),
+    ("paint-the-floor-escape-is-never-vetoed", CTD,
+     "            elif _paper_under(gray, r.bbox, r.text_mask)"
+     " >= UNDER_PAPER \\\n"
+     "                    and _ink_chroma(img, r.bbox) < INK_CHROMA:",
+     "            elif _paper_under(gray, r.bbox, r.text_mask)"
+     " >= UNDER_PAPER:", T_PAINT),
+    ("paint-the-veto-runs-the-wrong-way", CTD,
+     "                        and _ink_chroma(img, r.bbox) < INK_CHROMA:",
+     "                        and _ink_chroma(img, r.bbox) >= INK_CHROMA:",
+     T_PAINT),
+    ("paint-the-floor-veto-runs-the-wrong-way", CTD,
+     "            elif _paper_under(gray, r.bbox, r.text_mask)"
+     " >= UNDER_PAPER \\\n"
+     "                    and _ink_chroma(img, r.bbox) < INK_CHROMA:",
+     "            elif _paper_under(gray, r.bbox, r.text_mask)"
+     " >= UNDER_PAPER \\\n"
+     "                    and _ink_chroma(img, r.bbox) >= INK_CHROMA:",
+     T_PAINT),
+    ("paint-nothing-is-ever-coloured-enough", CTD,
+     "INK_CHROMA = 12.0", "INK_CHROMA = 300.0", T_PAINT),
+    ("paint-everything-counts-as-coloured", CTD,
+     "INK_CHROMA = 12.0", "INK_CHROMA = 0.0", T_PAINT),
+    ("paint-the-bar-is-under-the-ink-it-must-keep", CTD,
+     "INK_CHROMA = 12.0", "INK_CHROMA = 0.5", T_PAINT),
+    ("paint-the-ground-is-whichever-side-is-smaller", CTD,
+     "    ink = (~d if d[edge].mean() > 0.5 else d).astype(np.uint8)",
+     "    ink = (d if d.mean() <= 0.5 else ~d).astype(np.uint8)", T_PAINT),
+    ("paint-the-ground-is-always-the-light-side", CTD,
+     "    ink = (~d if d[edge].mean() > 0.5 else d).astype(np.uint8)",
+     "    ink = d.astype(np.uint8)", T_PAINT),
+    ("paint-the-whole-glyph-is-averaged-not-its-core", CTD,
+     "    core = dt >= max(1.0, 0.5 * float(np.percentile(dt[ink > 0], 90)))",
+     "    core = ink > 0", T_PAINT),
+    ("paint-the-core-is-a-fixed-width-whatever-the-stroke", CTD,
+     "    core = dt >= max(1.0, 0.5 * float(np.percentile(dt[ink > 0], 90)))",
+     "    core = dt >= 1.0", T_PAINT),
+    ("paint-chroma-is-measured-off-lightness", CTD,
+     "    a = lab[..., 1].astype(np.float32) - 128.0\n"
+     "    b = lab[..., 2].astype(np.float32) - 128.0",
+     "    a = lab[..., 0].astype(np.float32) - 128.0\n"
+     "    b = lab[..., 0].astype(np.float32) - 128.0", T_PAINT),
+    ("paint-chroma-is-not-centred-on-neutral", CTD,
+     "    a = lab[..., 1].astype(np.float32) - 128.0\n"
+     "    b = lab[..., 2].astype(np.float32) - 128.0",
+     "    a = lab[..., 1].astype(np.float32)\n"
+     "    b = lab[..., 2].astype(np.float32)", T_PAINT),
+    ("paint-an-empty-box-is-loudly-coloured", CTD,
+     "    if int(ink.sum()) < CHROMA_MIN_INK:\n        return 0.0",
+     "    if int(ink.sum()) < CHROMA_MIN_INK:\n        return 999.0", T_PAINT),
+    ("paint-a-box-of-nothing-is-still-measured", CTD,
+     "    if (x1 - x0) * (y1 - y0) < CHROMA_MIN_BOX:\n        return 0.0",
+     "    if False:\n        return 0.0", T_PAINT),
+    ("paint-the-border-is-the-whole-box", CTD,
+     "CHROMA_FRAME = 2", "CHROMA_FRAME = 10000", T_PAINT),
+
+    # A box only comic-text-detector believes in has to show its letters.
+    # See `dbcoo.SFX_GLYPHS` -- eleven of the fifteen junk boxes on the
+    # chapter are one cell of one table, and this is the rule over that cell.
+    ("bodies-the-rule-is-quietly-off", DBCOO,
+     "SFX_GLYPHS = 5 ", "SFX_GLYPHS = 0 ", T_BODIES),
+    ("bodies-one-mark-is-a-line-of-writing", DBCOO,
+     "SFX_GLYPHS = 5 ", "SFX_GLYPHS = 1 ", T_BODIES),
+    ("bodies-nothing-is-ever-enough-letters", DBCOO,
+     "SFX_GLYPHS = 5 ", "SFX_GLYPHS = 10000 ", T_BODIES),
+    ("bodies-the-balloon-arm-is-back-on", DBCOO,
+     "SFX_KEEP_WALLED = False ", "SFX_KEEP_WALLED = True ", T_BODIES),
+    ("bodies-a-speck-of-tone-is-a-character", DBCOO,
+     "SFX_GLYPH_AREA = 40 ", "SFX_GLYPH_AREA = 1 ", T_BODIES),
+    ("bodies-no-mark-is-ever-big-enough", DBCOO,
+     "SFX_GLYPH_AREA = 40 ", "SFX_GLYPH_AREA = 100000 ", T_BODIES),
+    ("bodies-the-floor-is-a-strict-one", DBCOO,
+     "                   if int(st[i, cv2.CC_STAT_AREA]) >= min_area))",
+     "                   if int(st[i, cv2.CC_STAT_AREA]) > min_area))",
+     T_BODIES),
+    ("bodies-the-background-counts-as-a-character", DBCOO,
+     "    return int(sum(1 for i in range(1, n)",
+     "    return int(sum(1 for i in range(0, n)", T_BODIES),
+    ("bodies-a-missing-mask-is-full-of-writing", DBCOO,
+     "    if tmask is None:\n        return 0\n",
+     "    if False:\n        return 0\n", T_BODIES),
+    ("bodies-the-whole-page-is-counted-not-the-box", DBCOO,
+     "    m = (tmask[y0:y1, x0:x1] > 0).astype(np.uint8)\n"
+     "    if not m.any():\n        return 0",
+     "    m = (tmask > 0).astype(np.uint8)\n"
+     "    if not m.any():\n        return 0", T_BODIES),
+    ("bodies-a-box-off-the-left-edge-reads-the-right-one", DBCOO,
+     "    x0, y0 = max(0, x0), max(0, y0)\n"
+     "    m = (tmask[y0:y1, x0:x1] > 0).astype(np.uint8)",
+     "    m = (tmask[y0:y1, x0:x1] > 0).astype(np.uint8)", T_BODIES),
+    ("bodies-the-route-keeps-its-own-copy-of-the-bar", DBCOO,
+     "                   glyphs: int = SFX_GLYPHS, split_texts: bool "
+     "= SPLIT_TEXTS,",
+     "                   glyphs: int = 0, split_texts: bool = SPLIT_TEXTS,",
+     T_BODIES),
+
+    # The balloon outranks the specialist, and a rectangle round two effects
+    # is not one box. See `tests/test_the_balloon_outranks_the_specialist.py`.
+    ("weld-the-manga-route-skips-the-effects-again", CTD,
+     "        if (skip_sfx and _kinds.family_of(r.kind) == \"sfx\") \\\n"
+     "                or r.text_mask is None:",
+     "        if _kinds.family_of(r.kind) == \"sfx\" or r.text_mask is None:",
+     T_WELD),
+    ("weld-every-effect-is-split-on-the-manhwa-too", CTD,
+     "def _each_text_its_own_box(regions: list, skip_sfx: bool = True)",
+     "def _each_text_its_own_box(regions: list, skip_sfx: bool = False)",
+     T_WELD),
+    ("weld-the-text-split-is-off", DBCOO,
+     "SPLIT_TEXTS = True", "SPLIT_TEXTS = False", T_WELD),
+    ("weld-the-effect-split-is-off", DBCOO,
+     "SPLIT_SFX = True", "SPLIT_SFX = False", T_WELD),
+    ("weld-a-grazing-effect-counts-as-one-inside", DBCOO,
+     "SFX_PIECE_IN = 0.60", "SFX_PIECE_IN = 0.0", T_WELD),
+    ("weld-no-effect-is-ever-inside-anything", DBCOO,
+     "SFX_PIECE_IN = 0.60", "SFX_PIECE_IN = 1.01", T_WELD),
+    ("weld-the-route-splits-behind-the-switch", DBCOO,
+     "                   split_sfx: bool = SPLIT_SFX, **tuning) -> list:",
+     "                   split_sfx: bool = False, **tuning) -> list:", T_WELD),
+    ("weld-the-text-split-runs-behind-the-switch", DBCOO,
+     "split_texts: bool = SPLIT_TEXTS,\n"
+     "                   split_sfx: bool = SPLIT_SFX,",
+     "split_texts: bool = False,\n"
+     "                   split_sfx: bool = SPLIT_SFX,", T_WELD),
+    ("weld-the-effect-family-is-labelled-like-the-rest", DBCOO,
+     "    if _kinds.family_of(kind) == \"sfx\":\n        return \"sfx\"",
+     "    if False:\n        return \"sfx\"", T_WELD),
+    ("weld-a-fitted-balloon-does-not-outrank-the-specialist", DBCOO,
+     "    if fitted:\n        return \"bubble\"\n"
+     "    if _kinds.family_of(kind) == \"sfx\":",
+     "    if _kinds.family_of(kind) == \"sfx\":", T_WELD),
+    ("weld-an-effect-is-promoted-by-any-wall-at-all", DBCOO,
+     "    if fitted:\n        return \"bubble\"",
+     "    if fitted or wall():\n        return \"bubble\"", T_WELD),
+    ("weld-the-walls-are-always-measured", DBCOO,
+     "    if wall() or enclosed():", "    if any([wall(), enclosed()]):",
+     T_WELD),
+    ("weld-nothing-round-the-writing-is-still-dialogue", DBCOO,
+     "    return \"freefloat\"", "    return \"bubble\"", T_WELD),
+
+    # The Manga109 segmenter. See `tests/test_the_manga109_segmenter.py`.
+    ("seg-the-page-is-read-at-the-wrong-size", SEG,
+     "SIZE = 1024", "SIZE = 640", T_SEG),
+    ("seg-panels-are-carried-around-too", SEG,
+     "want: tuple = (TEXT, BALLOON)", "want: tuple = (TEXT, BALLOON, FRAME)",
+     T_SEG),
+    ("seg-the-classes-are-guessed-by-number", SEG,
+     'TEXT = "text"', 'TEXT = "0"', T_SEG),
+    ("seg-a-missing-wheel-is-left-to-explode", SEG,
+     "    try:\n        import ultralytics  # noqa: F401\n    except Exception:",
+     "    if False:", T_SEG),
+    ("seg-no-weights-is-not-worth-saying", SEG,
+     '        return "no Manga109 segmenter weights are set"',
+     '        return ""', T_SEG),
+    ("seg-a-path-that-is-not-there-is-fine", SEG,
+     '        return "Manga109 segmenter weights are not at %s" % path',
+     '        return ""', T_SEG),
+    ("seg-writing-barely-touching-a-balloon-is-inside-it", DBCOO,
+     "IN_BALLOON = 0.60", "IN_BALLOON = 0.0", T_SEG),
+    ("seg-nothing-is-ever-inside-a-balloon", DBCOO,
+     "IN_BALLOON = 0.60", "IN_BALLOON = 1.01", T_SEG),
+    ("seg-the-margins-are-left-empty", DBCOO,
+     "FILL_GAPS = True", "FILL_GAPS = False", T_SEG),
+    ("seg-the-margins-are-filled-with-anything-at-all", DBCOO,
+     "            if glyph_bodies(tmask, b) < glyphs:\n                continue",
+     "            if False:\n                continue", T_SEG),
+    ("seg-the-detector-runs-twice-again", DBCOO,
+     "    tmask = getattr(page, \"seg_mask\", None)\n    if tmask is None:\n"
+     "        tmask = CT.page_text_mask(",
+     "    if True:\n        tmask = CT.page_text_mask(", T_SEG),
+    ("seg-the-route-keeps-its-own-balloon-bar", DBCOO,
+     "                inside: float = IN_BALLOON,",
+     "                inside: float = 0.9,", T_SEG),
+    ("seg-it-is-on-by-default", PRJ,
+     '            "manga_segmenter": False,', '            "manga_segmenter": True,',
+     T_SEG),
+    ("seg-a-manhwa-is-offered-it-too", PRJ,
+     "        if self.medium not in self.TWO_MEDIA:\n"
+     "            return (\"this was measured on manga and only on manga -- see \"\n"
+     "                    \"Project.TWO_MEDIA\")\n"
+     "        if not (self.settings.get(\"weights\") or \"\"):\n"
+     "            return \"comic-text-detector weights are needed for the clean mask\"",
+     "        if not (self.settings.get(\"weights\") or \"\"):\n"
+     "            return \"comic-text-detector weights are needed for the clean mask\"",
+     T_SEG),
+    ("seg-the-clean-mask-is-not-required", PRJ,
+     '        if not (self.settings.get("weights") or ""):\n'
+     '            return "comic-text-detector weights are needed for the clean mask"',
+     "        if False:\n            return \"\"", T_SEG),
+    ("seg-a-broken-checkpoint-still-switches-it-on", PRJ,
+     "        return not self.why_not_manga_segmenter()", "        return True",
+     T_SEG),
+
+    # One detector finds all of it, and a box round other boxes is a bracket.
+    ("anim-the-route-is-on-by-default", PRJ,
+     '            "animetext": False,', '            "animetext": True,',
+     T_ANIM),
+    ("anim-a-missing-checkpoint-does-not-stop-it", PRJ,
+     "        return not self.why_not_animetext()", "        return True",
+     T_ANIM),
+    ("anim-a-manhwa-is-offered-it-too", PRJ,
+     '        if self.medium not in self.TWO_MEDIA:\n'
+     '            return ("this was measured on manga and only on manga -- see "\n'
+     '                    "Project.TWO_MEDIA")\n'
+     '        if not (self.settings.get("weights") or ""):\n'
+     '            return "comic-text-detector weights are needed for the clean mask"\n'
+     "        from .detect import animetext as _at",
+     '        if not (self.settings.get("weights") or ""):\n'
+     '            return "comic-text-detector weights are needed for the clean mask"\n'
+     "        from .detect import animetext as _at", T_ANIM),
+    ("anim-the-clean-mask-is-not-required", PRJ,
+     '        if not (self.settings.get("weights") or ""):\n'
+     '            return "comic-text-detector weights are needed for the '
+     'clean mask"\n'
+     "        from .detect import animetext as _at",
+     "        from .detect import animetext as _at", T_ANIM),
+    ("anim-the-downloaded-filename-is-not-accepted", PRJ,
+     '                            "yolo12l_animetext.pt", "model.pt")',
+     '                            "yolo12l_animetext.pt")', T_ANIM),
+    ("anim-the-page-is-read-at-the-wrong-size", ANIM,
+     "SIZE = 1024", "SIZE = 640", T_ANIM),
+    ("anim-the-class-is-guessed-by-number", ANIM,
+     'TEXT = "text_block"', 'TEXT = "0"', T_ANIM),
+    ("anim-a-missing-wheel-is-left-to-explode", ANIM,
+     "    try:\n        import ultralytics  # noqa: F401\n"
+     "    except Exception:\n"
+     '        return ("ultralytics is not installed -- run `pip install "\n'
+     '                "ultralytics` (the AnimeText model needs it)")',
+     "    pass", T_ANIM),
+    ("anim-no-weights-is-not-worth-saying", ANIM,
+     '    if not path:\n        return "no AnimeText weights are set"',
+     '    if not path:\n        return ""', T_ANIM),
+    ("anim-the-bracket-is-kept", DBCOO,
+     "        if held >= least:\n            continue",
+     "        if False:\n            continue", T_ANIM),
+    ("anim-a-duplicate-pair-is-read-as-a-bracket", DBCOO,
+     "NEST_LEAST = 2", "NEST_LEAST = 1", T_ANIM),
+    ("anim-anything-nearby-counts-as-held", DBCOO,
+     "NEST_IN = 0.70", "NEST_IN = 0.0", T_ANIM),
+    ("anim-nothing-is-ever-held", DBCOO,
+     "NEST_IN = 0.70", "NEST_IN = 1.01", T_ANIM),
+    ("anim-the-bigger-box-is-the-one-kept", DBCOO,
+     "            if area_q < area_b and _share(q, b) > inside:",
+     "            if area_q > area_b and _share(q, b) > inside:", T_ANIM),
+    ("anim-a-box-of-equal-size-counts-as-held", DBCOO,
+     "            if area_q < area_b and _share(q, b) > inside:",
+     "            if area_q <= area_b and _share(q, b) > inside:", T_ANIM),
+    ("anim-the-route-keeps-its-own-bracket-bar", DBCOO,
+     "                     drop_nested: float = NEST_IN, **tuning) -> list:",
+     "                     drop_nested: float = 0.7, **tuning) -> list:",
+     T_ANIM),
+    ("anim-the-sound-effect-model-is-required", DBCOO,
+     '                     coo_ckpt: str = "", classify: bool = True,',
+     '                     coo_ckpt: str, classify: bool = True,', T_ANIM),
+
+    # The licence, and the list of what the app can load. lee: *"the software
+    # itself willmbe free"*, and free with nothing written down is
+    # all-rights-reserved.
+    ("lic-the-reason-for-the-licence-is-not-recorded", NOTICE,
+     "comic-text-detector\n  file      comictextdetector.pt.onnx",
+     "a text detector\n  file      comictextdetector.pt.onnx", T_LIC),
+    ("lic-a-model-drops-off-the-list", NOTICE,
+     "  file      dbpp_coo.dat / dbpp_coo.pth / DB_finetune_COO",
+     "  file      (removed)", T_LIC),
+    ("lic-the-weights-are-said-to-ship-with-it", NOTICE,
+     "NONE OF THE MODEL FILES ARE REDISTRIBUTED WITH THIS SOFTWARE. Every one"
+     " of\nthem is downloaded by the person using it",
+     "The model files ship with this software. Every one of\nthem is bundled"
+     " by the person building it", T_LIC),
+    ("lic-manga109-is-not-mentioned-at-all", NOTICE,
+     "MANGA109, WHICH IS NOT A SOFTWARE LICENCE",
+     "A NOTE ON TRAINING DATA", T_LIC),
+    ("lic-manga109-is-presented-as-settled", NOTICE,
+     "is not settled law anywhere", "is settled law", T_LIC),
+    ("lic-the-remote-engines-are-called-code", NOTICE,
+     "are services, not code in this program",
+     "are code in this program", T_LIC),
+    ("lic-it-claims-to-be-legal-advice", NOTICE,
+     "It is not legal advice and nobody here is a lawyer.",
+     "This is a complete answer.", T_LIC),
+    ("lic-the-unchecked-cards-are-given-an-answer", NOTICE,
+     "  licence   check the model card before relying on it -- not stated at"
+     " the\n            time this file was written",
+     "  licence   MIT", T_LIC),
+
+    # Naming a box from what was read out of it, instead of from a second net.
+    ("read-the-balloon-no-longer-outranks-the-text", RK,
+     '    if in_balloon:\n        return "bubble"',
+     '    if False:\n        return "bubble"', T_RK),
+    ("read-an-empty-box-is-speech", RK,
+     "    if not text:\n        return True",
+     "    if not text:\n        return False", T_RK),
+    ("read-a-box-of-punctuation-is-speech", RK,
+     "    if not bare:\n        return True",
+     "    if not bare:\n        return False", T_RK),
+    ("read-kanji-does-not-settle-it", RK,
+     "    if KANJI.search(bare):\n        return False",
+     "    if False:\n        return False", T_RK),
+    ("read-grammar-does-not-settle-it", RK,
+     "    if any(c in PARTICLES or c in ENDINGS for c in bare):\n"
+     "        return False",
+     "    if False:\n        return False", T_RK),
+    ("read-only-the-particles-count-not-the-endings", RK,
+     "    if any(c in PARTICLES or c in ENDINGS for c in bare):",
+     "    if any(c in PARTICLES for c in bare):", T_RK),
+    ("read-length-never-settles-it", RK,
+     "    if len(bare) > least:\n        return False",
+     "    if False:\n        return False", T_RK),
+    ("read-anything-of-any-length-is-a-sound", RK,
+     "SFX_MAX = 12", "SFX_MAX = 10000", T_RK),
+    ("read-nothing-is-ever-short-enough", RK,
+     "SFX_MAX = 12", "SFX_MAX = 0", T_RK),
+    ("read-the-long-vowel-is-thrown-away-as-punctuation", RK,
+     'STRIP = " \\t\\r\\n。、．，!?！？…‥・「」『』（）()〜~-"',
+     'STRIP = " \\t\\r\\n。、．，!?！？…‥・「」『』（）()〜~ー-"', T_RK),
+    ("read-somebody-elses-own-box-is-relabelled-too", RK,
+     '        if getattr(r, "own_text", False):\n            continue',
+     "        if False:\n            continue", T_RK),
+    ("read-the-move-count-is-always-zero", RK,
+     "        moved += (r.kind != was)", "        moved += 0", T_RK),
+    ("read-the-ocr-step-relabels-whether-asked-or-not", OCR,
+     "             engine_name: str = \"auto\", relabel: bool = False)",
+     "             engine_name: str = \"auto\", relabel: bool = True)", T_RK),
+    ("read-the-editor-names-boxes-after-it-drops-them", PY,
+     '    if p.settings.get("kind_from_text") and p.medium in Project.TWO_MEDIA:',
+     '    if False and p.settings.get("kind_from_text"):', T_RK),
+    ("read-the-editor-does-it-on-any-format", PY,
+     '    if p.settings.get("kind_from_text") and p.medium in Project.TWO_MEDIA:',
+     '    if p.settings.get("kind_from_text"):', T_RK),
+    ("read-it-is-on-by-default", PRJ,
+     '            "kind_from_text": False,', '            "kind_from_text": True,',
+     T_RK),
+
+    # Stop means stop, the routes are one choice, and a square selects boxes.
+    ("stop-a-cleared-watcher-still-stops", STOPM,
+     "    fn = _asked\n    if fn is None:\n        return False",
+     "    fn = _asked\n    if fn is None:\n        return True", T_STOP),
+    ("stop-check-never-raises", STOPM,
+     "    if asked():\n        raise Stopped(\"stopped\")",
+     "    if False:\n        raise Stopped(\"stopped\")", T_STOP),
+    ("stop-a-broken-watcher-takes-the-run-down", STOPM,
+     "    try:\n        return bool(fn())\n    except Exception:\n"
+     "        return False",
+     "    return bool(fn())", T_STOP),
+    ("stop-clear-does-not-clear", STOPM,
+     "def clear() -> None:", "def clear_unused() -> None:", T_STOP),
+    ("stop-the-ocr-loop-runs-to-the-end", OCR,
+     "        _stopping.check()\n        # Somebody's own text box",
+     "        # Somebody's own text box", T_STOP),
+    ("stop-the-clean-loop-runs-to-the-end", "inpaint.py",
+     "        _stopping.check()\n        # sound effects USED to be skipped",
+     "        # sound effects USED to be skipped", T_STOP),
+    ("stop-the-job-never-hands-the-flag-over", PY,
+     "    _stopping.watch(lambda: bool(p.job.get(\"cancel\")))",
+     "    pass", T_STOP),
+    ("stop-the-flag-is-left-set-for-the-next-run", PY,
+     "        _stopping.clear()\n        p.job[\"running\"] = False",
+     "        p.job[\"running\"] = False", T_STOP),
+    ("stop-a-cancelled-run-is-reported-as-a-crash", PY,
+     "    except _stopping.Stopped:", "    except KeyboardInterrupt:", T_STOP),
+    ("cards-two-routes-can-be-on-at-once", JSP,
+     "  for(const k of ROUTES) proj.settings[k] = (k === name);",
+     "  proj.settings[name] = true;", T_STOP),
+    ("cards-a-route-with-no-weights-can-be-picked", JSP,
+     "  if(name && (!st || !st.ready)) return;", "  if(false) return;", T_STOP),
+    ("cards-the-selection-is-read-off-a-dead-checkbox", JSP,
+     "    two_specialists:(currentRoute()==='two_specialists'),",
+     "    two_specialists:($('two_specialists')\n"
+     "                     ? $('two_specialists').checked : false),", T_STOP),
+    ("cards-the-estimate-is-per-page-not-per-chapter", JSP,
+     "    const secs = sec * (pages || 0);", "    const secs = sec;", T_STOP),
+    ("cards-the-rating-is-a-secret", JSP,
+     "                 + \' of 226 hand-checked sites right: \' + missed",
+     "                 + \' good \' + missed", T_STOP),
+    ("boxsel-containment-instead-of-touching", BOXSEL,
+     "    if(bx < x1 && bx + bw > x0 && by < y1 && by + bh > y0) out.push(r.id);",
+     "    if(bx > x0 && bx + bw < x1 && by > y0 && by + bh < y1) out.push(r.id);",
+     T_STOP),
+    ("boxsel-s-does-nothing", BOXSEL,
+     "  if(e.key === 's' || e.key === 'S'){ toggleBoxSelect(); e.preventDefault(); }",
+     "  if(false){ toggleBoxSelect(); e.preventDefault(); }", T_STOP),
+    ("boxsel-it-fires-while-you-are-typing", BOXSEL,
+     "  if(a && (a.isContentEditable ||\n"
+     "           /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;",
+     "  if(false) return;", T_STOP),
+    ("boxsel-shift-does-not-add", BOXSEL,
+     "  _bsDrag = {x0: p.x, y0: p.y, add: !!(e.shiftKey), el: el};",
+     "  _bsDrag = {x0: p.x, y0: p.y, add: false, el: el};", T_STOP),
+    ("boxsel-the-tool-stays-armed", BOXSEL,
+     "  toggleBoxSelect(false);\n}\n\nwindow.addEventListener",
+     "}\n\nwindow.addEventListener", T_STOP),
+    ("merge-one-box-is-enough-to-merge", ROPS,
+     "  if(ids.length < 2){ toast('Select two or more boxes to merge.'); return; }",
+     "  if(ids.length < 1){ toast('Select two or more boxes to merge.'); return; }",
+     T_STOP),
+    ("merge-the-first-box-keeps-its-own-rectangle", ROPS,
+     "  const x1 = Math.max(...rs.map(r => r.bbox[0] + r.bbox[2]));",
+     "  const x1 = rs[0].bbox[0] + rs[0].bbox[2];", T_STOP),
+    ("merge-the-old-boxes-are-left-behind", ROPS,
+     "  for(const r of rs) await api(`/api/page/${cur}/region/${r.id}`, 'DELETE');",
+     "  ;", T_STOP),
+    ("merge-no-new-box-is-drawn", ROPS,
+     "  const j = await api(`/api/page/${cur}/region`, 'POST', {",
+     "  const j = await api(`/api/page/${cur}/region/0`, 'POST', {", T_STOP),
+    ("merge-only-the-first-text-survives", ROPS,
+     "  const join = (k) => rs.map(r => (r[k] || '').trim()).filter(Boolean).join(' ');",
+     "  const join = (k) => (rs[0][k] || '').trim();", T_STOP),
+    ("merge-the-order-is-whatever-was-clicked", ROPS,
+     "               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));",
+     "               .slice();", T_STOP),
+    ("merge-cannot-be-undone-in-one-press", ROPS,
+     "  record('region-merge', `${rs.length} boxes merged`,\n"
+     "    () => restoreRegions(pg, snaps));",
+     "  ;", T_STOP),
+    ("merge-the-button-shows-with-nothing-selected", PANELS,
+     "        ${selMulti.size>1\n          ? `<button onclick=\"mergeSelected()\"",
+     "        ${true\n          ? `<button onclick=\"mergeSelected()\"", T_STOP),
+    ("merge-m-always-marks-pixels", SELJS,
+     "      if(typeof selMulti!=='undefined' && selMulti.size>1\n"
+     "         && typeof mergeSelected==='function') mergeSelected();\n"
+     "      else toggleSelTool('rect');",
+     "      toggleSelTool('rect');", T_STOP),
 ]
 
 
@@ -4079,7 +4921,7 @@ def main():
             print(m[0])
         return 0
 
-    # A run killed part-way — a timeout, a Ctrl-C, a `pkill` — never reaches
+    # A run killed part-way - a timeout, a Ctrl-C, a `pkill` - never reaches
     # its `finally`, and the mutant it was holding stays on disk. Everything
     # measured afterwards is then measured against it, silently: one such
     # leftover sat in `static/editor.html` for an hour and turned the coin in
@@ -4092,8 +4934,8 @@ def main():
     # because that is what `str.replace` on a once-only anchor does. Merely
     # CONTAINING it proves nothing when the replacement is something like "}",
     # and that false positive is worse than the thing being guarded against: a
-    # `pipeline.js` that had simply gone back to an older revision — anchor
-    # gone, `}` present a few hundred times — read as a leftover mutant and
+    # `pipeline.js` that had simply gone back to an older revision - anchor
+    # gone, `}` present a few hundred times - read as a leftover mutant and
     # stopped every measurement in the project until someone read the tool.
     def _left_behind(f, fi, rp):
         src = (PKG / f).read_text(encoding="utf-8")
@@ -4112,7 +4954,7 @@ def main():
     for name, rel, find, repl, tests in picked:
         f = PKG / rel
         # A mutant naming a file that is not there is stale, the same as one
-        # whose anchor has moved — and it used to take the whole run down with
+        # whose anchor has moved - and it used to take the whole run down with
         # a traceback, so `-k` on a prefix that happened to match one of them
         # measured nothing at all.
         if not f.is_file():

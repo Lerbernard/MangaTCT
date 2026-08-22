@@ -1,4 +1,4 @@
-"""A chapter in one file — the `.tctp` bundle, and the `.tct` series file.
+"""A chapter in one file - the `.tctp` bundle, and the `.tct` series file.
 
 lee: *"can you creat custo file that end with .tct and .tctp?"*, and when
 asked what each should hold: the project one carries **the whole chapter,
@@ -7,18 +7,18 @@ have withthe spory synopsis and charatter and places"*.
 
 So there are two, and they are different kinds of thing:
 
-**`.tct` — the series.** The settings and the story bible: fonts, sizes, the
+**`.tct` - the series.** The settings and the story bible: fonts, sizes, the
 translation engine, the custom box types, the synopsis, the characters, the
 glossary. It is JSON, byte for byte the file "Export everything" already
 wrote, under a name of its own. Small, readable, and the thing you carry from
 chapter one to chapter two. It is written by the browser, which is where those
 values live; nothing in this module touches it beyond knowing the extension.
 
-**`.tctp` — the chapter.** A zip holding everything that cannot be worked out
+**`.tctp` - the chapter.** A zip holding everything that cannot be worked out
 again:
 
     mangatct.json     what this is, and which version wrote it
-    project.json      the state — every box, the Japanese, the English, the
+    project.json      the state - every box, the Japanese, the English, the
                       layouts, the paint layers, the custom box types, the
                       settings and the story bible
     input/            the pages themselves, and under `tiles/` the slices a
@@ -32,7 +32,7 @@ lee: *"make it so tht everything is save including kayers custom boxes fonts
 besicaly everything when ii load this project file it shoud be excaty as it it
 now"*. The fonts are the part that is easy to miss: a face you uploaded lives
 in `~/.mangatl/fonts`, deliberately OUTSIDE any chapter so it survives the
-chapter — which means it is not in the project folder and would not travel.
+chapter - which means it is not in the project folder and would not travel.
 A bundle carries the faces the chapter actually uses, and installs any that
 are missing when it is opened.
 
@@ -41,7 +41,7 @@ for itself and can make again, and together they are usually larger than the
 chapter. A bundle is what you cannot rebuild.
 
 **Paths go in relative and come out absolute.** A project.json holds absolute
-paths — `C:\\Users\\leema\\...\\input\\p001.png` — and a file whose whole point
+paths - `C:\\Users\\leema\\...\\input\\p001.png` - and a file whose whole point
 is to open on another machine cannot carry those. They are rewritten to
 `input/p001.png` on the way in and back to wherever the bundle was opened on
 the way out. Nothing else about the state is touched, so a bundle written by
@@ -56,7 +56,7 @@ import posixpath
 import shutil
 import zipfile
 
-# Bumped when the LAYOUT of the bundle changes — a folder renamed, a field
+# Bumped when the LAYOUT of the bundle changes - a folder renamed, a field
 # rewritten differently. Not when the project state gains a field: that is
 # `project.json`'s own business and it has always been tolerant of both
 # directions.
@@ -90,7 +90,7 @@ def map_fonts(state: dict, fn) -> dict:
     its own; and a single BOX may have been given one by hand, in its layout
     or in the override on top of it. Miss any one and a chapter opens in the
     right font except for the four boxes somebody set specially, which is a
-    worse failure than opening in the wrong font throughout — nobody looks for
+    worse failure than opening in the wrong font throughout - nobody looks for
     it.
     """
     out = dict(state)
@@ -125,8 +125,8 @@ def map_fonts(state: dict, fn) -> dict:
 def _rel(path: str, root: str, folder: str) -> str:
     """`path` as it is written inside the bundle: forward slashes, no drive.
 
-    Kept relative to the folder it belongs to where it really is under it —
-    which preserves `input/tiles/…` — and reduced to a bare filename where it
+    Kept relative to the folder it belongs to where it really is under it -
+    which preserves `input/tiles/…` - and reduced to a bare filename where it
     is not, so a page that was picked up from somewhere else still travels.
     """
     if not path:
@@ -147,9 +147,9 @@ def _abs(rel: str, root: str) -> str:
     A zip may name anything at all, and a bundle can arrive from anyone. Two
     ways out of a folder are refused here rather than checked for afterwards:
 
-    * `..`, which walks upwards — the old and obvious one;
+    * `..`, which walks upwards - the old and obvious one;
     * a segment with a colon in it, which on Windows walks SIDEWAYS.
-      `os.path.join("C:/work", "D:", "evil")` is `"D:evil"` — the root is
+      `os.path.join("C:/work", "D:", "evil")` is `"D:evil"` - the root is
       simply discarded, and a check that the result starts with the root is
       the check that lets it through on the machine most of this app's users
       are on.
@@ -261,8 +261,8 @@ def looks_like_bundle(data: bytes) -> bool:
 def read(data: bytes, root: str) -> dict:
     """Unpack a `.tctp` into `root` and return the state to load.
 
-    Everything the bundle carries is cleared first — a chapter opened over
-    another must not end up with half of each — and the two caches go with it,
+    Everything the bundle carries is cleared first - a chapter opened over
+    another must not end up with half of each - and the two caches go with it,
     because a plate cached for the last chapter is a plate for a page that is
     no longer here. Nothing OUTSIDE those folders is touched.
 
@@ -296,7 +296,7 @@ def _install_font(z: zipfile.ZipFile, ref: str) -> str:
 
     Into `~/.mangatl/fonts` rather than the project folder, because that is
     where the app looks and because an uploaded face is meant to outlive the
-    chapter it arrived with — open a bundle from somebody else and their
+    chapter it arrived with - open a bundle from somebody else and their
     typesetting font is now yours to use on the next one.
 
     A face already installed under that name is NOT overwritten. If it is the

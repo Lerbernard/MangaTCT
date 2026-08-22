@@ -1,4 +1,4 @@
-/* project.js — Project summary load, page strip rendering + drag reorder, add/remove pages, ask() dialog, settings save, region split.
+/* project.js - Project summary load, page strip rendering + drag reorder, add/remove pages, ask() dialog, settings save, region split.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -8,7 +8,7 @@
 const SYNOPSIS_MAX_LINES=10;
 function growSynopsis(){
   const t=$('synopsis');
-  if(!t || !t.offsetParent) return;     // not on screen yet — nothing to measure
+  if(!t || !t.offsetParent) return;     // not on screen yet - nothing to measure
   const cs=getComputedStyle(t);
   let lh=parseFloat(cs.lineHeight);
   if(!isFinite(lh)||!lh) lh=(parseFloat(cs.fontSize)||13)*1.45;
@@ -36,7 +36,7 @@ async function loadProject(){
   renderGlossList();
   $('minf').value=proj.settings.min_font; $('maxf').value=proj.settings.max_font;
   $('upper').checked=!!proj.settings.uppercase;
-  // One default, and it lives in `Project.settings` — every project that
+  // One default, and it lives in `Project.settings` - every project that
   // is read off disk has been through `settings.update(...)` over those
   // defaults, so the key is always there and a second default here would
   // only ever be a second place to get it wrong.
@@ -44,11 +44,10 @@ async function loadProject(){
   { const mt=$('manual_translate');
     if(mt) mt.checked=!!proj.settings.manual_translate;
     syncManualMode(); }
-  { const g=$('gemini_safety_off');
-    if(g) g.checked=!!proj.settings.gemini_safety_off; }
+
   // The switches that default ON. Read with `!==false` rather than `!!`,
   // because a project.json written before one of them existed has no key at
-  // all — `!!undefined` would switch the story off for every chapter that
+  // all - `!!undefined` would switch the story off for every chapter that
   // predates the setting.
   ON_SWITCHES.forEach(k=>{
     const el=$(k); if(el) el.checked = proj.settings[k] !== false; });
@@ -60,17 +59,22 @@ async function loadProject(){
                     ? proj.settings.source : _md.source;
   $('target').value=proj.settings.target||'en';
   if($('ocr_engine')) $('ocr_engine').value=proj.settings.ocr_engine||'auto';
-  // '' is a real choice here, not a missing one: it means "whatever this
-  // format wants". See `ocr.detail_for`.
-  if($('ocr_detail')) $('ocr_detail').value=proj.settings.ocr_detail||'';
+  // `ocr_detail` has no control anywhere any more: the reading is always a
+  // close-up per box. See `ocr.detail_for`.
+  syncReaderCards();
   $('direction').value=(proj.settings.direction && proj.settings.direction!=='auto')
                        ? proj.settings.direction : _md.direction;
-  $('detector').value='comictext';   // comic-text-detector is the only detector now
-  $('weights').value=proj.settings.weights||'';
-  $('text_weights').value=proj.settings.text_weights||'';
-  $('yolocfg').style.display='block';
-  { const n=$('ctdcfg'); if(n) n.style.display='block'; }
+  // The detector menu, the "Text model path" and the two wrapper divs are
+  // gone -- one option in a menu is not a choice, and the second path pointed
+  // at a detector nothing has called since the routes arrived. lee: *"clean
+  // up the whole detecot setting page ... reeove redunced or duplicate
+  // settings"*. The model file box went the same way later, and with it a
+  // bug worth remembering: the save read that box, nothing ever FILLED it,
+  // so every load blanked it and the next save wrote the blank over the
+  // path. `saveSettings` carries the setting through now instead of reading
+  // a control, which is a shape that cannot do that.
   if($('auto_kind')) $('auto_kind').checked=(proj.settings.auto_kind!==false);
+  syncRoutes();
   // On unless it was turned off. Both boxes, the one in Settings and the one
   // on the File tab, are this same setting.
   const recut=(proj.settings.restitch_strips!==false);
@@ -85,8 +89,8 @@ async function loadProject(){
     $('strip_tall_max').value=proj.settings.strip_tall_max||8.5;
   if(typeof stripSettings==='function') stripSettings();
   // An 'ai_boxes' menu stood here. The pass it drove is gone, and an old
-  // project.json may still carry the key — nothing reads it.
-  // A project-wide engine used to be loaded here — a "Claude model" menu and
+  // project.json may still carry the key - nothing reads it.
+  // A project-wide engine used to be loaded here - a "Claude model" menu and
   // a "Translation engine" menu. They are gone from the screen; what a step
   // runs on is the step's own boxes and nothing else.
   ['ocr','translate','proofread'].forEach(k=>{
@@ -95,8 +99,8 @@ async function loadProject(){
     // call; it now shows the provider itself, pre-filled with the project's
     // own when the step has never been pointed anywhere else. What decides
     // whether a step is used at all is unchanged and is the MODEL name beside
-    // it — an empty model still means "run this step on the project's engine"
-    // (see `_ctx_from_settings`) — so no project behaves differently.
+    // it - an empty model still means "run this step on the project's engine"
+    // (see `_ctx_from_settings`) - so no project behaves differently.
     const be=$(k+'_backend'), md=$(k+'_model'),
           bu=$(k+'_base_url'), ky=$(k+'_key');
     // Straight off the settings, with no second default here: the server
@@ -107,7 +111,7 @@ async function loadProject(){
     if(md){
       md.value=proj.settings[k+'_model']||'';
       // The menu is filled from the server, and until it answers the box's
-      // own value stands in — so the screen never shows a step as unset while
+      // own value stands in - so the screen never shows a step as unset while
       // a request is in flight.
       drawModels(k, md.value ? [md.value] : [], null);
       fillModels(k);
@@ -115,6 +119,7 @@ async function loadProject(){
     if(bu) bu.value=proj.settings[k+'_base_url']||'';
     if(ky) ky.placeholder=proj.settings[k+'_key']==='set'
       ?'(saved)':'key for this one';
+    if(typeof syncCompany==='function') syncCompany(k);
   });
   // One key per service. The boxes are masked the same way the per-step ones
   // were: the server never sends a key back, so an empty box with "(saved)"
@@ -133,7 +138,7 @@ async function loadProject(){
     const ts=proj.settings.clean_token;
     const tf=$('clean_token');
     tf.placeholder = ts==='set' ? '(saved)'
-      : ts==='placeholder' ? 'still the CHANGE-ME example — paste your real token'
+      : ts==='placeholder' ? 'still the CHANGE-ME example - paste your real token'
       : 'the token from your deploy file';
     tf.classList.toggle('bad', ts==='placeholder');
     toggleAiCfg();
@@ -151,24 +156,62 @@ async function loadProject(){
   if(typeof renderLegend==='function') renderLegend();
   if(typeof renderCustomKinds==='function') renderCustomKinds();
 }
-// Selection is keyed by page NAME (stable), NOT by position — deleting or
+// Selection is keyed by page NAME (stable), NOT by position - deleting or
 // adding a page renumbers indices, so an index-keyed tick would jump to
 // whatever page slid into that slot. A name follows its own page.
 let selPages = new Set();      // page NAMES ticked for "do all"
-let _seenPages = new Set();    // page NAMES seen so far — new pages start CHECKED
+let _seenPages = new Set();    // page NAMES seen so far - new pages start CHECKED
 // Remember the ticks across a full page reload (F5), so unchecked pages stay
 // unchecked. Stored locally in the browser for this editor.
+//
+// ...AND ONLY FOR THE CHAPTER THEY WERE MADE ON. The ticks are keyed by page
+// NAME, which is stable within a chapter and says nothing whatever between
+// two of them: a folder of `page001.png … page071.png` is every chapter
+// anybody has ever downloaded. lee opened a new one and *"the tick boxes came
+// in pre uncheesced"* - 8 ticked of 71 - because 63 of those names were
+// already in `seen` from the chapter before, un-ticked there, and a name that
+// has been seen does not get the new-page tick. So the memory carries the
+// chapter it was made on and is dropped whole when a different one is opened,
+// which puts every page of a new chapter back to CHECKED.
+let _selChapter = null;        // the chapter the remembered ticks belong to
+let _selStored = null;         // what localStorage had, until it is claimed
 try{
   const _s=JSON.parse(localStorage.getItem('mangatl_sel')||'null');
   // Only restore the newer name-keyed form; old numeric ticks are ignored so
   // they can't mis-map onto the wrong pages.
-  if(_s && Array.isArray(_s.sel) && _s.byName){
-    selPages=new Set(_s.sel); _seenPages=new Set(_s.seen||_s.sel);
-  }
+  if(_s && Array.isArray(_s.sel) && _s.byName) _selStored=_s;
 }catch(e){}
+/* Which chapter this is. The folder alone used to be the answer - and every
+   chapter lee makes lives in the SAME folder, because "new project" is a
+   reset of it. His new chapter's pages carry the same names as the old
+   ones, so the old chapter's deselections claimed them: *"the same pages
+   are automaticaly unselcetd , that hsoud not happen"*. The server stamps a
+   fresh `chapter_id` on every reset; a project from before the stamp sends
+   "" and keys the way it always did. */
+function selChapterKey(){
+  if(!proj || !(proj.output_dir || proj.input_dir)) return null;
+  return (proj.output_dir || proj.input_dir) + '|' + (proj.chapter_id || '');
+}
+/* Claim the remembered ticks, once the project is known - which is the first
+   moment they can be told apart from another chapter's. */
+function adoptSel(){
+  const key=selChapterKey();
+  if(key===null || key===_selChapter) return;
+  _selChapter=key;
+  if(_selStored && _selStored.chapter===key){
+    selPages=new Set(_selStored.sel);
+    _seenPages=new Set(_selStored.seen||_selStored.sel);
+  }else{
+    // A different chapter, or ticks saved before they carried one at all.
+    // Forget them: `renderPages` then sees every page as new and ticks it.
+    selPages=new Set(); _seenPages=new Set();
+  }
+  _selStored=null;
+}
 function saveSel(){
   try{ localStorage.setItem('mangatl_sel',
-    JSON.stringify({byName:true, sel:[...selPages], seen:[..._seenPages]})); }catch(e){}
+    JSON.stringify({byName:true, chapter:_selChapter,
+                    sel:[...selPages], seen:[..._seenPages]})); }catch(e){}
 }
 function _pageName(i){ const p=(proj.pages||[]).find(p=>p.index===i); return p?p.name:null; }
 function togglePageSel(i){
@@ -187,6 +230,9 @@ function scopedPages(){
 }
 
 function renderPages(){
+  // Whose ticks are these? Asked here rather than at load, because `proj` is
+  // what answers it and it does not exist when this file is parsed.
+  adoptSel();
   // New (and first-load) pages default to CHECKED; manual deselects persist.
   let _added=false;
   proj.pages.forEach(p=>{
@@ -232,6 +278,50 @@ function renderPages(){
   renderSteps();
 }
 
+/* ---------------- the page rail's width ----------------
+   lee: *"alwo me to resize teh side side bar with the titles and make teh
+   dealt 25% bigger"*.
+
+   The bounds are what the rail is FOR at each end: under 120px the checkbox
+   and the status dots leave no room for a name at all, and past 460 it stops
+   being a rail. Kept in the browser next to the ticks, because it is a fact
+   about this screen on this machine and not about the chapter - open the
+   same project somewhere else and it is that machine's to set. */
+const RAIL_MIN = 120, RAIL_MAX = 460, RAIL_DEFAULT = 210;
+function railWidth(px, remember){
+  const el=$('pages'); if(!el) return;
+  const w=Math.max(RAIL_MIN, Math.min(RAIL_MAX, Math.round(px)));
+  el.style.width=w+'px';
+  if(remember!==false){
+    try{ localStorage.setItem('mangatl_rail', String(w)); }catch(e){}
+  }
+  return w;
+}
+function railGrab(e){
+  e.preventDefault();
+  const el=$('pages'), grip=$('pagesGrip');
+  if(!el) return;
+  const x0=e.clientX, w0=el.getBoundingClientRect().width;
+  if(grip) grip.classList.add('on');
+  document.body.classList.add('railing');
+  const move=ev=>railWidth(w0 + (ev.clientX - x0), false);
+  const up=ev=>{
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    if(grip) grip.classList.remove('on');
+    document.body.classList.remove('railing');
+    // Written once, on let go - a keystroke of localStorage per mouse move is
+    // a write per frame for a number nobody reads until the next reload.
+    railWidth(w0 + (ev.clientX - x0));
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+try{
+  const _rw=parseInt(localStorage.getItem('mangatl_rail')||'',10);
+  if(_rw) document.addEventListener('DOMContentLoaded',()=>railWidth(_rw,false));
+}catch(e){}
+
 /* The page list follows the page you are on.
 
    lee: *"can you make teh side bar with th pages scroll so that teh current
@@ -243,7 +333,7 @@ function renderPages(){
    `block:'nearest'` and not `'center'`: nearest does NOTHING when the row is
    already visible, so clicking a row you can see never jerks the list out
    from under the pointer, and it moves the least it can when the row is off
-   the edge. The scroll is skipped entirely while a row is being renamed —
+   the edge. The scroll is skipped entirely while a row is being renamed -
    that row holds a focused field, and scrolling the list under a caret is
    how a rename loses its place. */
 function keepCurrentPageInView(){
@@ -266,7 +356,7 @@ function keepCurrentPageInView(){
 
 /* One dot per STEP this view is about, filled in when that page has finished
    it. The list used to carry a single dot for the whole page, which said
-   "something has happened to this one" and nothing else — so a page that had
+   "something has happened to this one" and nothing else - so a page that had
    been read but not translated looked exactly like a page that was finished.
    lee: *"istaed of 1 green bubble it shoud be 4 for the origibla page and 2
    for the edit page, one for each step"*.
@@ -274,7 +364,7 @@ function keepCurrentPageInView(){
    Which steps depends on which view you are on, because that is what the view
    IS: Original is the four steps about the WORDS (find, read, translate,
    proofread) and Edit is the two about the PICTURE (clean, typeset). Export
-   belongs to neither — it is the whole chapter leaving, not a state a page
+   belongs to neither - it is the whole chapter leaving, not a state a page
    sits in. */
 function stepsForView(){
   return (typeof view!=='undefined' && view==='typeset') ? [4,5] : [0,1,2,3];
@@ -413,7 +503,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') pgMenuClose(); })
    already written there and this is the app's own way of editing text.
 
    The EXTENSION is not offered. It is not part of what the page is called, and
-   a page renamed to .txt is a page nothing can open — so the field holds the
+   a page renamed to .txt is a page nothing can open - so the field holds the
    stem and the server puts the suffix back. */
 function renamePage(i){
   pgMenuClose();
@@ -459,7 +549,7 @@ function renamePage(i){
   // A press anywhere else on the screen ends it, and blur alone does not do
   // that: the canvas, the toolbox and the page strip all call preventDefault
   // on mousedown to stop a drag selecting text, and a prevented mousedown
-  // never moves the focus — so the field sat there open with the click having
+  // never moves the focus - so the field sat there open with the click having
   // gone somewhere else entirely. lee: *"for teh rename thing if i clcik
   // anywhere on teh screen it shoud turn off"*.
   // `capture`, so it is heard before whatever swallows it.
@@ -486,12 +576,12 @@ async function removePage(i){
 /* The MAIN types that have their own font row in settings. `bubble` is not
    here: its row is `#font`, the one everything else falls back to. A
    sub-type's face is set beside it under Box types and travels on its own
-   record — it is part of what that sub-type is. */
+   record - it is part of what that sub-type is. */
 const FONT_KINDS=['freefloat','sfx'];
 let FONTS=[];
 /* Paths, most recent first. Drawn at the head of every font list. */
 let RECENT_FONTS=[];
-/* Paths of the faces this person uploaded — the only ones with a remove. */
+/* Paths of the faces this person uploaded - the only ones with a remove. */
 let UPLOADED_FONTS=[];
 /* One answer, three lists. Every font endpoint returns all three so nothing
    can be redrawn from a half-updated picture. */
@@ -515,7 +605,7 @@ function fontChoices(sel){
 function _fesc(s){return String(s==null?'':s)
   .replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
 function fontOptionHTML(f, sel){
-  // No browser font-loading here — the preview is a server-rendered image
+  // No browser font-loading here - the preview is a server-rendered image
   // (see fontRowInner), so the option only needs its value and name.
   return `<option value="${_fesc(f.path)}"${f.path===sel?' selected':''} `+
          `data-name="${_fesc(f.name)}">${_fesc(f.name)}</option>`;
@@ -532,7 +622,7 @@ function fontOptions(sel){
    search box, a recents band, a menu positioned by hand above or below
    depending on room, and a click handler that wrote the pick back through
    whichever select was live at the time. Every one of those parts was there
-   for a reason and together they did not work — lee, four times over, ending
+   for a reason and together they did not work - lee, four times over, ending
    with *"the text drop down still dosent work re design it and remake it so
    taht it works"*.
 
@@ -541,10 +631,10 @@ function fontOptions(sel){
    left open over a panel that has since been rebuilt. The two things the
    custom one had that this does not:
 
-   * the face drawn in its own face — that went already, because a sample per
+   * the face drawn in its own face - that went already, because a sample per
      row is an HTTP request per row and four hundred of those is what was
      jamming the sidebar; and
-   * a search box — native type-ahead does the same job for a name you know,
+   * a search box - native type-ahead does the same job for a name you know,
      and the Fonts page still has a filter across all the pickers at once.
 
    Recents survive as an <optgroup>, which is the native way to say the same
@@ -560,7 +650,7 @@ function fontWidget(sel){
   sel.style.display = (sel.dataset && sel.dataset.headless) ? 'none' : '';
 }
 
-/* The five faces you reached for last, then the rest — as two native groups.
+/* The five faces you reached for last, then the rest - as two native groups.
 
    Four hundred fonts with the one you always use somewhere in the middle is a
    search every single time. lee: *"Add a recent fonts to the top of the font
@@ -598,14 +688,14 @@ function refreshFontWidgets(){
   _fwTimer=setTimeout(enhanceFontSelects, 60);
 }
 /* The inspector rebuilds its HTML on every render (region panel, typesetting
-   panel, …). Whenever it does, wrap any font <select> that appeared — this
+   panel, …). Whenever it does, wrap any font <select> that appeared - this
    covers the per-bubble font picker without threading a call through every
    render branch. */
 document.addEventListener('DOMContentLoaded',()=>{
   const insp=$('inspector');
   if(insp && typeof MutationObserver!=='undefined'){
     new MutationObserver(()=>{
-      // only wrap NEW selects — wrapping mutates the DOM, and re-wrapping an
+      // only wrap NEW selects - wrapping mutates the DOM, and re-wrapping an
       // already-wrapped select would loop the observer
       insp.querySelectorAll('select.fontsel').forEach(fontWidget);
     }).observe(insp,{childList:true,subtree:true});
@@ -646,7 +736,7 @@ function fontPathFor(kind){
 /* The name of the face a box would typeset in if nothing were chosen for it.
 
    The blank option used to read "Same as the bubble setting", which answers a
-   question nobody asked — you are looking at the menu to find out WHICH FACE,
+   question nobody asked - you are looking at the menu to find out WHICH FACE,
    and the one word that is not on it is the name of the face.
    lee: *"instad of saying sma as this text box it shoud just say the font, do
    that for all of the spot fonts are used"*. */
@@ -715,19 +805,40 @@ async function saveSettings(){
     custom_kinds:proj.settings.custom_kinds||[],
     medium:$('medium').value, target:$('target').value,
     source:$('source').value,
-    ocr_engine:($('ocr_engine')?$('ocr_engine').value:'ai'), direction:$('direction').value,
-    ocr_detail:($('ocr_detail')?$('ocr_detail').value:''),
-    detector:$('detector').value, weights:$('weights').value,
-    text_weights:$('text_weights').value,
+    // There is no engine menu: the offline reader picks by language. 'auto'
+    // rather than the 'ai' this used to write - 'ai' is not the name of an
+    // engine, and `ocr.choose_engine` had to be taught to ignore it.
+    ocr_engine:($('ocr_engine')?$('ocr_engine').value:'auto'),
+    direction:$('direction').value,
+    // Carried through untouched: neither is edited here, and leaving them
+    // out of the sheet would save the project with them missing.
+    ocr_detail:'',
+    ocr_reader:(proj.settings.ocr_reader||'ai'),
+    // `detector` is not read off a menu any more -- there is one detector and
+    // the routes are the choice. It is still SENT, because `_detect_measured`
+    // branches on it and a project.json without it would read as "no
+    // detector" the next time it is opened.
+    // Neither is edited on this screen any more. `weights` empty means "look
+    // beside the app", which is where the download puts the file; a path put
+    // in a project by hand is still obeyed, and carried through here.
+    detector:'comictext', weights:(proj.settings.weights||''),
     auto_kind:($('auto_kind')?$('auto_kind').checked:true),
-    // Either box. The Settings page may not have been built yet — the File
-    // tab is where a new chapter starts — so the one that exists speaks.
+    // The route cards are a radio group with no radio in it, so the answer
+    // lives in `proj.settings` and not in the DOM. Reading absent checkboxes
+    // here is how a selection would be wiped on the next save of any other
+    // setting -- `$('animetext')` is null now, and `null ? ... : false` is
+    // false, every time.
+    two_specialists:(currentRoute()==='two_specialists'),
+    manga_segmenter:(currentRoute()==='manga_segmenter'),
+    animetext:(currentRoute()==='animetext'),
+    kind_from_text:!!proj.settings.kind_from_text,
+    // Either box. The Settings page may not have been built yet - the File
+    // tab is where a new chapter starts - so the one that exists speaks.
     restitch_strips:($('restitch_strips') ? $('restitch_strips').checked
                      : ($('restitch_new') ? $('restitch_new').checked : true)),
     strip_tall:(+($('strip_tall')||{}).value||3.5),
     strip_tall_max:(+($('strip_tall_max')||{}).value||8.5),
-    gemini_safety_off:($('gemini_safety_off')
-                       ? $('gemini_safety_off').checked : false),
+
     ...ON_SWITCHES.reduce((o,k)=>{
       // Absent from the screen is not the same as off: the settings page may
       // not have been built yet. Only send what is really there.
@@ -757,16 +868,16 @@ async function saveSettings(){
   syncManualMode();
   const bad=(res&&res.bad_fonts)||[];
   if(bad.length){
-    // A font with no alphabet in it — an icon or symbol face — cannot typeset
+    // A font with no alphabet in it - an icon or symbol face - cannot typeset
     // anything, and choosing one used to lay out empty bubbles. The server
     // keeps the font that was working; say which picker went back and why.
     syncFontSelects();
     const who=bad.map(k=>FONT_SLOT[k]||k).join(', ');
     if(typeof toast==='function')
-      toast(`That font has no letters in it, so it cannot be typeset with —`+
+      toast(`That font has no letters in it, so it cannot be typeset with -`+
             ` ${who} kept the font it had.`);
   }
-  // Refresh the preview — cleaning settings really can change the plate under
+  // Refresh the preview - cleaning settings really can change the plate under
   // the text. What this does NOT do is re-typeset: the layouts already laid out
   // come back untouched and stay on the page until Typeset is run again.
   if(inText()) showPage(cur);
@@ -819,7 +930,7 @@ async function splitRegion(id){
 
 /* ---- character sheet (settings) ----
    The working copy lives here; every edit saves through saveSettings, which
-   REPLACES the sheet server-side — what you write is the final word. */
+   REPLACES the sheet server-side - what you write is the final word. */
 let charSheet={};
 function renderCharList(){
   const el=$('charList'); if(!el) return;
@@ -853,13 +964,13 @@ function renameCharacter(oldName,newName){
 function delCharacter(n){ delete charSheet[n]; renderCharList(); saveSettings(); }
 
 /* ---- glossary: places, terms and other (manga settings) ----
-   Stored as {source term: canon English rendering} — the source side is what
+   Stored as {source term: canon English rendering} - the source side is what
    the translator matches on, so it stays in the file, but it is never shown:
    you cannot proofread a language you do not read. The panel shows the English
    rendering only, and that is what you edit.
 
-   The rendering carries its own short note in brackets — "Zaldone (the northern
-   kingdom)" — so a row reads name | note, the same shape as a character row,
+   The rendering carries its own short note in brackets - "Zaldone (the northern
+   kingdom)" - so a row reads name | note, the same shape as a character row,
    and the note travels to the translator with the name.
 
    People do not belong here. Anything whose rendering names someone already on
@@ -867,7 +978,7 @@ function delCharacter(n){ delete charSheet[n]; renderCharList(); saveSettings();
    AI puts every person it meets on the character sheet directly. */
 let glossSheet={};
 
-/* "Lulu (white rabbit)" -> "Lulu";  "Glow — the mercenary" -> "Glow" */
+/* "Lulu (white rabbit)" -> "Lulu";  "Glow - the mercenary" -> "Glow" */
 function glossName(v){
   return String(v||'').split(/\s*[（(]|\s+[—–-]\s+/)[0].trim();
 }
@@ -906,7 +1017,7 @@ function renderGlossList(){
         placeholder="how it should be written in English"
         onchange="updGlossName('${q(esc(n))}',this.value)">
       <input value="${esc(glossNote(glossSheet[n]||n))}" style="flex:2"
-        placeholder="a short note — what or where it is"
+        placeholder="a short note - what or where it is"
         onchange="updGlossNote('${q(esc(n))}',this.value)">
       <button class="danger" title="Remove this term"
         onclick="delGloss('${q(esc(n))}')">&times;</button>
@@ -914,7 +1025,7 @@ function renderGlossList(){
     ||'<p class="help" style="margin:4px 0">Nothing yet.</p>')
   + (dup.length
      ? `<p class="help" style="margin:8px 0 0">${dup.length} entr${dup.length===1?'y is':'ies are'}
-        hidden — ${dup.map(k=>esc(glossName(glossSheet[k]||k))).join(', ')}
+        hidden - ${dup.map(k=>esc(glossName(glossSheet[k]||k))).join(', ')}
         ${dup.length===1?'is':'are'} on the character sheet. The spelling is still
         sent to the translator; it just is not listed twice.</p>`
      : '');
@@ -923,7 +1034,7 @@ function addGloss(){
   const n=$('glTerm').value.trim(), d=$('glDesc').value.trim();
   if(!n){ toast('Give the place or term a name.'); return; }
   // Typed by hand there is no source-side spelling, so the English doubles as
-  // the key — the translator still matches it, and nothing shows twice.
+  // the key - the translator still matches it, and nothing shows twice.
   glossSheet[n]=glossValue(n,d);
   $('glTerm').value=''; $('glDesc').value='';
   renderGlossList(); saveSettings();
@@ -956,7 +1067,7 @@ function delGloss(n){ delete glossSheet[n]; renderGlossList(); saveSettings(); }
    models/gemini-2.5-flash-lite is no longer available to new users"*.
 
    So the box asks the provider for its list the first time it is clicked into.
-   Asked once per step per visit — the list does not change while you are
+   Asked once per step per visit - the list does not change while you are
    looking at it, and every ask is a round trip to somebody else's server. The
    settings are saved first, or the answer would be for the provider you had
    before you changed it. */
@@ -965,8 +1076,8 @@ const modelsAsked = new Set();
    name into. lee: *"inatd of habving to type teh names of teh model there
    shou dbe a drop downlist of all the models"*.
 
-   Typing was how a chapter died halfway through with a 404 — providers retire
-   models and nothing here would have told you — and it was also how a step
+   Typing was how a chapter died halfway through with a 404 - providers retire
+   models and nothing here would have told you - and it was also how a step
    ended up on a model the app cannot price, which silently charges the top
    rate. The list comes from the server: the models it prices for that
    provider, or, for a local one whose range it does not price, whatever that
@@ -977,7 +1088,7 @@ const modelsAsked = new Set();
    menu exists to stop: every id it could produce is either one the menu
    already offers or one that cannot be run, cannot be priced, or both. A model
    that is ALREADY set and is not on the list is still kept and still
-   selectable — see `drawModels` — so nobody's existing setting disappears. */
+   selectable - see `drawModels` - so nobody's existing setting disappears. */
 
 async function fillModels(step, force){
   const sel = $(step + '_model_sel');
@@ -987,7 +1098,7 @@ async function fillModels(step, force){
   let names = [], priced = null;
   try{
     // The server answers off the SAVED settings, and the provider box that
-    // just changed is only on screen so far — its own `onchange` starts a
+    // just changed is only on screen so far - its own `onchange` starts a
     // save but does not wait for it. Waiting here is what stops the menu
     // being filled with the provider's models from a moment ago.
     if(force) await saveSettings();
@@ -1002,8 +1113,8 @@ async function fillModels(step, force){
   // the settings and the screen still say the same thing.
   //
   // There was a flag here as well, telling `drawModels` not to keep the old
-  // model on the menu. It changed nothing — the move below redraws with a
-  // value the new provider does offer — so it is gone.
+  // model on the menu. It changed nothing - the move below redraws with a
+  // value the new provider does offer - so it is gone.
   if(force && names.length){
     const box = $(step + '_model');
     if(box && !names.includes((box.value || '').trim())){
@@ -1019,7 +1130,7 @@ async function fillModels(step, force){
    to speak of. Same cut as `coins.vendor_free` in Python, from the other
    side. */
 /* The "show me all of them" row's value. Not the empty string, which is what
-   an untouched <select> reads as — the two have to be told apart or choosing
+   an untouched <select> reads as - the two have to be told apart or choosing
    All is indistinguishable from never having chosen. */
 const ALL_MAKERS = '*';
 
@@ -1034,7 +1145,7 @@ function drawModels(step, names, priced){
   if(!sel || !box) return;
   const have = (box.value || '').trim();
   // Kept on the element so choosing a maker can re-filter without asking the
-  // server again — it is the same answer, shown differently.
+  // server again - it is the same answer, shown differently.
   sel._all = names; sel._priced = priced;
 
   // ---- the maker menu, and only when there is more than one maker to pick
@@ -1045,7 +1156,7 @@ function drawModels(step, names, priced){
       // What is already CHOSEN wins over what is already set: this redraws on
       // every pick, and reading the set model's maker first would drag the
       // filter back to it the moment you looked at another one.
-      // Empty means never chosen — which is why "All providers" carries a
+      // Empty means never chosen - which is why "All providers" carries a
       // value of its own rather than the empty string.
       const want = ven.value || vendorOf(have) || makers[0];
       ven.innerHTML = '';
@@ -1059,7 +1170,7 @@ function drawModels(step, names, priced){
       vadd(ALL_MAKERS, 'All providers');
       ven.value = (want === ALL_MAKERS || makers.includes(want))
         ? want : makers[0];
-      ven.style.display = '';
+      ven.style.display = ven.dataset.locked ? 'none' : '';
       only = ven.value === ALL_MAKERS ? '' : ven.value;
     }else{
       ven.style.display = 'none';
@@ -1078,20 +1189,20 @@ function drawModels(step, names, priced){
   // to would make it unreachable.
   const shown = names.filter(m => !only || !vendorOf(m) || vendorOf(m) === only);
   for(const m of shown)
-    add(m, m + (priced && !priced.has(m) ? '  — not priced' : ''));
-  // A model that is already set but not in the list — a local one, or an
+    add(m, m + (priced && !priced.has(m) ? '  - not priced' : ''));
+  // A model that is already set but not in the list - a local one, or an
   // entry a provider has retired since. It stays selectable, because taking
   // somebody's setting away without asking is worse than an odd-looking menu.
-  if(have && !shown.includes(have)) add(have, have + '  — as set');
-  // Nothing set and nothing offered — a provider that answered with an empty
+  if(have && !shown.includes(have)) add(have, have + '  - as set');
+  // Nothing set and nothing offered - a provider that answered with an empty
   // list, or a key that has not been typed yet. Say so in the one place the
   // person is looking, rather than showing an empty menu they will click at.
-  if(!sel.options.length) add('', 'No models — check the key for this service');
+  if(!sel.options.length) add('', 'No models - check the key for this service');
   sel.value = have || (shown[0] || '');
   box.style.display = 'none';
 }
 
-/* A maker was chosen. Nothing is saved by this — it narrows the menu beside
+/* A maker was chosen. Nothing is saved by this - it narrows the menu beside
    it and that is all, so browsing the list never changes what a step runs
    on. */
 function pickVendor(step){
@@ -1099,7 +1210,7 @@ function pickVendor(step){
   if(sel) drawModels(step, sel._all || [], sel._priced);
 }
 
-/* The menu chose. The BOX is what gets saved — one value, one place — so the
+/* The menu chose. The BOX is what gets saved - one value, one place - so the
    menu writes into it and everything downstream is unchanged. */
 function pickModel(step){
   const sel = $(step + '_model_sel'), box = $(step + '_model');
@@ -1110,11 +1221,11 @@ function pickModel(step){
   saveSettings();
 }
 
-/* Changing the provider changes the answer — and the model that was chosen
+/* Changing the provider changes the answer - and the model that was chosen
    for the old one almost certainly does not exist on the new one, so the menu
    is asked again straight away rather than the next time somebody looks. */
-/* The story switches, in one list so the three places that touch them —
-   loading, saving, and greying the rest out — cannot fall out of step. The
+/* The story switches, in one list so the three places that touch them -
+   loading, saving, and greying the rest out - cannot fall out of step. The
    master switch is first, and the three that follow it are the ones it
    disables. */
 const STORY_SWITCHES = ['story', 'learn_characters', 'learn_terms',
@@ -1129,9 +1240,41 @@ const STORY_SWITCHES = ['story', 'learn_characters', 'learn_terms',
 const DEFAULT_ON = ['drop_symbol_only'];
 const ON_SWITCHES = [...STORY_SWITCHES, ...DEFAULT_ON];
 
+/* The two reader cards: which is lit, what the offline one is called in this
+   project's language, and whether they are shown at all.
+
+   Picked here rather than on the Read text dialog - lee: *"no add the setting
+   in the setting page not in the popup"*.
+
+   The name matters because "On this computer" is a different program per
+   language - manga-ocr reads Japanese and nothing else, easyocr reads Korean
+   and Chinese and is a general engine having a go at comics. A card that says
+   the same thing for both would be quietly wrong on one of them. */
+function syncReaderCards(){
+  const box = $('readerCards');
+  if(!box) return;
+  const now = (proj.settings.ocr_reader || 'ai');
+  for(const c of box.querySelectorAll('.card'))
+    c.classList.toggle('on', c.dataset.reader === now);
+  const ja = (proj.settings.source || 'ja') === 'ja';
+  const name = $('offlineName'), why = $('offlineWhy');
+  if(name) name.textContent = ja ? 'manga-ocr, here' : 'easyocr, here';
+  if(why) why.textContent = ja
+    ? 'One box at a time. Level on dialogue and it never files a line under '
+      + 'the wrong box, but it invents dialogue when handed a painted sound.'
+    : 'One box at a time. A general reader rather than a comics one, so '
+      + 'stylised typesetting costs it more - but nothing leaves the machine.';
+}
+
+function pickReader(which){
+  proj.settings.ocr_reader = which;
+  syncReaderCards();
+  saveSettings();
+}
+
 /* With no story kept there is nothing for the AI to fill in, so the three
    ticks below the master switch go dead rather than staying clickable and
-   doing nothing. Their own values are left alone — turning the story back on
+   doing nothing. Their own values are left alone - turning the story back on
    finds them as they were. */
 function syncStory(){
   const on = !$('story') || $('story').checked;
@@ -1142,7 +1285,7 @@ function syncStory(){
     box.querySelectorAll('input').forEach(i=>{ i.disabled = !on; });
   }
   // The three Story sections are about a story nobody is keeping. Say so on
-  // the buttons rather than hiding them — a person who has just switched it
+  // the buttons rather than hiding them - a person who has just switched it
   // off should be able to see what they still have written down.
   document.querySelectorAll('#setNav .setnav-btn').forEach(b=>{
     if(['synopsis','characters','terms'].includes(b.dataset.sec))
@@ -1152,7 +1295,7 @@ function syncStory(){
 
 function modelsStale(step){
   // No step named means the KEY changed, and a key is a fact about the
-  // service — so every step that could be on it has to ask again. See
+  // service - so every step that could be on it has to ask again. See
   // `editor.model_menu`: the menu is what the key can reach crossed with
   // what this app can price, so a new key is a different menu everywhere.
   const steps = step ? [step] : SERVICES_STEPS;
@@ -1167,13 +1310,88 @@ function modelsStale(step){
 const SERVICES = ['anthropic', 'gemini', 'openrouter'];
 const SERVICES_STEPS = ['ocr', 'translate', 'proofread'];
 
+/* ------------------------------------------------- the AI company, per step
+   lee: *"for te ai ... i just wan the ai compay and teh ai model"*, then
+   *"for the translation sinatsd of otrher it shodu be open deepsek quwen
+   etc"* - so the menu names the MAKERS. Claude and Google are their own
+   services and use their own keys first; every other maker is bought through
+   OpenRouter, which is why picking one saves backend=openrouter and narrows
+   the model menu to that maker's models. The company menu is NOT a stored
+   setting: what is saved is the same backend/model pair as always, so an old
+   project reads back exactly as it was. */
+const COMPANY_BACKEND = {claude: 'anthropic', google: 'gemini'};
+
+function companyOf(step){
+  const be = ($(step + '_backend') || {}).value || '';
+  if(be === 'anthropic') return 'claude';
+  if(be === 'gemini') return 'google';
+  const v = vendorOf(($(step + '_model') || {}).value || '');
+  if(v === 'anthropic') return 'claude';
+  if(v === 'google') return 'google';
+  const co = $(step + '_company');
+  if(v && co && [...co.options].some(o => o.value === v)) return v;
+  return '*';
+}
+
+function syncCompany(step){
+  const co = $(step + '_company');
+  if(!co) return;
+  const now = companyOf(step);
+  /* A PROJECT SET TO A MAKER THAT IS NOT IN THE MENU STILL SAYS SO.
+
+     Mistral, Meta, xAI and "Any provider" came off the list - lee: *"remove
+     thses from the lists"* - and a project already running one of them would
+     otherwise land on a menu with nothing selected, which reads as "no model
+     chosen" for a step that has one. So the maker it is really on is added
+     back for as long as it is the answer, named rather than starred. Picking
+     anything else replaces it and it does not come back. */
+  if(![...co.options].some(o => o.value === now)){
+    const o = document.createElement('option');
+    o.value = now;
+    o.textContent = now === '*' ? 'Whatever the model names'
+                                : now + ' (set on this project)';
+    co.appendChild(o);
+  }
+  co.value = now;
+}
+
+async function pickCompany(step){
+  const co = $(step + '_company'), be = $(step + '_backend');
+  if(!co || !be) return;
+  be.value = COMPANY_BACKEND[co.value] || 'openrouter';
+  await saveSettings();
+  await fillModels(step, true);
+  if(be.value !== 'openrouter') return;
+  // narrow the reseller's catalogue to the maker that was just named, and
+  // land on one of that maker's models rather than whoever came first
+  const ven = $(step + '_vendor'), sel = $(step + '_model_sel'),
+        box = $(step + '_model');
+  const want = co.value === '*' ? ALL_MAKERS : co.value;
+  if(ven && [...ven.options].some(o => o.value === want)){
+    ven.value = want;
+    pickVendor(step);
+  }
+  if(co.value !== '*' && sel && box && vendorOf(box.value) !== co.value){
+    const first = [...sel.options].map(o => o.value)
+      .find(v => vendorOf(v) === co.value);
+    if(first){
+      box.value = first;
+      drawModels(step, sel._all || [], sel._priced);
+      await saveSettings();
+    }
+  }
+}
+
+
+
+
 /* ---- fonts you added yourself ----
 
    lee: *"Allow uploading fonts in the setting and a way to remove the fonts
    that were uploaded - the fonts should presist to new projects"*.
 
    They are kept beside the app rather than in the chapter, so the server owns
-   the list and every one of these answers with the whole of it — there is no
+   the list and every one of these answers with the whole of it - there is no
    way for the three lists on screen to disagree with each other. */
 async function uploadFonts(input){
   const files=[...(input.files||[])];
@@ -1205,7 +1423,7 @@ async function removeFont(path){
   takeFonts(j);
   // A face that was being typeset in has just gone. Whichever select was
   // pointing at it now points at nothing, which the server reads as "use the
-  // default" — the same thing it will actually do.
+  // default" - the same thing it will actually do.
   if(j.error && typeof toast==='function') toast(j.error);
 }
 /* Which face was reached for last. Not saved with the project: the point is
@@ -1244,3 +1462,126 @@ function renderUploadedFonts(){
     box.appendChild(row);
   }
 }
+
+
+/* THE ROUTES, AS ONE GROUP YOU PICK FROM.
+
+   lee: *"make all teh detectore selecteabe card in the setting so i can pick
+   and choos and mek them nice"*.
+
+   They were three independent ticks and independence was never true:
+   `_detect_measured` asks them in order and the first one that says yes wins,
+   so two ticked meant one silently ignored. One selection now, and the server
+   still gets the same three booleans -- exactly one of which is true.
+
+   A card whose weights are not on this machine is DISABLED rather than
+   hidden, with the reason under the group. Hiding was right when each was a
+   lone tick nobody could act on; here the cards beside it say what the
+   download would buy, so the missing one is worth showing greyed. */
+const ROUTES = ['two_specialists', 'manga_segmenter', 'animetext'];
+
+function currentRoute(){
+  if(typeof proj === 'undefined' || !proj || !proj.settings) return '';
+  for(const k of ROUTES) if(proj.settings[k]) return k;
+  return '';
+}
+
+function pickRoute(name){
+  const st = (typeof proj !== 'undefined' && proj) ? proj[name] : null;
+  if(name && (!st || !st.ready)) return;
+  for(const k of ROUTES) proj.settings[k] = (k === name);
+  syncRoutes();
+  saveSettings();
+  /* AND THE CHECKPOINTS START LOADING NOW.
+     They used to load on whichever page a run reached first, inside a bar
+     reading "1 of 30" - DB++/COO is 54s on page one of a fresh process and
+     9.6s by page three, so a fifteen-second load read as a fifty-second page.
+     lee drew that conclusion three times. Picking a card is the moment there
+     is nothing to misread it as, and the call returns before the reading
+     starts, so the settings page never waits on it. */
+  api('/api/models/warm', 'POST', {}).catch(function(){});
+}
+
+function syncRoutes(){
+  const wrap = $('routeCards'); if(!wrap) return;
+  const manga = (typeof proj !== 'undefined' && proj && proj.settings
+                 && proj.settings.medium === 'manga');
+  if(!manga){ wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const now = currentRoute();
+  wrap.querySelectorAll('.card').forEach(function(c){
+    const name = c.getAttribute('data-route');
+    const st = name ? ((typeof proj !== 'undefined' && proj) ? proj[name] : null)
+                    : {ready: true};
+    const ready = !!(st && st.ready);
+    c.disabled = !ready;
+    c.classList.toggle('on', name === now);
+    /* THE REASON GOES ON THE CARD THAT IS GREY.
+       lee: *"also the other detector are grey out"*. It used to go in one
+       shared line under all four, and that line only ever showed the FIRST
+       reason - three cards greyed out, one sentence, and no way to tell which
+       card it belonged to. Every reason `why_not_*` returns is a sentence
+       somebody can act on ("ultralytics is not installed - run `pip install
+       ultralytics`"), so it belongs against the card that cannot run. */
+    let note = c.querySelector('.why');
+    if(!ready && st && st.why){
+      if(!note){
+        note = document.createElement('em');
+        note.className = 'why';
+        c.appendChild(note);
+      }
+      note.textContent = st.why;
+      c.title = st.why;
+    }else if(note){
+      note.remove();
+      c.removeAttribute('title');
+    }
+  });
+  const shared = $('routeWhy');
+  if(shared) shared.textContent = '';
+  rateRoutes();
+}
+
+/* WHAT EACH CARD COSTS AND HOW GOOD IT IS.
+
+   lee: *"also add time estimation and a quality rattoing on each box"*.
+
+   The time is this chapter, not a page: seconds-per-page measured on the 23
+   test pages times the number of pages actually loaded, which is the number
+   somebody is deciding about. It is honest about being an estimate -- the
+   measurement was one machine on one chapter -- and it is worth showing
+   anyway, because the difference between the cards is 3 minutes and 11.
+
+   The rating is `(226 - missed - junk) / 226` over the hand-checked sites,
+   said out loud on the card rather than left as stars nobody can check. A
+   rating whose formula is a secret is a rating nobody can argue with, which
+   is the opposite of useful. */
+function rateRoutes(){
+  const wrap = $('routeCards'); if(!wrap) return;
+  const pages = (typeof proj !== 'undefined' && proj && proj.pages)
+                 ? proj.pages.length : 0;
+  wrap.querySelectorAll('.card').forEach(function(c){
+    const sec = parseFloat(c.getAttribute('data-sec') || '0');
+    const missed = parseInt(c.getAttribute('data-missed') || '0', 10);
+    const junk = parseInt(c.getAttribute('data-junk') || '0', 10);
+    const score = Math.round(100 * (226 - missed - junk) / 226);
+    const secs = sec * (pages || 0);
+    const time = !pages ? sec.toFixed(1) + 's a page'
+      : (secs < 90 ? Math.round(secs) + 's'
+                   : Math.round(secs / 60) + ' min')
+        + ' for ' + pages + ' page' + (pages === 1 ? '' : 's');
+    const est = c.querySelector('.est');
+    if(est) est.textContent = time;
+    const rate = c.querySelector('.rate');
+    if(rate){
+      rate.innerHTML = '<u style="width:' + score + '%"></u>';
+      rate.title = score + '/100 - ' + (226 - missed - junk)
+                 + ' of 226 hand-checked sites right: ' + missed
+                 + ' missed, ' + junk + ' stray.';
+    }
+    const num = c.querySelector('.score');
+    if(num) num.textContent = score;
+  });
+}
+
+

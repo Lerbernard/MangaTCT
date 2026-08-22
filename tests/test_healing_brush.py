@@ -1,4 +1,4 @@
-"""The healing brush — one of them, and it redraws.
+"""The healing brush - one of them, and it redraws.
 
 This file used to test the LOCAL healing brush: a PatchMatch-style per-patch
 fill blended in the gradient domain, with a three-way trial that trusted the
@@ -14,18 +14,18 @@ healing brush, its ass"*.
 The measurement was not wrong; it was answering the wrong question. All three
 of those fills can only MOVE texture that is already somewhere nearby, and the
 spots left after the Clean step has run are exactly the ones where what should
-be underneath was never on the page at all — a scrap of a face behind a sound
+be underneath was never on the page at all - a scrap of a face behind a sound
 effect, a line of the drawing that only ever existed under the Japanese. A
 brush that cannot invent has nothing to offer there, however faithfully it
 copies. The AI one redraws, so it is the brush.
 
 The tests here are rewritten rather than deleted, because the requirement did
-not go away — it reversed, and what has to hold now is the opposite of what
+not go away - it reversed, and what has to hold now is the opposite of what
 held before:
 
 * nothing can reach the local fill any more, in the library or in the endpoint;
 * there is one healing brush on the toolbar, not two;
-* the brush never quietly falls back to the fill lee rejected — a cleaner that
+* the brush never quietly falls back to the fill lee rejected - a cleaner that
   is not set up SAYS so; and
 * `shift_fill` stays, because it was never the brush. It is the Clean step's
   own offline fill, and every page that does not reach a model still uses it.
@@ -122,7 +122,7 @@ def test_the_brush_still_arms_and_disarms_like_every_other_tool():
 
 
 def test_the_icon_is_the_plaster_with_the_sparkle():
-    """The two brushes had two icons. The one that survives is the AI one —
+    """The two brushes had two icons. The one that survives is the AI one -
     the plaster with the sparkle that marks every other AI control here."""
     js = (STATIC / "js" / "toolbar.js").read_text(encoding="utf-8")
     assert "icon:'healai'" in js
@@ -183,7 +183,7 @@ def test_with_no_cleaner_set_up_it_says_so_rather_than_healing():
         assert j.get("error"), j
         assert "patch" not in j, "it healed anyway"
         # ...and it says WHERE to turn it on. "The AI cleaner did not answer"
-        # is the other failure — a cleaner that is set up and refusing — and
+        # is the other failure - a cleaner that is set up and refusing - and
         # sending that here would have lee looking at an endpoint he never
         # configured.
         assert "Settings" in j["error"], j["error"]
@@ -196,7 +196,7 @@ def test_with_no_cleaner_set_up_it_says_so_rather_than_healing():
 
 def test_the_reply_no_longer_has_to_say_which_brush_ran():
     """`how` existed to tell the two brushes apart, and `warn` existed because
-    one could silently become the other. With one brush that cannot happen —
+    one could silently become the other. With one brush that cannot happen -
     the answer is a patch or it is an error."""
     body = "\n".join(ln for ln in _heal_endpoint().splitlines()
                      if not ln.strip().startswith("#"))

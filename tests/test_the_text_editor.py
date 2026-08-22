@@ -97,7 +97,7 @@ def test_the_panel_reads_text_paragraph_character_colour_effects(ed):
     titles = pg.evaluate(
         "[...document.querySelectorAll('#inspector details.grp > summary')]"
         ".map(s=>s.textContent.trim())")
-    # The Text group is gone — the words are typed on the page.
+    # The Text group is gone - the words are typed on the page.
     # lee, with a picture of it: *"remove this box"*.
     assert titles == ["Paragraph", "Character", "Colour", "Effects"]
     assert "This box" not in " ".join(titles)
@@ -154,7 +154,7 @@ def test_trailing_blank_lines_are_dropped(ed):
 
 def _typeset(text, ov):
     """One region, one hand edit, typeset the way a preview or an export
-    typesets it — `redo=False`, because Typeset itself deliberately throws hand
+    typesets it - `redo=False`, because Typeset itself deliberately throws hand
     corrections away and this is about what happens when it does not."""
     from mangatl import typeset as T
     from mangatl.models import Page, TextRegion
@@ -175,7 +175,7 @@ def _typeset(text, ov):
 
 def test_trailing_blank_lines_are_dropped_by_the_server_too():
     """The panel drops them before it sends, so the browser test above never
-    reaches the server's own guard — and a layout can arrive from a saved
+    reaches the server's own guard - and a layout can arrive from a saved
     project or another client without ever passing through the panel. The rule
     lives in both places, so it is proved in both places."""
     r = _typeset("one two",
@@ -277,7 +277,7 @@ def test_the_page_is_drawn_with_the_alignment_too():
 
 def test_all_caps_is_a_thing_one_block_can_ask_for():
     """It was a project-wide switch. One shout in capitals on a page that is
-    not could not be asked for at all — and the capitals go on BEFORE the fit,
+    not could not be asked for at all - and the capitals go on BEFORE the fit,
     because capitals are wider and uppercasing a finished layout is how a line
     ends up past the edge of its balloon."""
     from mangatl import typeset as T
@@ -296,11 +296,11 @@ def test_all_caps_is_a_thing_one_block_can_ask_for():
     T.typeset_page(page, cfg, redo=True)
     assert " ".join(r.layout.lines) == "QUIETLY NOW"
     assert r.layout.fit_ok, "the capitals were allowed to overflow"
-    # the translation itself is untouched — the capitals were for setting it
+    # the translation itself is untouched - the capitals were for setting it
     assert r.dst_text == "quietly now"
 
     # ...and it holds for lines that were typed by hand, which take the other
-    # road through the typesetter entirely — `layout_from_override`, not the
+    # road through the typesetter entirely - `layout_from_override`, not the
     # fitter. A switch that works on fitted text and not on edited text is a
     # switch that stops working the moment you touch the box.
     hand = _typeset("quietly now", {"caps": True,
@@ -331,13 +331,13 @@ def test_the_panel_offers_both_and_nothing_that_does_nothing(ed):
 
 def test_there_is_one_healing_brush_and_it_is_the_ai_one():
     """Two tests stood here, both about how fast the LOCAL healing brush ran
-    over a big spot — lee: *"teh healing brush and teh ai healing brush are
+    over a big spot - lee: *"teh healing brush and teh ai healing brush are
     taking a long time to edit, look into that"*. That brush is gone, and with
     it the question: *"remoev teh regualr healing brush, its ass"*.
 
     Rewritten rather than deleted, because the requirement did not disappear,
     it REVERSED. What has to be true now is that nothing anywhere can still
-    reach the local fill — a leftover call would be the slow, disliked brush
+    reach the local fill - a leftover call would be the slow, disliked brush
     coming back under the other one's name.
     """
     import inspect

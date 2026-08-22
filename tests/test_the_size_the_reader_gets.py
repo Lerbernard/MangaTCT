@@ -1,6 +1,6 @@
 """The third translated chapter, and two regressions of my own making.
 
-The shout came back — 13 runs of marks in the source, 13 in the English, none
+The shout came back - 13 runs of marks in the source, 13 in the English, none
 dropped, where the run before had lost four. The splice stayed fixed. The
 speaker labels came down to six, and the eight lines with no speaker are the
 eight captions and status windows, which is the right answer.
@@ -9,17 +9,17 @@ Two lines came back wrong, and both were the interior-dash rule:
 
 **Page 002 lost a title plate.** `- 대마법사 김진우 -` is a caption framed with
 two hyphens. `_SRC_DASHES` had no hyphen-minus in it, so the page counted as
-having no dash, the model's "Arsilan — Archmage Kim Jinwoo" was read as an
+having no dash, the model's "Arsilan - Archmage Kim Jinwoo" was read as an
 invented dash, and the comma it became says Arsilan IS the archmage.
 
 **Page 039 came back starting with a comma.** The model wrote
-"...—The existence known as Kim Jinwoo has probably ceased to exist."
+"...-The existence known as Kim Jinwoo has probably ceased to exist."
 `strip_added_dashes` saw a dash with three periods in front of it, called it an
 interior dash and made it a comma; then `strip_added_ellipsis`, which runs
 straight after, took the periods away and left the comma standing at the front
 of the line.
 
-**And the lines did not shorten** — 2.35x to 2.33x, the same 50 of 134 over
+**And the lines did not shorten** - 2.35x to 2.33x, the same 50 of 134 over
 2.5x. Measured on the chapter afterwards: `fits_chars` said the median balloon
 held 634 characters, the median line was 43, and the note fired zero times.
 The budget was taken at `min_font`, the floor below which a human is flagged,
@@ -178,7 +178,7 @@ def test_a_bigger_full_size_leaves_room_for_fewer_characters():
 
 
 def test_the_character_area_is_the_measured_one():
-    """1.05, off `typeset._best` against the real masks — not the reasoned 0.6.
+    """1.05, off `typeset._best` against the real masks - not the reasoned 0.6.
 
     The reasoning left out the space between words, the ragged right of a
     wrapped line, and a balloon being a round hole.

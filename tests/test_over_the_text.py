@@ -1,4 +1,4 @@
-"""A drawing can sit on top of the typesetting — and the tool gets out of the way.
+"""A drawing can sit on top of the typesetting - and the tool gets out of the way.
 
 lee: *"i shou d be able to move the text out of the text folder and to move
 other layers above the text folder, i shoud be able to click and hold the text
@@ -6,7 +6,7 @@ layer wiythout going into the text edit tab and if im using a tool like the
 brush or any other tool and i clcik a text box and open the text edit tab it
 shoud automaicaly diactive the tool"*.
 
-Text was always drawn last — on screen and in the export — so nothing painted
+Text was always drawn last - on screen and in the export - so nothing painted
 could ever cover a word. Now there are two bands, and a layer belongs to one of
 them:
 
@@ -25,7 +25,7 @@ list draws the bands in that order, so where a row sits is what the page does.
 The other two are about not being interrupted:
 
 * A text row is a CLICK to open the typesetting panel and a PRESS-AND-DRAG to
-  restack — the panel replaces the whole list, so opening it on mousedown
+  restack - the panel replaces the whole list, so opening it on mousedown
   pulled the list out from under the drag before it went anywhere.
 * Picking a text box with a paint tool armed puts the tool away. The panel
   swaps to the typesetting controls, the armed tool is no longer on screen, and
@@ -124,7 +124,7 @@ def test_a_layer_under_the_text_does_not_cover_it(page):
     ex = _export(p, root)
     assert ex is not None
     red = float((np.abs(ex.astype(int) - np.array(RED)).sum(2) < 70).mean())
-    # the bar is 160x60 of a 460x300 page — about 7% — less whatever the
+    # the bar is 160x60 of a 460x300 page - about 7% - less whatever the
     # typesetting drawn on top of it takes back
     assert red > 0.03, f"the bar is not on the page at all ({red:.3f})"
     # the typesetting is drawn ON TOP of it, so there is black ink inside the bar
@@ -232,8 +232,8 @@ def test_a_press_on_a_text_row_does_not_open_the_typesetting_panel(page):
 
 def test_a_click_on_a_text_row_still_opens_it(page):
     pg, _p, _root, _e = page
-    # The Text block is folded when the panel opens — lee: *"make it pre
-    # collapes by default"* — so unfold it before reaching for a row in it.
+    # The Text block is folded when the panel opens - lee: *"make it pre
+    # collapes by default"* - so unfold it before reaching for a row in it.
     pg.evaluate("select(null); setToolTab('paint');"
                 " if(textShut) toggleTextFold();")
     pg.wait_for_timeout(300)

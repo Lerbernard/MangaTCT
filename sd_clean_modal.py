@@ -1,8 +1,8 @@
-# sd_clean_modal.py — GENERATIVE "redraw" cleaner (IOPaint + PowerPaint v1).
+# sd_clean_modal.py - GENERATIVE "redraw" cleaner (IOPaint + PowerPaint v1).
 # A drop-in alternative to manga_clean_modal.py: SAME request format (token,
 # image, mask -> cleaned png), different app + URL, so you can A/B them by just
 # changing the Clean URL in mangatl's settings. This one actually generates new
-# line art into the gap (object-remove) instead of filling — slower, heavier.
+# line art into the gap (object-remove) instead of filling - slower, heavier.
 # Deploy:  python -m modal deploy sd_clean_modal.py
 import base64
 import modal

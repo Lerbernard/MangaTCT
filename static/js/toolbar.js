@@ -1,4 +1,4 @@
-/* toolbar.js — the vertical tool strip down the left of the page.
+/* toolbar.js - the vertical tool strip down the left of the page.
 
    lee: *"make a side bar lke this for all the tool and make tool folder for
    them like photoshop where you can right clcik to slected similiar tool from
@@ -12,8 +12,8 @@
    you happened to be looking at the right tab.
 
    A toolbox fixes both by being one place that is always there. Tools that do
-   the same KIND of job share a slot — marquee, lasso and wand are all "choose
-   part of the page" — and the slot shows whichever of them you used last, with
+   the same KIND of job share a slot - marquee, lasso and wand are all "choose
+   part of the page" - and the slot shows whichever of them you used last, with
    a corner mark saying there are others. Right-click it (or press and hold) to
    pick another.
 
@@ -30,8 +30,8 @@
    `lit` says whether it is armed right now. A slot with one tool has no
    flyout. */
 const TOOLBOX = [
-  // The transform, twice. The one on the key is the one lee asked for — every
-  // corner on its own — and scale-and-rotate keeps its place underneath for
+  // The transform, twice. The one on the key is the one lee asked for - every
+  // corner on its own - and scale-and-rotate keeps its place underneath for
   // when a box should stay a box. He asked for Ctrl+T and then, told that
   // Chrome keeps that combination for opening a tab: *"isntead of control t
   // just make it t"*.
@@ -42,6 +42,14 @@ const TOOLBOX = [
     {k:'xf',     name:'Scale and rotate', icon:'move',
      on:()=>window.xfToggle && xfToggle(),
      lit:()=>typeof xf!=='undefined' && !!xf && !xf.quad},
+  ]},
+  // Picking BOXES, which is not the same slot as picking pixels below it.
+  // lee: *"add annew seclet tool that alloww me to dran a scquer on the boxs
+  // and all the boxesin that square sihoud be slected"*.
+  {slot:'boxsel', tools:[
+    {k:'boxsel', name:'Select boxes (S)', icon:'marquee',
+     on:()=>toggleBoxSelect(),
+     lit:()=>typeof boxSel!=='undefined' && boxSel},
   ]},
   {slot:'select', tools:[
     {k:'rect',   name:'Rectangular select (M)', icon:'marquee',
@@ -73,8 +81,8 @@ const TOOLBOX = [
   {slot:'retouch', tools:[
     {k:'stamp',  name:'Clone stamp', icon:'stamp',
      on:()=>toggleStamp(), lit:()=>typeof stamp!=='undefined' && stamp},
-    // One healing brush, and it is the one that redraws. The other — the
-    // local fill that copied real pixels in from nearby — is gone: lee,
+    // One healing brush, and it is the one that redraws. The other - the
+    // local fill that copied real pixels in from nearby - is gone: lee,
     // having used it on his own pages, *"remoev teh regualr healing brush,
     // its ass"*. It could not invent artwork that was never there, which is
     // the only thing a healing brush is for once the Clean step has run.
@@ -103,7 +111,7 @@ const TOOLBOX = [
   {slot:'view', tools:[
     {k:'hand',   name:'Hand (H)', icon:'hand',
      on:()=>toggleHand(), lit:()=>typeof handMode!=='undefined' && handMode,
-     // 100% means ACTUAL SIZE — one page pixel to one screen pixel. It used
+     // 100% means ACTUAL SIZE - one page pixel to one screen pixel. It used
      // to call `fitPage`, which is what the old readout called 100%: on a
      // page already fitted that changed nothing but the scroll position.
      // lee: *"double clciking teh hadns dosnt change teh zoom it jyst centers
@@ -117,9 +125,9 @@ const TOOLBOX = [
 ];
 
 /* The icons, as one path each on a 24-box. Line art, no fills, so they read
-   the same lit and unlit — a filled glyph on the accent colour disappears. */
+   the same lit and unlit - a filled glyph on the accent colour disappears. */
 const TB_ICON = {
-  // A quadrilateral out of true, with its corners marked — what the tool
+  // A quadrilateral out of true, with its corners marked - what the tool
   // does, and nothing like the four-arrow move beside it in the same slot.
   // lee: *"just cal it teh free transform tool and give it a difrent icon"*.
   distort:'M5 7.5 19 3.5V16L5 20.5Z M5 7.5v0 M19 3.5v0 M19 16v0 M5 20.5v0',
@@ -149,7 +157,7 @@ const TB_ICON = {
   stamp:'M5.5 20.5h13M7 17.5h10v-2.2c0-.7-.6-1.3-1.3-1.3H8.3c-.7 0-1.3.6-1.3 1.3z'
        +'M9.2 14V9.6H7.5V7.4c0-2.2 1.9-3.9 4.5-3.9s4.5 1.7 4.5 3.9v2.2h-1.7V14',
   // A plaster, not a plus. The healing brush was a bare cross, which said
-  // "add" far more than it said "repair" — lee: *"make the icon better and
+  // "add" far more than it said "repair" - lee: *"make the icon better and
   // more reconizable"*. A sticking plaster on the diagonal is what every
   // editor draws for this, with the sparkle that marks every other AI
   // control here.
@@ -175,7 +183,7 @@ function tbSvg(name){
     + ` stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
-/* Which tool each slot is showing — the last one used out of that slot. */
+/* Which tool each slot is showing - the last one used out of that slot. */
 const tbChosen = {};
 function tbTool(slot){
   const g = TOOLBOX.find(s=>s.slot===slot);
@@ -198,7 +206,7 @@ function tbArm(slot, key){
 }
 
 /* Double-clicking a tool does whatever that tool's second press means. The
-   hand fits the page to the window, the way it does in Photoshop — lee:
+   hand fits the page to the window, the way it does in Photoshop - lee:
    *"make it si that dubble lciking the hand tool on the side is also make the
    page go to 100%"*. The first click of the pair already armed the tool and
    the second put it away again, so it is re-armed here: a double-click is one
@@ -217,7 +225,7 @@ function renderToolbar(){
   if(!el) return;
   // The toolbox is for working ON the page, and the page you work on is the
   // one under the Edit view. There is nothing to paint on the Results or
-  // Settings screens, and the Original view is where BOXES are managed — the
+  // Settings screens, and the Original view is where BOXES are managed - the
   // paint canvas is not even mounted there, so every tool in the strip was a
   // button that could be pressed and could not do anything.
   // lee: *"the side bar shoud only be visible on the edit tab"*.
@@ -247,7 +255,7 @@ function renderToolbar(){
         ${tbSvg(t.icon)}${g.tools.length>1?'<i class="tbmore"></i>':''}
       </button>`;
   }).join('');
-  // Press and hold opens the flyout too — the same gesture as a right-click
+  // Press and hold opens the flyout too - the same gesture as a right-click
   // for anybody who does not have one, and the one a trackpad makes easy.
   el.querySelectorAll('.tbtn').forEach(b=>{
     b.addEventListener('mousedown', e=>{

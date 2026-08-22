@@ -4,11 +4,11 @@
    saying the choice "doesn't apply". That was true of the search and never of
    the result: comic-text-detector hands back every block on the page and says
    what kind each one is, so the kinds are known by the time the page comes back
-   and the choice bites there — only_kinds() in project.py. These pin that the
+   and the choice bites there - only_kinds() in project.py. These pin that the
    boxes stay live whichever finder is picked.
 
    There was a paragraph in the dialog saying so, and there was a second
-   whole-page finder once, an AI mode. Both are gone — the finder with its
+   whole-page finder once, an AI mode. Both are gone - the finder with its
    setting, the paragraph because lee asked for the dialog to stop being a wall
    of grey. What it explained is still true and is still asserted here, on the
    boxes themselves. */
@@ -37,7 +37,7 @@ setTimeout(()=>{
     });
 
     // `proj` is a top-level `let` in core.js, so it lives in the global
-    // lexical scope and is not a property of window — assigning w.proj would
+    // lexical scope and is not a property of window - assigning w.proj would
     // quietly make a second, unread variable. eval reaches the real one.
     const set=(det)=>{
       d.getElementById('detector').value=det;

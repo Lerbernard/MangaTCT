@@ -15,7 +15,7 @@ JSON "Export everything" already wrote, under a name of its own, so a `.json`
 exported last month still imports.
 
 **`.tctp`** is the CHAPTER: a zip of everything that cannot be worked out
-again — the pages, every box, both languages, the layouts, the paint, the
+again - the pages, every box, both languages, the layouts, the paint, the
 hand-cleaned plates, and the faces it typesets in. The faces are the part that
 is easy to miss: an uploaded one lives in `~/.mangatl/fonts`, deliberately
 outside any chapter so it outlives the chapter, which means it is not in the
@@ -51,7 +51,7 @@ FONT = os.path.join(str(PKG), "fonts",
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    """This person's own folder — where uploaded faces live."""
+    """This person's own folder - where uploaded faces live."""
     d = str(tmp_path / "home")
     monkeypatch.setenv("MANGATL_HOME", d)
     return d
@@ -89,7 +89,7 @@ def _project(tmp_path, home, pages=3):
         setattr(p.pages[0], field, at)
     p.pages[0].paint_layers = [{"tool": "brush", "pts": [[1, 2], [3, 4]]}]
     # Somewhere of its own, so a reference that is NOT rewritten on the way
-    # back in points at a file that is not there — which is the whole failure
+    # back in points at a file that is not there - which is the whole failure
     # being guarded against, and is invisible if the face happens to start out
     # in the folder it would be installed into.
     face = _face(str(tmp_path / "grabbed"))
@@ -200,7 +200,7 @@ def test_it_comes_back_exactly_as_it_was(tmp_path, home):
 def test_the_face_is_installed_where_this_machine_keeps_faces(tmp_path, home):
     """Opened on a machine that has never seen the font. It must typeset in the
     face it was typeset in, and the face must be there for the NEXT chapter
-    too — which is where uploaded faces live."""
+    too - which is where uploaded faces live."""
     p = _project(tmp_path, home)
     data = bundle.write(p._state(), p.output_dir)
     from mangatl.userdata import fonts_dir
@@ -453,7 +453,7 @@ def test_saving_and_opening_are_buttons_on_the_rail_itself():
 
 def test_pressing_one_shows_the_screen_that_says_what_it_did():
     """A button on a rail with no panel showing is a button that gives no
-    answer — and these have one worth reading: where the file went."""
+    answer - and these have one worth reading: where the file went."""
     src = _ui()
     for fn in ("async function saveProject(){", "async function saveProjectAs(){",
                "async function openProject(){"):
@@ -498,7 +498,7 @@ def test_the_button_that_opens_one_is_beside_the_file_it_opens():
 ])
 def test_nothing_calls_the_series_file_json_any_more(gone):
     """lee: *"replace everywhere it say json with story context"*. It is the
-    synopsis, the characters and the places — calling it by its file format
+    synopsis, the characters and the places - calling it by its file format
     told nobody what was in it."""
     assert gone not in _ui(), gone
 
@@ -513,7 +513,7 @@ def test_it_is_called_the_story_context_everywhere_instead():
 def test_the_files_that_are_not_the_story_context_keep_their_own_names():
     """The AI request, the AI's reply and the translated text are three other
     files that happen to be JSON as well. Renaming those would be renaming the
-    wrong thing — "Download the AI request (story context)" is not a sentence
+    wrong thing - "Download the AI request (story context)" is not a sentence
     about anything."""
     src = _ui()
     for kept in ("Download the AI request (.json)",
@@ -542,7 +542,10 @@ def test_the_synopsis_screen_has_a_title_box():
     with the synopsis and the cast rather than with the settings, because it
     is content: it belongs to the story, not to how the story is translated."""
     src = _ui()
-    sec = src.split('<section class="set-section on" data-sec="synopsis">',
+    # No `on` in the markup on any section any more - the nav button is the
+    # one default and `openSettingsDlg` opens what it names. See
+    # `test_the_page_that_opens_is_the_one_lit`.
+    sec = src.split('<section class="set-section" data-sec="synopsis">',
                     1)[1].split("</section>", 1)[0]
     assert 'id="title"' in sec and ">Title<" in sec
     assert "proj.context.title" in src, "…and it is read back off the project"
@@ -575,7 +578,7 @@ def test_a_chapter_is_named_after_the_manga(tmp_path, home):
 
 
 def test_a_title_that_is_not_a_filename_is_made_into_one(tmp_path, home):
-    """Somebody will type `Re:Zero — Vol 3/4`, and a slash in a filename is
+    """Somebody will type `Re:Zero - Vol 3/4`, and a slash in a filename is
     not a filename."""
     p = _project(tmp_path, home)
     p.ctx.title = 'Re:Zero <vol 3/4>'

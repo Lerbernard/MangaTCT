@@ -1,4 +1,4 @@
-# lama_clean_modal.py — the same cleaner endpoint, running LaMa instead of the
+# lama_clean_modal.py - the same cleaner endpoint, running LaMa instead of the
 # greyscale `manga` net. Deploys ALONGSIDE manga_clean_modal.py (different app
 # name), so you can A/B by pasting one URL or the other into mangatl's
 # Clean settings and re-running the Clean step.
@@ -6,14 +6,14 @@
 # Deploy:  python -m modal deploy lama_clean_modal.py
 # It prints a URL; paste that + the token below into mangatl's AI-clean settings.
 #
-# Why bother: iopaint's `manga` model is a 2021 greyscale net — it converts the
+# Why bother: iopaint's `manga` model is a 2021 greyscale net - it converts the
 # page to grey, runs a line-extraction pass and an inpainter, and hands back
 # grey copied into three channels. That is why cleaned areas on a coloured or
 # heavily toned page come back as flat grey blocks. LaMa is the standard erase
 # model, works in colour, and is much stronger at reconstructing texture.
 #
 # MODEL picks which one this deployment serves:
-#   "lama"        the standard big-lama — strongest general-purpose eraser
+#   "lama"        the standard big-lama - strongest general-purpose eraser
 #   "anime-lama"  the same architecture fine-tuned on anime/manga artwork;
 #                 usually better on screentone and line work, occasionally
 #                 softer on photographic backgrounds

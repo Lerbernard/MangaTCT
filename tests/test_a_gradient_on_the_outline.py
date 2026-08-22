@@ -4,7 +4,7 @@ lee: *"can you make it so that i can add gradient to the ouline of the text"*.
 
 The letters could already fade from one colour to another; the ring round them
 could not, and there was no reason for that other than nobody having asked. It
-is a SEPARATE gradient with its own two colours and its own angle — a red-to-
+is a SEPARATE gradient with its own two colours and its own angle - a red-to-
 blue outline under a yellow-to-green fill is an ordinary piece of typesetting, and
 neither should be deciding the other.
 
@@ -12,7 +12,7 @@ neither should be deciding the other.
 the ring: drawn with the stroke lit and the fill dark, so the glyph the stroke
 was grown around is punched back out of it. Painting through the whole stroked
 shape would lay the outline's gradient across the letters as well, and then the
-fill would repaint over the top of it — two answers to one question.
+fill would repaint over the top of it - two answers to one question.
 
 **In the preview** it is a stack of sixteen solid copies, each clipped to one
 slab across the block. CSS will not put a gradient on a text stroke:
@@ -110,7 +110,7 @@ def test_the_letters_keep_their_own_colour():
 
     Drawn with the stroke lit and the fill dark, so the glyph the stroke was
     grown around is punched back out of it. Lit both ways instead and the
-    gradient runs straight across the letters — which is measured here as the
+    gradient runs straight across the letters - which is measured here as the
     white of the fill, pixel for pixel, being exactly what it was before the
     outline gained a gradient at all.
     """
@@ -228,7 +228,7 @@ def test_clearing_one_does_not_clear_the_other():
 
 def test_the_preview_knows_css_cannot_do_it_directly():
     """A stack of clipped solid copies, because `background-clip:text` leaves
-    the stroke alone — the comment says so and the code does it."""
+    the stroke alone - the comment says so and the code does it."""
     assert "EDGE_BANDS" in TYPESETTING
     assert "clipPath" in TYPESETTING
 
@@ -296,7 +296,7 @@ def test_no_bands_when_there_is_no_outline_gradient(tmp_path):
 
 
 def test_the_ring_on_screen_fades_the_way_the_export_does(tmp_path):
-    """Read off the picture, not off the stylesheet — and compared against the
+    """Read off the picture, not off the stylesheet - and compared against the
     exported page, which is the one that matters."""
     def check(pg, pr):
         f = str(tmp_path / "shot.png")

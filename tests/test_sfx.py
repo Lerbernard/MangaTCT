@@ -173,7 +173,7 @@ def test_two_effects_sharing_one_box_are_not_rotated():
 def test_an_effect_is_one_word_however_the_japanese_ran(text):
     """Japanese stacks because Japanese is written down a column. English is
     not, and a column of English capitals reads as a ransom note rather than a
-    sound — so whatever the original did, the word goes down as a word."""
+    sound - so whatever the original did, the word goes down as a word."""
     gray, box = page_with("グルルル", -22)
     lay = fit_sfx(sfx_frame(gray, box), text, measure)
     assert lay.lines == [text]
@@ -205,7 +205,7 @@ def test_fewer_letters_means_bigger_type():
 
 def test_a_word_that_cannot_fit_is_flagged_not_crashed():
     """One line shrinks a long word rather than breaking it, so it takes a
-    very long one to run out of room at the floor size — but it still has to
+    very long one to run out of room at the floor size - but it still has to
     come back flagged rather than raise or return nothing."""
     gray, box = page_with("グルルル", -22)
     lay = fit_sfx(sfx_frame(gray, box), "W" + "H" * 60 + "AM", measure)

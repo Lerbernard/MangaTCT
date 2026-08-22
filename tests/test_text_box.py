@@ -8,8 +8,8 @@ answer to "where does line 3 of this block go":
 
 * the FITTER placed lines against the balloon's shape and returned absolute
   positions;
-* the BROWSER, the moment it had to place them itself — while dragging, or on
-  a block whose positions it didn't trust — filled a box instead, and had no
+* the BROWSER, the moment it had to place them itself - while dragging, or on
+  a block whose positions it didn't trust - filled a box instead, and had no
   box, so it borrowed the BUBBLE's rectangle (or worse, the rectangle of the
   vertical Japanese it replaced, which is tall and narrow and nowhere near);
 * the EDITOR you type into filled a third box with CSS.
@@ -19,8 +19,8 @@ the text has a frame, the frame decides the width the words wrap to and the
 middle they sit on, and moving the frame moves the words. Nothing else can
 disagree with the frame, because there is nothing else.
 
-So the fitter still decides everything it decided before — the size, the line
-breaks, which chord of the balloon each line belongs in — and then hands the
+So the fitter still decides everything it decided before - the size, the line
+breaks, which chord of the balloon each line belongs in - and then hands the
 result over as a frame plus one line of arithmetic that fills it. These tests
 pin that the frame really is drawn round the WORDS (not the bubble, not the
 Japanese), that filling it reproduces the fitter's own placement exactly, and
@@ -80,7 +80,7 @@ def _fill_the_box(frame, lines, size, leading):
     """The arithmetic every engine uses to fill a text box.
 
     Transcribed from the browser (frames.js `layoutOrigins`), which is the
-    copy furthest from this code — if the server ever drifts, this is what
+    copy furthest from this code - if the server ever drifts, this is what
     notices.
     """
     fx, fy, fw, fh = frame
@@ -110,7 +110,7 @@ def test_filling_the_box_puts_the_lines_back_exactly_where_the_fitter_had_them()
     """The whole fix in one assertion.
 
     The words may not move by a pixel when something other than the fitter has
-    to place them — which happens every time a block is selected, dragged or
+    to place them - which happens every time a block is selected, dragged or
     typed into. That is only true if the box the fitter hands over reproduces
     the fitter's own placement when filled.
     """
@@ -131,7 +131,7 @@ def test_the_box_is_drawn_round_the_words_not_round_the_japanese():
     """lee's video: the block jumped into a tall narrow column when clicked.
 
     That column was the vertical Japanese the English replaced. A text box has
-    nothing to do with it — the box belongs to the English.
+    nothing to do with it - the box belongs to the English.
     """
     ink = _columns()
     m = _oval()
@@ -223,7 +223,7 @@ def test_selecting_a_block_writes_an_override_that_places_it_identically():
     """Clicking a block locks it, and a locked block goes down another path.
 
     That path is where the jump lived, so it has to land on the same pixels as
-    the fit it replaced — including the box, which the browser then draws a
+    the fit it replaced - including the box, which the browser then draws a
     frame around.
     """
     m = _oval()
@@ -246,8 +246,8 @@ def test_selecting_a_block_writes_an_override_that_places_it_identically():
 # ------------------------------------------------- and the browser's own copy
 
 def test_the_browser_fills_the_box_with_the_same_sum():
-    """The browser has to place lines itself — it is what makes dragging
-    smooth — so its arithmetic is a second copy of this one. Copies drift;
+    """The browser has to place lines itself - it is what makes dragging
+    smooth - so its arithmetic is a second copy of this one. Copies drift;
     this is the thing that noticed the drift in the first place, so it is
     worth a test that reads the copy.
     """

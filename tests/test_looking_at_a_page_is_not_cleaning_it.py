@@ -1,7 +1,7 @@
 """Opening the Image view must not run the cleaner.
 
 lee: *"if i move to teh image tab and i havnt done teh clenneing it shud just
-show teh unclened age not clen them until i clean teh page"* — and, in the same
+show teh unclened age not clen them until i clean teh page"* - and, in the same
 message, seven of these::
 
     mangatl: the cleaner refused the token (401) -- not asking again this run.
@@ -12,7 +12,7 @@ project with the hosted cleaner switched on is a call out to it per page.
 
 It also showed the wrong picture, which is the part that matters after the 401
 is fixed. A view that cleans on sight cannot show what a page looks like BEFORE
-cleaning — so there is no way to judge whether the Clean step is worth running,
+cleaning - so there is no way to judge whether the Clean step is worth running,
 and the Clean button reads 7/67 while every page you open is clean.
 
 Now: a page that HAS been cleaned shows its plate. A page that has not shows

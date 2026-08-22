@@ -12,12 +12,12 @@ first, and nothing anywhere showed what was armed unless you happened to be
 looking at the right tab.
 
 A toolbox is one place that is always there. Tools that do the same KIND of job
-share a slot — marquee, lasso and wand are all "choose part of the page" — and
+share a slot - marquee, lasso and wand are all "choose part of the page" - and
 the slot shows whichever of them you used last, with a corner mark saying there
 are others behind it. Right-click, or press and hold, to pick another.
 
 What stays out: the zoom stepper in the top bar, which is a readout with two
-buttons rather than a tool, and every numeric field — those are settings FOR a
+buttons rather than a tool, and every numeric field - those are settings FOR a
 tool and belong beside that tool's controls.
 """
 import shutil
@@ -95,10 +95,14 @@ def _right_click(pg, slot):
 
 def test_every_tool_is_in_it(ed):
     pg, _p, errs = ed
-    assert _slots(pg) == ["move", "select", "text", "paint", "fill",
+    # `boxsel` picks BOXES and sits above `select`, which picks pixels for the
+    # brush. Two slots because they are two jobs -- lee: *"add annew seclet
+    # tool that alloww me to dran a scquer on the boxs"*.
+    assert _slots(pg) == ["move", "boxsel", "select", "text", "paint", "fill",
                           "retouch", "shape", "pick", "view"]
     tools = pg.evaluate("TOOLBOX.flatMap(g=>g.tools.map(t=>t.k))")
-    for want in ("xf", "rect", "lasso", "wand", "addtext", "brush", "eraser",
+    for want in ("xf", "boxsel", "rect", "lasso", "wand", "addtext", "brush",
+                 "eraser",
                  "fill", "stamp", "heal", "shrect", "shcirc",
                  "shline", "eyedrop", "hand", "zoomin", "zoomout"):
         assert want in tools, want
@@ -179,7 +183,7 @@ def test_a_slot_with_several_tools_says_so(ed):
     # "move" joined them when the transform gained a second tool: the same
     # box with its corners already loose (Ctrl+T). "text" joined them for a
     # turn, when a draw-a-sound-effect tool went in beside the text box, and
-    # left again when lee said he did not want one — *"i dont want a button i
+    # left again when lee said he did not want one - *"i dont want a button i
     # wan to be able to clcik 3"*, and 3 already did it.
     assert set(marked) == {"move", "select", "paint", "retouch", "shape",
                            "view"}
@@ -188,7 +192,7 @@ def test_a_slot_with_several_tools_says_so(ed):
 
 def test_right_clicking_one_offers_the_rest(ed):
     """Retouch held three: the clone stamp and two healing brushes. It holds
-    two now — lee: *"remoev teh regualr healing brush, its ass"* — and the one
+    two now - lee: *"remoev teh regualr healing brush, its ass"* - and the one
     that survives is simply "Healing brush", because there is no longer a
     second one for a name to tell it apart from."""
     pg, _p, errs = ed
@@ -219,7 +223,7 @@ def test_picking_one_out_of_the_flyout_arms_it_and_the_slot_keeps_it(ed):
 
 def test_a_slot_with_one_tool_has_no_flyout(ed):
     """`text` and `view` are the one-tool slots. `text` stopped being one for a
-    turn, when a sound-effect tool went in beside it, and is one again — which
+    turn, when a sound-effect tool went in beside it, and is one again - which
     is why this test finds its slot by counting rather than naming one."""
     pg, _p, errs = ed
     only = pg.evaluate("""[...document.querySelectorAll('#toolbox .tbtn')]
@@ -259,7 +263,7 @@ def test_escape_and_a_click_away_put_the_flyout_back(ed):
 
 def test_a_flyout_never_opens_off_the_bottom_of_the_window(ed):
     """It is fixed to the viewport beside a button that can be anywhere down a
-    long strip — measured, because a menu you have to scroll the window to see
+    long strip - measured, because a menu you have to scroll the window to see
     is a menu that is not there."""
     pg, _p, errs = ed
     _right_click(pg, "view")            # the last slot, at the bottom
@@ -288,7 +292,7 @@ def test_every_tool_has_an_icon(ed):
 # ------------------------------------------------ names, not explanations
 
 def test_a_tool_is_named_not_explained():
-    """lee, with a picture of the hand tool's tooltip reading *"Hand (H) —
+    """lee, with a picture of the hand tool's tooltip reading *"Hand (H) -
     double-click for 100%"*: *"clean up the ui from explaininga buch of stuff
     it shoud just name out stuff not explainit like teh hand tool for
     example"*.
@@ -309,7 +313,7 @@ def test_a_tool_is_named_not_explained():
 
 
 def test_the_page_layer_is_called_page():
-    """It read *"Page — the artwork"*, which is the row telling you what a page
+    """It read *"Page - the artwork"*, which is the row telling you what a page
     is. lee: *"teh tab shoud just say page not age on backgorund"*."""
     from pathlib import Path
     js = (PKG / "static" / "js"

@@ -3,13 +3,13 @@
 lee sent three screenshots of the last page of his chapter: "exaample it missed
 a bunch of pages in teh last page". Two different faults in them, and one cause.
 
-In one, whole passages have NO box at all — a shout down the middle of a splash
+In one, whole passages have NO box at all - a shout down the middle of a splash
 page, the vertical captions on the left of another. In the other the boxes exist
 but are grossly wrong: box 5 covering a whole panel, box 4 a thin vertical strip
 crossing a panel boundary.
 
 The cause is the same for both. Every detector in `classical.py` is
-enclosure-first: it looks for a shape — a white blob, a dark outline — that
+enclosure-first: it looks for a shape - a white blob, a dark outline - that
 HOLDS dark glyphs, and takes the inside of that shape as the region. Manga
 typesets a large fraction of its text directly onto the drawing, where there is
 no shape to find. So that text is either missed outright, or found by accident
@@ -40,7 +40,7 @@ def _glyph(img, x, y, size=CH, stroke=STROKE):
     """A mark shaped like a letter: an outline, not a slab.
 
     Thinness is what tells typesetting from artwork, so a test fixture made of
-    solid blocks would be rejected by the very measure under test — a filled
+    solid blocks would be rejected by the very measure under test - a filled
     square measures 1.0, which is twice the top of the band. A hollow square of
     side s drawn with stroke t measures about 2t/s, so 14 and 2 put it at 0.29,
     in the middle of the range real Japanese lands in.
@@ -56,7 +56,7 @@ def _column(img, x, y0, n=8, pitch=18, size=CH):
 def _two_columns(gap=25, n=8):
     """Two columns of writing on bare paper, a known gap apart.
 
-    No balloon, no panel, nothing enclosing them — which is the whole point.
+    No balloon, no panel, nothing enclosing them - which is the whole point.
     An enclosure-first detector has nothing to find here.
     """
     img = np.full((H, W), 255, np.uint8)
@@ -79,7 +79,7 @@ def test_splitting_boxes_by_distance_is_not_a_setting_any_more():
     The slider set how wide a run of blank paper ended one block of writing.
     It was the wrong question to put to him: he does not know, page by page,
     how far apart the columns of a shout are printed, and neither did the
-    slider help — on his own chapter seven pages in nine gave the same boxes at
+    slider help - on his own chapter seven pages in nine gave the same boxes at
     every value from 1.0 to 4.0. What he wants is stated once and for all: a
     body of writing is ONE box.
 
@@ -96,7 +96,7 @@ def test_splitting_boxes_by_distance_is_not_a_setting_any_more():
 
 def test_nothing_in_the_editor_still_asks_for_a_split_gap():
     """A removed setting has to leave the panel too, or lee sees a slider that
-    saves a value nothing reads — which is exactly the bug he reported."""
+    saves a value nothing reads - which is exactly the bug he reported."""
     import pathlib
     root = pathlib.Path(F.__file__).resolve().parent.parent / "static"
     for name in ("editor.html", "js/project.js"):
@@ -111,7 +111,7 @@ def test_the_writing_is_read_before_the_stroke_pass():
     `detect_free_text` groups ink by closing it with a 13-pixel brush, which is
     narrower than the paper between two columns of Japanese, so it hands back
     one box per column. Running first, it took lee's shout three boxes wide and
-    the reader — which knows those columns are one passage — then found the
+    the reader - which knows those columns are one passage - then found the
     ground taken and stood aside. Reading first puts one box round the whole
     body of writing and leaves the stroke pass the crumbs.
     """
@@ -150,7 +150,7 @@ def test_a_solid_blob_is_not_writing():
     """The embroidery on the dress on page 8, which measured 0.604.
 
     Filled marks the size of a character, stacked as neatly as a column of
-    kanji — every test but thinness passes them.
+    kanji - every test but thinness passes them.
     """
     img = np.full((H, W), 255, np.uint8)
     for x in (120, 154):
@@ -181,7 +181,7 @@ def test_the_thinness_of_real_typesetting_lands_inside_the_band():
     """The fixture is only honest if it sits where real Japanese sits.
 
     Measured over nineteen hand-labelled blocks off lee's pages, true passages
-    ran 0.212 to 0.423 — across 12-pixel captions and 60-pixel shouts alike.
+    ran 0.212 to 0.423 - across 12-pixel captions and 60-pixel shouts alike.
     """
     blocks = _blocks(_two_columns())
     assert 0.212 <= blocks[0]["stroke"] <= 0.423, blocks[0]["stroke"]
@@ -233,8 +233,8 @@ def test_a_trail_of_marks_that_does_not_run_straight_is_not_a_column():
     """Writing is set on a LINE, and artwork is not. Real columns wander by
     0.05 to 0.19 of their own width; stipple and hair by 0.26 and up.
 
-    The obvious measure here is PITCH — characters come at a regular spacing,
-    artwork does not — and it was measured on lee's pages and thrown out. Real
+    The obvious measure here is PITCH - characters come at a regular spacing,
+    artwork does not - and it was measured on lee's pages and thrown out. Real
     columns came in at 0.40, 0.47, 0.51, 0.55, 0.70 and 0.79, because a ruby
     mark between two kanji halves one gap and a missed character doubles the
     next. Rejecting on it threw away nearly every true column on the page.
@@ -260,7 +260,7 @@ def test_a_trail_of_marks_that_does_not_run_straight_is_not_a_column():
 
 def _mixed_column(img, x, y0):
     """A column of Japanese as it is actually printed: big characters with
-    small ones hung among them — a run of dots, a small っ, a ruby mark.
+    small ones hung among them - a run of dots, a small っ, a ruby mark.
 
     The sizes are lee's own, off page 38: three dots and a small っ measuring
     10 pixels beside characters of 36 and 46.
@@ -275,8 +275,8 @@ def test_a_column_carrying_small_marks_is_still_writing():
     """lee's page 38: the shout 私…っ / 今日から / 悪女になります!! came back
     with a box round two columns and 私…っ left outside it.
 
-    The rejected column measured [10, 10, 10, 36, 46, 46] — three dots and a
-    small っ beside three full characters — and its spread over ALL of that is
+    The rejected column measured [10, 10, 10, 36, 46, 46] - three dots and a
+    small っ beside three full characters - and its spread over ALL of that is
     0.633, just past the 0.60 limit that throws artwork away. Over the
     full-size characters alone it is 0.11. A column of writing is not one size,
     and asking it to be one cost lee a third of his shout.
@@ -291,7 +291,7 @@ def test_a_column_carrying_small_marks_is_still_writing():
     assert F._tidy(col, by_id, cfg)
 
     # the control: measured over every mark, as it used to be, this same
-    # column IS rejected — so the test above is passing on the new rule and
+    # column IS rejected - so the test above is passing on the new rule and
     # not because the fixture happens to be tidy anyway
     class _Old(F.ColumnConfig):
         body_size = 0.0
@@ -302,7 +302,7 @@ def test_ruby_belongs_to_the_characters_it_is_printed_beside():
     """Page 39: the あくじょ ruby stood in its own column at size 17 next to a
     36-pixel body, and 36/17 = 2.1 broke the old one-passage-one-size rule of
     1.75. So the shout was boxed without its ruby, and the ruby came back as a
-    box of its own — which is two boxes over one body of writing.
+    box of its own - which is two boxes over one body of writing.
 
     Ruby is set at about half the body size, so the rule has to reach that far.
     It still stops well short of a caption beside a shout, which on his pages
@@ -355,8 +355,8 @@ def test_what_stands_beside_a_passage_is_left_alone():
 
 def test_only_a_body_of_writing_may_swallow_anything():
     """A balloon is not a passage. It holds one thing and it is entitled to
-    hold something small beside it — a section of a two-part balloon, an
-    あっ！ under a sentence — so a balloon region never eats its neighbours."""
+    hold something small beside it - a section of a two-part balloon, an
+    あっ！ under a sentence - so a balloon region never eats its neighbours."""
     balloon = _region((78, 502, 180, 463), kind="bubble",
                       mask=np.ones((463, 180), np.uint8), rid=0)
     inside = _region((203, 638, 25, 25), kind="bubble", rid=1)
@@ -388,7 +388,7 @@ def test_a_panel_corner_does_not_count_as_straddling():
     blunt: two panels have to hold a fifth of the box each.
 
     A tall block that pokes eight pixels over the seam gives the panel above it
-    only 0.08 of itself, so it is left alone — the box is plainly the lower
+    only 0.08 of itself, so it is left alone - the box is plainly the lower
     panel's, and a passage should not be thrown away over a rounded corner or a
     panel edge found a few pixels out.
     """
@@ -410,7 +410,7 @@ def test_the_pass_leaves_alone_what_a_balloon_finder_already_took():
 
 def test_what_it_hands_back_survives_a_save_and_a_load():
     """Writing on bare art has no balloon outline, so its region must carry a
-    rectangle and NO mask — store anything else and the reload builds a
+    rectangle and NO mask - store anything else and the reload builds a
     pretend bubble out of it and typesets the English to the wrong shape."""
     from mangatl.project import region_record, region_from_record
 
@@ -430,7 +430,7 @@ def test_what_it_hands_back_survives_a_save_and_a_load():
 def test_a_stroke_block_sitting_on_writing_already_read_is_dropped():
     """The two passes look at the same page, so they can find the same text.
 
-    The stroke pass is deliberately shown the untouched page — blanking the
+    The stroke pass is deliberately shown the untouched page - blanking the
     reader's writing out first changes how it groups the ink that is left,
     which on lee's page 10 closed two toy rabbits into a text box. So it is
     left to find whatever it finds, and what it hands back is compared with
@@ -522,7 +522,7 @@ def test_the_cut_keeps_whichever_side_holds_more_of_the_writing():
 
 def test_a_short_bar_is_not_a_panel_rule():
     """A rule runs from one side of the frame to the other. A dash, an
-    underline, the top of a drawn box — writing may sit on either side of
+    underline, the top of a drawn box - writing may sit on either side of
     those."""
     img = _ruled_page()
     img[195:212, :] = 255
@@ -548,7 +548,7 @@ def _bar(img, y, x0=20, x1=W - 20, thick=4):
 def test_a_cut_that_would_leave_almost_nothing_leaves_the_passage_alone():
     """Two rules with one character between them. Cutting at the first keeps
     everything below it, cutting at the second keeps everything above, and what
-    survives both is a single mark — which is not a passage of writing, it is
+    survives both is a single mark - which is not a passage of writing, it is
     the wreck of one. Losing a box is worse than a box a little too tall, so
     nothing happens.
     """
@@ -562,8 +562,8 @@ def test_a_cut_that_would_leave_almost_nothing_leaves_the_passage_alone():
 
 def test_a_rule_that_only_clips_the_edge_of_a_passage_does_not_cut_it():
     """The bar has to run right across the writing. One that stops halfway
-    through the column is something drawn beside it — the top of a signboard,
-    the edge of a table — and the writing carries on past it.
+    through the column is something drawn beside it - the top of a signboard,
+    the edge of a table - and the writing carries on past it.
     """
     img = _column_page()
     _bar(img, 178, x0=60, x1=250)          # the column stands at 240..259

@@ -4,7 +4,7 @@ comic-text-detector finds TEXT, not balloons. Every region it returns carries
 ``bubble_mask=None``, so ``TextRegion.place_mask()`` falls through to the glyph
 footprint and the fitter lays the English out inside the shape of the Japanese.
 Japanese runs down the page in a tall narrow column, so the English was being
-squeezed into a tall narrow column — which is the whole reason the typesetting
+squeezed into a tall narrow column - which is the whole reason the typesetting
 came out at 8-12pt inside a 200px balloon.
 
 This pass walks outward from each block's ink until it meets the dark outline
@@ -14,8 +14,8 @@ in it). Nothing is invented: when no plausible balloon is found the region is
 left exactly as the detector returned it, and the fitter falls back to the text
 box as before.
 
-Two blocks that land in the SAME balloon — a split bubble, where one run of
-dialogue is written as two separated columns — divide that balloon between
+Two blocks that land in the SAME balloon - a split bubble, where one run of
+dialogue is written as two separated columns - divide that balloon between
 them along the line equidistant from their ink, so both are typeset at full
 size instead of on top of each other.
 """
@@ -33,7 +33,7 @@ class BalloonConfig:
     close_px = 2              # bridge anti-aliasing gaps in a thin outline
     min_area_frac = 0.0004    # of page area
     max_area_frac = 0.28      # a full-page splash balloon is still a balloon
-    min_fill = 0.34           # area / bbox area — tails and bursts are ragged
+    min_fill = 0.34           # area / bbox area - tails and bursts are ragged
     min_solidity = 0.55       # area / convex hull area
     border_margin = 3         # a blob touching the page edge is background
     min_glyph_inside = 0.80   # of the block's ink must land in the balloon
@@ -76,8 +76,8 @@ def _surrounding_label(labels: np.ndarray, glyph: np.ndarray,
     label there is the background.
 
     `ring_px` has to clear whatever dilation the labelling was done with, or
-    the ring lands entirely on the dilated glyphs — which are not paper and so
-    carry no label — and the answer comes back as "nothing surrounds this".
+    the ring lands entirely on the dilated glyphs - which are not paper and so
+    carry no label - and the answer comes back as "nothing surrounds this".
     """
     ring = cv2.dilate((glyph > 0).astype(np.uint8),
                       cv2.getStructuringElement(
@@ -93,7 +93,7 @@ def _filled(labels: np.ndarray, lab: int):
     """(mask, outer contour) for one run of paper, glyph holes filled in.
 
     The contour of the paper follows the INSIDE of the outline, so filling it
-    gives the balloon interior — the typesetting that used to be in it included,
+    gives the balloon interior - the typesetting that used to be in it included,
     the outline itself excluded.
     """
     comp = (labels == lab).astype(np.uint8)
@@ -111,7 +111,7 @@ def _plausible(gray, mask, outer, cfg, page_area: float = 0.0) -> bool:
 
     `page_area` is what the size limits are measured against. It defaults to
     the picture handed in, and is passed explicitly when that picture is a
-    window cut out of the page (_local_balloon) rather than the page itself —
+    window cut out of the page (_local_balloon) rather than the page itself -
     a balloon is a fraction of a PAGE, and judging it against the size of the
     window it was found in would let a window swallow whatever it framed.
     """
@@ -153,14 +153,14 @@ def _stacked_bands(seeds: list[np.ndarray], cfg: BalloonConfig):
     this", but it is the wrong answer to "where does this block of English
     go". Two columns of Japanese that sit diagonally apart get a diagonal
     dividing line, and a diagonal edge cuts the usable chord on every line of
-    horizontal typesetting — the fitter measures the NARROWEST row in each
+    horizontal typesetting - the fitter measures the NARROWEST row in each
     line's band, so a wedge prices out at a couple of sizes smaller than the
     room really available. On the split bubble that was 14pt where the printed
     page has room for 20.
 
-    When the blocks are stacked — which is the normal case, because Japanese
+    When the blocks are stacked - which is the normal case, because Japanese
     columns read right-to-left and so a continuation lands below as well as
-    left — a typesetter cuts straight across instead, and each block gets the
+    left - a typesetter cuts straight across instead, and each block gets the
     balloon's full width. So take that cut, and fall back to nearest-ink only
     when the blocks genuinely sit alongside each other.
     """
@@ -221,12 +221,12 @@ def _share(balloon: np.ndarray, seeds: list[np.ndarray],
 def _local_balloon(gray: np.ndarray, r: TextRegion, cfg: BalloonConfig):
     """Find the balloon around one block after the page-wide pass leaked.
 
-    Most balloons that come back with nothing are not missing an outline —
+    Most balloons that come back with nothing are not missing an outline -
     they have a small hole in one. The usual hole is the tail: it is drawn as
     two strokes that stop short of meeting, and where a balloon sits over a
     gutter that opening lets its interior run out into the white margin. The
     run of paper the block is embedded in then IS the page background, which
-    is thrown out (correctly — nothing that reaches the page edge is a
+    is thrown out (correctly - nothing that reaches the page edge is a
     balloon), and the block ends up with no placement area at all. On this
     chapter that was thirteen of twenty-seven misses.
 
@@ -238,7 +238,7 @@ def _local_balloon(gray: np.ndarray, r: TextRegion, cfg: BalloonConfig):
 
     The search runs in a window around the block and the window's own edge is
     the test: paper that reaches it has still leaked out, so that seal was too
-    small — or the balloon is simply bigger than the window, so the window is
+    small - or the balloon is simply bigger than the window, so the window is
     grown and tried again. Whatever is found is judged by exactly the same
     rules as the page-wide pass, against the size of the PAGE, so a window
     cannot make a scrap of gutter look like a balloon.
@@ -286,7 +286,7 @@ def _give_back(crop, mask, glyph, seal, cfg, page_area):
 
     Sealing dilates the ink, so the paper it leaves is the balloon interior
     short of `seal - close_px` pixels on every edge. Those pixels are room the
-    typesetting is entitled to, so grow the shape back — but grow it into paper
+    typesetting is entitled to, so grow the shape back - but grow it into paper
     only, so it stops against the drawn outline instead of stepping over it,
     and keep the piece the block's own ink is in. If what comes back no longer
     looks like a balloon, the sealed shape is kept as it was.
@@ -318,7 +318,7 @@ def _no_bays_in_the_writing(r: TextRegion, mask: np.ndarray,
     """Fill the bites the seal took out of the region's OWN text box.
 
     `_give_back` grows the sealed shape into paper and stops it against ink, so
-    any lettering the seal missed becomes a wall and the shape goes AROUND it.
+    any type the seal missed becomes a wall and the shape goes AROUND it.
     On page 067 of lee's chapter that left two bays a hundred pixels wide,
     exactly the shape of `스토리가` and `매력적인`, and the two words came back on
     the cleaned page while the four lines above them came off.
@@ -371,7 +371,7 @@ def _apply(r: TextRegion, mask: np.ndarray) -> bool:
 def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
                             cfg: BalloonConfig | None = None,
                             rtl: bool = True) -> int:
-    """One balloon, one box — and inside that box, one SECTION per clump.
+    """One balloon, one box - and inside that box, one SECTION per clump.
 
     lee's rule for the box: "the boxes shoud be around the bubbles no 2 of them
     split randomly, each bubbles shoud have their own box". And his rule for
@@ -380,7 +380,7 @@ def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
     them in there own sections where the dot is".
 
     His shout balloon holds a sentence up the right and a small あっ！ lower and
-    to the left. Those are two things to read and two things to typeset — but
+    to the left. Those are two things to read and two things to typeset - but
     one balloon, so one box. What the old code did instead was hand both blocks
     to `_share`, which slices the balloon into full-width horizontal BANDS: the
     dead-flat seam he sent back, one box stacked on the other.
@@ -399,7 +399,7 @@ def sections_in_one_balloon(gray: np.ndarray, regions: list[TextRegion],
       pixel of the paper goes to whichever clump of writing is closer to it, so
       the sentence keeps the upper right, あっ！ keeps the lower left, and the
       boundary runs where the writing says it should. Each then typesets inside
-      its own share, centred in it — the dot lee drew.
+      its own share, centred in it - the dot lee drew.
 
     A balloon that is genuinely two balloons never reaches here: it is two
     enclosures on the page, or one enclosure with a neck the outline detector
@@ -564,7 +564,7 @@ def _by_nearest(balloon: np.ndarray, seeds: list[np.ndarray],
                 cell = (lab == int(vals[int(counts.argmax())])).astype(np.uint8)
         m = cell * 255
         # The writing is never given away, whatever the erode did at its
-        # edges — a character half in one share and half in the other is a
+        # edges - a character half in one share and half in the other is a
         # character the typesetter has to draw twice.
         m[(seed > 0) & inside] = 255
         out.append(m)
@@ -579,7 +579,7 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     ink's own footprint is the right place for them.
 
     Everything below this line reads `gray <= ink_thresh` as ink and the rest
-    as paper, which is a white balloon with dark typesetting — and lee's pages
+    as paper, which is a white balloon with dark typesetting - and lee's pages
     have black balloons with white typesetting in them too, an eye with a flat
     black speech shape inside it holding a white ...HUH?. Nothing here could
     ever find one: its interior IS ink by that definition, so it is never a
@@ -587,7 +587,7 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     were. lee, with a screenshot of each: *"can you do a tecting for black
     bubbles like teh white bubbles"*.
 
-    So the search is run twice — once on the page, and once on its negative
+    So the search is run twice - once on the page, and once on its negative
     for the blocks the first pass left with nothing. Coordinates and masks
     land on the same pixels either way, and every test the upright pass
     applies (enclosed, the right size, a flat fill, no drawn edges in it)
@@ -597,8 +597,8 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
 
     Measured on the two pages lee sent, rebuilt as fixtures: the white balloon
     is found upright and not inverted, the black one inverted and not upright,
-    and white typesetting on genuinely textured dark artwork — a real free
-    shout, which must stay free — is found by neither, because hatching cuts
+    and white typesetting on genuinely textured dark artwork - a real free
+    shout, which must stay free - is found by neither, because hatching cuts
     the dark into strips and carries drawn edges the fill test refuses.
     """
     cfg = cfg or BalloonConfig()
@@ -610,18 +610,18 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     # if it cant fins it labble it a outsude test, te test need to be fast"*.
     #
     # Half of that is this line, and it was already the rule on the inverted
-    # pass below — a block turning out to be inside a balloon is better
+    # pass below - a block turning out to be inside a balloon is better
     # evidence than the ring test that called it free, whichever polarity found
     # it. FAST: measured over 55 pages, offering the search to the free blocks
     # as well costs 0.05s a page against 17.9s detecting them. 0.3%.
     #
     # THE OTHER HALF IS DELIBERATELY NOT HERE. Demoting a block when no balloon
     # is found was measured on the same 55 pages and it fires on **54% of all
-    # dialogue boxes** — 73% of one chapter, 5% of the other. Cropping them
+    # dialogue boxes** - 73% of one chapter, 5% of the other. Cropping them
     # says why: they are CAPTION PANELS, a pale rectangle filling the panel
-    # with the narration in it. This pass refuses those on purpose — such a
+    # with the narration in it. This pass refuses those on purpose - such a
     # rectangle touches the page edge, or fails `min_gain` because the text box
-    # already fills it — so "no balloon found" means "not a drawn balloon", not
+    # already fills it - so "no balloon found" means "not a drawn balloon", not
     # "loose on the artwork". A rule built on it would relabel half the
     # dialogue in a chapter. lee, shown the measurement, picked promote only.
     up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"),
@@ -630,7 +630,7 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     # called free-floating is allowed in this time: on a black balloon the ring
     # of "is there paper round this?" reads as artwork, so a block inside one
     # arrives labelled free text. Finding a balloon around it is the answer to
-    # that question, and a better one than the ring gave — so a block that
+    # that question, and a better one than the ring gave - so a block that
     # turns out to be in a balloon is called what it is.
     dark = _attach(255 - gray, regions, cfg,
                    ("bubble", "narration", "freefloat"), promote=True)
@@ -708,7 +708,7 @@ def _round_wall_around(gray: np.ndarray, bbox, roundish: bool = True,
     a different place. A balloon is round, and this function's job here is to
     rescue one drawn on a starfield; "is anything at all drawn round this
     writing" is what `comictext`'s paper-is-not-a-balloon demotion wants, and
-    a caption plate — a rectangle — has to answer yes to it.
+    a caption plate - a rectangle - has to answer yes to it.
 
     Measured on chapter 8's 33 no-balloon dialogue boxes, dropping the two
     gates moves exactly two: 022#2, a caption in a ruled frame (circularity
@@ -754,7 +754,7 @@ def _round_wall_around(gray: np.ndarray, bbox, roundish: bool = True,
     e[ey0:ey1, ex0:ex1] = 0
     # What that erasure is measured against, below. On hatched or heavily
     # textured artwork EVERYTHING is wall once the gaps are sealed, so the only
-    # clear ground left is the rectangle just wiped — a perfectly shut, roundish
+    # clear ground left is the rectangle just wiped - a perfectly shut, roundish
     # region that is not a balloon but the hole this function punched itself.
     # `test_typesetting_on_textured_dark_art_gets_nothing` is that case.
     hole = float(max(1, (ey1 - ey0)) * max(1, (ex1 - ex0)))
@@ -803,7 +803,7 @@ def _shut_in_a_round_wall(gray, regions, cfg) -> None:
     """Rename free-floating blocks that are shut inside a roundish wall.
 
     The LABEL only. No `bubble_mask` is set, so the typesetter lays the English
-    out in the text box exactly as it does today — this says what the box IS,
+    out in the text box exactly as it does today - this says what the box IS,
     which is what lee asked for, and does not quietly change where the words
     go on the strength of a shape nothing has measured for that job yet.
     """
@@ -832,7 +832,7 @@ def _attach(gray: np.ndarray, regions: list[TextRegion], cfg: BalloonConfig,
         return 0
 
     # Which run of paper each block sits in. Several blocks can name the same
-    # one — that is a split bubble, and they share it below.
+    # one - that is a split bubble, and they share it below.
     found: dict[int, list[TextRegion]] = {}
     for r in todo:
         lab = _surrounding_label(labels, r.text_mask)
@@ -865,7 +865,7 @@ def _attach(gray: np.ndarray, regions: list[TextRegion], cfg: BalloonConfig,
             if _apply(r, share):
                 done += 1
     got = _second_pass(gray, todo, cfg)
-    # Renaming happens once, here, and not beside each `_apply` — the rescue
+    # Renaming happens once, here, and not beside each `_apply` - the rescue
     # pass below finds balloons too, and a block promoted in one place and not
     # the other is a bug waiting for the day the two paths disagree.
     if promote:
@@ -882,7 +882,7 @@ def _second_pass(gray: np.ndarray, todo: list[TextRegion],
     Each is re-searched on its own with a seal that closes a broken outline
     (_local_balloon). Two blocks in one balloon come back with the same shape,
     so anything found is regrouped by overlap and shared out exactly as
-    before — otherwise both halves of a split bubble would each claim the
+    before - otherwise both halves of a split bubble would each claim the
     whole balloon and be typeset on top of each other.
     """
     left = [r for r in todo if r.bubble_mask is None]
@@ -928,7 +928,7 @@ def _second_pass(gray: np.ndarray, todo: list[TextRegion],
 #
 # A caption printed straight onto a blank panel has no balloon, and the walk in
 # `attach_balloons` above finds none it may keep. Before this, such a region
-# fell back to its own box, which is the box drawn round the JAPANESE — a tall
+# fell back to its own box, which is the box drawn round the JAPANESE - a tall
 # narrow column, because that is how Japanese is set. lee's page 10 typeset at
 # 12pt in a column 96 pixels wide, next to Japanese printed at twice that.
 #
@@ -937,7 +937,7 @@ def _second_pass(gray: np.ndarray, todo: list[TextRegion],
 # on page 10 it reaches from one side of the panel to the other, behind the
 # woman and the child, and typesetting into it laid the English across their
 # faces. That is the fault this fixes and it is worth being exact about the
-# difference — the flood fill goes round an obstacle, and a rectangle stops at
+# difference - the flood fill goes round an obstacle, and a rectangle stops at
 # it. So the box grows sideways and downwards until it MEETS something, in each
 # direction independently, and whatever it meets first is where it stops:
 # artwork, the panel frame, another region's writing, the edge of the page.
@@ -949,7 +949,7 @@ GROW_STOP = 4          # px of ink in a scanline that counts as "something here"
 GROW_CLEAR = 3         # keep this much white between the text and what stopped it
 # How much bigger than its own box a region may get, per side, as a fraction of
 # that side. lee: *"outide text and sfx should try to fit inside the box or
-# slightly bigger"*. Growing until the artwork stops it is too much room — on
+# slightly bigger"*. Growing until the artwork stops it is too much room - on
 # page 10 it gave a caption nearly twice its box in both directions and the
 # English came out bigger than the Japanese it replaced. So the paper is a
 # margin round the writing, not everything going spare.
@@ -957,7 +957,7 @@ GROW_CLEAR = 3         # keep this much white between the text and what stopped 
 # It also has to be bounded at all: blank paper does not always end. A page
 # whose gutters are white has nothing to stop the scan short of the sheet's
 # edge, and on two of lee's pages the room ran the full height and most of the
-# width. Being wrong here costs a size or two — the room is only ever used
+# width. Being wrong here costs a size or two - the room is only ever used
 # where the old code used the bare box, so the floor is always the box.
 GROW_MARGIN = 0.25
 
@@ -973,7 +973,7 @@ def room_around(gray: np.ndarray, region: TextRegion,
     """Give a region with no balloon the empty paper around its writing.
 
     Returns whether it grew. The region keeps its own box when there is no
-    room — nothing is ever made smaller here.
+    room - nothing is ever made smaller here.
 
     `taken` is the paper already handed to earlier regions, and it stops the
     growth like any other obstacle. Two captions on one panel are read in
@@ -991,7 +991,7 @@ def room_around(gray: np.ndarray, region: TextRegion,
 
     # Everything that stops the growth: ink on the page, plus every OTHER
     # region's writing. Most writing stops the scan simply by being dark, but
-    # not all of it does — white typesetting on a black panel comes back with a
+    # not all of it does - white typesetting on a black panel comes back with a
     # mask of the LIGHT pixels, and a scan looking for ink walks straight
     # through it. This region's own writing is never in the way: the scan
     # starts at the edge of its box and only ever moves outwards.
@@ -1022,7 +1022,7 @@ def room_around(gray: np.ndarray, region: TextRegion,
     if (x1 - x0) * (y1 - y0) < cfg.min_gain * w * h:
         return False                      # not enough room to be worth it
 
-    # Only the placement area is set — NOT the polygon, and NOT bubble_bbox.
+    # Only the placement area is set - NOT the polygon, and NOT bubble_bbox.
     # lee: *"teh box that shoud be considered is teh box that i see"*. The box
     # he sees is the one round the writing and it does not move; this is only
     # where the English is allowed to go. Nothing here is saved either: the
@@ -1117,9 +1117,9 @@ def link_touching_bubbles(gray: np.ndarray, regions, gap: float = TOUCH_GAP,
             continue
         m = np.asarray(r.bubble_mask)
         # A mask that is not the shape of the page is not a balloon on it.
-        # Nothing in the app makes one, but a caller that hands over a stub —
+        # Nothing in the app makes one, but a caller that hands over a stub -
         # `tests/test_the_sky_is_not_a_balloon.py` patches the fitter with one
-        # — must not take the whole run down with an index error.
+        # - must not take the whole run down with an index error.
         if m.shape[:2] != gray.shape[:2]:
             continue
         m = m > 0
@@ -1163,7 +1163,7 @@ def link_touching_bubbles(gray: np.ndarray, regions, gap: float = TOUCH_GAP,
         done += 1
         for i in members:
             lobes[i][0].link = used
-            # A fact about the PICTURE. Not "one sentence" — see
+            # A fact about the PICTURE. Not "one sentence" - see
             # `models.TextRegion.link_kind`, and page 049.
             lobes[i][0].link_kind = "balloon"
     return done

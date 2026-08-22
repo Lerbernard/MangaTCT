@@ -3,13 +3,13 @@
 lee:
 
 > *add a eye button to the [row] in teh original page thag allow me to hid a
-> box, just like i can hide all the sfx box — i shud be able to hide individual
+> box, just like i can hide all the sfx box - i shud be able to hide individual
 > boxes. if i hid an individual sfx box and i use the main unhide tool to hide
 > and unhide all the sfx it shoud allso unhide teh individual box*
 
 The page already had the group switches: `PageState.hidden_kinds` puts a whole
-kind away, and a hidden group is not drawn and takes no part in any stage —
-not read, not translated, not cleaned, not typeset, not exported — and is not
+kind away, and a hidden group is not drawn and takes no part in any stage -
+not read, not translated, not cleaned, not typeset, not exported - and is not
 deleted. `hidden_ids` is the same rule, one box at a time.
 
 Two things about it are worth stating plainly, because they are the whole
@@ -17,11 +17,11 @@ design:
 
 * **A hidden box leaves `regions`.** It has to: `regions` is the page's work,
   and anything that walks it would otherwise start treating a put-away box as
-  work again. So the browser gets `hidden_rows` as well — the little the list
+  work again. So the browser gets `hidden_rows` as well - the little the list
   needs to draw a greyed row with a closed eye on it, and nothing more. Without
   that row there would be no way back to a hidden box at all.
 * **The group switch is the master control.** Using it is a statement about
-  every box in that group, so it spends the per-box choices inside it — which
+  every box in that group, so it spends the per-box choices inside it - which
   is exactly the sentence lee wrote. Groups the switch did not move keep
   theirs.
 """
@@ -120,8 +120,8 @@ def test_a_switch_that_did_not_move_leaves_its_boxes_alone(tmp_path):
 
 
 def test_setting_the_same_groups_again_changes_nothing(tmp_path):
-    """"Moved" means moved. Re-sending the list that is already set — which is
-    what the every-page switch does on its own — must not spend anything."""
+    """"Moved" means moved. Re-sending the list that is already set - which is
+    what the every-page switch does on its own - must not spend anything."""
     p = _project(str(tmp_path / "hide"))
     pg = p.pages[0]
     pg.hide_group(["sfx"])

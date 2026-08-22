@@ -145,7 +145,7 @@ class _Net:
 
 
 def _page(sky, balloon):
-    """A square page of open sky, with the writing on it — and optionally a
+    """A square page of open sky, with the writing on it - and optionally a
     drawn balloon shut round it."""
     page = np.full((INPUT, INPUT), sky, np.uint8)
     if balloon:
@@ -192,7 +192,7 @@ def test_writing_on_open_sky_comes_back_as_outside_text(monkeypatch):
 
 
 def test_the_same_writing_inside_a_balloon_stays_dialogue(monkeypatch):
-    """The one that matters. Same sky, same writing, a balloon drawn round it —
+    """The one that matters. Same sky, same writing, a balloon drawn round it -
     and the word stays."""
     rs = _run(monkeypatch, sky=205, balloon=True)
     assert rs and rs[0].kind != "freefloat", [r.kind for r in rs]
@@ -230,7 +230,7 @@ def test_a_box_the_fitter_found_a_balloon_for_is_never_asked(monkeypatch):
 
 def test_a_balloon_the_fitter_did_find_is_never_demoted(monkeypatch):
     """First condition, alone. Open sky under the box so the margin says
-    demote, the wall test switched off so it cannot object — and a mask, which
+    demote, the wall test switched off so it cannot object - and a mask, which
     has to be enough on its own."""
     import mangatl.detect.balloon as B
 
@@ -246,8 +246,8 @@ def test_a_balloon_the_fitter_did_find_is_never_demoted(monkeypatch):
 
 
 def test_a_balloon_only_the_wall_can_see_is_never_demoted(monkeypatch):
-    """Second condition, alone. Open sky, no mask — the grey-balloon-on-a-
-    starfield case, which carries a label and no mask — and the wall is the
+    """Second condition, alone. Open sky, no mask - the grey-balloon-on-a-
+    starfield case, which carries a label and no mask - and the wall is the
     only thing left to save it."""
     import mangatl.detect.balloon as B
     monkeypatch.setattr(B, "attach_balloons", lambda *a, **k: None)
@@ -428,7 +428,7 @@ def test_a_burst_over_dark_artwork_keeps_the_word_dialogue(monkeypatch):
     Both have to say "not paper" before the word is taken away.
     """
     # A bright core no bigger than the writing standing on it, and dark
-    # artwork immediately outside — which is what a burst's rays leave.
+    # artwork immediately outside - which is what a burst's rays leave.
     g = np.full((900, 900), 120, np.uint8)
     cv2.rectangle(g, (322, 342), (578, 458), 235, -1)
     _lines(g, 330, 350, n=2)

@@ -5,7 +5,7 @@ color/formats f teh tetx that its reading for the typesetter ... or is it
 better to have teh typesster try to find this info itself"*.
 
 **The pixels, not the reader.** The whole of this chapter's evidence says a
-vision model normalises what it is unsure of — 티리스 became 타리스, 드래건
+vision model normalises what it is unsure of - 티리스 became 타리스, 드래건
 became 드래곤, `….` became `...`. A hex value and an angle are exactly the kind
 of continuous quantity it would approximate, and it could not tell you how sure
 it was. The page can: a gradient is a regression, and the regression comes with
@@ -28,10 +28,10 @@ Three things this does NOT do, all of them deliberate:
 * **It does not trust `text_mask`.** That is the BLOCK the detector found, not
   the letters in it: measure a plain bubble through it and the answer is
   #FAFAFA, which is the paper. The glyphs are found inside the block as the
-  pixels that differ from the local paper — which also gets white-on-navy right
+  pixels that differ from the local paper - which also gets white-on-navy right
   without a second code path, because "differs from the paper" has no polarity.
 * **It reports a glow only where the fade goes on for four rings.** 011's
-  cream halo does not — it runs 80 20 18 5 — and neither does the small
+  cream halo does not - it runs 80 20 18 5 - and neither does the small
   balloon on its own page, which runs 34 35 24 2 and is the balloon's edge
   rather than a halo at all. At three rings there is no measurement that keeps
   one and refuses the other, so both are left alone.
@@ -51,7 +51,7 @@ MIN_GLYPH = 120
 INK_FLOOR = 24
 
 # How far apart the two halves of the marked pixels must sit before they are
-# taken to be two different things — the letters and the ring round them —
+# taken to be two different things - the letters and the ring round them -
 # rather than one thing unevenly lit. 066's red-in-white measures 129 apart;
 # plain writing has nothing to split and comes nowhere near.
 INK_SPLIT = 40
@@ -71,7 +71,7 @@ GRAD_SPAN = 45           # measured: 4 is the worst flat, 78 the plaque
 # plain black caption steps 39 at ring 1 and 2 at ring 2.
 #
 # Deliberately high. At 40 the only thing on six pages that claims an outline
-# is 066's sound effects, which have a white one — 011's halo (20) and 029's
+# is 066's sound effects, which have a white one - 011's halo (20) and 029's
 # glowing blue (26) are left alone rather than typeset as a hard ring that is
 # not what the artist drew.
 EDGE_STEP = 40
@@ -81,7 +81,7 @@ EDGE_MAX = 4             # rings out to here are the outline; past it, paper
 # from a caption sitting on a small white patch of artwork. An outline is one
 # colour: 066's white ring measures 6 across its three rings. A falloff is not:
 # 029's blue sound effect moves 27 between the first ring and the second, and
-# 059's plain caption 39 — both of those cleared the step on their own, and
+# 059's plain caption 39 - both of those cleared the step on their own, and
 # both are wrong.
 EDGE_FLAT = 20
 
@@ -95,7 +95,7 @@ EDGE_FLAT = 20
 #   011's cream halo          80 20 18  5        a decay that stops
 #
 # `GLOW_BANDS` is 4 because of the last two lines. 011's halo really is a soft
-# one and it is a shame to lose it — but the same page's small balloon reads
+# one and it is a shame to lose it - but the same page's small balloon reads
 # 34 35 24 2, which is the balloon's own edge and not a halo at all, and at
 # three bands there is no measurement that keeps one and refuses the other.
 # Four bands keeps only what nothing else on six pages imitates.
@@ -104,13 +104,13 @@ GLOW_BANDS = 4           # ...and how many rings must manage it
 GLOW_TAIL = 0.2          # the glow ends where it fades to this much of its start
 
 # A DROP SHADOW is the only one of these that is not symmetric: the ink again,
-# offset and darker. Everything else round a letter — an outline, a glow, the
-# blended rim — sits evenly all the way round, so the centre of what is dark
+# offset and darker. Everything else round a letter - an outline, a glow, the
+# blended rim - sits evenly all the way round, so the centre of what is dark
 # outside the letters is the centre of the letters. A shadow moves it.
 SHADOW_DARK = 20         # how much darker than the paper counts as shadow
 SHADOW_OFF = 1.5         # ...and how far the centre must move, in pixels
-# The renderer draws a shadow down and to the right at a fixed 45 degrees —
-# see `typesetting.js`, which multiplies `sh_dist` by 0.707 on both axes — so
+# The renderer draws a shadow down and to the right at a fixed 45 degrees -
+# see `typesetting.js`, which multiplies `sh_dist` by 0.707 on both axes - so
 # one measured anywhere else cannot be drawn. That is not a test here: the
 # search below only tries positive offsets, so a shadow up and to the left is
 # never found in the first place, and a separate check for the direction would
@@ -119,7 +119,7 @@ SHADOW_HIT = 0.5         # ...and how much of the shifted ink must land on it
 SHADOW_MAX = 10          # the furthest offset worth looking for
 
 # One black per chapter. The same ink measures #000000 on one page and #010101
-# on the next — JPEG, tone, and the median landing a shade either way — and
+# on the next - JPEG, tone, and the median landing a shade either way - and
 # typeset side by side that is two blacks. Anything within this of a colour
 # already seen in the run is taken to BE that colour.
 #
@@ -157,7 +157,7 @@ def glyph_ink(img, block, paper) -> np.ndarray:
 
     Twice, because writing with a ring round it is THREE populations and not
     two: the paper, the outline, and the letters. One split says "not paper"
-    and hands back the letters WITH their outline stuck to them — which on
+    and hands back the letters WITH their outline stuck to them - which on
     066's dark red 파 in its white ring measures the average of red and white,
     a colour that is on no part of the page. The second split is only taken
     when the two halves are far apart (`INK_SPLIT`); on ordinary writing there
@@ -182,8 +182,8 @@ def glyph_ink(img, block, paper) -> np.ndarray:
                 float(far.mean() - near.mean()) >= INK_SPLIT:
             # ...and the near half has to sit AROUND the far half rather than
             # mixed through it. A letter filled with a gradient splits just as
-            # readily as a letter inside a ring — 066's 파 runs from black to
-            # #750104 — and taking that split there keeps the darkest core and
+            # readily as a letter inside a ring - 066's 파 runs from black to
+            # #750104 - and taking that split there keeps the darkest core and
             # throws the gradient away. A ring is on the outside: hardly any
             # of it survives eroding the marked shape.
             side = marked & (d <= float(t2))
@@ -257,7 +257,7 @@ def measure_region(img, block) -> dict:
             c = np.median(img[b], 0)
             # Ring 1 is the anti-aliased rim of the glyph, and on every
             # letter ever printed it is a blend that steps a long way off the
-            # paper — white on black blends to mid-grey, which is 175. It is
+            # paper - white on black blends to mid-grey, which is 175. It is
             # never evidence on its own, and `wide >= 2` below is what says so.
             if float(np.abs(c - beyond).max()) < EDGE_STEP:
                 break
@@ -288,7 +288,7 @@ def _glow(img, rings, beyond) -> dict:
     if len(steps) < GLOW_BANDS:
         return {}
     # From the SECOND ring, because the first is the blended rim of the glyph
-    # and it is huge on every letter — white on black blends to 175.
+    # and it is huge on every letter - white on black blends to 175.
     tail = steps[1:]
     if tail[0] < GLOW_MIN:
         return {}
@@ -324,7 +324,7 @@ def _shadow(img, ink, paper) -> dict:
     # off to one side. Shift the ink and see how much of where it lands is
     # dark: a shadow is a copy of the letters, so nearly all of it is. A
     # balloon's own black outline is dark and sits down-and-right as often as
-    # not, and almost none of it lines up — which is what this refuses, and
+    # not, and almost none of it lines up - which is what this refuses, and
     # what stopped three plain bubbles claiming a shadow they do not have.
     #
     # The centroid of the dark only ESTIMATES the offset, because the part of
@@ -360,8 +360,8 @@ def _shadow(img, ink, paper) -> dict:
 def block_of(page, region, owner=None, index: int = -1) -> np.ndarray | None:
     """The area this region's writing stands in, as a mask of the page.
 
-    The pixels the region OWNS where there are any — two boxes that overlap
-    must not measure each other's letters — and the box itself otherwise,
+    The pixels the region OWNS where there are any - two boxes that overlap
+    must not measure each other's letters - and the box itself otherwise,
     which is the usual case for a sound effect the detector gave no mask.
     """
     img = getattr(page, "image", None)
@@ -410,7 +410,7 @@ def measure_page(page, seen: dict | None = None) -> int:
     """Fill in the colours for every region on a page. Returns how many.
 
     Run at the END of the read step, which is the last moment the ORIGINAL
-    letters are still on the page — cleaning wipes them, and by the time the
+    letters are still on the page - cleaning wipes them, and by the time the
     typesetter runs there is nothing left to measure.
 
     A colour already in the override is a colour somebody chose, and is left

@@ -3,7 +3,7 @@
 Page 067 of lee's chapter came back with `스토리가` and `매력적인` still on it and
 the four lines above them cleaned off. The mask handed to the cleaner is the
 reason, and it is visible in one number: at the height of that line the
-placement area is four runs — 257-271, 380-385, 393-481, 604-626 — with a
+placement area is four runs - 257-271, 380-385, 393-481, 604-626 - with a
 hundred-pixel gap over each of the two surviving words. At the height of line
 one it is a single run, 271 to 611.
 
@@ -11,7 +11,7 @@ one it is a single run, 271 to 611.
 and stops it against ink (`wall`), so that the shape ends at the drawn outline
 instead of stepping over it. Typesetting the seal missed is ink too. It becomes
 a wall, the growth goes around it, and the finished balloon has a bay exactly
-the shape of the word — which is then the one place in the balloon the cleaner
+the shape of the word - which is then the one place in the balloon the cleaner
 is not looking.
 
 **The rule.** Anything inside the shape's convex hull AND inside the region's
@@ -53,7 +53,7 @@ def _balloon(w=400, h=300, bays=()):
     """A filled ellipse, with a bay bitten out of it for each rectangle.
 
     A BAY and not a hole. `_give_back` grows the shape inward from the rim, so
-    what it leaves round a missed word opens onto the outside — and that is the
+    what it leaves round a missed word opens onto the outside - and that is the
     shape that matters, because `RETR_EXTERNAL` drops a hole for free and keeps
     a bay. Every bite here is widened to the left edge of the frame so the
     contour has to snake in around it.
@@ -119,7 +119,7 @@ def test_a_balloon_with_no_bays_is_returned_unchanged():
 
 def test_a_crescent_does_not_get_its_bite_filled_in():
     """The hull alone would step clean over the drawn outline. The text box is
-    what stops it — the bite is not where the writing is."""
+    what stops it - the bite is not where the writing is."""
     m = _balloon()
     cv2.circle(m, (200, 40), 90, 0, -1)
     fixed = _no_bays_in_the_writing(_R((80, 180, 240, 80)), m, _outer(m))
@@ -180,7 +180,7 @@ def test_and_a_project_saved_before_today_is_repaired_on_the_way_in():
 
 
 def test_the_repair_does_not_touch_a_region_that_is_only_a_box():
-    """A rectangle is not a balloon and never had a bay — see `_is_a_box`."""
+    """A rectangle is not a balloon and never had a bay - see `_is_a_box`."""
     from mangatl.project import region_from_record
     rec = {"id": 0, "bbox": [50, 100, 200, 60],
            "bubble_bbox": [50, 100, 200, 60], "polygon": [],

@@ -11,15 +11,15 @@ next block's rectangle:
 
 Until now a balloon holding two blocks was divided by measuring: typeset it
 down the middle, typeset it across, keep whichever made the smaller block
-bigger. Cutting across usually won, because English wants width — and cutting
+bigger. Cutting across usually won, because English wants width - and cutting
 across is exactly what puts one block's words over the other block's box.
 Measured on the page-030 balloon it is 26pt and 19pt for the full-width stack
 against 14 and 14 for the columns, so this is not a free change: it is lee
 choosing where the words go over how big they are, having been shown both.
 
 `_box_confined` is the rule. Each block's share of the balloon is cut three
-ways — within `BOX_LEEWAY` of its own box, nearer its own box than anybody
-else's, and one connected piece — and the leeway is what keeps it from being
+ways - within `BOX_LEEWAY` of its own box, nearer its own box than anybody
+else's, and one connected piece - and the leeway is what keeps it from being
 brutal, a third of the box's own short side in every direction.
 
 Two things it deliberately does NOT do:
@@ -64,7 +64,7 @@ def _blocks(mask, boxes, texts=None, kind="bubble"):
 
 
 def _covers(share, box, balloon):
-    """How much of the box the share covers — of the part of it that is inside
+    """How much of the box the share covers - of the part of it that is inside
     the balloon at all. A box drawn round the Japanese can poke out past the
     artwork's outline at a corner; the letters must not follow it there."""
     x, y, w, h = box
@@ -116,8 +116,8 @@ def test_a_share_never_leaves_the_balloon():
 
 
 def test_the_leeway_is_a_little_and_it_is_real():
-    """Neither nothing — a box drawn tight around the Japanese would give
-    English nowhere to breathe — nor a licence to take the balloon.
+    """Neither nothing - a box drawn tight around the Japanese would give
+    English nowhere to breathe - nor a licence to take the balloon.
 
     The balloon here is deliberately much roomier than the leeway: every
     direction the share could grow in has far more room than `BOX_LEEWAY`
@@ -142,7 +142,7 @@ def test_the_leeway_is_a_little_and_it_is_real():
 
 def test_each_share_is_one_piece():
     """A paragraph goes in one place. A share in two lumps would let the
-    fitter centre a line in a lump the reader does not associate with it —
+    fitter centre a line in a lump the reader does not associate with it -
     and a thought balloon's trailing bubbles are exactly such a lump, sitting
     just off the paper and well inside the nearest block's leeway.
     """
@@ -255,13 +255,13 @@ def test_a_balloon_drawn_as_two_lobes_stays_inside_the_neck_and_the_box():
     box decides where on that side.
 
     Both, in that order. The neck runs first, so a share never crosses into
-    the other lobe — that is the artist's own division and no measurement of
+    the other lobe - that is the artist's own division and no measurement of
     ours improves on it. Then the share is trimmed back to the block's own box
     plus `BOX_LEEWAY`, because a lobe and the trunk are one piece of paper and
     a block handed the whole of its side will happily set its words down at
     the waist. On lee's page that is exactly what happened to HUH!?.
 
-    The trim is not free — see `test_the_box_is_what_costs_the_point_size` in
+    The trim is not free - see `test_the_box_is_what_costs_the_point_size` in
     test_two_lobes.py for the measured half-the-point-size it costs. lee:
     *"that fine the size dnst mattaer as long as it in the box"*.
     """
@@ -311,8 +311,8 @@ def test_the_band_cut_is_trimmed_back_to_the_boxes_too():
     after it obeys the same rule.
 
     This balloon gets past `_box_confined` because one of its two boxes is
-    drawn mostly off the artwork — a hand-tightened box on a balloon whose
-    outline moved — so the confine bails and the band cut takes over. The band
+    drawn mostly off the artwork - a hand-tightened box on a balloon whose
+    outline moved - so the confine bails and the band cut takes over. The band
     is the full width of the balloon, which is exactly the shape that used to
     put one block's words over the other block's box, so it is trimmed on the
     way out.
@@ -349,7 +349,7 @@ def test_the_band_cut_is_trimmed_back_to_the_boxes_too():
 
 def test_the_last_resort_cut_is_trimmed_back_to_the_boxes_too():
     """Three blocks all claiming the whole balloon, in a shape no band will
-    divide — the emergency cut, and it obeys the box rule as well.
+    divide - the emergency cut, and it obeys the box rule as well.
 
     Same fixture logic as the band test: one box drawn off the artwork gets
     past `_box_confined`, and lopsided speech lengths in a small round balloon
@@ -454,7 +454,7 @@ def test_a_block_in_a_lobe_still_typesets_over_its_own_box():
     box it belongs to, with the box's own right-hand side empty: *"this is
     still happening look into it"*.
 
-    A balloon with a waist skipped the box rule altogether — a block in a lobe
+    A balloon with a waist skipped the box rule altogether - a block in a lobe
     was taken to be a block where its box is, "with the artist's own leeway".
     A lobe can be far wider than the box in it, so the words came out centred
     on the lobe.
@@ -485,7 +485,7 @@ def test_moving_it_there_costs_no_typesetting_size():
 
 
 def test_a_block_alone_in_a_balloon_is_left_where_the_fitter_put_it():
-    """It is typeset into the BALLOON on purpose — that is what makes it big
+    """It is typeset into the BALLOON on purpose - that is what makes it big
     and centred. Dragging it onto the narrow column the Japanese stood in
     would undo the whole of that."""
     import cv2
@@ -500,7 +500,7 @@ def test_a_block_alone_in_a_balloon_is_left_where_the_fitter_put_it():
                    text_mask=tm, bubble_mask=m, bubble_bbox=(0, 0, W, H),
                    polygon=[[0, 0], [W, 0], [W, H], [0, H]])
     # Short, so there is nothing STOPPING it being carried over to the
-    # column — if it stays put it is because it was never asked to move.
+    # column - if it stays put it is because it was never asked to move.
     r.dst_text = "HI!"
     page = Page(image=np.full((H, W, 3), 240, np.uint8))
     page.regions = [r]
@@ -521,7 +521,7 @@ def test_it_never_carries_a_line_off_the_paper():
     """The move is bounded by the share: it goes as far towards the box as it
     can while every line is still ON the balloon, and no further.
 
-    Measured at the ENDS of each line, not at its origin — an origin is the
+    Measured at the ENDS of each line, not at its origin - an origin is the
     middle of a line, and a line whose middle is on the paper can have both
     its ends out in the artwork."""
     from mangatl.typeset import _font, share_masks, typeset_page

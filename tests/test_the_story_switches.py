@@ -4,8 +4,8 @@ lee: *"add a story setting that allow the user ti turn the story thing off,
 and to tun what the ai detects with check boxes"*.
 
 The synopsis, the character sheet and the glossary are what keep chapter 4
-calling her what chapter 3 called her. Some projects want none of it — a
-one-shot, a gag strip, a script somebody else already wrote — and until now
+calling her what chapter 3 called her. Some projects want none of it - a
+one-shot, a gag strip, a script somebody else already wrote - and until now
 the only way to have none of it was to leave three sheets empty and still pay
 to send them.
 
@@ -44,7 +44,7 @@ def _reply(**extra):
     # evidenced and would really land on the sheet. Proposing a name the page
     # never writes down would be refused by `merge_characters` whatever these
     # switches said, and a test written that way passes with the switch
-    # removed — which is exactly how a mutant found it.
+    # removed - which is exactly how a mutant found it.
     body = {"regions": [{"id": 0, "translation": "I see, Ada.",
                          "compact": "I see, Ada.",
                          "speaker": "Aeda", "confidence": 0.9}],
@@ -67,7 +67,7 @@ def test_a_project_with_a_story_sends_all_three_sheets():
 
 
 def test_switching_the_story_off_sends_none_of_them():
-    """Not empty ones — absent. An empty object is still bytes on the wire and
+    """Not empty ones - absent. An empty object is still bytes on the wire and
     still a thing the model reads as "this project has no characters", which
     is a different statement from not being asked."""
     got = build_payload(_page(), _ctx(story=False))
@@ -79,7 +79,7 @@ def test_switching_the_story_off_sends_none_of_them():
 
 def test_the_model_is_told_what_not_to_bother_returning():
     """A model asked for `character_additions` and then quietly ignored is a
-    model spending OUTPUT tokens on an answer nobody reads — and output is the
+    model spending OUTPUT tokens on an answer nobody reads - and output is the
     expensive side of the bill."""
     assert build_payload(_page(), _ctx(story=False))["do_not_return"] == \
         ["character_additions", "glossary_additions"]

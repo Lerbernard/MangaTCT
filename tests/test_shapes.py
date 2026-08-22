@@ -4,22 +4,22 @@ lee: *"Add shapes - rectangle, circle line"*.
 
 A shape is an ordinary paint layer. That is the whole design: the paint system
 already has a layer list with an eye and a delete, undo, a selection fence, a
-saved overlay and an export path that bakes the overlay into the page — so a
+saved overlay and an export path that bakes the overlay into the page - so a
 shape that arrives as a layer inherits every one of those, and the server needed
 no changes at all. `type:'shape'` with `shape:'rect'|'circle'|'line'`, its two
 corners in `pts`, and `fill` for solid rather than outlined.
 
 Three things were worth getting right:
 
-* **One function draws it** — `shapePath` — used by the live drag preview, by the
+* **One function draws it** - `shapePath` - used by the live drag preview, by the
   layer replay, and therefore by the flattened overlay that is saved and
   exported. Three copies of an ellipse would have disagreed by a pixel forever.
 * **Shift constrains**, as it does everywhere else: a square, a circle, or a line
   snapped to 45 degrees.
 * **`paintArmed()`** now answers "is a paint tool armed", in one place. That
   question was written out longhand as `brush||stamp||heal||eraser` in five
-  files — for the canvas's pointer events, the class that stops region boxes
-  swallowing the click, the selection canvas, and the typesetting editor — and the
+  files - for the canvas's pointer events, the class that stops region boxes
+  swallowing the click, the selection canvas, and the typesetting editor - and the
   shape tool drew literally nothing until all five knew about it. The last test
   here fails if a sixth copy appears.
 
@@ -79,7 +79,7 @@ def test_shapes_are_drawn_kept_and_exported(tmp_path):
             # the Edit view is where the plate is painted
             pg.evaluate("setTab('edit'); setView('typeset');")
             browserpool.settled(pg)
-            # The tools are in the TOOLBOX down the left of the page now —
+            # The tools are in the TOOLBOX down the left of the page now -
             # one place, always on screen. lee: *"the tools are duplicated it
             # shoud only be onteh side bar"*.
             pg.evaluate("setToolTab('shapes')")
@@ -210,7 +210,7 @@ def test_one_question_asks_whether_a_tool_is_armed():
         for line_no, line in enumerate(src.splitlines(), 1):
             if "brush||stamp||heal||eraser" in line.replace(" ", ""):
                 # `paintArmed` itself is where the list belongs, and the
-                # cursor rules name the tools that draw a ring — a different
+                # cursor rules name the tools that draw a ring - a different
                 # question from "is a tool armed"
                 if "shapeKind" in line or "cursor" in line or "'none'" in line:
                     continue

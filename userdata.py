@@ -7,12 +7,12 @@ thrown away when the chapter is finished. Two things do not belong there:
   is work you do once. Filing it under a chapter means doing it again for the
   next chapter, and losing it when that folder goes.
   lee: *"Allow uploading fonts in the setting and a way to remove the fonts
-  that were uploaded — the fonts should presist to new projects"*.
+  that were uploaded - the fonts should presist to new projects"*.
 * **The fonts you reached for last.** A list of four hundred faces with the one
   you always use somewhere in the middle is a search box, every time.
 
 So both live beside the app instead: `~/.mangatl`, or wherever `MANGATL_HOME`
-points. Outside the repo on purpose — the editor's own files get replaced
+points. Outside the repo on purpose - the editor's own files get replaced
 whenever a new version is copied over the top, and an uploaded font must not be
 something a copy can take away.
 """
@@ -134,7 +134,7 @@ def uploaded_fonts() -> list:
 def add_font(filename: str, data: bytes) -> str:
     """Save an uploaded face and return its path.
 
-    Refuses anything that is not a font the typesetter can actually set type in —
+    Refuses anything that is not a font the typesetter can actually set type in -
     a symbol face or an icon set opens perfectly and has no alphabet, and
     choosing one empties every balloon on the page. That check already exists
     for picking a font; it has to happen at the door as well, or the bad file
@@ -146,7 +146,7 @@ def add_font(filename: str, data: bytes) -> str:
     _ensure(fonts_dir())
     dest = os.path.join(fonts_dir(), safe_name(filename))
     # A second upload of the same face replaces it rather than piling up
-    # "Font.ttf", "Font (1).ttf", "Font (2).ttf" — the person is fixing a bad
+    # "Font.ttf", "Font (1).ttf", "Font (2).ttf" - the person is fixing a bad
     # copy, not collecting them.
     tmp = dest + ".part"
     with open(tmp, "wb") as fh:
@@ -162,7 +162,7 @@ def remove_font(path: str) -> bool:
     """Delete an uploaded face. Only ever one of ours.
 
     The path comes from the browser, so it is checked against the uploaded
-    folder itself rather than trusted — a delete endpoint that takes a path is
+    folder itself rather than trusted - a delete endpoint that takes a path is
     a file remover if it does not.
     """
     path = os.path.abspath(path or "")

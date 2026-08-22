@@ -5,7 +5,7 @@ translation tab"*, and then *"also add a page mergin feature"*.
 
 The automatic re-cut is deliberately narrow. It runs only on a chapter that
 ARRIVED as a sliced strip, only before any work has been done on it, and only
-when four separate tests agree that it is one — because being wrong there
+when four separate tests agree that it is one - because being wrong there
 rearranges somebody's chapter behind their back. Every one of those rules is
 worth keeping, and between them they leave every other too-long page exactly as
 it is: a chapter that came as proper files, a page you split off yourself, a
@@ -93,7 +93,7 @@ def test_they_land_where_the_page_was(proj):
 
 
 def test_the_page_you_split_is_kept(proj):
-    """Nothing a person handed the editor is deleted behind them — the same
+    """Nothing a person handed the editor is deleted behind them - the same
     promise the strip re-cut makes about the tiles it replaces."""
     was = proj.pages[1].path
     assert proj.split_page(1, 400)[0]
@@ -297,7 +297,7 @@ def test_two_pages_become_one(proj):
 
 def test_a_split_can_be_undone_by_a_join(proj):
     """The two are each other's opposite, and the picture has to survive the
-    round trip — that is what makes a mis-placed cut a small mistake."""
+    round trip - that is what makes a mis-placed cut a small mistake."""
     before = imgio.imread(proj.pages[1].path)
     assert proj.split_page(1, 400)[0]
     assert proj.merge_pages(1)[0]
@@ -434,7 +434,7 @@ def test_the_gaps_route_answers_with_the_height_too(serving):
 
 def test_the_gaps_route_says_when_the_page_is_painted(serving):
     """So the dialog can say why before a row has been chosen, rather than
-    after. Boxes are no longer a reason — they come through the cut."""
+    after. Boxes are no longer a reason - they come through the cut."""
     p, base = serving
     p.pages[1].detected = True
     p.pages[1].regions = [{"id": 1, "bbox": [1, 2, 3, 4]}]
@@ -470,7 +470,7 @@ def test_it_is_a_click_and_not_a_drag():
 def test_nothing_moves_the_line_off_the_row_it_was_given():
     """lee: *"the cut line shoud apar where i click no matter hwat remove
     nything that is precenting that"*. The clamp that used to pull it back
-    from the top and bottom sixteen rows is gone — a cut that close is refused
+    from the top and bottom sixteen rows is gone - a cut that close is refused
     by the BUTTON going off with the reason beside it, which is a different
     thing from being overruled."""
     at = CUT.index("function putLine(")
@@ -482,8 +482,8 @@ def test_nothing_moves_the_line_off_the_row_it_was_given():
 
 def test_nothing_moves_the_line_at_all():
     """Three asks, one answer. It jumped to the nearest gap within sixty rows
-    on every click — lee: *"in teh cut page it teh cut line shoud be where my
-    mouse is when i clcick it"*; that became a button — *"and removethe cut a
+    on every click - lee: *"in teh cut page it teh cut line shoud be where my
+    mouse is when i clcick it"*; that became a button - *"and removethe cut a
     the nearst gap button"*; and the drag went too.
 
     Click, line, done. What survives is the readout: green when the row it
@@ -583,7 +583,7 @@ def _open(pg):
 
 
 def test_the_line_lands_exactly_where_it_is_put(screen):
-    """410 is twenty rows off the gap at 415 — inside the old snap distance,
+    """410 is twenty rows off the gap at 415 - inside the old snap distance,
     so this is the row that used to be moved."""
     p, br, base = screen
     p.settings["medium"] = "manhwa"; p.save()
@@ -633,7 +633,7 @@ def test_the_line_is_drawn_on_the_click_on_a_page_far_taller_than_the_box(screen
     lee: *"th e line is still not where i clicked, use the mouse cordinate to
     draw the line"*. The line was placed with `top: <percent>`, and a
     percentage `top` on an absolutely positioned box resolves against the
-    height of its CONTAINING BLOCK — the preview window, not the picture. So
+    height of its CONTAINING BLOCK - the preview window, not the picture. So
     "40% of the way down the page" was drawn 40% of the way down the WINDOW
     ONTO the page. On a short page the two are the same and it looked perfect;
     on a 6,000-row webtoon it was out by thousands of rows.
@@ -659,7 +659,7 @@ def test_the_preview_is_the_page_as_it_is_now_and_not_as_it_was(screen):
     """lee: *"its still showing the previous uncut picure after i cut it, the
     the originalpage dosnt work the other haft works fine"*.
 
-    The preview asked for `/img/3` — the same string every time — and an <img>
+    The preview asked for `/img/3` - the same string every time - and an <img>
     already holding that src does not re-request when it is set to what it
     already says. So after cutting page 3 in two, opening the dialog on the TOP
     half showed the whole uncut page again; the bottom half was fine, because
@@ -682,7 +682,7 @@ def test_the_preview_is_the_page_as_it_is_now_and_not_as_it_was(screen):
     assert len(p.pages) == 4
 
     # Straight back into the dialog, on the half that took the old page's
-    # index — the one that was showing the wrong picture.
+    # index - the one that was showing the wrong picture.
     _open(pg)
     now = pg.evaluate("$('cutImg').src")
     assert now != was, "the same URL cannot describe two different pictures"
@@ -751,7 +751,7 @@ def test_the_last_page_cannot_join_forwards(screen):
 
 
 def test_joining_backwards_joins_the_right_two(screen):
-    """`joinPrev` on page 3 has to merge pages 2 and 3, not 3 and 4 — the one
+    """`joinPrev` on page 3 has to merge pages 2 and 3, not 3 and 4 - the one
     thing an off-by-one here gets wrong is which two pages the person loses."""
     p, br, base = screen
     p.settings["medium"] = "manhwa"; p.save()

@@ -1,17 +1,17 @@
-"""Who cleans what — and a count that says so afterwards.
+"""Who cleans what - and a count that says so afterwards.
 
 lee: *"the ai shoud be clening those not the cleaner the cleneer only need to
 cleaner the white bubbles"*.
 
 That was already almost the rule. `inpaint_page` sends a region to the local
-fill when its background is FLAT — the colour is known, so the fill is exact and
-instant and no model can beat it — and everything else to the model. The gap was
+fill when its background is FLAT - the colour is known, so the fill is exact and
+instant and no model can beat it - and everything else to the model. The gap was
 that "flat" says nothing about what the area IS: the inside of a black panel is
 flat too, and a solid dark field carrying white typesetting is precisely the hard
 case the model is for.
 
 So with a model configured, the local path now keeps only the thing it is
-unbeatable at — the pale flat bubble (`FLAT_LIGHT`) — and everything else goes to
+unbeatable at - the pale flat bubble (`FLAT_LIGHT`) - and everything else goes to
 the model. With no model configured nothing changes: a flat fill of the right
 colour still beats Telea on a dark panel, and that path is long-tested.
 
@@ -48,7 +48,7 @@ def _one_region(img, box, dark_text, kind="sfx"):
     sub = gray[y:y+h, x:x+w]
     tm[y:y+h, x:x+w] = ((sub < 120) if dark_text else (sub > 190)
                         ).astype(np.uint8) * 255
-    # the area the region occupies — without it `_flat_from` has nothing to
+    # the area the region occupies - without it `_flat_from` has nothing to
     # measure and every region looks "not flat", which would make this test
     # pass for the wrong reason
     area = np.zeros(gray.shape, np.uint8)
@@ -63,7 +63,7 @@ def _one_region(img, box, dark_text, kind="sfx"):
 
 
 def _model(sub, sm):
-    """A cleaner that answers — the answer's content does not matter here."""
+    """A cleaner that answers - the answer's content does not matter here."""
     return np.full_like(sub, 127)
 
 
@@ -80,7 +80,7 @@ def test_a_dark_flat_panel_goes_to_the_model_not_the_local_fill():
         f"the model was not asked to do it: {pg.clean_stats}"
     assert not pg.clean_stats.get("flat fill")
 
-    # with nothing to hand it to, the flat fill is still the right answer —
+    # with nothing to hand it to, the flat fill is still the right answer -
     # it knows the colour exactly, and Telea on a dark panel does not
     pg2 = _one_region(img, box, dark_text=False)
     I.inpaint_page(pg2, neural=None)
@@ -97,7 +97,7 @@ def test_a_white_bubble_stays_with_the_local_fill():
     img = _page_with((250, 250, 250), (20, 20, 20))
     # a BUBBLE, and it has to say so: with a model configured, a block with no
     # balloon round it goes to the model whatever the paper under the words
-    # looks like — see test_outside_text_on_white_cloth_goes_to_the_model.
+    # looks like - see test_outside_text_on_white_cloth_goes_to_the_model.
     pg = _one_region(img, (70, 100, 220, 90), dark_text=True, kind="bubble")
     I.inpaint_page(pg, neural=_model, neural_all=False)
     assert pg.clean_stats.get("flat fill") == 1, pg.clean_stats
@@ -147,7 +147,7 @@ def test_the_report_says_who_did_what():
         editor._tally_clean({"fell back": 3})
         assert "left to the local fill because the AI would not run" in \
             editor.clean_report(p)
-        # "core only" is not a way of cleaning a box — it is something that
+        # "core only" is not a way of cleaning a box - it is something that
         # ALSO happened to a box cleaned some other way. Counting it as a route
         # inflated the total and stood it beside the routes as if it were one:
         # lee's page said *"Cleaned 13 boxes: 6 filled flat, 4 cleaned by the
@@ -217,7 +217,7 @@ def test_a_second_clean_does_not_report_a_working_cleaner_as_dead():
     even though the clean token is working"*.
 
     Press Clean twice. The second press finds every plate already built and
-    reuses it — so nothing is sent to the model, which is the entire point of
+    reuses it - so nothing is sent to the model, which is the entire point of
     the cache. Reporting that as "AI cleaning was on but nothing was sent to it"
     turned a cleaner that had just started working into one that looked broken.
 
@@ -273,7 +273,7 @@ def test_a_second_clean_does_not_report_a_working_cleaner_as_dead():
         assert not second.get("warn"), \
             f"a page with nothing hard on it is not a broken cleaner: {second}"
 
-        # And the reuse case itself — an ordinary visit, which is what a render
+        # And the reuse case itself - an ordinary visit, which is what a render
         # or a typeset asks for. Nothing was sent because nothing was rebuilt,
         # so the run says that plainly and does NOT say the AI failed to run.
         editor.clear_clean_warning()
@@ -293,7 +293,7 @@ def test_pressing_clean_redoes_the_page():
     reused": *"if i clcik it again it shoud redo it"*.
 
     The plate cache is there so that MOVING to a page is instant. Pressing Clean
-    is not moving to a page — it is asking for the work — so the step drops the
+    is not moving to a page - it is asking for the work - so the step drops the
     plate first and rebuilds. Opening a page, typesetting and exporting still
     reuse, or every click would cost a full inpaint.
     """
@@ -370,13 +370,13 @@ def test_pressing_clean_redoes_the_page():
 
 
 def test_no_box_is_ever_left_untouched():
-    """lee: *"these box are badly cleaned or just skipped — fix that so this
+    """lee: *"these box are badly cleaned or just skipped - fix that so this
     never happen, it shoud not skip boxes"*.
 
     Two silent skips existed. A swallowing light/dark split gave up and left the
     box alone (see test_pipeline's backstop, rewritten for the same reason). And
-    every filter between the detector's mask and the erase mask — the Otsu
-    split, the letterlike pass, the containment test — can return NOTHING, and
+    every filter between the detector's mask and the erase mask - the Otsu
+    split, the letterlike pass, the containment test - can return NOTHING, and
     an empty mask erases nothing at all, quietly, with the box still sitting
     there on the page.
 
@@ -421,7 +421,7 @@ def test_no_box_is_ever_left_untouched():
 
 
 def test_a_box_with_something_in_it_always_gets_a_method():
-    """Whatever route a region takes, it takes ONE of them — the count of boxes
+    """Whatever route a region takes, it takes ONE of them - the count of boxes
     with a method has to equal the count of boxes with something to erase. This
     is the guard that catches a new `continue` being added to that loop."""
     from mangatl import inpaint as I
@@ -452,8 +452,8 @@ def test_a_box_with_something_in_it_always_gets_a_method():
         regions.append(r)
     pg = Page(image=img.copy(), regions=regions)
     I.inpaint_page(pg, neural=None)
-    # "second pass" is not a route a box took INSTEAD of one of these — it is
-    # the cleaner going back over a box that still had writing on it — so it
+    # "second pass" is not a route a box took INSTEAD of one of these - it is
+    # the cleaner going back over a box that still had writing on it - so it
     # does not belong in a count of routes, the same as "core only". Nor does
     # "redrawn", which is the step after both of them putting a line back.
     got = {k: v for k, v in pg.clean_stats.items()
@@ -467,8 +467,8 @@ def test_the_eye_on_one_bubble_leaves_its_neighbour_cleaned():
     """lee: *"wheni lcick the yey on region 3 region 2 cleans, and this happnes
     with other boxes"*.
 
-    Keeping one bubble's original text used to paste back a RECTANGLE — that
-    box plus 16 pixels of slack — over the finished plate. Boxes on a real page
+    Keeping one bubble's original text used to paste back a RECTANGLE - that
+    box plus 16 pixels of slack - over the finished plate. Boxes on a real page
     touch and overlap constantly, so closing the eye on one brought its
     neighbour's Japanese back too, and the neighbour looked like it had never
     been cleaned.
@@ -482,11 +482,11 @@ def test_the_eye_on_one_bubble_leaves_its_neighbour_cleaned():
     root = scratch("_tmp_eye")
     shutil.rmtree(root, ignore_errors=True)
     # two bubbles, side by side and close enough that their boxes overlap once
-    # the 16px slack is added — which on a real page is most of them
+    # the 16px slack is added - which on a real page is most of them
     img = np.full((240, 420, 3), 250, np.uint8)
     cv2.putText(img, "AAA", (40, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.3,
                 (15, 15, 15), 5)
-    # B's first stroke sits within the 16px slack of A's box — which is what a
+    # B's first stroke sits within the 16px slack of A's box - which is what a
     # page of touching balloons looks like, and what the rectangle restore ate
     cv2.putText(img, "BBB", (198, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.3,
                 (15, 15, 15), 5)
@@ -538,7 +538,7 @@ def test_the_eye_on_one_bubble_leaves_its_neighbour_cleaned():
 
         # The hard case: two boxes that OVERLAP, so the same glyphs belong to
         # both masks. Keeping the big one's original text must still not undo
-        # the small one's clean — the pixels the other box erased are not this
+        # the small one's clean - the pixels the other box erased are not this
         # region's to restore.
         p.pages[0].regions[0]["skip_clean"] = True
         p.pages[0].regions[1]["skip_clean"] = False
@@ -562,7 +562,7 @@ def test_the_eye_on_one_bubble_leaves_its_neighbour_cleaned():
 def test_the_cleaner_only_touches_the_box_that_has_the_text():
     """lee: *"the cleneer shoud only clean the box that has the text"*.
 
-    `place_mask()` is the BALLOON — the room the English may use — and it is the
+    `place_mask()` is the BALLOON - the room the English may use - and it is the
     right area for measuring a background and deciding what is flat. It is not
     the right area to erase: on a wide oval with a narrow column of kana in it,
     anything else inside that oval was fair game, because the mask handed to the
@@ -606,11 +606,11 @@ def test_the_cleaner_only_touches_the_box_that_has_the_text():
 
 def test_not_one_pixel_outside_the_boxes_is_ever_changed():
     """lee: *"the clenners shoud only clean withing the box, it hsoud never
-    touch a pixel outside teh box area, both the local and the ai — the box that
+    touch a pixel outside teh box area, both the local and the ai - the box that
     shoud be considered is teh box that i see"*.
 
     He sent a plate with a whole bubble wiped and two small boxes standing in
-    it. Half a dozen steps can reach past the box they were given — the halo
+    it. Half a dozen steps can reach past the box they were given - the halo
     sweep grows the mask until the background stops looking like ink, the model
     gets `NEURAL_PAD` of slack, the ghost sweep re-fills a flat bubble to its own
     edges, a screentone copy works page-wide. Each has a reason; none of them is
@@ -675,8 +675,8 @@ def test_a_glyph_drawn_past_its_box_is_finished_not_cut_in_half():
     """lee, on a page of half-erased strokes: *"the tetxt is a non negotiable
     they need to go"*.
 
-    Clipping the erase mask at the box — which is what "only clean inside the
-    box" means — cuts every glyph that reaches past it, and half a glyph erased
+    Clipping the erase mask at the box - which is what "only clean inside the
+    box" means - cuts every glyph that reaches past it, and half a glyph erased
     is a stub left on the page. Ink joined to what the box caught is followed
     into the doorstep (`GLYPH_REACH` pixels), and only there: line work crossing
     the middle of the box is not adopted, because nothing INSIDE the box is
@@ -714,7 +714,7 @@ def test_a_new_cleaner_retires_every_plate_the_old_one_made():
     """lee, after a round of fixes: *"nothing vhanged"*.
 
     Nothing had. A finished plate is written to `plate_cache/` and reused for
-    ever, and its name is built from the page, the boxes and the settings —
+    ever, and its name is built from the page, the boxes and the settings -
     none of which change when the cleaning code does. So the improvements were
     real and invisible at the same time: opening a page handed back the picture
     the OLD code had made, and only a page whose boxes had been edited since
@@ -763,15 +763,15 @@ def test_small_kana_on_a_dark_panel_are_erased_too():
     cleaner ever saw it, and came out of a Clean untouched.
 
     `_letterlike` was the filter. On a light-on-dark panel the detector's mask is
-    the panel, so it is thrown away and rebuilt from a light/dark split — and
+    the panel, so it is thrown away and rebuilt from a light/dark split - and
     that split returns the screentone as well as the words, so anything thinner
     than a brush stroke is dropped. The opening that does it is sized for
     DISPLAY type; a column of small kana on the same panel is drawn thinner and
     loses every component to it. A tone dot is a handful of pixels; a letter is
-    not, whatever its stroke width — so size joins thickness as a way to be kept.
+    not, whatever its stroke width - so size joins thickness as a way to be kept.
 
     Measured on the real page: 7331 white pixels in that box before, 2198 left
-    after — and 3 with this.
+    after - and 3 with this.
     """
     from mangatl import inpaint as I
 
@@ -854,7 +854,7 @@ def _how(img, neural):
 @pytest.mark.parametrize("level,noise,local", [
     (252, 0.0, True),     # a white balloon: the local fill's own job
     (246, 1.5, True),     # white paper with a little grain in it
-    (215, 0.0, False),    # pale grey — flat, but not white
+    (215, 0.0, False),    # pale grey - flat, but not white
     (250, 14.0, False),   # white-ish, with tone in it
     (90, 0.0, False),     # a dark panel, flat as anything
 ])
@@ -903,23 +903,35 @@ def test_the_thresholds_say_white_not_pale():
 
 def test_the_stamp_is_bumped_when_the_cleaner_changes():
     """A plate is built once and reused for ever, and its name is made of the
-    page, the boxes and the settings — none of which change when the CLEANING
+    page, the boxes and the settings - none of which change when the CLEANING
     CODE does. `inpaint.ALGO` is the part that does, and it has to be bumped
     with every change to how a page is cleaned.
 
-    **This has now been forgotten four times.** The version that only asserted
+    **This has now been forgotten six times.** The version that only asserted
     `ALGO >= "2026-07-31-a"` named the mistake and could not catch it: it goes
     on passing for ever no matter what happens to the file beside it. The
-    fourth time cost a day of cleaning fixes — the bays, the fence, the model's
-    padding, mid-tone ink — every one of them measured and correct and every
+    fourth time cost a day of cleaning fixes - the bays, the fence, the model's
+    padding, mid-tone ink - every one of them measured and correct and every
     one invisible, because lee's pages already had plates. He sent back a gold
     plate that had been fixed here and asked *"can you explain why its not
     clening that text?"*
 
     So: a fingerprint of `inpaint.py` with the stamp line taken out. Change how
-    a page is cleaned and this goes red until the stamp moves — which is the
+    a page is cleaned and this goes red until the stamp moves - which is the
     whole discipline, enforced instead of described. Both values are updated
     together, deliberately: the diff then SAYS that plates were retired.
+
+    **And the sixth time it went red, the answer was NOT to bump.** Two things
+    had changed in `inpaint.py` since `2026-08-15-a`: the em dashes in the prose
+    became hyphens, and `_stopping.check()` went into the region loop. Comments,
+    and a call that only ever raises - a run that finishes produces the same
+    plate to the byte - so no plate on disk was stale and retiring a chapter of
+    them would have cost a re-clean and bought nothing. The fingerprints were
+    re-recorded and the stamp left alone, which is the second half of what the
+    message below tells you to do and the half that is easy to skip.
+
+    That is why finding this red is a question and not a procedure: what has to
+    be worked out is whether the bytes that moved can change a PLATE.
     """
     import hashlib
     import pathlib
@@ -930,7 +942,7 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
     body = re.sub(r'\nALGO = "[^"]*"', "", src)
     # ...and `region_from_record`, which builds the mask the cleaner erases.
     # It lives in another file the plate cache does not watch either, and the
-    # change that finally took gold text off is in it — so a fingerprint of
+    # change that finally took gold text off is in it - so a fingerprint of
     # `inpaint.py` alone would have let that one ship invisible as well.
     other = pathlib.Path(project.__file__).read_text(encoding="utf-8")
     i = other.index("def region_from_record")
@@ -938,7 +950,7 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
     got = (hashlib.sha1(body.encode("utf-8")).hexdigest()[:16],
            hashlib.sha1(fn.encode("utf-8")).hexdigest()[:16])
     assert (got, inpaint.ALGO) == (
-        ("a5d646736893dbdd", "20047fcb3df3dcf2"), "2026-08-13-e"), (
+        ("511932a98f374cd2", "1690814a536274a6"), "2026-08-15-a"), (
         f"the cleaning code is {got} and the stamp says {inpaint.ALGO}.\n"
         "If you changed how a page is cleaned: bump ALGO, then put both new "
         "values here. If you only moved a comment: put the new fingerprints "
@@ -949,7 +961,7 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
 
 def _on_cloak():
     """A column of outside text printed on white cloth, with hatching a little
-    way off — lee's page. Every test the flat fill applies passes here: the
+    way off - lee's page. Every test the flat fill applies passes here: the
     cloth is white, it is flat, and the sample never reaches the hatching."""
     img = np.full((340, 300), 252, np.uint8)
     for y in range(0, 340, 6):
@@ -1008,7 +1020,7 @@ def test_outside_text_on_white_cloth_goes_to_the_model():
 
     The three tests the flat path applies are all about the paper immediately
     round the words, and white cloth passes every one. What they cannot see is
-    that this is not a bubble at all — the block is standing on artwork, and
+    that this is not a bubble at all - the block is standing on artwork, and
     artwork is the model's job. That is the sixth "filled flat" on his page,
     and the white box he kept sending pictures of."""
     img, ink = _on_cloak()
@@ -1021,7 +1033,7 @@ def test_outside_text_on_white_cloth_goes_to_the_model():
 
 
 def test_a_real_white_balloon_still_takes_the_flat_fill():
-    """The thing the local path is unbeatable at, untouched — the colour is
+    """The thing the local path is unbeatable at, untouched - the colour is
     known exactly, so the fill is exact and instant, and the words go."""
     img, ink, bub = _white_balloon()
     page, r = _clean(img, ink, "bubble", bubble=bub,

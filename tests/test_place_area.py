@@ -1,7 +1,7 @@
 """Where the English is allowed to sit.
 
 The text box says WHICH balloon a block of dialogue belongs to. It does not say
-what shape the typesetting has to be — the balloon does. Three things used to
+what shape the typesetting has to be - the balloon does. Three things used to
 confuse the two, and each of them put English inside the little rectangle drawn
 round the Japanese instead of inside the bubble the reader can see:
 
@@ -10,7 +10,7 @@ round the Japanese instead of inside the bubble the reader can see:
 * a region with no balloon fell back to the FOOTPRINT of the Japanese, which is
   a tall narrow column with holes in it, and not to its box;
 * masks are not saved, so a region reloaded from disk rebuilt its "balloon"
-  from whatever polygon was stored — and for a hand-drawn or hand-tightened
+  from whatever polygon was stored - and for a hand-drawn or hand-tightened
   box that polygon is a rectangle.
 
 These pages are drawn here rather than loaded, so the tests run everywhere.
@@ -73,7 +73,7 @@ def test_the_box_fallback_has_room_on_the_rows_the_ink_skipped():
     """A line of English can land in the gap between two Japanese characters.
 
     Measuring the ink gives those rows a width of nothing, and the fitter takes
-    the narrowest row under each line — so one blank row between characters
+    the narrowest row under each line - so one blank row between characters
     priced the whole line at zero and drove the type down to the floor.
     """
     page = _page()
@@ -176,7 +176,7 @@ def test_a_real_outline_is_still_loaded_back_as_a_bubble():
 def test_a_region_saved_as_a_rectangle_typesets_into_the_balloon_on_reload(tmp_path):
     """The whole point, end to end.
 
-    Masks are not saved — a chapter is held as geometry — so the balloon has to
+    Masks are not saved - a chapter is held as geometry - so the balloon has to
     be looked for again on the way back in. Without that, everything the person
     reloads is typeset inside the little box round the Japanese, which is what
     the overflowing bubble in the screenshot was.

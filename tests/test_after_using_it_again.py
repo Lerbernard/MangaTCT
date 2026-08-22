@@ -1,8 +1,8 @@
 """What lee found the second time round.
 
-* *"detete these"* — three unlabelled font dropdowns at the top of the Fonts
+* *"detete these"* - three unlabelled font dropdowns at the top of the Fonts
   section, saying AnimeAce, AnimeAce, CCWildWords.
-* *"remoeve the second picture line up"* — the Box types rows did not line up:
+* *"remoeve the second picture line up"* - the Box types rows did not line up:
   the default's row has no × so everything on it sat a button further along.
 * *"you didnt add teh preloaded sub types"*
 * *"the etxt box still rejexcts me deleteing all teh text"*
@@ -74,7 +74,7 @@ def ed(tmp_path):
 def test_deleting_the_words_takes_the_typesetting_off_the_page(tmp_path):
     """Clearing a block's translation left its typesetting exactly where it was.
     `typeset_page` has nothing to fit for a block with no words, so it skipped
-    it, and the layout from the run before stayed — which reads as the editor
+    it, and the layout from the run before stayed - which reads as the editor
     refusing the edit."""
     from mangatl import editor
     p = _project(str(tmp_path / "empty"))
@@ -137,7 +137,7 @@ def test_typing_into_it_again_brings_the_typesetting_back(tmp_path):
 
 
 def test_the_last_box_on_a_page_counts_too(tmp_path):
-    """`do_typeset` returned early when nothing on the page had any text —
+    """`do_typeset` returned early when nothing on the page had any text -
     which is true of a one-box page the moment you delete its words, so the
     typesetting stayed on it and the guard was the reason."""
     from mangatl import editor
@@ -165,7 +165,7 @@ def test_an_old_project_still_gets_the_preloaded_types(tmp_path):
     """lee: *"you didnt add teh preloaded sub types"*.
 
     His project was stamped `kinds_seeded` by a build whose `PRELOADED` list
-    was empty, and "seeded once" then meant "never again" — so every type
+    was empty, and "seeded once" then meant "never again" - so every type
     added to the list afterwards could not reach it. What is remembered now is
     WHICH keys have been offered, so a new preload reaches an old project and
     a deleted one stays deleted.
@@ -221,7 +221,7 @@ def test_a_new_project_is_not_seeded_twice(tmp_path):
 def test_the_fonts_section_has_no_dropdowns_of_its_own(ed):
     """The three family faces are carried by selects that `saveSettings` reads;
     the row you set them from is the family's own row in Box types. They are
-    marked `headless` and stay hidden — which mattered doubly when a widget
+    marked `headless` and stay hidden - which mattered doubly when a widget
     stood beside each one, because hiding the select left the widget showing.
     lee: *"detete these"*."""
     pg, _p, errs = ed
@@ -290,7 +290,7 @@ def test_the_top_bar_is_a_zoom_readout_and_nothing_else(ed):
 
 def test_arming_the_hand_still_lights_the_toolbox(ed):
     """Its own button is gone, so the toolbox is the only thing left that can
-    say the hand is out — and it has to, however the hand was reached."""
+    say the hand is out - and it has to, however the hand was reached."""
     pg, _p, errs = ed
     pg.evaluate("toggleHand(true)")
     pg.wait_for_timeout(400)
@@ -348,7 +348,7 @@ def _draw_a_rectangle(pg):
 def test_a_shape_is_picked_up_by_clicking_it(ed):
     """lee: *"make it so that i can select shapes like i can text boxes"*. The
     arrow (V) had to be armed first, so on a page with a rectangle on it the
-    obvious click — straight at the rectangle — did nothing at all."""
+    obvious click - straight at the rectangle - did nothing at all."""
     pg, _p, errs = ed
     _draw_a_rectangle(pg)
     assert pg.evaluate("layers.filter(l=>l.type==='shape').length") == 1
@@ -392,7 +392,7 @@ def test_an_armed_brush_still_paints_over_a_shape(ed):
         "the brush stroke picked the shape up as well"
 
     # An armed tool owns the canvas above the page, so in practice the press
-    # never reaches the page underneath. That is layering, not a decision —
+    # never reaches the page underneath. That is layering, not a decision -
     # so the decision is asked for directly here: the same press, delivered
     # to the page itself, with the brush still out.
     pg.evaluate("""(()=>{
@@ -413,13 +413,13 @@ def test_lifting_a_selection_takes_what_is_drawn_over_the_text_as_well(ed):
     anything on the over band stayed standing where it was while the rest of
     the piece moved off without it.
 
-    The ROUTE has changed since — arming the transform on a bare selection
+    The ROUTE has changed since - arming the transform on a bare selection
     used to float a copy of it, and lee has since asked that it not: *"teh
     select too shoud just be there and do nothing  no new image shoud be made
     until i hit copy and past"*. So J is the press that makes the layer now,
     and the requirement moved with it: what J takes is everything visible
     inside the selection, over band included. The typesetting itself is not in
-    it — that is drawn from the region records by its own overlay, and a copy
+    it - that is drawn from the region records by its own overlay, and a copy
     baked into the patch would show twice.
     """
     pg, _p, errs = ed

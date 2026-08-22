@@ -10,8 +10,8 @@ copy that too"*.
 `PageState.active` is what the create endpoint answers with and what the client
 draws, and it leaves out every box whose GROUP is hidden. So drawing a sound
 effect on a page whose sound effects are away appended the record, answered
-without it, and the box was simply not on screen. Nothing said so — the group
-switch lives in another panel — and on manhwa and manhua the detector makes no
+without it, and the box was simply not on screen. Nothing said so - the group
+switch lives in another panel - and on manhwa and manhua the detector makes no
 sound effects at all, so that group is routinely away and the only boxes in it
 are the ones drawn by hand. The button lee kept clicking IS the group switch,
 and clicking it is what brought the box back.
@@ -22,7 +22,7 @@ it wins over a switch set earlier and the group comes back out on that page.
 ## And it was set dead straight
 
 `read_sfx_axis` reads the axis an effect is drawn along. It ran at detection,
-and it ran when a box was RE-TYPED to `sfx` from something else — never when a
+and it ran when a box was RE-TYPED to `sfx` from something else - never when a
 box ARRIVES as one, which is every box the Add-sound-effect tool puts down.
 Those reached the typesetter with `sfx_len` unset, took its "never measured"
 branch, and were laid straight across the box whatever the artwork did.
@@ -50,7 +50,7 @@ def proj(tmp_path):
     """A one-page project served over the real endpoint.
 
     Through HTTP rather than a shim: the thing under test is what the CREATE
-    endpoint answers with, and `active` — the filter that dropped the box — is
+    endpoint answers with, and `active` - the filter that dropped the box - is
     applied as it builds that answer.
     """
     import json

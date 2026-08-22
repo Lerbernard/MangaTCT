@@ -5,18 +5,18 @@ taht are only symbol like ! or ....... etc make it on by defaut and after read
 text happens if a box is only symboed with no text it shodu auto delete"*.
 
 The detector cannot answer this. Ink is ink, and a box drawn round a lone `!`
-is a box drawn round something that really is printed on the page — there is
+is a box drawn round something that really is printed on the page - there is
 nothing in the pixels that says it is not a word. Only the READER can say
 there is no word in it, so the first moment the question can be asked at all
 is when Read text comes back, which is exactly where lee put it.
 
 Three separate things are held here and they fail in different ways:
 
-* `ocr.only_symbols` — what counts as writing. Asked of Unicode rather than of
+* `ocr.only_symbols` - what counts as writing. Asked of Unicode rather than of
   a list of characters somebody typed out.
-* `editor.symbol_only_boxes` — which boxes are the app's to throw away. Three
+* `editor.symbol_only_boxes` - which boxes are the app's to throw away. Three
   kinds never are, however they read.
-* `editor.do_ocr` — that the drop happens, that it happens BEFORE the sections
+* `editor.do_ocr` - that the drop happens, that it happens BEFORE the sections
   are linked, and that the page is renumbered afterwards.
 """
 import json
@@ -67,7 +67,7 @@ def test_one_letter_or_one_digit_is_enough_to_keep_it(t):
 def test_nothing_read_at_all_is_not_the_same_as_marks():
     """The one outcome this must never have is deleting a box because the
     reader had a bad turn. An empty read is a different fault with its own
-    name — `ocr: no text read` — and it is not this one."""
+    name - `ocr: no text read` - and it is not this one."""
     for t in ("", "   ", "\n", "\t\n ", None):
         assert O.only_symbols(t) is False, repr(t)
 
@@ -75,7 +75,7 @@ def test_nothing_read_at_all_is_not_the_same_as_marks():
 def test_the_answer_is_unicode_and_not_a_list_somebody_typed():
     """The point of the rewrite, stated as a test rather than as a comment.
     The old hand-written class had `…` and `・` in it and had never heard of
-    `♡`, `★`, `※` or a full-width bracket — the marks it missed were simply
+    `♡`, `★`, `※` or a full-width bracket - the marks it missed were simply
     the ones whoever wrote it did not happen to think of."""
     old = "。、,.!?！？…・-—ー~〜"
     fresh = [m for m in MARKS if not all(ch in old or ch.isspace() for ch in m)]
@@ -182,7 +182,7 @@ def test_the_marks_boxes_are_gone_when_the_read_finishes(monkeypatch):
 def test_and_it_is_on_for_a_project_that_has_never_heard_of_it(monkeypatch):
     """lee: *"make it on by defaut"*. A project.json written before the
     setting existed has no key at all, and `.get(k, True)` is not what makes
-    that work — `.get(k) is not False` is."""
+    that work - `.get(k) is not False` is."""
     assert _drive(TEXTS, {}, monkeypatch)["left"] == [0, 3]
 
 
@@ -228,7 +228,7 @@ def test_the_box_goes_before_the_sections_are_linked(monkeypatch):
 
 def test_a_read_that_failed_outright_deletes_nothing(monkeypatch):
     """The reader threw. Every box comes back unread, and unread is not the
-    same as read-and-empty — deleting the page's boxes because the network
+    same as read-and-empty - deleting the page's boxes because the network
     fell over is the worst version of this feature there is."""
     from mangatl import translate as T
 
@@ -265,7 +265,7 @@ def test_the_screen_has_the_switch():
     assert 'id="drop_symbol_only"' in html
     # Ticked in the MARKUP as well as in the settings, so the box does not sit
     # unticked for the moment between the page drawing and the project
-    # loading — which is the moment somebody clicks it.
+    # loading - which is the moment somebody clicks it.
     i = html.index('id="drop_symbol_only"')
     assert "checked" in html[i:i + 120], html[i:i + 120]
     assert "saveSettings()" in html[i:i + 160]
@@ -277,7 +277,7 @@ def test_the_switch_is_read_and_saved_like_the_other_default_on_ones():
     and omitted from the save when the box does not exist, so saving from a
     screen that has not been built yet does not write an off nobody chose."""
     js = (PKG / "static" / "js" / "project.js").read_text(encoding="utf-8")
-    assert "const DEFAULT_ON = ['drop_symbol_only']" in js
+    assert "'drop_symbol_only'" in js.split('const DEFAULT_ON')[1].split(';')[0]
     assert "const ON_SWITCHES = [...STORY_SWITCHES, ...DEFAULT_ON]" in js
     # Both places read the combined list, not the story one.
     assert "ON_SWITCHES.forEach" in js
@@ -307,7 +307,7 @@ def test_the_setting_survives_a_save_and_a_reload():
 
 def test_the_flag_and_the_drop_ask_the_same_question():
     """`looks_like_garbage` FLAGS a marks-only read and the switch DELETES the
-    box. Two actions, one definition — a hand-written character class beside a
+    box. Two actions, one definition - a hand-written character class beside a
     Unicode test is two answers to "is there writing in this"."""
     import inspect
     src = inspect.getsource(O.looks_like_garbage)

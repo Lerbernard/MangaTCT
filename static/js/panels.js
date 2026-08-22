@@ -1,4 +1,4 @@
-/* panels.js — Right-hand panels: region list, inspector, cleaning panel, typesetting panel.
+/* panels.js - Right-hand panels: region list, inspector, cleaning panel, typesetting panel.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -21,7 +21,7 @@ function linkIcon(){
     stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
-/* The eye, open or closed, as line art on the same 24-box as every tool icon —
+/* The eye, open or closed, as line art on the same 24-box as every tool icon -
    for the same reason the link mark is drawn rather than typed: an emoji is a
    colour picture from the system font, a different weight and size from
    everything beside it. */
@@ -58,13 +58,13 @@ function renderList(){
     return;
   }
   // The proofreader's note about the page sits above the list, not inside a
-  // region — it is usually about something BETWEEN two regions (a pronoun
+  // region - it is usually about something BETWEEN two regions (a pronoun
   // with no clear owner, a line that does not answer the one before it).
   //
   // It is written FIRST, before the early return below, because it belongs to
   // the page on screen and nothing else here does. It used to be written after
-  // that return, so in the Cleaned and Translated views — where the list is
-  // hidden and this function stops early — the card was never touched again and
+  // that return, so in the Cleaned and Translated views - where the list is
+  // hidden and this function stops early - the card was never touched again and
   // kept the note of whichever page had last been looked at in the Edit view,
   // sitting there on every page of the chapter. lee: *"these messages shoud
   // only be on teh relevenat page not on every page"*.
@@ -75,7 +75,7 @@ function renderList(){
   if(noteEl){
     const showNote = !!pageNote && view!=='clean';
     noteEl.style.display = showNote?'':'none';
-    // Which boxes it is about, as the numbers on the page — the proofreader
+    // Which boxes it is about, as the numbers on the page - the proofreader
     // works in region ids, which nobody ever sees. Clicking one selects it,
     // so "replaced the honorific" takes one click to check instead of a read
     // through the whole page.
@@ -92,7 +92,7 @@ function renderList(){
       : '';
   }
   // The Cleaned view is about the plate and the Translated view is about the
-  // typesetting — the text list only takes up room on either.
+  // typesetting - the text list only takes up room on either.
   const hide = view==='clean' || view==='typeset';
   $('listHead').style.display = hide?'none':'';
   $('list').style.display = hide?'none':'';
@@ -104,12 +104,12 @@ function renderList(){
   // the row you had just pressed. lee: *"when i click the eye button on teh
   // tab in screenshot 3 it shoud stay inplace instad of going to teh bottom,
   // and just grey out"*. It is greyed, it is not draggable and it does not
-  // open — the eye is the one thing on it that answers — but it is exactly
+  // open - the eye is the one thing on it that answers - but it is exactly
   // where it was.
   const away=new Set((hiddenRows||[]).map(r=>r.id));
   // The list IS the translation: a row per piece of Japanese, with what it
   // says and what it will say. A box holding your own words is not one of
-  // those, so it is not in here at all — it is edited on the page, in the
+  // those, so it is not in here at all - it is edited on the page, in the
   // Edit view, where you drew it. lee: *"wheni create a text box its hsoud
   // JUST CREATE TEH ETXT BOX WITH NO TRANSLATION BOX"*.
   $('list').innerHTML=regions.filter(r=>!r.own_text).concat(hiddenRows||[])
@@ -135,7 +135,7 @@ function renderList(){
              box"*. -->
         ${r.own_text?'':`<span class="chip ${r.confidence>=0.55?'g':'r'}">${
           (r.confidence??0).toFixed(2)}</span>`}
-        <span class="chip kind" title="${esc(kindLabel(r.kind))} — ${esc(familyLabel(familyOf(r.kind)))}"><i class="kd"
+        <span class="chip kind" title="${esc(kindLabel(r.kind))} - ${esc(familyLabel(familyOf(r.kind)))}"><i class="kd"
           style="background:${(typeof kindColor==='function')?kindColor(r.kind):'#888'}"></i><b
           class="kdn">${esc(kindLabel(r.kind))}</b></span>
         <!-- The "manual" chip is gone. Whether a box was drawn by hand or
@@ -159,7 +159,7 @@ function renderList(){
       ${r.own_text?'':`<div class="ja tx">${esc(r.src_text)||
         '<span class="muted">no text read</span>'}</div>`}
       <!-- No overflow warning here. It says something you can only act on in
-           the Edit view — set the block smaller, widen the box, cut a word —
+           the Edit view - set the block smaller, widen the box, cut a word -
            and that is where it now lives, under the sub-type. Two copies of
            one sentence in two panels is one copy too many.
            lee, twice, with pictures: *"this shoud not be on this page anymore
@@ -197,14 +197,14 @@ function growBox(t){
 /* The region editor lives INSIDE the selected row (an accordion), so clicking a
    text on the page or in the list expands it in place rather than popping up a
    separate panel above the list. Clicks inside must not bubble to the row's
-   select() — that would rebuild the list and drop focus mid-edit.
+   select() - that would rebuild the list and drop focus mid-edit.
 
    The two boxes said "Japanese" and "English". On a Korean webtoon translated
    into English the first of those is simply wrong, and lee asked for what they
    actually are: *"make this say input text and output text"*. Whatever the
    languages happen to be, these are the two ends of the pipeline, and WHICH
    languages is a question already answered on the Settings page. The undo list
-   named the same two fields the same wrong way — see `upd` in region-ops.js.
+   named the same two fields the same wrong way - see `upd` in region-ops.js.
 
    (A note like this belongs here and not in the template below: an HTML
    comment inside the string is rendered into the panel, and this one would
@@ -225,6 +225,11 @@ function regionInlineEditor(r){
                 onchange="flushEdit()">${esc(r.dst_text)}</textarea>
       <div class="row" style="margin-top:9px;flex-wrap:wrap">
         <button onclick="splitRegion(${r.id})" title="This box covers several bubbles">Split</button>
+        ${selMulti.size>1
+          ? `<button onclick="mergeSelected()"
+                     title="One box round all ${selMulti.size}, texts joined (M)"
+             >Merge ${selMulti.size} boxes</button>`
+          : ''}
         <button class="danger" onclick="delSelected()">Delete${
           selMulti.size>1?` ${selMulti.size} boxes`:''}</button>
       </div>
@@ -264,7 +269,7 @@ function renderInspector(){
   // before the DOM it was typed into is replaced. See flushTypesetEdit.
   if(typeof flushTypesetEdit==='function') flushTypesetEdit();
   // Never rebuild the panel out from under a control the person is using.
-  // Every field in here saves on `change`, which the browser fires on BLUR —
+  // Every field in here saves on `change`, which the browser fires on BLUR -
   // and an element removed while it still has focus never blurs, so the change
   // is dropped and the field snaps back to the value the server last sent.
   // lee: *"when i make chnages in this menu sometime it dont apply or reverst
@@ -273,18 +278,18 @@ function renderInspector(){
   // with; nothing is lost, it just happens a moment later.
   //
   // A font dropdown is open, though, and that is not a field the panel is
-  // waiting on — it is a menu the panel would DESTROY. lee, twice: *"the test
+  // waiting on - it is a menu the panel would DESTROY. lee, twice: *"the test
   // for this bubble is broken"*, and then *"this is still broken, when i open
   // it it opens and close and isnt repsosive after that"*. Opening the menu
   // moves focus into its own search box, which blurs whatever field was
-  // focused before it — and any redraw that was waiting on that blur then
+  // focused before it - and any redraw that was waiting on that blur then
   // fired and replaced the whole panel, taking the just-opened menu with it.
   // From the outside: the list flickers open and shut, and the control you
   // were pointing at is not the one that is there now.
   // Two guards stood here, both of them about the custom font menu: one that
   // held the redraw while a `.fsel` list was open, and one that watched an
   // open menu until it closed however it closed. The picker is a native
-  // <select> now (see `fontWidget` in project.js) — the browser owns it, a
+  // <select> now (see `fontWidget` in project.js) - the browser owns it, a
   // redraw cannot destroy a list the browser is drawing over the page, and
   // holding the whole panel on a menu is what left it dead when the wait was
   // never released. lee: *"the text drop down still dosent work re design it
@@ -293,7 +298,7 @@ function renderInspector(){
   const busy=document.activeElement;
   // A wait that is never released leaves the panel dead for the rest of the
   // session: every later redraw returns here and nothing on screen changes
-  // again. `blur` alone is not enough to release it — an element removed from
+  // again. `blur` alone is not enough to release it - an element removed from
   // the page while it still has focus does not reliably fire one, and this
   // panel replaces its own HTML constantly. So the wait is also released the
   // moment the element it is waiting on is gone.
@@ -309,7 +314,7 @@ function renderInspector(){
       // ...and the redraw runs a tick AFTER the blur, not during it. A blur is
       // the middle of an interaction, not the end of one: focus leaves the
       // field on MOUSEDOWN, before the click that follows has done anything.
-      // Redrawing there tore the page out from under the click — the button
+      // Redrawing there tore the page out from under the click - the button
       // that was pressed was gone by the time its own handler ran, which is
       // what made the font dropdown open and shut again. One tick later the
       // interaction has finished and the panel can see what it turned into.
@@ -351,7 +356,7 @@ function renderInspector(){
 
    lee: *"Look for a manga translation guide to see what type of bubble i shoud
    use instad of speech bubble outide bubble etc"*. These are the standard
-   ones — the shapes are drawn by the artist and the typesetter's job is to know
+   ones - the shapes are drawn by the artist and the typesetter's job is to know
    which is which, so the app calls them what the guides call them rather than
    inventing names.
 
@@ -359,7 +364,7 @@ function renderInspector(){
    What changes between them is the typesetting. A caption is the square
    narration box. Open typesetting is dialogue with no balloon at all, and a
    sound effect is drawn rather than typeset. */
-/* The three families, in the order the menu offers them — which is also the
+/* The three families, in the order the menu offers them - which is also the
    order of the number keys 1, 2 and 3. See frames.js for the tables and
    kinds.py for why there are three. */
 const KIND_ORDER = KIND_FAMILIES;
@@ -379,7 +384,7 @@ function familyLabel(f){ return FAMILY_LABELS[f] || f; }
 /* The two menus a box's type is now chosen with.
 
    lee: *"add a nothet drop down for the subcategories in the Text on this page
-   tab"*. The main type says which of the three it is — that is what decides
+   tab"*. The main type says which of the three it is - that is what decides
    whether it has a balloon, whether it is cleaned, how it is typeset. The
    second says which KIND of that it is, which is a label and a colour and a
    font, and it is the person's alone: Find text never produces one.
@@ -410,7 +415,7 @@ const BOX_GROUPS=KIND_FAMILIES.map(f=>[f, FAMILY_LABELS[f]]);
 
 /* The key beside the page: what each colour on the boxes means.
 
-   Built from the types this project actually has, not typed out — it used to
+   Built from the types this project actually has, not typed out - it used to
    list six flat types and their old colours, and after the revamp it was
    naming things that no longer existed in colours nothing was drawn in.
    lee: *"upadte teh bar with the type of boxes"*.
@@ -430,25 +435,39 @@ function renderLegend(){
   KIND_FAMILIES.forEach((f,i)=>{
     const on = f===newBoxKind ? ' on' : '';
     bits.push(`<button type="button" class="lgmain${on}" data-fam="${f}" `+
+              `style="--lgc:${KIND_COLORS[f]}" `+
               `onclick="setNewBoxKind('${f}')" `+
               `title="Draw new boxes as ${esc(FAMILY_LABELS[f])}`+
-              ` — ${i+1} still sets the box you have selected">`+
+              ` - ${i+1} still sets the box you have selected">`+
               `<i style="background:${KIND_COLORS[f]}"></i>`+
               `${i+1} ${esc(FAMILY_LABELS[f])}</button>`);
   });
   // The three main types, and nothing under them. A row for every sub-type
   // as well made a paragraph of colour chips above the page that was longer
-  // than anything it explained — and the shade of a box already says which
+  // than anything it explained - and the shade of a box already says which
   // family it belongs to, which is the thing the legend is for.
   // lee: *"this shoud only show the 3 main type"*. Which sub-type a box is is
   // read off the box's own menu, one box at a time.
   bits.push('<span><i style="border:1px dashed #9aa4b2"></i>unsure</span>');
+  // ...AND THE BOX-SELECT TOOL, HERE AS WELL AS IN THE TOOLBOX.
+  //
+  // lee, over a screenshot of this row: *"also add teh select button in here
+  // as a slecteable button"*. It belongs beside the three kinds because this
+  // row is where somebody is already thinking about boxes rather than about
+  // pixels - and it lights up the same way the kind buttons do, off the same
+  // state the toolbox reads, so the two can never disagree.
+  const armed = (typeof boxSel !== 'undefined' && boxSel) ? ' on' : '';
+  bits.push(`<button type="button" class="lgmain lgsel${armed}" `+
+            `onclick="toggleBoxSelect()" `+
+            `title="Drag a square over the page to select every box it `+
+            `touches (S)">`+
+            `<i class="lgmarq"></i>Select boxes</button>`);
   el.innerHTML=bits.join('');
 }
 
 /* Which groups a switch is worth offering for.
    A switch for a kind the page does not contain does nothing, so only the
-   groups there are boxes for get one — ask Find text for bubbles and outside
+   groups there are boxes for get one - ask Find text for bubbles and outside
    text and no sound-effect switch appears. With "every page" on the question
    is about the CHAPTER, or a group could not be put away from a page that
    happens not to contain it. */
@@ -464,7 +483,7 @@ function hideEveryPage(){
   return !!(proj&&proj.settings&&proj.settings.hide_all_pages);
 }
 
-/* Which page is on screen — name, position in the chapter, how much text is on
+/* Which page is on screen - name, position in the chapter, how much text is on
    it, and which kinds of box are in play. */
 function pageCard(){
   const P=(proj&&proj.pages)||[];
@@ -505,7 +524,7 @@ function pageCard(){
 }
 
 /* Which tool section the panel on screen is actually showing. A keyboard
-   shortcut can arm a tool from a section that is not open — `toolTab()` then
+   shortcut can arm a tool from a section that is not open - `toolTab()` then
    answers differently from what was drawn, and the lit button is on a tab
    nobody can see. paintToolUI compares the two and asks for a redraw. */
 let _renderedTab=null;
@@ -516,7 +535,7 @@ function cleanPanel(){
   // sound effects are cleaned too now, so they belong in the per-region list
   const cleanable=regions;
   // With your own plate in use nothing on this page is ever cleaned, so the
-  // per-bubble eyes have nothing to decide — showing them would promise a
+  // per-bubble eyes have nothing to decide - showing them would promise a
   // choice that does nothing.
   const cleanLayers = (cleanable.length && !custom) ? `
   <div class="card"><h3>Cleaning per bubble</h3>
@@ -524,17 +543,12 @@ function cleanPanel(){
     ${cleanable.map(r=>`
       <div class="lay ${r.id===sel?'on':''}" onclick="select(${r.id})">
         <i style="background:${r.skip_clean?'#555':'#9fe870'}"></i>
-        <span>Region ${(r.order??0)+1}${r.skip_clean?' — not cleaned'
-          :(r.focus?' — focus':'')+(r.clean_route?' — '+esc(cleanRouteLabel(r.clean_route))
+        <span>Region ${(r.order??0)+1}${r.skip_clean?' - not cleaned'
+          :(r.clean_route?' — '+esc(cleanRouteLabel(r.clean_route))
             +(r.clean_core?', strokes only':''):'')}</span>
         <span class="lx" title="${r.skip_clean?'Clean this bubble':'Leave the original text'}"
               onclick="event.stopPropagation();toggleClean(${r.id})">
           ${r.skip_clean?'&#8709;':'&#128065;'}</span>
-        <span class="lx" title="${r.focus?'Read this box the ordinary way'
-            :'Focus clean \u2014 read the writing against its own background, for gold '
-             +'text or a see-through bubble the ordinary reading misses'}"
-              style="${r.focus?'color:#ffd166':''}"
-              onclick="event.stopPropagation();toggleFocus(${r.id})">&#9678;</span>
       </div>`).join('')}
     </div>
   </div>` : '';
@@ -548,7 +562,7 @@ function cleanPanel(){
            onchange="uploadPlate(this.files[0]);this.value=''">
   </div>
   <div class="card"><h3>Tool settings</h3>
-    <!-- The tools themselves are in the toolbox down the left of the page —
+    <!-- The tools themselves are in the toolbox down the left of the page -
          one place, always on screen, with the ones that do the same kind of
          job folded into a slot. They used to be HERE as well, in four tabbed
          sections, so every tool was on screen twice and neither copy was
@@ -664,20 +678,20 @@ function _opOf(r, ov){
 }
 
 /* The typesetting panel is fourteen controls deep, and it used to be one
-   unbroken strip of them — lee: *"make teh side bar more organized"*. They are
+   unbroken strip of them - lee: *"make teh side bar more organized"*. They are
    grouped now, by the question each group answers, and each group remembers
    whether it was open. The controls themselves are untouched: same ids, same
    handlers, same order within a group.
 
-   Every group starts OPEN — lee asked for that outright — and each remembers
+   Every group starts OPEN - lee asked for that outright - and each remembers
    whether he folded it, so the panel comes back the way he left it. */
 // lee: *"make all the section in the dide bar come open not collaped"*. They
 // start open and stay however he leaves them.
 // Every group starts open. A control folded away on a panel you have just
 // opened is a control you have to go looking for, and the panel is short
-// enough to read in one pass. `box` and `shape` are gone — the two menus moved
+// enough to read in one pass. `box` and `shape` are gone - the two menus moved
 // to the head of the panel and the rest split into Paragraph and Character,
-// the way a typesetter's panels are laid out — but they stay in this map so a
+// the way a typesetter's panels are laid out - but they stay in this map so a
 // browser holding the old state does not come back with anything shut.
 var lyOpen = {text:true, para:true, char:true, colour:true, fx:true,
               shape:true, box:true};
@@ -705,8 +719,8 @@ function lyGrp(key, title, body){
    Two copies of every style value exist while an edit is in flight: the live
    one, kept on the region by onTypesetEdit as you type and refreshed from the
    server's reply, and the saved one in `layout_override`, which is only as
-   fresh as the last request that finished. The panel is rebuilt constantly —
-   a save landing, a poll, a stepper being released — so a field that reads the
+   fresh as the last request that finished. The panel is rebuilt constantly -
+   a save landing, a poll, a stepper being released - so a field that reads the
    saved copy shows the value from BEFORE the edit and the next press starts
    from there.
 
@@ -744,7 +758,7 @@ function typesettingPanel(r){
       onchange="flushTypesetEdit()">${esc(L.lines.join('\n'))}</textarea>
     <!-- What went wrong laying this block out, where the block is being
          worked on. It used to be a chip in the box list, which is not on
-         screen in the Edit view at all — so the one view where you would do
+         screen in the Edit view at all - so the one view where you would do
          something about it was the one view that never mentioned it.
          lee: *"this message sho8d show on teh edit page"*. -->
     ${r.flagged?`<div class="chip r lyflag">${esc(r.flagged)}</div>`:''}
@@ -752,7 +766,7 @@ function typesettingPanel(r){
     <!-- What a typesetter sets for the BLOCK: how the lines sit against each
          other and where they hang in the box. lee sent Photoshop's Paragraph
          and Character panels and asked for *"only ... what you time will
-         acuuucaly be useful"* — so no first-line indent, no space-before and
+         acuuucaly be useful"* - so no first-line indent, no space-before and
          space-after (there is one paragraph in a balloon), and no hyphenation,
          which this project has never done and never will. -->
     <label style="margin-top:0">Alignment</label>
@@ -816,7 +830,7 @@ function typesettingPanel(r){
         <!-- Falls back to the LAYOUT's outline, which is the number actually
              in use, and not to a bare 1. The saved style only exists after a
              save has been round-tripped, so on a freshly opened page the box
-             said 1 while the canvas drew the width the fitter chose — three
+             said 1 while the canvas drew the width the fitter chose - three
              or four pixels on a sound effect. lee, with a screenshot of a
              heavily outlined COUGH: *"make sure the outile alway match, the
              caufht outline says 1 when it clearly not"*.
@@ -860,7 +874,7 @@ function typesettingPanel(r){
     </div>
     <!-- Each well says which end of the gradient it IS, over the well, the
          way every other pair in this panel is labelled. The heading used to
-         carry all three names in a row — "from / to / angle" — which meant
+         carry all three names in a row - "from / to / angle" - which meant
          reading a list and counting across to work out which box was which.
          lee: *"make the gradn say from to"*. -->
     <label style="margin-top:9px">Gradient</label>

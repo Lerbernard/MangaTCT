@@ -1,0 +1,122 @@
+mangatl — third-party models and code
+=====================================
+
+mangatl itself is licensed under the GNU General Public License version 3.
+See LICENSE for the full text.
+
+**Why GPL-3.0 and not something looser.** It is not a preference. The app is
+built on comic-text-detector, which is GPL-3.0. That dependency is not optional:
+every detection route uses its `seg` head for the ink mask that Clean paints
+with, and `inpaint` skips any region that has no mask. Two of the other
+detectors are GPL-3.0 as well. Copyleft was in the foundations before there
+was a licence file on top.
+
+**What that does and does not require.** GPL-3.0 asks that anyone you
+DISTRIBUTE the program to can also get its source, under the same terms.
+It says nothing about price -- selling GPL software has always been allowed --
+and it does not reach across a network: a translation request sent to a remote
+API is two separate programs talking, not one program linked to another, and
+running mangatl as a hosted service is not distribution at all.
+
+NONE OF THE MODEL FILES ARE REDISTRIBUTED WITH THIS SOFTWARE. Every one of
+them is downloaded by the person using it, from its own publisher, and pointed
+at by a path in the project settings. What is listed below is what the app
+knows how to READ.
+
+
+THE MODELS
+----------
+
+comic-text-detector
+  file      comictextdetector.pt.onnx
+  from      https://github.com/dmMaze/comic-text-detector
+  licence   GPL-3.0
+  used for  the ink mask, in every route, and its own text boxes
+  note      the reason this project is GPL-3.0.
+
+manga-image-translator DBNet
+  file      detect-20241225.ckpt
+  from      https://github.com/zyddnys/manga-image-translator
+  licence   GPL-3.0
+  used for  the "Two specialist detectors" route
+
+DB++ fine-tuned on COO (comic onomatopoeia)
+  file      dbpp_coo.dat / dbpp_coo.pth / DB_finetune_COO
+  from      https://github.com/ku21fan/COO-Comic-Onomatopoeia  (ECCV 2022)
+  licence   MIT for the authors' code; the COO annotations are CC BY 4.0
+  used for  finding painted sound effects, in every route that has one
+  note      the underlying images are Manga109's and carry Manga109's own
+            terms, which are not these. See below.
+
+Manga109 panel/balloon/text segmenter (YOLO26)
+  file      m109seg.pt / manga109-seg.pt / best.pt
+  from      https://huggingface.co/ShadowB/
+            Manga109-panel-balloon-text-yolov26-segmentation
+  licence   MIT
+  used for  the "Manga109 segmenter" route
+  note      trained on Manga109-derived annotations. See below.
+
+AnimeText (YOLO12-L)
+  file      animetext.pt / yolo12l_animetext.pt / model.pt
+  from      https://huggingface.co/deepghs/AnimeText_yolo
+  paper     arXiv 2510.07951
+  licence   GPL-3.0
+  used for  the "AnimeText detector" route
+
+comic bubble + text detector (RT-DETR)
+  file      detector.onnx / detector-v4-s_int8.onnx
+  from      https://huggingface.co/ogkalu/comic-text-and-bubble-detector
+  licence   check the model card before relying on it -- not stated at the
+            time this file was written
+  used for  the optional bubble detector
+
+comic speech bubble / text segmenter (YOLOv8)
+  files     comic-speech-bubble-detector.pt, comic-text-segmenter.pt
+  from      https://huggingface.co/ogkalu/
+  licence   check the model cards -- not stated at the time of writing
+  used for  optional bubble and text weights
+
+manga-ocr
+  from      https://github.com/kha-white/manga-ocr
+  licence   Apache-2.0
+  used for  Japanese OCR
+
+easyocr (and the CRAFT detector inside it)
+  from      https://github.com/JaidedAI/EasyOCR
+  licence   Apache-2.0
+  used for  Korean and Chinese OCR, and the CRAFT text detector
+
+LaMa / anime-lama
+  from      https://github.com/advimman/lama and its anime fine-tunes
+  licence   Apache-2.0 for LaMa; fine-tunes carry their own -- check
+  used for  the optional inpainting cleaner
+
+
+MANGA109, WHICH IS NOT A SOFTWARE LICENCE
+-----------------------------------------
+
+Three of the models above were trained on Manga109 or on annotations derived
+from it. Manga109's images are distributed by its maintainers under terms of
+their own, and those terms restrict use of the DATASET -- academic use, with
+commercial use requiring a separate agreement.
+
+Whether that reaches a MODEL somebody else trained on it, or the boxes such a
+model draws on a page it has never seen, is not settled law anywhere. The
+model publishers above license their weights MIT and GPL-3.0 respectively,
+which is their statement about their own work.
+
+This note exists so that whoever reads it later knows the question is there.
+It is not legal advice and nobody here is a lawyer. If money is going to
+change hands, ask one.
+
+
+WHAT IS NOT COVERED BY ANY OF THIS
+----------------------------------
+
+The translation engines -- Anthropic, OpenAI, Google, OpenRouter and anything
+else reached over HTTP -- are services, not code in this program. Their terms
+are between the person running mangatl and the provider, and they are the one
+part of the pipeline this file has nothing to say about.
+
+The manga themselves are somebody's copyright. Nothing here grants any right
+to them.

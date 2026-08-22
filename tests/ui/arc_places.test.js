@@ -1,7 +1,7 @@
 /* The browser's arc arithmetic, run against the Python's own answer.
 
-   Two renderers draw curved typesetting — PIL for the exported page, the DOM for
-   the editor — so there are two copies of the arc. The Python side writes its
+   Two renderers draw curved typesetting - PIL for the exported page, the DOM for
+   the editor - so there are two copies of the arc. The Python side writes its
    letter advances and its answer to a file; this reads the advances, feeds them
    to the browser's `arcPlaces` through a stubbed text measurer, and prints what
    it gets. `test_the_two_arcs_agree` compares them place by place. */

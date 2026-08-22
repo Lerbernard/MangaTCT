@@ -6,7 +6,7 @@ alow me to rorta an d and tht hsoud happen to all 4 corners, aklso make sure
 when the txext box is rotated it the coner show acurate mouse icons"*.
 
 Before: a ⟳ badge on a little stem above the box. One place, always in the
-same spot, and the spot was wherever the top of the box happened to be — over
+same spot, and the spot was wherever the top of the box happened to be - over
 the artwork, off the top of the page, or underneath the box above it.
 
 Now: a zone just outside each of the four corners. Press the corner itself and
@@ -16,7 +16,7 @@ whichever corner is nearest, and nothing sticks out of the box to be clicked
 by accident.
 
 And the cursors tell the truth. The eight resize handles used to be labelled
-by their name in the box's OWN frame — the "nw" handle always said
+by their name in the box's OWN frame - the "nw" handle always said
 `nw-resize`. Turn the box ninety degrees and its top-left corner points up and
 to the RIGHT, and an arrow insisting otherwise is worse than no arrow at all.
 The direction is worked out on screen now: handle angle minus the box's
@@ -143,7 +143,7 @@ def test_dragging_just_outside_a_corner_turns_the_box(framed):
         pg.mouse.move(cx + rr * math.cos(a), cy + rr * math.sin(a), steps=6)
         pg.mouse.up()
         pg.wait_for_timeout(200)
-        # a quarter turn of the pointer is a quarter turn of the box —
+        # a quarter turn of the pointer is a quarter turn of the box -
         # relative to the grab, so touching a corner moves nothing by itself
         assert 80 <= abs(_rot(pg)) <= 100, \
             f"corner {which} turned the box by {_rot(pg)}, not a quarter"

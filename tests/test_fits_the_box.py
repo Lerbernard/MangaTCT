@@ -10,7 +10,7 @@ Both had the same fault from opposite ends.
 running into artwork. That kept the English off the drawing, which was the bug
 before it, but a caption on an empty panel could reach nearly twice its own box
 in both directions and the typesetting grew to fill it. The paper it gets is now
-a MARGIN round the writing — a quarter of the box on each side — rather than
+a MARGIN round the writing - a quarter of the box on each side - rather than
 everything going spare.
 
 **A sound effect** is laid out along the axis the Japanese ran on, and Japanese
@@ -20,7 +20,7 @@ of each side, straight over the artwork. It is now shrunk until it fits, by the
 same margin.
 
 The clamp only makes letters SMALLER. It never moves an effect and never
-straightens one — `enforce_bounds` would do both, which is why sound effects
+straightens one - `enforce_bounds` would do both, which is why sound effects
 have always been kept out of it.
 """
 import numpy as np

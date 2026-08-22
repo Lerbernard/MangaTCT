@@ -3,7 +3,7 @@
 lee, on renumbering a box and on deleting one: *"it works but very slow"*.
 
 Both of those go through `POST /api/page/<i>/region/<id>`, and so does every
-arrow press, every kind change and every typesetting nudge — and every one of
+arrow press, every kind change and every typesetting nudge - and every one of
 them serialised the WHOLE project and wrote it out before the answer went back
 to the browser. On a real chapter that is half a megabyte of JSON. Measured
 here: **35ms per press** on a plain local disk, and a project folder that is
@@ -17,7 +17,7 @@ read stale; the file is only for the next time the app starts.
 
 Two things had to be true before that was safe:
 
-* the write is **atomic** — a crash halfway through a direct write over
+* the write is **atomic** - a crash halfway through a direct write over
   `project.json` is not a lost edit, it is a lost chapter;
 * the flag saying "there is something to write" is kept under its own small
   lock, so marking an edit never waits behind a write that is already running.
@@ -93,7 +93,7 @@ def test_the_last_word_wins(proj):
 def test_an_edit_made_while_it_is_writing_is_not_swallowed(proj):
     """The flag is cleared BEFORE the state is taken, so an edit that arrives
     while the write is running marks it again and is written next time round.
-    Cleared afterwards, that edit is silently dropped — the write it was racing
+    Cleared afterwards, that edit is silently dropped - the write it was racing
     did not contain it, and nothing says there is anything left to do.
 
     So: make an edit from another thread in the middle of a save, and then ask
@@ -181,7 +181,7 @@ def test_a_failed_save_is_tried_again(proj):
     """A background save that dies must not leave the edit unwritten for ever.
 
     The failure has to happen INSIDE the write, after the flag has been
-    cleared — a save that falls over before it starts leaves the flag set and
+    cleared - a save that falls over before it starts leaves the flag set and
     would be retried by accident. This is the case that needs the re-mark: the
     project has said "nothing to write", and then the write did not happen.
     """
@@ -219,7 +219,7 @@ def test_a_failed_save_is_tried_again(proj):
 
 def test_marking_an_edit_never_waits_for_a_write(proj):
     """The flag has its own lock. Sharing the write's lock meant one press in
-    every handful paid the full cost of the write it happened to land on — the
+    every handful paid the full cost of the write it happened to land on - the
     exact stall this whole change is about, back once in a while instead of
     every time.
 

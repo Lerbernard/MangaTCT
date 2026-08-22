@@ -1,7 +1,7 @@
 """Open the operating system's own folder chooser.
 
 The editor runs a local server, so the machine showing the browser is the
-machine holding the files — a native dialog is both possible and much nicer
+machine holding the files - a native dialog is both possible and much nicer
 than typing a path.
 
 Everything here runs in a subprocess. Tk has to own the main thread on macOS,
@@ -100,7 +100,7 @@ def pick_project(start: str = "", save: bool = False) -> str:
 
     Saving asks for a name that does NOT have to exist yet, so unlike
     `pick_directory` there is nothing to check afterwards but that we were
-    given something. The extension is added if the person did not type it —
+    given something. The extension is added if the person did not type it -
     a project file called `chapter 3` is a project file nothing will open.
     """
     for fn in _order():
@@ -125,7 +125,7 @@ def _wear_our_own_icon(root) -> None:
     """Put the MangaTCT mark on the dialog.
 
     Tk stamps its own blue feather on any window that does not set one, so
-    "Save the project as" opened wearing somebody else's logo — which lee
+    "Save the project as" opened wearing somebody else's logo - which lee
     noticed and photographed. It is only the title bar and the taskbar, and
     it is the only place in the app where the app is not the thing on screen.
 

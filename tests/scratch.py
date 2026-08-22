@@ -1,7 +1,7 @@
 """A scratch folder name that belongs to this worker and nobody else.
 
 The suite runs under `-n 2`, and xdist hands out individual TESTS, not whole
-files — so two tests written in the same file run at the same moment in two
+files - so two tests written in the same file run at the same moment in two
 processes. Every one of them that built its working folder from a fixed name
 was sharing that folder with the other: the first to finish deleted it while
 the second was still reading, and the run died with `FileNotFoundError` on a

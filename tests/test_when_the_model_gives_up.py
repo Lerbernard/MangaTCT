@@ -10,12 +10,12 @@ A model that cannot reconstruct an area sometimes hands back a flat patch of
 one colour. That is not a cleaned page, it is an erased one, and it was being
 accepted and composited exactly as though it were a good answer.
 
-The test cannot be "is the answer flat" — inside a plain bubble the right
+The test cannot be "is the answer flat" - inside a plain bubble the right
 answer IS flat. It has to be "is the answer flat where its surroundings are
 not". So both are measured: the detail in a ring just outside the mask, on the
 page as it was handed to the model, and the detail inside the mask in what came
 back. Flat against hatching, tone or line work goes to the local fill instead,
-which at least copies from the page rather than inventing a blank — and the
+which at least copies from the page rather than inventing a blank - and the
 report says "left to the local fill because the AI would not run", which is the
 truth about what happened.
 """
@@ -95,7 +95,7 @@ def test_a_real_answer_over_the_same_artwork_is_kept():
 
 
 def test_a_blank_answer_on_plain_paper_is_fine():
-    """Flat on flat is not giving up, it is the right answer — a bubble
+    """Flat on flat is not giving up, it is the right answer - a bubble
     interior is one colour and so is a good fill of it."""
     page, r = _run(True, _white)
     assert page.clean_stats.get("neural") == 1, page.clean_stats
@@ -128,7 +128,7 @@ def test_the_two_numbers_are_the_ring_and_the_answer():
 
 
 def test_nothing_to_compare_against_is_not_giving_up():
-    """A mask with no ring around it — one that fills its own window — cannot
+    """A mask with no ring around it - one that fills its own window - cannot
     be judged, and an unjudgeable answer is accepted rather than thrown away."""
     busy = np.zeros((40, 40, 3), np.uint8)
     for y in range(0, 40, 6):

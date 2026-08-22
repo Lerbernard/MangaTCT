@@ -10,7 +10,7 @@ A Top up button on a screen is a Top up button on their screen.
 So the button exists and is behind `MANGATL_TEST_PURSE`, set on the machine
 the editor runs on. That is not a hole in the rule: whoever can set an
 environment variable there could edit the purse file with a text editor. And
-it tops up the LOCAL purse only — on an account it never draws at all, because
+it tops up the LOCAL purse only - on an account it never draws at all, because
 the balance lives behind a Cloud Function and the only thing that adds to it
 is a payment.
 """
@@ -70,7 +70,7 @@ def test_the_button_is_drawn_only_when_it_is_allowed():
 
 
 def test_the_route_it_presses_already_refuses_an_account():
-    """It always did — this only adds the button. The check is on the server
+    """It always did - this only adds the button. The check is on the server
     as well as in the drawing, because the drawing runs on their machine."""
     import inspect
 

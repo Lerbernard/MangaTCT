@@ -5,20 +5,20 @@ and both showed up as measured losses when lee read chapter 1 four ways.
 
 **The ellipsis.** The prompt said *"Write an ellipsis as three periods ..."*.
 That was written for Japanese. His chapter prints ``거, 취향 참….`` and
-``흐음….`` — an ellipsis glyph and then a full stop, which is ordinary Korean
-typesetting — and the read came back ``참...``: the stop gone and the ellipsis
+``흐음….`` - an ellipsis glyph and then a full stop, which is ordinary Korean
+typesetting - and the read came back ``참...``: the stop gone and the ellipsis
 spelled a way the page does not spell it. Over the chapter, the run that
 followed the instruction hardest wrote **8** ASCII ellipses and kept **2** of
 the printed ``….``; the run that ignored it wrote **0** and kept **8**.
 
 Three periods belong in the ENGLISH, where a comic font has to draw them.
-That rule lives in the translation and proofreading prompts and stays there —
+That rule lives in the translation and proofreading prompts and stays there -
 `test_the_english_still_gets_three_periods` is what stops somebody "making
 these consistent" and undoing it. The transcription is meant to be what is on
 the paper.
 
 **The line breaks.** Nothing asked for them. Reading a crop per box, page
-013's narration — printed as three lines — came back as one, and so did 049's
+013's narration - printed as three lines - came back as one, and so did 049's
 and 014's. A crop shows the whole box, so the break is right there in the
 picture; it was being flattened because no one said not to.
 
@@ -55,7 +55,7 @@ def test_and_told_that_the_stop_after_an_ellipsis_is_part_of_the_line():
 
 def test_the_long_vowel_mark_survived_the_edit():
     """It was in the same sentence as the ellipsis rule and is still wanted:
-    ー is a mark, not a dash, and a reader that writes — instead has changed
+    ー is a mark, not a dash, and a reader that writes - instead has changed
     the page."""
     assert "long-vowel mark is ー" in _ocr()
 
@@ -111,8 +111,8 @@ def test_it_is_still_one_prompt_per_source_language():
 
 def test_a_printed_ellipsis_is_not_mistaken_for_a_runaway():
     """A small win that comes free with it. `looks_like_garbage` flags seven of
-    the same character in a row, so ``음........`` — the ASCII spelling the old
-    rule produced for page 029 — was one dot away from being flagged. Spelled
+    the same character in a row, so ``음........`` - the ASCII spelling the old
+    rule produced for page 029 - was one dot away from being flagged. Spelled
     the way the page spells it, it is three characters and nowhere near."""
     from mangatl.models import TextRegion
     from mangatl.ocr import looks_like_garbage

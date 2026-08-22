@@ -5,7 +5,7 @@ touches: the Box types section in settings, the two menus on a box, and what
 happens to a page when a sub-type it is using is deleted out from under it.
 
 lee: *"the user shoud be abe to modify and dletect teh subcategories exampty
-for teh default one"* — so the default of each family has no × and no colour
+for teh default one"* - so the default of each family has no × and no colour
 to cycle, and everything else has both.
 """
 import shutil
@@ -87,7 +87,7 @@ def test_a_box_has_a_main_type_and_a_sub_type(ed):
         return {main:[...s[0].options].map(o=>o.text),
                 sub:[...s[1].options].map(o=>o.text),
                 mainNow:s[0].value, subNow:s[1].value};})()""")
-    assert got["main"] == ["Bubble text", "Outside text", "Sound effect"]
+    assert got["main"] == ["Bubble text", "Freefloat text", "Sound effect"]
     assert got["sub"][0] == "Regular speech"
     assert "Thought bubble" in got["sub"]
     assert got["mainNow"] == "bubble" and got["subNow"] == "bubble"
@@ -118,7 +118,7 @@ def test_one_two_three_are_the_families_and_nothing_else_is_a_key(ed):
     """lee: *"only 1,2,3 shud work to swith box types"*.
 
     It went up to 8, and 4 upwards picked a sub-type by POSITION out of
-    whatever family the box was already in — so 4 on a balloon and 4 on a sound
+    whatever family the box was already in - so 4 on a balloon and 4 on a sound
     effect were two different types, and nothing on screen numbered them. The
     three families are the three you can name and they are numbered the same
     way in the legend and in the Kind menu; sub-types are a menu away, where
@@ -157,7 +157,7 @@ def test_pressing_four_leaves_the_box_alone(ed):
     pg.wait_for_timeout(700)
     assert pg.evaluate("regions.find(r=>r.id===1).kind") == "sfx", \
         "1, 2 and 3 still have to work"
-    # A letter is not a number, and `+"q"` is NaN — which must read as "no
+    # A letter is not a number, and `+"q"` is NaN - which must read as "no
     # family", not as the first one.
     pg.keyboard.press("q")
     pg.wait_for_timeout(500)
@@ -169,7 +169,7 @@ def test_they_belong_to_the_translation_view(ed):
     """In the Image view those keys belong to painting and typesetting.
 
     Honest note: this passes with the view guard REMOVED as well, because the
-    selection does not survive into that view — so it pins the intent rather
+    selection does not survive into that view - so it pins the intent rather
     than discriminating. The guard stays because it is the thing that would
     matter the day a selection does survive; there is no mutant for it,
     because there is nothing yet for a mutant to change."""
@@ -191,7 +191,7 @@ def test_they_belong_to_the_translation_view(ed):
 def test_the_list_is_grouped_by_family_with_each_default_at_its_head(ed):
     pg, _p, errs = ed
     _settings(pg)
-    assert _labels(pg, ".ckfamh") == ["Bubble text", "Outside text",
+    assert _labels(pg, ".ckfamh") == ["Bubble text", "Freefloat text",
                                       "Sound effect"]
     heads = pg.evaluate("""[...document.querySelectorAll('.ckfam')]
         .map(g=>g.querySelector('.ckrow').textContent.trim())""")
@@ -209,7 +209,7 @@ def test_a_default_cannot_be_deleted_or_recoloured(ed):
     # The default's row DOES carry an ×, and it is deliberately not there to
     # see or to press: the row has to be the same width as one that can be
     # deleted or every row under it starts a button further along, which is
-    # what lee saw — *"line up"*. So what matters is that it cannot be used.
+    # what lee saw - *"line up"*. So what matters is that it cannot be used.
     got = pg.evaluate("""(()=>{const d=[...document.querySelectorAll('.ckrow.ckdef')];
         const live=r=>{const b=r.querySelector('button.danger');
           if(!b) return false;
@@ -316,7 +316,7 @@ def test_a_family_stops_offering_more_once_it_is_full(ed):
 
 def test_deleting_one_leaves_the_boxes_using_it_working(ed):
     """A box points at a sub-type by key. Delete the sub-type and the key is
-    still on the page — so it has to keep drawing, keep being cleaned, and
+    still on the page - so it has to keep drawing, keep being cleaned, and
     keep obeying the switch that puts its family away. Balloon is where being
     wrong costs least, and it is what an unknown kind falls back to."""
     pg, p, errs = ed

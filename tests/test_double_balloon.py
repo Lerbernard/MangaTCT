@@ -3,19 +3,19 @@
 lee's pages have balloons drawn as two ovals meeting at a waist: one speech,
 written down the first lobe and continued in the second. The detector hands
 that over as ONE region with ONE block of Japanese in it, so the translator
-returns one sentence and the fitter typeset it as one paragraph — straight
+returns one sentence and the fitter typeset it as one paragraph - straight
 through the pinch. Every line then has to clear the narrowest part of the
 shape, so the whole speech shrinks to fit a gap it was never meant to cross.
 That is why his double balloons came out tiny.
 
 A typesetter does the obvious thing: the first part of the sentence fills the
 first lobe, the rest fills the second, both at one size so it still reads as
-one voice. These tests pin that this happens WHENEVER the balloon has a waist —
+one voice. These tests pin that this happens WHENEVER the balloon has a waist -
 the shape decides, not the length of this particular sentence, so the same
-balloon always typesets the same way — that a balloon with no waist is left
+balloon always typesets the same way - that a balloon with no waist is left
 alone, that the one thing still able to refuse a division is type too small to
-read, that no word is split and none is dropped, and — the part lee filmed
-going wrong — that touching the block afterwards does not slide the second half
+read, that no word is split and none is dropped, and - the part lee filmed
+going wrong - that touching the block afterwards does not slide the second half
 back into the waist.
 
 The division is read off the SHAPE at typesetting time, not at detection time,
@@ -76,7 +76,7 @@ def _stacked(rx=150, ry=80, dy=70):
 
 
 def _side_by_side(rx=80, ry=100, dx=75):
-    """Two ovals meeting side by side — a waist, but a VERTICAL one.
+    """Two ovals meeting side by side - a waist, but a VERTICAL one.
 
     Horizontal lines are not squeezed by it: across the middle of the pair the
     shape is one wide opening, so typesetting the speech as one paragraph is
@@ -146,7 +146,7 @@ def test_it_typesets_bigger_than_typesetting_it_across_the_waist(divided):
     """lee's whole complaint: "the split bubbles should show both the text but
     bigger". On a STACKED pair the waist is a horizontal pinch every line of a
     merged paragraph has to clear, so dividing is both righter and bigger. It
-    is no longer the reason the division is taken — see the test below — but it
+    is no longer the reason the division is taken - see the test below - but it
     is still what the reader gets on the shape that hurts most."""
     r, cfg, bub, lay = divided
     merged = _best(TEXT, bub > 0, cfg)
@@ -162,7 +162,7 @@ def test_a_waist_divides_even_when_merging_would_typeset_bigger():
     each lobe. The old rule kept the bigger one, and that is what lee has been
     sending back: the same balloon divides under a long line and merges under a
     short one, because "does it typeset bigger" is a question about the sentence.
-    A reader cannot see any reason for the difference — they just see two lobes
+    A reader cannot see any reason for the difference - they just see two lobes
     with one paragraph smeared across both. A waist is two places to put words,
     so words go in both, every time.
     """
@@ -174,7 +174,7 @@ def test_a_waist_divides_even_when_merging_would_typeset_bigger():
     merged = _best(TEXT, bub > 0, cfg)
     assert merged is not None
     assert lay.fixed, "a waist must divide"
-    # It costs size here, and it is taken anyway — that is the whole point.
+    # It costs size here, and it is taken anyway - that is the whole point.
     assert lay.font_size < merged.font_size, (lay.font_size, merged.font_size)
     assert lay.font_size >= cfg.min_font, lay.font_size
     xs = [x for x, _ in lay.line_origins]
@@ -185,7 +185,7 @@ def test_a_waist_divides_even_when_merging_would_typeset_bigger():
 def test_a_division_too_small_to_read_is_refused():
     """The one thing still allowed to overrule the waist: readability.
 
-    Run together is bad. Too small to read is worse — it is the failure lee
+    Run together is bad. Too small to read is worse - it is the failure lee
     started this whole thread with. So when dividing drops the type under the
     floor a human set while merging clears it, merging wins. Same balloon and
     same sentence as the test above; only the floor has moved.
@@ -229,7 +229,7 @@ def test_both_halves_stay_inside_the_balloon(divided):
 
 
 def test_the_two_halves_are_typeset_at_one_size(divided):
-    """One voice, one size — a speech that changes size at the waist reads as
+    """One voice, one size - a speech that changes size at the waist reads as
     two people talking."""
     r, cfg, bub, lay = divided
     assert isinstance(lay.font_size, int)
@@ -284,7 +284,7 @@ def test_selecting_a_divided_speech_puts_it_back_exactly(divided):
 
 def test_retyping_the_speech_gives_the_box_back():
     """Once the words are not the words that were divided, the stored
-    positions mean nothing — it becomes an ordinary block in an ordinary box
+    positions mean nothing - it becomes an ordinary block in an ordinary box
     rather than keeping stale coordinates."""
     bub, ink = _stacked()
     r = _region(bub, ink)
@@ -323,7 +323,7 @@ def test_the_saved_page_records_the_division(divided):
 def test_the_preview_the_person_looks_at_says_it_is_divided():
     """The preview is the picture on screen, and it is built by a different
     path from the export. If it drops the flag, the browser fills one box with
-    the lines and the second half slides into the waist — on screen only,
+    the lines and the second half slides into the waist - on screen only,
     which is the most confusing way for it to be wrong.
     """
     import shutil

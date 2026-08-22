@@ -2,7 +2,7 @@
 layer.
 
 lee, with a screenshot of a black balloon on a real page: *"teh clesning is
-bad"* — the rectangle of the region came back visibly grainier than the smooth
+bad"* - the rectangle of the region came back visibly grainier than the smooth
 black around it, with faint residue of the Japanese still in it.
 
 `_sweep_ghosts` gives a region the model drew one more go with a wider mask,
@@ -10,13 +10,13 @@ because the usual reason a ghost survives is that a sliver of the stroke was
 never inside the mask. That is right. What was wrong is what the model was
 shown: `_run_neural` reads `out`, and by the time the sweep runs `out` already
 holds the first answer. So the model was asked to redraw its own
-reconstruction — two stacked generations, each adding its own noise floor,
+reconstruction - two stacked generations, each adding its own noise floor,
 which over a flat black fill is exactly a grainy rectangle. And the fence
 trims the plate to the boxes without a ramp, so the difference ends as a crisp
 rectangular edge rather than fading out.
 
 Handed the original page, the retry answers the same question it was asked the
-first time, with more room. Only the part under the FIRST mask goes back —
+first time, with more room. Only the part under the FIRST mask goes back -
 everything else in the context window may be a neighbour's finished cleaning.
 """
 import numpy as np
@@ -33,7 +33,7 @@ H, W = 260, 220
 
 
 def _black_balloon():
-    """A flat black balloon with white typesetting in it — the hard case."""
+    """A flat black balloon with white typesetting in it - the hard case."""
     page = np.full((H, W), 245, np.uint8)
     cv2.ellipse(page, (110, 130), (95, 105), 0, 0, 360, 8, -1)
     p = Image.fromarray(page)
@@ -53,7 +53,7 @@ def _black_balloon():
 
 def _half_hearted(seen, seed=1):
     """A cleaner that leaves half the typesetting standing, so the ghost sweep
-    always comes back for a second go — and records what it was shown."""
+    always comes back for a second go - and records what it was shown."""
     rng = np.random.default_rng(seed)
 
     def fake(sub, mask):
@@ -89,7 +89,7 @@ def test_the_sweep_really_does_come_back():
 
 def test_the_retry_is_shown_the_page_and_not_the_first_answer():
     """The fix, stated as what the model receives. The two calls see exactly
-    the same pixels — the second is a fresh attempt at the original problem,
+    the same pixels - the second is a fresh attempt at the original problem,
     not a pass over a reconstruction."""
     _page, _tm, _r, seen = _run()
     assert len(seen) == 2
@@ -98,7 +98,7 @@ def test_the_retry_is_shown_the_page_and_not_the_first_answer():
 
 
 def test_the_typesetting_is_back_under_the_mask_for_the_retry():
-    """Not just "the same" — the same as the PAGE. A retry shown a blank where
+    """Not just "the same" - the same as the PAGE. A retry shown a blank where
     the words were has nothing to work from and no reason to do better."""
     page, tm, _r, seen = _run()
     assert len(seen) == 2
@@ -114,7 +114,7 @@ def test_only_this_regions_own_mask_goes_back_to_the_page():
     Everywhere else in the context window it is shown the plate, because
     everywhere else may be another box's finished cleaning and putting the
     page back over that would undo a neighbour's work. Asserted straight at
-    `_run_neural` — one call, two pictures, and every pixel accounted for."""
+    `_run_neural` - one call, two pictures, and every pixel accounted for."""
     plate = np.full((120, 140, 3), 90, np.uint8)      # "already cleaned"
     original = np.full((120, 140, 3), 200, np.uint8)  # the page as it arrived
     win = (slice(30, 80), slice(40, 100))

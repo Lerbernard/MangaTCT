@@ -1,6 +1,6 @@
 /* Wiring test: the selection tools render in their own section of the tool
    panel, toggle like the paint tools do (mutually exclusive with them), the
-   keyboard shortcuts land, and deselect clears. Canvas 2d is stubbed —
+   keyboard shortcuts land, and deselect clears. Canvas 2d is stubbed -
    pixel work is covered by select_logic.test.js and the browser e2e.
 
    The tools are in tabbed sections now, so only one section's buttons are in
@@ -46,13 +46,13 @@ setTimeout(async ()=>{
        d.getElementById('selWandBtn')&&d.getElementById('selFillBtn')&&
        d.getElementById('xfBtn')&&d.getElementById('deselBtn'),
        'the Select & transform card renders all six buttons');
-    // The hint line under these tools is gone — lee: *"remove all the pop up
+    // The hint line under these tools is gone - lee: *"remove all the pop up
     // explaiantion / tips, make teh sorfware clean and prfesioanal"*.
     ok(d.getElementById('selTolR'), 'the tolerance slider is there');
     ok(!d.getElementById('selHint'), 'the hint line is gone');
 
     // Top-level `let` state lives in the shared global lexical scope, not on
-    // window — so every assertion here reads the DOM the tools drive.
+    // window - so every assertion here reads the DOM the tools drive.
     const lit=id=>d.getElementById(id).classList.contains('pri');
 
     w.toggleSelTool('rect');

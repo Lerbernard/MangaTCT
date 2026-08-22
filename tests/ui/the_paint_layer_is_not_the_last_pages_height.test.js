@@ -5,9 +5,9 @@
    not being centered"*.
 
    Measured in a real browser rather than reasoned about. Every state was
-   centred to the pixel — first paint, turning back to a page already seen, the
+   centred to the pixel - first paint, turning back to a page already seen, the
    Find text dialog open, Fit page, 2x, hiding the side panel, a page wider
-   than the pane — except one:
+   than the pane - except one:
 
      turned to the SHORT page   top −599  bottom 627   img 629x821 in 1002x849
 
@@ -15,7 +15,7 @@
    with a CSS width and `height:auto`. `auto` takes the height from the
    canvas's own BITMAP aspect, and that bitmap is only resized when somebody
    paints. So on the page after a tall one it was still 690 by 3000, and 629
-   CSS pixels wide at that aspect is 2735 tall — a 2735-tall invisible column
+   CSS pixels wide at that aspect is 2735 tall - a 2735-tall invisible column
    in the stage behind an 821-tall picture.
 
    `centerPage` centres the STAGE. So it put the middle of that empty column in
@@ -86,7 +86,7 @@ setTimeout(()=>{
     const gotH=parseFloat(pc.style.height);
     if(Math.abs(gotH-wantH)>1)
       throw new Error('paint layer drawn '+gotH+'px tall, wanted '+
-                      Math.round(wantH)+' — the picture is '+drawnW+
+                      Math.round(wantH)+' - the picture is '+drawnW+
                       ' by '+Math.round(wantH));
     if(Math.abs(parseFloat(pc.style.width)-drawnW)>1)
       throw new Error('paint layer is '+pc.style.width+' wide, picture is '+
@@ -99,7 +99,7 @@ setTimeout(()=>{
       throw new Error('the paint layer did not follow the zoom');
 
     /* And with nothing from the server yet, the element is still the
-       fallback — a page opened before its record arrives must still draw. */
+       fallback - a page opened before its record arrives must still draw. */
     set('zoom=1; pageW=0; pageH=0');
     elementStillShows(600,1200);
     set('fitZoom='+get('fitScale()'));

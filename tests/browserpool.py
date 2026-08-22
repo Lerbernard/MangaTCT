@@ -9,7 +9,7 @@ Every browser test used to open its own browser:
 A launch is around half a second of process start plus the driver handshake,
 and on a loaded machine the setup for a single test was measured at seven.
 Times the several hundred browser tests in here, that is most of the wall
-clock of a full run — spent starting the same program over and over.
+clock of a full run - spent starting the same program over and over.
 
 **What is shared is the browser process. What is not shared is anything a
 test can see.** `new_page` on a Playwright browser makes its own context: its
@@ -19,7 +19,7 @@ different profiles. `session()` closes every context a test opened, so a test
 that leaves a page behind does not leave it for the next one.
 
 lee: *"can you format the test so that only part of teh software that chnaged
-gets tested and then maybe at the end of the day you do a full test"* — this
+gets tested and then maybe at the end of the day you do a full test"* - this
 is the other half of that, the half that makes the full run cheap enough to
 keep doing.
 """
@@ -35,7 +35,7 @@ _BR = None
 def browser():
     """The process's browser, started on first use.
 
-    Skips — rather than fails — when Chromium is not installed, which is what
+    Skips - rather than fails - when Chromium is not installed, which is what
     every one of these tests did for itself before.
     """
     global _PW, _BR
@@ -54,7 +54,7 @@ def browser():
 # What the editor has to have done before a test can ask it anything: the
 # project fetched, and the page picture decoded. Measured on this machine at
 # ~250ms from `goto`, against the flat 1200–2000ms every test used to sleep
-# instead — there was nothing to wait FOR when they were written, so they
+# instead - there was nothing to wait FOR when they were written, so they
 # waited long enough and moved on. Three quarters of a full run was that.
 READY = """() => {
   const i = document.getElementById('img');
@@ -99,7 +99,7 @@ def ready(pg, timeout=30000):
 
 
 def settled(pg):
-    """Two frames — long enough for whatever was just asked for to be drawn,
+    """Two frames - long enough for whatever was just asked for to be drawn,
     and no longer. Everything in this editor redraws on the next frame."""
     pg.evaluate("() => new Promise(r => requestAnimationFrame("
                 "() => requestAnimationFrame(r)))")
@@ -133,8 +133,8 @@ def at_rest(pg, expr, timeout=5000):
 def available():
     """Whether there is a Chromium to be had, without skipping on the spot.
 
-    A few of these tests have their own tidying to do before they give up —
-    a server thread to stop, a module global to put back — and they cannot do
+    A few of these tests have their own tidying to do before they give up -
+    a server thread to stop, a module global to put back - and they cannot do
     it from inside the `with` that never opened.
     """
     try:

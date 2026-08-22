@@ -3,7 +3,7 @@
 
 The mark itself lives in `static/favicon.svg` and is inlined in the top-left
 of the editor. Tk cannot read SVG and Windows wants an `.ico`, so the same
-outline is drawn here with PIL and written out beside it — which is how the
+outline is drawn here with PIL and written out beside it - which is how the
 Save-as dialog stops wearing Tk's own blue feather.
 
     python tools/make_icon.py
@@ -45,8 +45,8 @@ def _gradient(size: int) -> Image.Image:
 
 
 # How much of the square the mark fills. An icon is looked at at 16px in a
-# title bar, where the SVG's own margin — it sits in x 7..57 of a 64 box, with
-# room round it for the wordmark beside it — is margin nobody can afford.
+# title bar, where the SVG's own margin - it sits in x 7..57 of a 64 box, with
+# room round it for the wordmark beside it - is margin nobody can afford.
 FILL = 0.94
 
 

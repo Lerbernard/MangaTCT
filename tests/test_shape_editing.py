@@ -5,15 +5,15 @@ properly and mske teh shapes movable and allwo chnage color, add a shap tab"*.
 
 Before this, a shape was a one-way trip. You dragged it, and that was where it
 lived: the only way to move it was the free transform, which RASTERISED the
-layer first — it rendered the rectangle to pixels, transformed the pixels and
+layer first - it rendered the rectangle to pixels, transformed the pixels and
 kept a flat patch. The rectangle stopped being a rectangle the first time you
 nudged it, and its colour, its line width and whether it was filled all went
 with it. Drawn one pixel out of place, or in the wrong colour, and the only fix
 was to delete it and draw it again.
 
 Now the transform has a second mode. When what is picked up is a shape, the
-same handles — drag to move, corners and edges to resize, just outside a corner
-to turn — drive the shape's own two points and an angle instead of a bitmap.
+same handles - drag to move, corners and edges to resize, just outside a corner
+to turn - drive the shape's own two points and an angle instead of a bitmap.
 Nothing is ever baked, so afterwards it is still `type:'shape'`, and the colour,
 the width and the fill are still there to change. The arrow (V) in the new
 Shapes section is what picks one up: click a shape on the page and it is in
@@ -84,7 +84,7 @@ def test_a_shape_is_moved_recoloured_and_still_a_shape(tmp_path):
             pg.wait_for_timeout(200)
             assert pg.evaluate("toolTab()") == "shapes"
             # The tools are in the toolbox down the left of the page now, one
-            # place and always on screen — lee: *"the tools are duplicated it
+            # place and always on screen - lee: *"the tools are duplicated it
             # shoud only be onteh side bar"*.
             assert pg.evaluate(
                 "['shrect','shcirc','shline'].every(k=>"
@@ -186,8 +186,8 @@ def test_a_shape_is_moved_recoloured_and_still_a_shape(tmp_path):
 def test_every_tool_in_the_panel_is_armed_and_used():
     """tests/ui/every_tool_works.test.js drives the real panel in jsdom: it
     opens each of the four sections, checks that a section shows only its own
-    tools, then arms every tool in turn and DRAGS with it — brush, the three
-    shapes, eraser, clone stamp, both healing brushes — and checks what each
+    tools, then arms every tool in turn and DRAGS with it - brush, the three
+    shapes, eraser, clone stamp, both healing brushes - and checks what each
     one left behind. Then the whole shape story: pick one up with the arrow,
     move it, resize it, turn it, put it down with Enter or throw the session
     away with Esc, recolour it, change its width, fill it, and round-trip it
@@ -225,7 +225,7 @@ def test_every_tool_in_the_panel_is_armed_and_used():
 def test_a_finished_patch_has_no_colour_to_change():
     """A heal, a clone or a transformed selection is pixels by the time it is a
     layer. Offering a colour well over one would be a control that does
-    nothing — `canRecolour` is the single place that draws the line, and the
+    nothing - `canRecolour` is the single place that draws the line, and the
     panel asks it rather than guessing from the label."""
     from pathlib import Path
     js = (PKG / "static" / "js"

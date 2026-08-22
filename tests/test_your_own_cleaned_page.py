@@ -3,7 +3,7 @@
 lee: *"if i uploade my own file it shoud exclude that page from cleaing and
 shoud alway use the uploadd page as a cleneed page"*.
 
-Two halves, and only the second half was ever true. The plate was used — but
+Two halves, and only the second half was ever true. The plate was used - but
 the page was still *cleaned*: pressing Clean threw the cached plate away, built
 a mask, ran the inpainter over every bubble and, with the hosted cleaner
 switched on, posted the page to it and waited on the network. Then it dropped
@@ -12,18 +12,18 @@ anyway. The picture was right and the bill was real.
 
 So the exclusion is now written down where cleaning is decided:
 
-* `do_clean` — the Clean step — returns before it drops anything, builds
+* `do_clean` - the Clean step - returns before it drops anything, builds
   anything or asks anyone anything. It still marks the page done, because a
   step that can never reach the end of its own list locks the step after it
   for ever.
-* `clean_page` — every other way a page gets built — takes the file as the
+* `clean_page` - every other way a page gets built - takes the file as the
   plate, as it already did.
 * the background warm-up treats the page as free, because reading a PNG is.
 * the per-bubble eyes disappear: they choose which bubbles the cleaner erases,
   and on this page the cleaner does not run.
 
 And "always": nothing downstream is allowed to put the Japanese back. The eye
-toggles, the flat fill, the model — none of them get a turn.
+toggles, the flat fill, the model - none of them get a turn.
 """
 import json
 import os
@@ -89,7 +89,7 @@ def _is_mine(plate):
 # ----------------------------------------------------- the page is excluded
 
 def test_the_clean_step_does_not_touch_a_page_you_cleaned_yourself(tmp_path):
-    """The heart of it. Nothing is inpainted, nothing is asked of anyone —
+    """The heart of it. Nothing is inpainted, nothing is asked of anyone -
     `do_clean` does not even materialize the page."""
     p = _project(str(tmp_path / "out"))
     _give_plate(p, 0)
@@ -148,8 +148,8 @@ def test_the_plate_on_disk_is_not_thrown_away(tmp_path):
 
 
 def test_it_still_counts_as_done(tmp_path):
-    """Otherwise the Clean step sits at 22/23 for ever and Typeset — which
-    waits on Clean finishing — is locked behind a page that will never be
+    """Otherwise the Clean step sits at 22/23 for ever and Typeset - which
+    waits on Clean finishing - is locked behind a page that will never be
     cleaned."""
     p = _project(str(tmp_path / "out"))
     _give_plate(p, 0)
@@ -180,7 +180,7 @@ def test_the_step_bar_counts_your_own_page():
 
 
 def test_a_recorded_plate_that_is_gone_is_not_a_plate(tmp_path):
-    """The file can be deleted from underneath the project — by a sync client,
+    """The file can be deleted from underneath the project - by a sync client,
     by hand. A dangling path must fall back to cleaning the page, not exclude
     it from cleaning and then have nothing to show."""
     p = _project(str(tmp_path / "out"))
@@ -222,7 +222,7 @@ def test_your_file_is_the_plate_everywhere_a_page_is_built(tmp_path):
 
 
 def test_a_closed_eye_does_not_put_the_japanese_back(tmp_path):
-    """`skip_clean` pastes the original pixels back over a bubble — over the
+    """`skip_clean` pastes the original pixels back over a bubble - over the
     automatic plate. Doing it to your plate would paint the raws' text on top
     of the page you cleaned by hand, which is the exact opposite of "always
     use the uploaded page"."""
@@ -315,7 +315,7 @@ def test_uploading_one_marks_that_page_cleaned():
 
 
 def test_going_back_to_automatic_makes_it_undone_again():
-    """It was never cleaned — it was excluded. Clearing the plate means there
+    """It was never cleaned - it was excluded. Clearing the plate means there
     is real work to do on the page again, and the step has to say so."""
     import base64
 

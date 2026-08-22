@@ -2,7 +2,7 @@
 
 The user should not have to trace a bubble. They drag a loose rectangle over
 it and we snap to the enclosing outline, exactly like the automatic detector
-does — falling back to the raw rectangle when there is no bubble to snap to
+does - falling back to the raw rectangle when there is no bubble to snap to
 (free-floating dialogue, sound effects, text over art).
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ def _fallback(img, x, y, w, h, kind, rid, exact: bool = False) -> TextRegion:
     `exact` keeps the rectangle as the region's own box. Without it the box is
     pulled in to the ink inside the rectangle, which is right when a rectangle
     is a rough gesture at some writing and wrong when the rectangle IS the
-    answer — a box the user just dragged to the size they wanted. Letting go of
+    answer - a box the user just dragged to the size they wanted. Letting go of
     a resize and watching the box spring back onto the letters was this.
     """
     H, W = img.shape[:2]
@@ -65,7 +65,7 @@ def _snap_at_pad(img, x, y, w, h, pad, mode="outline"):
     """Try to find the enclosure around the drag using a window of `pad`.
 
     Returns the outer contour in page coordinates, or None if the component
-    containing the drag runs off the window — which means the window is still
+    containing the drag runs off the window - which means the window is still
     inside the bubble and we have to look further out.
     """
     H, W = img.shape[:2]
@@ -120,7 +120,7 @@ def _snap_at_pad(img, x, y, w, h, pad, mode="outline"):
 def tighten_to_text(page: Page, region: TextRegion, pad: int = 6) -> TextRegion:
     """Shrink a region down to the typesetting it contains.
 
-    Finding the text means finding the bubble first — glyphs routinely touch
+    Finding the text means finding the bubble first - glyphs routinely touch
     the outline, and at any single brightness threshold the interior tends to
     merge with the page around it. The snap path already solves that, and the
     region it returns carries the glyph bounds in `bbox`, so tightening is
@@ -155,7 +155,7 @@ def region_from_box(
     """Build a region from a user's rectangle.
 
     With snap=True we look for the bubble outline enclosing the rectangle.
-    With snap=False the rectangle is used exactly as drawn — which is what a
+    With snap=False the rectangle is used exactly as drawn - which is what a
     deliberate move or resize needs, since re-snapping there would just undo
     the edit.
     """
@@ -180,7 +180,7 @@ def region_from_box(
             return tighten_to_text(page, best)
 
     if not snap or kind != "bubble":
-        # snap=False is the deliberate-edit path — a move, a resize, or "Box
+        # snap=False is the deliberate-edit path - a move, a resize, or "Box
         # as-is". The rectangle handed in is the whole of the answer, so it is
         # kept to the pixel. Snapping being off never meant "shrink it onto the
         # typesets instead", which is what it used to do.
@@ -194,7 +194,7 @@ def region_from_box(
     # dark border; "white" finds a bright blob, which is what works when the
     # border is broken or the bubble is borderless.
     size = max(w, h)
-    # The window must be able to outgrow the BUBBLE, not just the drag — a
+    # The window must be able to outgrow the BUBBLE, not just the drag - a
     # small mark dragged inside a big bubble used to run out of pads and
     # silently fall back to the raw rectangle. The leak/containment checks
     # below make the larger windows safe.

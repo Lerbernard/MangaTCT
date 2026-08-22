@@ -8,7 +8,7 @@ chapter that is open, so the next change is measured instead of guessed:
     python tools/why_missed.py some/page.png  # or a file, if you have one
 
 With no file it asks the PROJECT where its pages are rather than guessing at a
-folder. A re-cut webtoon does not live in `out/input` — when the chapter came
+folder. A re-cut webtoon does not live in `out/input` - when the chapter came
 from somebody else's folder the pages are written to `out/strip` instead, and
 "cannot be read" is what you get for guessing.
 
@@ -16,16 +16,16 @@ from somebody else's folder the pages are written to `out/strip` instead, and
 
 What it prints, per page:
 
-* **blocks** — what the model's box head proposed, at four confidences. If the
+* **blocks** - what the model's box head proposed, at four confidences. If the
   count is 0 at 0.05, the box head cannot see the effect at all and no
   threshold will help.
-* **mask** — how much of the page the segmentation mask claims, at four floors.
+* **mask** - how much of the page the segmentation mask claims, at four floors.
   This is what the coverage pass has to work with. If the mask does not cover a
   sound effect, nothing downstream can find it.
-* **leftover marks** — the ink the box head did NOT claim, biggest first, with
+* **leftover marks** - the ink the box head did NOT claim, biggest first, with
   each mark's size and how much ink it carries. These are the pieces the
   coverage pass tries to group.
-* **the gates** — for every pair of leftover marks that is CLOSE to joining,
+* **the gates** - for every pair of leftover marks that is CLOSE to joining,
   the sideways gap, the vertical gap, and both as multiples of the smaller
   mark. That is the exact number `join_x` and `join_y` are compared against, so
   a pair that should have joined and did not is right there with its answer.

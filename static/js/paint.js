@@ -1,4 +1,4 @@
-/* paint.js — Paint engine: clean toggle, brush / heal / clone-stamp tools, stroke capture, brush tips, layer list.
+/* paint.js - Paint engine: clean toggle, brush / heal / clone-stamp tools, stroke capture, brush tips, layer list.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -7,20 +7,20 @@
 let brush=false, painting=null, picking=false, eraser=false;
 /* Shapes: a rectangle, an ellipse or a straight line, drawn as an ordinary
    paint layer so everything that already works for a brush stroke works for
-   them too — the layer list, the eye, delete, undo, the selection fence, the
+   them too - the layer list, the eye, delete, undo, the selection fence, the
    saved overlay and therefore the exported page. `shapeKind` is which one is
    armed; `shapeFill` says filled rather than outlined. */
 let shapeKind=null, shapeFill=false;
 /* ...and one more shape tool that draws nothing: `shapeEdit` is the arrow.
    With it armed, clicking a shape on the page picks it up and puts the free
-   transform round it — drag to move, corners and edges to resize, just
+   transform round it - drag to move, corners and edges to resize, just
    outside a corner to turn. lee: *"mske teh shapes movable"*. A shape edited
    this way stays a SHAPE: only its two points and its angle change, so its
    colour, width and fill are still yours to change afterwards. Transforming
-   it as pixels — which is what picking it in the layer list and pressing T
-   used to do — froze it into a flat patch and took all of that away. */
+   it as pixels - which is what picking it in the layer list and pressing T
+   used to do - froze it into a flat patch and took all of that away. */
 let shapeEdit=false;
-/* Is any paint tool armed? Asked in five files — for the canvas's pointer
+/* Is any paint tool armed? Asked in five files - for the canvas's pointer
    events, for the class that stops region boxes swallowing the click, for the
    selection canvas, and by the typesetting editor, which must not open a text
    box mid-stroke. It was written out longhand in each of them, which is
@@ -45,34 +45,6 @@ function toggleGroupEye(which){
   repaintAll(); renderLayers();
 }
 
-/* Read this box's writing against its own local background instead of the
-   fixed ink levels — for gold text, or a see-through bubble, where the
-   ordinary reading describes the BACKGROUND and not the words.
-
-   One box at a time, deliberately: every attempt to fix gold for the whole
-   chapter moved something else. See `inpaint.focus_mask`. */
-async function toggleFocus(id){
-  const r=regions.find(x=>x.id===id); if(!r) return;
-  if(toggleFocus._busy) return;
-  toggleFocus._busy=true;
-  const next=!r.focus;
-  r.focus=next; renderList();
-  try{
-    const j=await api(`/api/page/${cur}/region/${id}`,'POST',{focus:next});
-    if(j&&j.error) throw new Error(j.error);
-    if(j&&j.region&&!!j.region.focus!==next){
-      throw new Error('the server ignored it — restart the editor from the '+
-                      'new zip and hard-refresh (Ctrl+Shift+R)');
-    }
-    record('clean', `Region ${(r.order??0)+1}: focus clean turned ${next?'on':'off'}`,
-      async ()=>{ await api(`/api/page/${cur}/region/${id}`,'POST',{focus:!next});
-                  showPage(cur); });
-    await showPage(cur);
-  }catch(e){
-    r.focus=!next; renderList();
-    toast('Could not change the cleaning: '+e.message);
-  }finally{ toggleFocus._busy=false; }
-}
 
 async function toggleClean(id){
   const r=regions.find(x=>x.id===id); if(!r) return;
@@ -84,9 +56,9 @@ async function toggleClean(id){
     const j=await api(`/api/page/${cur}/region/${id}`,'POST',{skip_clean:next});
     if(j&&j.error){ throw new Error(j.error); }
     // If the server echoes a different value than we sent, the running server
-    // predates this feature — say so instead of flipping back silently.
+    // predates this feature - say so instead of flipping back silently.
     if(j&&j.region&&!!j.region.skip_clean!==next){
-      throw new Error('the server ignored it — restart the editor from the '+
+      throw new Error('the server ignored it - restart the editor from the '+
                       'new zip and hard-refresh (Ctrl+Shift+R)');
     }
     record('clean', `Region ${(r.order??0)+1}: cleaning turned ${next?'off':'on'}`,
@@ -100,14 +72,14 @@ async function toggleClean(id){
 }
 
 
-/* Panel controls only exist while their panel is rendered — the typesetting
+/* Panel controls only exist while their panel is rendered - the typesetting
    panel replaces them. brushState (picker.js) always holds the live values,
    so every read goes through these, never straight at the DOM. */
 function bSz(){ const el=$('brushSz'); return el? +el.value : brushState.sz; }
 function bCol(){ const el=$('brushCol'); return el? el.value : brushState.col; }
 
 /* One shape tool with three shapes, so arming one puts the others away and
-   clicking the armed one again disarms it — the same feel as the brush. */
+   clicking the armed one again disarms it - the same feel as the brush. */
 function toggleShape(kind){
   shapeKind = (shapeKind===kind) ? null : kind;
   if(shapeKind) disarmTools('shape');
@@ -150,7 +122,7 @@ function toggleShapeEdit(on){
     const bc=$('brushCursor'); if(bc) bc.style.display='none';
     if(typeof selEnsureHandlers==='function') selEnsureHandlers();
     toast(shapes().length
-      ? 'Click a shape to pick it up — drag to move, corners resize, just '+
+      ? 'Click a shape to pick it up - drag to move, corners resize, just '+
         'outside a corner turns it. Enter or Esc lets go.'
       : 'Draw a rectangle, an ellipse or a line first, then this moves it.');
   }
@@ -169,7 +141,7 @@ function segDist(p,a,b){
   return Math.hypot(p.x-(a.x+vx*t), p.y-(a.y+vy*t));
 }
 
-/* Which shape is under the page point — the TOPMOST one, because that is the
+/* Which shape is under the page point - the TOPMOST one, because that is the
    one you can see there. Hidden shapes cannot be picked: they are not on the
    page to be clicked on. */
 function shapeAt(p){
@@ -223,7 +195,7 @@ let stamp=false, cloneSrc=null, cloneOff=null, heal=false;
    which REDRAWS what was underneath.
 
    There were two of these. The other one rebuilt the spot by copying real
-   pixels in from its surroundings — instant, offline, exact on flat paper and
+   pixels in from its surroundings - instant, offline, exact on flat paper and
    on screentone, and unable to invent a single line of artwork that was not
    already somewhere nearby. On the pages lee actually retouches, that is the
    whole job, and he said so with the brush in his hand: *"remoev teh regualr
@@ -240,7 +212,7 @@ function toggleHeal(on){
     : (brush||stamp||heal||eraser) ? 'none' : '';
   if(!brush&&!heal&&!eraser) $('brushCursor')&&($('brushCursor').style.display='none');
   paintToolUI();
-  if(heal) toast('Paint over a spot — the AI cleaner redraws what was underneath.');
+  if(heal) toast('Paint over a spot - the AI cleaner redraws what was underneath.');
 }
 function toggleStamp(on){
   stamp = (on===undefined) ? !stamp : !!on;
@@ -258,7 +230,7 @@ function toggleStamp(on){
   paintToolUI();
 }
 /* ---- eraser ----
-   Erases paint — strokes, fills, patches — never the page itself. Each pass
+   Erases paint - strokes, fills, patches - never the page itself. Each pass
    is a layer of its own (undoable, hideable, reorderable): it erases only
    what sits BELOW it in the layer stack, exactly like a Photoshop erase on
    a merged group. */
@@ -291,8 +263,8 @@ function cloneMark(x,y){
 function hideCloneMark(){ const m=$('cloneMark'); if(m) m.style.display='none'; }
 
 /* Two things follow the pointer while the stamp is armed: a brush-sized
-   ring right under it (where paint will land), and a loupe offset above —
-   styled like the colour picker's — showing the source pixels magnified. */
+   ring right under it (where paint will land), and a loupe offset above -
+   styled like the colour picker's - showing the source pixels magnified. */
 let clonePrevSnap=null;
 function refreshCloneSnap(){ clonePrevSnap = stamp ? cloneSnapshot() : null; }
 function cloneHover(e){
@@ -335,7 +307,7 @@ function hideClonePrev(){
   const r=$('cloneRing'); if(r) r.style.display='none';
 }
 function cloneSnapshot(){
-  // What the page looks like right now — plate plus every stroke so far —
+  // What the page looks like right now - plate plus every stroke so far -
   // frozen, so a stroke can't clone from itself while it is being drawn.
   const img=$('img'), c=document.createElement('canvas');
   c.width=img.naturalWidth; c.height=img.naturalHeight;
@@ -348,11 +320,11 @@ function cloneSnapshot(){
 /* Everything you can see on the page, in one canvas: the plate, the paint
    under the typesetting, and the paint OVER it.
 
-   `cloneSnapshot` is deliberately only the first two — a clone stamp or a
+   `cloneSnapshot` is deliberately only the first two - a clone stamp or a
    heal reads from what is beneath the text, never through it. The free
    transform is the opposite case: it picks up what is inside a selection, and
    what is inside a selection is whatever is drawn there. Anything on the over
-   band — a shape drawn on top of the typesetting, a highlight — was left
+   band - a shape drawn on top of the typesetting, a highlight - was left
    standing where it was while the rest of the selection moved off without it.
    lee: *"the fre tansfor too shoude be able to move everything when i slect
    it"*. The typesetting itself is NOT baked in: it is drawn by its own overlay
@@ -380,7 +352,7 @@ function stopBrush(){ brush=false; stamp=false; heal=false; picking=false;
 
 /* The canvas for paint that sits ABOVE the typesetting. The ordinary one is at
    z-index 18, under the text overlay at 22; this is at 23. Two canvases is the
-   whole of the two-band model on screen — a layer is drawn on one or the
+   whole of the two-band model on screen - a layer is drawn on one or the
    other. lee: *"i shoud be able to ... move other layers above the text
    folder"*. */
 function ensureOverCanvas(){
@@ -414,14 +386,14 @@ function ensureCanvas(){
     c.addEventListener('mousemove',cloneHover);
     c.addEventListener('mouseleave',hideClonePrev);
     window.addEventListener('mousemove',paintMove);
-    // A stroke — and its single history entry — ends only when the LEFT
+    // A stroke - and its single history entry - ends only when the LEFT
     // button that started it is released.
     window.addEventListener('mouseup',e=>{
       if(e.button===0) finishStroke();
     });
   }
   const img=$('img');
-  // Only touch the bitmap when the size really changed — setting width
+  // Only touch the bitmap when the size really changed - setting width
   // clears a canvas, and that was quietly erasing strokes.
   if(c.width!==img.naturalWidth || c.height!==img.naturalHeight){
     c.width=img.naturalWidth; c.height=img.naturalHeight;
@@ -536,7 +508,7 @@ function paintDown(e){
 function extendStroke(p){
   if(painting.type==='shape'){
     // Shift makes a rectangle square, an ellipse a circle and a line one of
-    // the eight compass directions — the usual bargain.
+    // the eight compass directions - the usual bargain.
     painting.pts[1]=shapeSnap(painting, p);
     drawStroke(painting);
     return;
@@ -551,7 +523,7 @@ function extendStroke(p){
   }
 }
 
-/* Arrow keys steer the stroke while the button is held — pixel-precise
+/* Arrow keys steer the stroke while the button is held - pixel-precise
    lines without a steady hand. Shift strides in 8s. */
 window.addEventListener('keydown',e=>{
   if(!painting) return;
@@ -583,7 +555,7 @@ function finishStroke(){
   }
   if(painting.type==='erase'){
     // Erase strokes replay from their points with destination-out. If a
-    // selection fenced this pass, freeze the fence with the stroke — the
+    // selection fenced this pass, freeze the fence with the stroke - the
     // selection may be gone by the next replay.
     const st=painting; painting=null;
     if(typeof selHasMask==='function' && selHasMask()){
@@ -680,7 +652,7 @@ function paintMove(e){
   if(painting.type==='shape'){
     // A shape's far corner IS the pointer. The smoothing below is for a hand
     // drawing a line, and putting a rectangle through it made the corner trail
-    // the cursor and then settle short of it on release — you never got the
+    // the cursor and then settle short of it on release - you never got the
     // box you drew. The micro-move guard is wrong here for the same reason:
     // a one-pixel nudge to line an edge up is a real edit, not jitter.
     extendStroke(raw);
@@ -722,7 +694,7 @@ function brushTip(sz,hard,col){
     g.beginPath(); g.arc(r,r,r,0,7); g.fill();
   }else{
     // Photoshop-style profile: solid out to `hard` of the radius, then a
-    // gaussian tail to the edge — a soft brush keeps a full dark core with
+    // gaussian tail to the edge - a soft brush keeps a full dark core with
     // a wide feather, instead of thinning out from the very centre.
     const gr=g.createRadialGradient(r,r,0, r,r,r);
     gr.addColorStop(0, col);
@@ -742,7 +714,7 @@ function brushTip(sz,hard,col){
 function tipSeg(g,st,a,b){
   const hard=st.hard==null?1:st.hard;
   if(hard>=0.99){
-    // A hard stroke is a smooth round-capped path — no stamp scallops.
+    // A hard stroke is a smooth round-capped path - no stamp scallops.
     g.strokeStyle=st.col; g.fillStyle=st.col;
     g.lineWidth=st.sz; g.lineCap='round'; g.lineJoin='round';
     if(a.x===b.x&&a.y===b.y){
@@ -765,7 +737,7 @@ function tipSeg(g,st,a,b){
 /* ---- smooth strokes ----
    Raw mouse points make polygons. Drawing quadratic curves that pass
    through the midpoints of successive points (with the point itself as
-   the control) turns them into one continuous smooth line — the standard
+   the control) turns them into one continuous smooth line - the standard
    ink-smoothing trick. Works for paths, tip stamping and clone stamping
    alike: everything goes through the same curve walk. */
 const mid=(a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
@@ -836,7 +808,7 @@ function compositeLive(st){
     m.globalAlpha=1;
   }
 }
-/* Draw the ENTIRE stroke smoothly into context g — a lead-in, a curve
+/* Draw the ENTIRE stroke smoothly into context g - a lead-in, a curve
    through every point, and a tail. The live preview and the committed replay
    both go through this, so what you see mid-stroke is exactly what lands on
    release: no rougher, no lag. */
@@ -866,7 +838,7 @@ function shapePath(g, st){
   const w=Math.abs(b.x-a.x), h=Math.abs(b.y-a.y);
   g.save();
   // A shape can be turned after it is drawn. The angle is kept on the layer
-  // rather than baked into the points, so the shape stays a shape — its
+  // rather than baked into the points, so the shape stays a shape - its
   // colour, width and fill are still editable afterwards, and the two points
   // still mean the two corners you dragged between.
   if(st.rot){
@@ -927,19 +899,19 @@ function drawStrokeNow(st){
 /* Did the last replay have to leave something out?
 
    A patch's picture and an eraser's fence are decoded from a data URL, which
-   is asynchronous — so a replay that runs in the moment between a layer being
+   is asynchronous - so a replay that runs in the moment between a layer being
    made and its picture arriving quietly draws one layer fewer. On SCREEN that
    is invisible and self-correcting: the decode fires `repaintAll` when it
    lands. The buffer is not only for the screen, though. It is also the picture
    that is SAVED, composited into the cleaned plate and drawn under the
-   typesetting on the exported page — and a save that caught this moment wrote a
+   typesetting on the exported page - and a save that caught this moment wrote a
    page missing the very stroke that had just been drawn, which is what lee saw:
 
      *"when typesetting the clean page it uses shoud have all the edit i make
      in it ... i fixed it but its still not using the fixed version"*
 
-   The gap he had painted over was there on his screen — the browser replays
-   the editable layers, and by then they had decoded — and gone from the plate,
+   The gap he had painted over was there on his screen - the browser replays
+   the editable layers, and by then they had decoded - and gone from the plate,
    which had been written from the one replay that ran too early. So the flag,
    and `syncPaint` waits rather than saving what it can see. */
 let replayIncomplete=false;
@@ -980,7 +952,7 @@ function replayStroke(dst, st){
 function pageLayers(){ return layers.filter(st=>st.visible!==false); }
 /* What the SCREEN shows: the same, less whichever family is folded away.
    `showDrawing`/`showRetouch` are the two master eyes over the panels, they
-   live only in this tab and are back on the moment the page is reopened — so
+   live only in this tab and are back on the moment the page is reopened - so
    they are a way of looking at the page, not a fact about it. They used to
    filter the buffer that gets SAVED as well, which meant folding the retouch
    family away and carrying on painting quietly wrote a plate with every heal
@@ -1016,8 +988,8 @@ function repaintAll(){
   compositeLive(null);
   repaintOver();
 }
-/* The two buffers as the SCREEN should show them. With nothing folded away —
-   which is nearly always — that is the saved buffer itself and costs nothing. */
+/* The two buffers as the SCREEN should show them. With nothing folded away -
+   which is nearly always - that is the saved buffer itself and costs nothing. */
 function underOnScreen(){
   if(!_folded()) return layersBuf();
   const S=_viewBuf('under');
@@ -1062,7 +1034,7 @@ function setLayerOver(id, on){
   const firstOver=layers.findIndex(isOver);
   const edge = firstOver<0 ? layers.length : firstOver;
   if(on) layers.splice(edge, 0, l);      // bottom of the over band
-  else   layers.splice(edge, 0, l);      // top of the under band — same index
+  else   layers.splice(edge, 0, l);      // top of the under band - same index
   record('paint', `${layerName(l)} moved ${on?'above':'below'} the text`, null);
   repaintAll(); renderLayers(); queueSync();
 }
@@ -1134,8 +1106,8 @@ function undoStroke(){
   undoPaintLast();
 }
 /* A locked layer is left alone: it cannot be restacked, deleted, picked up by
-   the transform, or recoloured. The eye still works — hiding something is not
-   changing it — and the lock itself is one click away.
+   the transform, or recoloured. The eye still works - hiding something is not
+   changing it - and the lock itself is one click away.
 
    Only the page had one, which is the one layer nobody was going to move by
    accident. lee: *"allow me to lock other layers"*. */
@@ -1223,11 +1195,11 @@ function layerThumb(l){
    lee: *"i sjoud also be anble to ... clci ad drag up and doen teh list and
    remove the un and down arrow to move them"*.
 
-   A press that never moves is a CLICK — it selects the layer. Four pixels of
+   A press that never moves is a CLICK - it selects the layer. Four pixels of
    travel is what turns it into a drag, so a slightly unsteady click still
    selects instead of silently restacking something. */
 /* A text row in the list. A plain click opens the typesetting panel, which
-   REPLACES this list — so a press-and-drag on one used to swap the panel out
+   REPLACES this list - so a press-and-drag on one used to swap the panel out
    from under the drag before it had gone anywhere. lee: *"i shoud be able to
    click and hold the text layer wiythout going into the text edit tab"*.
 
@@ -1254,7 +1226,7 @@ function textRowMove(e){
   markDrag(textDrag.id, false);
   if(typeof textRowDragTo==='function') textRowDragTo(e, textDrag.id);
 }
-/* Dragging a text row moves it through the READING ORDER — the numbers on the
+/* Dragging a text row moves it through the READING ORDER - the numbers on the
    page and the order the translator sees. Text and drawings live in two bands
    that do not interleave, so a text row cannot be dragged among the drawings;
    what it can do is change where it comes in the script, which is the thing
@@ -1317,7 +1289,7 @@ function layDown(e,id){
 /* What a drag looks like while it is happening.
 
    lee: *"add a visula for when im moving layers"*. The list reorders live, so
-   the row under the pointer already IS where the layer will land — what was
+   the row under the pointer already IS where the layer will land - what was
    missing was any sign that a row had been picked up at all, and any mark on
    the Text band when a drag is about to cross it and change which side of the
    typesetting the drawing is drawn on. Both are classes; the list rebuilds
@@ -1412,8 +1384,8 @@ function layerOpacity(id,v,commit){
               queueSync(); }
 }
 /* ---- editing a layer after it is drawn ----
-   A shape and a brush stroke both replay from what they are MADE of — two
-   points or a path, a colour, a width — so all three can still be changed
+   A shape and a brush stroke both replay from what they are MADE of - two
+   points or a path, a colour, a width - so all three can still be changed
    afterwards. lee: *"allwo chnage color"*. A patch cannot: it is pixels by
    then (a heal, a clone, a transformed selection), and there is no colour in
    it to change. `canRecolour` is the one place that knows which is which. */
@@ -1458,7 +1430,7 @@ function setLayerFill(id, on){
   record('paint', `${layerName(l)} ${l.fill?'filled':'outlined'}`, null);
   repaintAll(); renderLayers(); queueSync();
 }
-/* The move handles, from the layer list — the same thing the shape arrow
+/* The move handles, from the layer list - the same thing the shape arrow
    does on the page, for people who found the shape in the list instead. */
 function moveLayer(id){
   const l=_layer(id); if(!l) return;
@@ -1480,7 +1452,7 @@ function layerEditor(l){
         <i id="layColChip" style="background:${col}"></i>
         <b id="layColHex">${col}</b></span></div>`
     :`<p class="help" style="margin:2px 4px 6px">Healed, cloned and
-        transformed layers are finished pixels — there is no colour left in
+        transformed layers are finished pixels - there is no colour left in
         them to change. Hide or delete it and draw again.</p>`}
     ${isShape?`
     <div class="sl"><span>${l.shape==='line'?'Thickness':'Line width'}</span>
@@ -1514,7 +1486,7 @@ function layerRow(l){
       <span class="lx" title="${l.visible!==false?'Hide':'Show'}"
             onclick="event.stopPropagation();toggleLayer(${l.id})">${l.visible!==false?'&#128065;':'&#8709;'}</span>
       <span class="llock ${l.locked?'':'off'}"
-            title="${l.locked?'Locked — click to unlock':'Lock this layer'}"
+            title="${l.locked?'Locked - click to unlock':'Lock this layer'}"
             onclick="event.stopPropagation();toggleLayerLock(${l.id})">${LOCK_SVG}</span>
       ${l.locked?'':`<span class="lx" title="Delete this layer"
             onclick="event.stopPropagation();deleteLayer(${l.id})">&times;</span>`}
@@ -1533,7 +1505,7 @@ function layerRow(l){
     </div>
     ${layerEditor(l)}`:''}`;
 }
-/* The document stack: what sits above what on the page — text on top, the
+/* The document stack: what sits above what on the page - text on top, the
    drawing above the page itself. Clone/heal retouching lives in its own
    fold below, not in this stack. */
 let pageLocked=true, pageVisible=true;
@@ -1562,8 +1534,8 @@ const RASTER_SVG=`<svg viewBox="0 0 24 24" width="12" height="12"
 /* The block's typesetting, as an ordinary image layer.
 
    The words stop being words: what lands in the paint stack is a picture of
-   them exactly as they were set — font, colour, outline, glow, gradient,
-   rotation and all — and the text box is emptied, so nothing is drawn twice.
+   them exactly as they were set - font, colour, outline, glow, gradient,
+   rotation and all - and the text box is emptied, so nothing is drawn twice.
    lee: *"allow me to turn text layer into image layers"*.
 
    The picture is made by the SERVER, by the same renderer that writes the
@@ -1575,13 +1547,13 @@ async function textToImage(id){
   const j=await api(`/api/page/${cur}/region/${id}/rasterise`,'POST',{});
   if(!j || j.error){ toast(j&&j.error ? j.error : 'Could not draw it.'); return; }
   const im=new Image();
-  const st={id:layerSeq++, type:'patch', label:('Text — '+(j.name||'')).trim(),
+  const st={id:layerSeq++, type:'patch', label:('Text - '+(j.name||'')).trim(),
             group:'drawing', col:'#c9a2ff', sz:0,
             x:j.x, y:j.y, png:j.png, img:null, op:1, pts:[], visible:true};
   im.onload=()=>{ st.img=im; repaintAll(); renderLayers(); };
   im.src=j.png;
   // What it takes to put this back: the words, and whether the block was
-  // locked before. One step, both halves — Ctrl+Z on a conversion has to
+  // locked before. One step, both halves - Ctrl+Z on a conversion has to
   // undo the WHOLE conversion, not leave the picture and the empty box.
   // lee: *"tuening a text to an image shoud be reversable with control + z"*.
   const wasLines=((r.layout&&r.layout.lines)||[]).slice();
@@ -1595,7 +1567,7 @@ async function textToImage(id){
     setTypesetLines(id, wasLines);
     repaintAll(); renderLayers(); queueSync();
   });
-  // …and the words go, or the page carries both — and the block is LOCKED,
+  // …and the words go, or the page carries both - and the block is LOCKED,
   // because it is a picture now. lee: *"when i chanhge text to an image it
   // shoud be trated as an image, no more modifying teh text"*. Unlocking it
   // is one click if the picture turns out to be wrong.
@@ -1616,8 +1588,8 @@ function textLayerName(r){
 /* ONE list, the way an image editor shows a document: text on top, then
    every paint layer in stack order, then the artwork at the bottom.
 
-   It used to be three — a "page stack" that only named the groups, a
-   "Strokes" fold and a "Retouch" fold — so the thing you had just drawn was
+   It used to be three - a "page stack" that only named the groups, a
+   "Strokes" fold and a "Retouch" fold - so the thing you had just drawn was
    never in the list you were looking at, and nothing said what sat above
    what. lee: *"layers shoud be one compabined layer"*.
 
@@ -1627,7 +1599,7 @@ function textLayerName(r){
 /* Is the Text block folded away? A page with twenty bubbles puts twenty rows
    between the drawings above the typesetting and the drawings below it, and the
    two ends of the stack cannot be seen at once. Folding it does not hide the
-   text on the page — the eye beside it still does that — and the band itself
+   text on the page - the eye beside it still does that - and the band itself
    stays in the list, because it is what a layer is dragged across to move
    from one side of the typesetting to the other. */
 let textShut=true;
@@ -1636,7 +1608,7 @@ function renderStack(){
   const el=$('stackList'); if(!el) return;
   const textOn = !$('showText') || $('showText').checked;
   const texts=(typeof regions!=='undefined'?regions:[])
-    // A block emptied on purpose stays in the list — it is still a text
+    // A block emptied on purpose stays in the list - it is still a text
     // layer, and taking it out of the list is how you lose track of it.
     .filter(r=>r.layout&&r.layout.lines)
     .slice().sort((a,b)=>(a.order??0)-(b.order??0));
@@ -1666,7 +1638,7 @@ function renderStack(){
             onclick="event.stopPropagation();toggleTextLayer(${r.id})">
         ${r._hideText?'&#8709;':'&#128065;'}</span>
       <span class="llock ${r.locked?'':'off'}"
-            title="${r.locked?'Locked — click to unlock':'Lock this text box'}"
+            title="${r.locked?'Locked - click to unlock':'Lock this text box'}"
             onclick="event.stopPropagation();toggleTextLock(${r.id})">${LOCK_SVG}</span>
     </div>`).join('')}
     </div>
@@ -1687,15 +1659,15 @@ function renderStack(){
 function renderLayers(){
   renderStack();
   // The Shapes section keeps its own list of the shapes on the page. Drawing
-  // one does not rebuild the whole panel — that would throw away whatever
-  // control was being used — so the list is refreshed here, where every
+  // one does not rebuild the whole panel - that would throw away whatever
+  // control was being used - so the list is refreshed here, where every
   // change to `layers` already ends up.
   const sl=$('shapeListBox');
   if(sl && typeof shapeList==='function') sl.innerHTML=shapeList();
   const r=$('layOpR'); if(r) sliderFill(r);
 }
 /* The eyedroppers must taste the page, not the translated text drawn on
-   top of it — the overlay ducks out for the moment of the pick. */
+   top of it - the overlay ducks out for the moment of the pick. */
 function hideTextForPick(){
   const els=[$('overlay'),$('tframe'),$('canvasEdit')].filter(Boolean);
   const saved=els.map(el=>el.style.visibility);

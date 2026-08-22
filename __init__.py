@@ -1,4 +1,4 @@
-"""mangatl — manga translation pipeline.
+"""mangatl - manga translation pipeline.
 
 Detect speech bubbles, read the Japanese, translate a whole page at once,
 erase the source text, and typeset English back into the bubbles.
@@ -15,7 +15,7 @@ def _load_dotenv(filename: str = ".env") -> str | None:
 
     Looks in the current working directory first, then beside the package, so
     it works whether you run from the project folder or somewhere else.
-    Existing environment variables always win — a real shell variable
+    Existing environment variables always win - a real shell variable
     overrides the file, which is what you want for CI and one-off overrides.
 
     Returns the path it loaded, or None.

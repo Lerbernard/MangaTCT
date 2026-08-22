@@ -1,7 +1,7 @@
 """Paying once for the words that never change.
 
 Measured on chapter 3: a 23-page chapter is 176,663 input tokens, and
-**103,523 of them — 59% — are byte-identical from one page to the next**. The
+**103,523 of them - 59% - are byte-identical from one page to the next**. The
 same system prompt, the same synopsis, the same glossary, the same schema
 hint, twenty-three times.
 
@@ -14,7 +14,7 @@ pays above the same sort of threshold.
 Two things were in the way, and neither was the cache:
 
 * **`characters` sat in the middle of the payload.** The character sheet grows
-  as a chapter is read, so it is different on every page — and it was above
+  as a chapter is read, so it is different on every page - and it was above
   `previous_page_tail`, `keep_honorifics` and everything else. A prefix ends at
   the first byte that differs, so one moving field in the middle threw away
   every fixed byte after it. Fixed keys first now, moving keys last.
@@ -107,12 +107,12 @@ def test_two_pages_of_one_chapter_share_a_long_prefix():
     # ...and the shared part reaches the end of the glossary
     assert '"glossary"' in a[:shared]
     # (with the same character sheet on both pages the prefix runs further
-    # still — that is a bonus, not a requirement. What must hold is that the
+    # still - that is a bonus, not a requirement. What must hold is that the
     # fixed part is inside it, which the growing-sheet test below pins down.)
 
 
 def test_a_growing_character_sheet_does_not_cut_the_prefix_short():
-    """The sheet grows page by page — that is what it is for. It must not take
+    """The sheet grows page by page - that is what it is for. It must not take
     the synopsis and the glossary down with it."""
     page = _page()
     early = json.dumps(T._base_payload(page, _ctx({"Ada": "she/her"})),
@@ -138,7 +138,7 @@ def test_the_same_holds_for_proofreading():
 
 
 def test_a_different_chapter_does_not_share_the_prefix():
-    """A cache hit across two different series would be a bug, not a saving —
+    """A cache hit across two different series would be a bug, not a saving -
     it would mean the synopsis and glossary were not in the request."""
     a = json.dumps(T._base_payload(_page(), _ctx()), ensure_ascii=False, indent=1)
     other = SeriesContext(synopsis="Something else entirely.",
@@ -177,7 +177,7 @@ def test_the_real_prompts_land_on_the_right_side_of_the_line():
 
 
 def test_both_turns_send_the_marked_blocks():
-    """Text and vision alike — a change that only reaches one of them saves
+    """Text and vision alike - a change that only reaches one of them saves
     half of what it says it does."""
     import inspect
     for fn in (T._ask, T._ask_vision):

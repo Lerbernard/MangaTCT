@@ -1,4 +1,4 @@
-"""One piece of writing, one box — and paper is not a balloon.
+"""One piece of writing, one box - and paper is not a balloon.
 
 lee, with about thirty screenshots of Find text's own output on a 46-page
 Korean webtoon::
@@ -22,7 +22,7 @@ Four faults, and they are four and not one:
    whether the floor was bright, and an empty page answers 255 to both.
 
 Everything here was measured on all 46 pages, 187 boxes, and every number in
-it is written down with what it was measured against — in this file for the
+it is written down with what it was measured against - in this file for the
 bounds, and in `detect/comictext.py` for the reasoning.
 
 **Manga is off.** Every number below is a fact about Korean webtoon pages;
@@ -58,7 +58,7 @@ def test_two_boxes_over_one_shout_come_back_as_one():
 
 def test_a_chain_of_four_becomes_one_rectangle():
     """와아아아 on page 001: four boxes, each overlapping only its neighbour.
-    Joining pairs is not enough — the first and the last never touch."""
+    Joining pairs is not enough - the first and the last never touch."""
     rs = [_r((100 + 80 * i, 100 + 40 * i, 120, 120)) for i in range(4)]
     out = CT._join_overlapping(rs, CT.JOIN_OVER)
     assert len(out) == 1
@@ -119,7 +119,7 @@ def test_switched_off_it_does_nothing():
 def test_two_passes_that_disagree_about_one_piece_of_ink_leave_one_box():
     """Page 032's title plate: outside text from the block head, a sound
     effect from CRAFT, 79% of the smaller inside the bigger at an IoU of
-    0.39 — a fifth of `DUP_IOU`, so nothing above it can see the pair."""
+    0.39 - a fifth of `DUP_IOU`, so nothing above it can see the pair."""
     small = _r((120, 120, 200, 160), kind="freefloat")
     big = _r((100, 100, 260, 230), kind="sfx")
     out = CT._drop_duplicates([small, big])
@@ -134,7 +134,7 @@ def test_the_containment_bar_is_above_the_pair_that_must_not_merge():
 
 def test_one_family_is_left_to_the_join():
     """Two boxes of the SAME family are `_join_overlapping`'s business, and it
-    unions them rather than throwing one away — which keeps whatever the
+    unions them rather than throwing one away - which keeps whatever the
     smaller one was covering."""
     small, big = _r((150, 150, 62, 69)), _r((100, 100, 297, 333))
     assert len(CT._drop_duplicates([small, big])) == 2
@@ -142,7 +142,7 @@ def test_one_family_is_left_to_the_join():
 
 
 def test_a_small_effect_inside_a_big_balloon_is_not_a_duplicate():
-    """The case this rule has to stay away from, and it is a real one — lee
+    """The case this rule has to stay away from, and it is a real one - lee
     has both on the same page. A hundredth of an area apart; the two pairs
     the rule is for are 0.13 and 0.55."""
     big = _r((0, 0, 300, 300), kind="bubble")
@@ -189,7 +189,7 @@ def test_a_line_of_writing_is_kept():
 
 
 def test_a_shape_that_fills_its_box_is_kept():
-    """A drawn shout is one mark — and it FILLS the rectangle. Only the pair
+    """A drawn shout is one mark - and it FILLS the rectangle. Only the pair
     of answers throws a box away."""
     p = np.full((300, 300), 245, np.uint8)
     cv2.rectangle(p, (30, 30), (270, 270), 30, -1)
@@ -254,7 +254,7 @@ def _wall_page(shape="round"):
         cv2.ellipse(p, (450, 450), (240, 200), 0, 0, 360, 0, 6)
     elif shape == "plate":
         # A caption plate: long and thin, which is what takes it under
-        # `WALL_CIRC` — a squarish frame is round enough to pass either way.
+        # `WALL_CIRC` - a squarish frame is round enough to pass either way.
         cv2.rectangle(p, (60, 380), (840, 520), 0, 6)
     for i in range(3):
         cv2.rectangle(p, (330 + i * 60, 400), (330 + i * 60 + 40, 500), 30, -1)
@@ -292,7 +292,7 @@ def test_bare_paper_answers_no_to_both():
 # ------------------------------------ a word space is not the end of a line
 
 def test_two_boxes_on_one_line_a_word_space_apart_are_one():
-    """018's "3년 전" with its trailing "…" boxed separately — 18 pixels of
+    """018's "3년 전" with its trailing "…" boxed separately - 18 pixels of
     daylight, so nothing that measures overlap can see them. lee: *"4 shoud
     be one box not 2"*."""
     a, b = _r((100, 100, 200, 80)), _r((330, 100, 60, 80))
@@ -319,7 +319,7 @@ def test_boxes_that_do_not_line_up_are_two_things():
 
 
 def test_the_two_studio_credit_blocks_stay_apart():
-    """046's credits, 0.66 of a height apart in one column — two things, and
+    """046's credits, 0.66 of a height apart in one column - two things, and
     the measured pair the stacked line has to refuse. 042's two caption lines
     are at 0.18, so the line goes between them with about 2x either way."""
     assert 0.18 < CT.NEAR_STACK < 0.66
@@ -358,7 +358,7 @@ def test_two_marks_that_overlap_are_not_counted_twice_in_the_cover():
 
 
 def test_the_height_is_of_the_piece_clipped_to_the_box():
-    """A piece running out of the box is only as tall as the part inside it —
+    """A piece running out of the box is only as tall as the part inside it -
     the question is how big the characters HERE are."""
     n, cover, med = CT._characters_in([(10, 10, 60, 500)], (10, 10, 100, 100))
     assert med == 100.0
@@ -412,7 +412,7 @@ class _Net:
 
 
 def _split_shout_page():
-    """One drawn word across two blocks the head reported separately — which
+    """One drawn word across two blocks the head reported separately - which
     is what a brush-drawn Korean effect does to it."""
     page = np.full((INPUT, INPUT), 40, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
@@ -446,7 +446,7 @@ def test_the_joined_box_covers_both_pieces(monkeypatch):
 
 
 def _two_ornaments_page():
-    """Two thin swashes whose rectangles overlap — which is how the six
+    """Two thin swashes whose rectangles overlap - which is how the six
     flourishes round page 017's caption frame are boxed, in three pairs."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
@@ -487,15 +487,15 @@ def test_the_same_two_ornaments_survive_with_the_rule_off(monkeypatch):
 def test_the_sweep_is_asked_before_the_join():
     """The order, asserted where it is decided.
 
-    It was the other way round for one turn, on the obvious reasoning — put
-    the fragments back, then ask which boxes are empty — and page 017 is the
+    It was the other way round for one turn, on the obvious reasoning - put
+    the fragments back, then ask which boxes are empty - and page 017 is the
     counter-example: its six ornamental flourishes are boxed in three
     overlapping PAIRS, each pair joins into a rectangle holding four marks
     instead of two, and two of the six survive. Swept first, all six go.
 
     Said against the source rather than against a page because the fault is
     an ordering and a fixture for it has to arrange two boxes that overlap,
-    hold at most `STRAY_PIECES` marks each and more than that together —
+    hold at most `STRAY_PIECES` marks each and more than that together -
     which is a page built to the shape of the answer. The real evidence is 46
     pages, and it is written down at the call site."""
     import inspect
@@ -538,7 +538,7 @@ def test_writing_on_a_blank_page_is_outside_text_end_to_end(monkeypatch):
 
 
 def test_the_same_writing_inside_a_drawn_shape_stays_dialogue(monkeypatch):
-    """The control. One line drawn round it and the answer flips back — which
+    """The control. One line drawn round it and the answer flips back - which
     is the difference the rule is actually reading."""
     monkeypatch.setattr(CT, "_classify_kind", lambda g, box: "bubble")
     img, blocks, seg = _blank_page_with_writing()
@@ -556,13 +556,13 @@ def test_the_two_detectors_are_running_at_the_same_time(monkeypatch):
     """lee: *"if you can spped up teh find text it take a long time"*.
 
     21.3 of a page's 24.6 seconds are two neural nets that do not need each
-    other — 12.0 in CRAFT and 9.3 in the block head — and the first line that
+    other - 12.0 in CRAFT and 9.3 in the block head - and the first line that
     needs both is hundreds of lines below either. Started together a page
     costs the slower rather than the sum.
 
     Asserted by making the two nets WAIT FOR EACH OTHER rather than by a
     clock. A wall-clock assertion on a two-core machine measures the sandbox;
-    this measures the thing that makes the saving real — that CRAFT is still
+    this measures the thing that makes the saving real - that CRAFT is still
     running when the block head starts. Run one after the other, the block
     head never starts, nothing sets the flag, and the wait times out.
     """
@@ -594,7 +594,7 @@ def test_the_two_detectors_are_running_at_the_same_time(monkeypatch):
 
 
 def test_the_pool_is_one_worker():
-    """It exists to overlap one page's two nets, not to run pages at once —
+    """It exists to overlap one page's two nets, not to run pages at once -
     Find text over a chapter is a loop and it stays one."""
     assert CT._POOL._max_workers == 1
 
@@ -687,8 +687,8 @@ def test_two_small_characters_in_a_big_box_are_left_as_writing(monkeypatch):
 
 
 def _coverage_box_run(monkeypatch, craft_boxes):
-    """A box the COVERAGE pass made — no block, hollow outlined shapes, so it
-    is called sfx on sight and stays one — with CRAFT told what to see."""
+    """A box the COVERAGE pass made - no block, hollow outlined shapes, so it
+    is called sfx on sight and stays one - with CRAFT told what to see."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
     for i in range(4):
@@ -824,7 +824,7 @@ def test_the_enclosure_question_is_gentler_than_the_balloon_rescue():
 
 def _framed_plate_page(plate_tone=255):
     """A dark page with a big ORNAMENTALLY framed plate on it and writing
-    inside — the 황제 plate's shape. The frame is dashed, with gaps wider
+    inside - the 황제 plate's shape. The frame is dashed, with gaps wider
     than the balloon rescue's 15px seal, so nothing that existed before the
     promotion can shut it; and the plate is big enough that the balloon
     fitter refuses it. What happens to the box is the promotion's alone."""
@@ -854,7 +854,7 @@ def _framed_plate_page(plate_tone=255):
 def _tight_plate_page(plate_tone):
     """A dark page, a plate barely bigger than the writing on it. The margin
     `_classify_kind` reads is mostly the dark page, so the box arrives as
-    outside text — which is how the 황제 plate arrives, and the case the
+    outside text - which is how the 황제 plate arrives, and the case the
     promotion exists for."""
     page = np.full((INPUT, INPUT), 40, np.uint8)
     cv2.rectangle(page, (390, 430), (630, 590), int(plate_tone), -1)
@@ -887,7 +887,7 @@ def _promotion_run(monkeypatch, plate_tone):
 
 def test_enclosed_writing_on_paper_comes_back_dialogue(monkeypatch):
     """The promotion itself. `_classify_kind` calls the plate's writing
-    outside text — its margin past the plate is a dark page — and the
+    outside text - its margin past the plate is a dark page - and the
     enclosure plus the paper under the letters takes the word back."""
     rs = _promotion_run(monkeypatch, plate_tone=255)
     assert rs, "nothing came back"
@@ -896,7 +896,7 @@ def test_enclosed_writing_on_paper_comes_back_dialogue(monkeypatch):
 
 def test_enclosed_writing_on_dark_ground_stays_outside_text(monkeypatch):
     """The paper gate. The same enclosure round a DARK plate is the
-    embroidery case — being shut in by something is not a balloon; the
+    embroidery case - being shut in by something is not a balloon; the
     ground has to be paper too."""
     rs = _promotion_run(monkeypatch, plate_tone=110)
     assert rs, "nothing came back"
@@ -924,7 +924,7 @@ def test_two_diagonal_texts_are_found():
 
 
 def test_one_paragraph_is_one_text():
-    """A paragraph's lines share their columns — the fact the staircase
+    """A paragraph's lines share their columns - the fact the staircase
     stands on."""
     m = np.zeros((800, 800), np.uint8)
     for i in range(6):
@@ -942,7 +942,7 @@ def test_a_ragged_last_line_does_not_split_a_paragraph():
 
 def test_two_stacked_texts_a_line_height_apart_are_found():
     """044: the top lobe's mask carries a piece of the artwork, so the
-    staircase fails on columns — the empty band is what catches it. The
+    staircase fails on columns - the empty band is what catches it. The
     real pairs measure 1.11-2.85 line-heights; inside one text the widest
     band on the chapter is 0.50."""
     m = np.zeros((900, 800), np.uint8)
@@ -966,7 +966,7 @@ def test_the_stacked_bar_sits_between_the_measured_populations():
 
 def test_droplet_marks_do_not_split_a_drawn_stroke():
     """035's 쿵: droplet marks diagonal from the stroke at 2% of the ink.
-    The balance gate refuses it — and an sfx box is never asked at all."""
+    The balance gate refuses it - and an sfx box is never asked at all."""
     m = np.zeros((800, 800), np.uint8)
     cv2.rectangle(m, (100, 100), (400, 500), 255, -1)
     cv2.circle(m, (500, 600), 6, 255, -1)
@@ -1011,8 +1011,8 @@ def test_the_split_runs_until_no_box_holds_two_texts():
 
 
 def test_two_texts_in_one_block_come_back_as_two_boxes(monkeypatch):
-    """End to end: the block head returns one box across both lobes — which
-    is what all three of lee's crops are — and two boxes come out, each with
+    """End to end: the block head returns one box across both lobes - which
+    is what all three of lee's crops are - and two boxes come out, each with
     its own ink."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
@@ -1135,7 +1135,7 @@ def test_the_rays_bar_sits_between_the_measured_populations():
 
 def test_a_writing_box_is_shaved_to_its_characters(monkeypatch):
     """lee: *"2 these boxes are way bigger than the text"*. The coverage mask
-    swallowed the sword the caption is printed over — ink CONNECTED to the
+    swallowed the sword the caption is printed over - ink CONNECTED to the
     writing's ink, so no component split can take it back out."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
@@ -1207,7 +1207,7 @@ def test_an_effect_is_never_shaved():
 
 def test_a_burst_stays_dialogue_end_to_end(monkeypatch):
     """The rays through the whole demotion. 042's two speech bursts: margin
-    reads paper, no wall shuts (the rays are open to the page) — the rays are
+    reads paper, no wall shuts (the rays are open to the page) - the rays are
     the only thing keeping the word dialogue."""
     monkeypatch.setattr(CT, "_classify_kind", lambda g, box: "bubble")
     page = np.full((INPUT, INPUT), 255, np.uint8)
@@ -1245,7 +1245,7 @@ def test_the_same_writing_without_rays_is_outside_text(monkeypatch):
 
 def test_display_type_is_given_back_too(monkeypatch):
     """lee's chapter title: thirteen display characters at 0.113 of the page
-    width. The height gate was 0.09 for a day and priced it out — the real
+    width. The height gate was 0.09 for a day and priced it out - the real
     shouts run 0.21-0.66, so 0.15 keeps the backstop without deleting a
     title."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
@@ -1273,7 +1273,7 @@ def test_display_type_is_given_back_too(monkeypatch):
 def test_the_join_is_asked_again_after_the_kinds_settle(monkeypatch):
     """Half of lee's title arrived as a CRAFT addition (born sfx) and half as
     a block fragment (classified outside text). They overlap by 0.60, and the
-    census then called both writing — the first join could not see the pair
+    census then called both writing - the first join could not see the pair
     because at its moment they were two families."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)
@@ -1308,7 +1308,7 @@ def test_the_join_is_asked_again_after_the_kinds_settle(monkeypatch):
 # ------------------------------- the frame a caption sits in is its balloon
 
 def _framed_busy_plate():
-    """A framed plate the balloon FITTER refuses — here for size, over its
+    """A framed plate the balloon FITTER refuses - here for size, over its
     28%-of-page cap, which is one of the three refusals lee's real plates
     earn (the others are edges and brightness; a fixture busy enough for
     those defeats the enclosure test too, which is the documented
@@ -1394,7 +1394,7 @@ def test_two_boxes_sharing_one_frame_get_no_frame(monkeypatch):
 
 
 def test_a_real_balloon_is_not_second_guessed():
-    """A box the fitter already gave a balloon keeps it — the frame question
+    """A box the fitter already gave a balloon keeps it - the frame question
     is only asked where the fitter came back empty-handed."""
     import inspect
 
@@ -1418,7 +1418,7 @@ def test_the_grow_runs_before_the_shave():
 
 def test_a_late_box_is_grown_to_the_whole_of_its_ink(monkeypatch):
     """The late grow. A CRAFT-added box is the union of character rectangles,
-    and CRAFT hugs the glyph cores — the contour of outlined display type
+    and CRAFT hugs the glyph cores - the contour of outlined display type
     runs past every one. lee: *"the text is not being fully encased"*."""
     page = np.full((INPUT, INPUT), 250, np.uint8)
     seg = np.zeros((INPUT, INPUT), np.uint8)

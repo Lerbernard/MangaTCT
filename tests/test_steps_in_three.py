@@ -10,15 +10,15 @@ The GROUPS are what survived that, and they are the half worth keeping: the
 seven are the words, the picture, and writing it out, and the bar says which
 of the three you are in the middle of.
 
-**The locks are gone.** They went away once — *"allow the user to clcik all
-the button like clean translate without any locks"* — came back on the next
-word — *"accualty bring ba k the locks for the 1-6 tabs but kepp the lock offf
-the edit tab"* — and are now gone for good: *"remove the loacks on all the
+**The locks are gone.** They went away once - *"allow the user to clcik all
+the button like clean translate without any locks"* - came back on the next
+word - *"accualty bring ba k the locks for the 1-6 tabs but kepp the lock offf
+the edit tab"* - and are now gone for good: *"remove the loacks on all the
 tabs"*.
 
 What they encoded is still true. You cannot read text that has not been found;
 typesetting onto Japanese that is still there sits on top of it. It is lee's
-chapter and his order of work, and the bar still SAYS where everything is — a
+chapter and his order of work, and the bar still SAYS where everything is - a
 count on every button and a fill under it. It just does not decide what he may
 press. A step run out of turn does what it always did: nothing, over nothing,
 and says so.
@@ -130,7 +130,7 @@ def test_no_step_is_left_out_of_a_group():
 # ------------------------------------------------------- nothing is locked
 
 def test_nothing_is_locked_on_a_fresh_chapter():
-    """Not one of the seven, with nothing done to the chapter at all — which
+    """Not one of the seven, with nothing done to the chapter at all - which
     is the state every lock used to be visible in."""
     def check(pg, p):
         got = pg.evaluate(_LOCKS)
@@ -153,7 +153,7 @@ def test_nor_at_any_point_in_between():
 
 def test_a_step_out_of_turn_runs():
     """Typeset before anything is cleaned, on a chapter with nothing read.
-    The point is that it is not stopped — what it then does is its own
+    The point is that it is not stopped - what it then does is its own
     business, and it is the same nothing it always did."""
     def check(pg, p):
         pg.evaluate("window._ran=[]; "
@@ -184,7 +184,7 @@ def test_no_step_says_it_cannot_be_pressed():
 
 def test_the_bar_still_says_where_the_chapter_is():
     """Unlocked is not unsaid. Every button carries its own count, and the
-    fill under it is that count — which is the whole of what the step bar is
+    fill under it is that count - which is the whole of what the step bar is
     for now."""
     def check(pg, p):
         got = pg.evaluate("""[...document.querySelectorAll('#steps .step')]
@@ -212,7 +212,7 @@ def test_one_page_short_is_still_one_page_short():
 
 def test_nothing_is_left_over_from_the_locks():
     """A stylesheet that still greys `.step.locked`, or a `stepLocked` nobody
-    calls, is a rule waiting for a state that cannot happen — and the next
+    calls, is a rule waiting for a state that cannot happen - and the next
     person to read either one will believe the locks are still there. The
     same standard the rows were held to when their colour went."""
     from pathlib import Path
@@ -270,7 +270,7 @@ def test_l_arms_the_link_and_the_next_box_joins_it():
 
     def check(pg, p):
         # setView kicks off a page refresh, and a refresh landing after a
-        # select clears it — so let it settle first.
+        # select clears it - so let it settle first.
         pg.evaluate("setView('original')")
         browserpool.settled(pg)
         pg.evaluate("select(1)")

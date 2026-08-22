@@ -5,13 +5,13 @@
  *
  * The automatic re-cut in `strip.py` is deliberately narrow. It runs only on a
  * chapter that ARRIVED as a sliced strip, only before any work has been done
- * on it, and only when four separate tests agree — because being wrong there
+ * on it, and only when four separate tests agree - because being wrong there
  * rearranges somebody's chapter behind their back. Every one of those rules is
  * worth keeping, and between them they leave every other too-long page exactly
  * as it is. This is the knife for those: one page, one row, chosen by the
  * person looking at it.
  *
- * It lives in the Translation view — the artwork as it came — because that is
+ * It lives in the Translation view - the artwork as it came - because that is
  * the view you are in when you notice the page is wrong, and it is not offered
  * in the Image view at all, where the boxes are placed against the page and
  * the server refuses to cut anyway.
@@ -23,7 +23,7 @@ let _cutGaps = [], _cutH = 0;
 
 /* Nothing here moves the line. It jumped to the nearest gap within sixty rows
    on every click; that became a `Snap to the nearest gap` button; and lee took
-   the button off too — *"and removethe cut a the nearst gap button"*.
+   the button off too - *"and removethe cut a the nearst gap button"*.
 
    What is left of it is the readout: the line goes green when the row it is
    on happens to BE a gap between panels. Which is the useful half. It tells
@@ -54,10 +54,10 @@ async function openCut(){
   _cutH = g.height || 0;
   // Keyed on the file's CONTENTS. It was a bare `/img/3`, which is the same
   // string every time, and an <img> already holding that src does not
-  // re-request when it is set to what it already says — so after cutting page
+  // re-request when it is set to what it already says - so after cutting page
   // 3 in two, opening the dialog on the top half showed the whole uncut page
   // again. lee: *"its still showing the previous uncut picure after i cut it,
-  // the the originalpage dosnt work the other haft works fine"* — the other
+  // the the originalpage dosnt work the other haft works fine"* - the other
   // half worked because its index had not been looked at before.
   //
   // A fingerprint of the bytes cannot collide with the picture it replaced,
@@ -68,7 +68,7 @@ async function openCut(){
     // person has chosen a row.
     $('cutWhy').textContent = 'This page has touch-up strokes or a clean '
       + 'plate of your own on it. Those are pictures the size of the page and '
-      + 'cutting them is a different job — boxes come through a cut, painting '
+      + 'cutting them is a different job - boxes come through a cut, painting '
       + 'does not. Undo the painting, or cut before you paint.';
     $('cutStage').style.display = 'none';
     $('cutPrev').disabled = $('cutNext').disabled = true;
@@ -84,10 +84,10 @@ async function openCut(){
       + `the half it is on. Cleaning and typesetting are rebuilt.`
     : '';
   $('cutWhy').textContent = (_cutGaps.length
-    ? `${proj.pages[i].name} — ${_cutH.toLocaleString()} rows tall, with `
+    ? `${proj.pages[i].name} - ${_cutH.toLocaleString()} rows tall, with `
       + `${_cutGaps.length} gap${_cutGaps.length === 1 ? '' : 's'} between `
       + `panels to cut at.`
-    : `${proj.pages[i].name} — ${_cutH.toLocaleString()} rows tall. There is `
+    : `${proj.pages[i].name} - ${_cutH.toLocaleString()} rows tall. There is `
       + `no gap between panels on it, so wherever you cut goes through the `
       + `artwork.`) + carried;
   putLine(Math.round(_cutH / 2));
@@ -104,7 +104,7 @@ function cutAt(){ return +($('cutLine').dataset.row || 0); }
 
    The ONE thing that is still refused is a cut in the top or bottom sixteen
    rows, and it is refused by the Cut button going off with the reason beside
-   it — not by moving the line. A sliver is not a page and the server says so
+   it - not by moving the line. A sliver is not a page and the server says so
    anyway; being told why is different from being overruled. */
 const EDGE = 16;
 
@@ -119,7 +119,7 @@ function putLine(row){
   // clicked, use the mouse cordinate to draw the line"*.
   //
   // It was `top: <percent>`, and a percentage `top` on an absolutely
-  // positioned box resolves against the HEIGHT OF ITS CONTAINING BLOCK — which
+  // positioned box resolves against the HEIGHT OF ITS CONTAINING BLOCK - which
   // is `#cutWrap`, capped at 52vh with the picture scrolling inside it. So on
   // every page tall enough to scroll, "40% of the way down the page" was drawn
   // 40% of the way down the WINDOW ONTO the page. The taller the page, the
@@ -195,7 +195,7 @@ async function doCut(route, body, said){
 /* One click, one line, on the row under the pointer.
 
    It was a drag: pointer down, capture, follow, release. Dragging is what you
-   want for something you are ADJUSTING, and this is not that — you look at the
+   want for something you are ADJUSTING, and this is not that - you look at the
    page, you see where the cut goes, you click. The capture also meant a click
    inside the preview was swallowed while the pointer was down, so a quick
    click on a slow frame sometimes did nothing at all.

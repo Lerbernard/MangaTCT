@@ -111,7 +111,7 @@ def test_the_order_can_still_be_changed(ed):
 
 
 def test_the_point_size_readout_is_gone(ed):
-    """The last line of every card said "27pt, 1 line" — a readout of the
+    """The last line of every card said "27pt, 1 line" - a readout of the
     fitter's arithmetic on a list you read to find a sentence."""
     pg, _p, errs = ed
     txt = pg.evaluate("document.getElementById('list').textContent")
@@ -189,7 +189,7 @@ def test_the_link_is_a_deep_blue():
 
 def test_a_row_is_the_same_plate_whatever_kind_it_is(ed, tmp_path):
     """lee, in order: *"make it chnage the backgotund to that blue of what are
-    linked"* — a linked PAIR was one thing to look at; then *"can you make the
+    linked"* - a linked PAIR was one thing to look at; then *"can you make the
     tabs background match the color of the box and remove the blue
     background"*; then, having looked at two goes at that, *"aslo just go back
     to the  grey backgrounf"*. So the plate is plain again, and the type is
@@ -220,7 +220,7 @@ def test_a_row_is_the_same_plate_whatever_kind_it_is(ed, tmp_path):
     assert not errs, errs[:2]
 
 def test_the_link_mark_is_line_art_like_every_other_icon(ed):
-    """It was a 🔗 emoji — a colour picture from the system font, in a
+    """It was a 🔗 emoji - a colour picture from the system font, in a
     different weight, palette and size from everything beside it."""
     pg, _p, errs = ed
     txt = pg.evaluate("document.getElementById('list').textContent")
@@ -239,7 +239,7 @@ def test_the_link_mark_is_line_art_like_every_other_icon(ed):
 
 def test_the_fold_arrow_on_the_text_folder_is_big_enough_to_hit(ed):
     """lee, with a screenshot of it: *"malke this bigger for teh drop down in
-    teh layers"*. It was 9px in a 10px box — a speck you had to aim at, and
+    teh layers"*. It was 9px in a 10px box - a speck you had to aim at, and
     the one control on that row."""
     pg, _p, errs = ed
     pg.evaluate("setView('typeset')")

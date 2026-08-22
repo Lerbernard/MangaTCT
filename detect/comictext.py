@@ -3,7 +3,7 @@
 This runs the model's ONNX export with OpenCV's DNN module and reads its two
 useful outputs directly: the YOLO text-BLOCK boxes and the text segmentation
 mask. Text is detected DIRECTLY and already grouped into blocks by the model,
-so none of the bubble-detect / dedup / separate / merge heuristics are needed —
+so none of the bubble-detect / dedup / separate / merge heuristics are needed -
 each block is a tight, non-overlapping TextRegion.
 
 Deliberately dependency-light: OpenCV + numpy only (no torch, shapely or
@@ -16,7 +16,10 @@ Model: `comictextdetector.pt.onnx` from the manga-image-translator releases
 """
 from __future__ import annotations
 
+import copy
 import os
+import sys
+import time as _time
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -87,6 +90,54 @@ _nets: dict = {}
 # over a chapter is a loop in `Project.detect_all` and it stays one.
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="craft")
 
+#: Say nothing about a page that took less than this. A run that is behaving
+#: should not talk, and a run that is not should say so on every page.
+#:
+#: Above the FIRST page of a run as well as the rest: CRAFT's weights load on
+#: page one and that alone is about 15 seconds, so a lower bar would make
+#: every healthy run open with a warning about itself.
+SAY_OVER = 20.0
+
+
+def _say_timing(page, t0, t_net, t_craft, n, craft_on):
+    """One line a page, and only when a page was slow.
+
+    The whole point is that it is a SPLIT. "50 seconds" cannot be acted on;
+    "net 3.1s, craft 44.8s" names the file to go and look at. The page size
+    is in it because this scales with area - 960x1399 is 4.7s here and
+    2880x4197 is 21.8s on the same two cores, so a big scan is not a bug.
+    """
+    done = _time.time()
+    if done - t0 < SAY_OVER:
+        return
+    im = getattr(page, "image", None)
+    size = "%dx%d" % (im.shape[1], im.shape[0]) if im is not None else "?"
+    name = os.path.basename(getattr(page, "source_path", "") or "page")
+    print("find text  %-14s %-11s net %5.1fs  craft %5.1fs  rest %5.1fs "
+          " total %5.1fs  %d boxes%s"
+          % (name, size, t_net - t0, t_craft - t_net, done - t_craft,
+             done - t0, n, "" if craft_on else "  (no craft)"),
+          file=sys.stderr, flush=True)
+
+
+def _all_the_cores():
+    """OpenCV runs on every core it can see, every time this net is used.
+
+    lee's machine line: `opencv 5.0.0  threads 1  cores 20`. ONE thread of
+    twenty, and the forward pass took 65 seconds where this container's two
+    cores take 2.5. Nothing in this codebase caps OpenCV's threads, so some
+    import lowered it behind our backs - which is why this is asked again on
+    EVERY call rather than once at startup: whoever set it to 1 can set it to
+    1 again, and the page after they do should not cost a minute.
+
+    Measured on opencv 5.0.0.93, this exact model, one page: 10.27s on one
+    thread, 5.57s on two. It scales almost linearly, so on twenty cores the
+    same reclaim is roughly the difference between a minute and seconds.
+    """
+    want = os.cpu_count() or 1
+    if cv2.getNumThreads() < want:
+        cv2.setNumThreads(want)
+
 
 def _get_net(path: str):
     if not path or not os.path.isfile(path):
@@ -95,13 +146,14 @@ def _get_net(path: str):
             f"{path!r}. Download comictextdetector.pt.onnx from the "
             "manga-image-translator beta-0.2.1 release and point the "
             "detector model path at it.")
+    _all_the_cores()
     if path not in _nets:
         _nets[path] = cv2.dnn.readNetFromONNX(path)
     return _nets[path]
 
 
 def _letterbox(im: np.ndarray, new: int = INPUT):
-    """Resize keeping aspect, pad bottom/right to a square — matches the
+    """Resize keeping aspect, pad bottom/right to a square - matches the
     comic-text-detector preprocessing so the output coordinates map back
     cleanly."""
     h, w = im.shape[:2]
@@ -151,7 +203,7 @@ def _decode_blocks(pred: np.ndarray, conf_thresh: float, nms_thresh: float):
 
 
 def _largest_zero_run(proj: np.ndarray, tol: int):
-    """Longest run of (near) empty entries in a 1-D projection — the widest
+    """Longest run of (near) empty entries in a 1-D projection - the widest
     whitespace band. Returns (length, centre index)."""
     best_len, best_at, run, start = 0, 0, 0, 0
     for j, v in enumerate(proj):
@@ -170,9 +222,9 @@ def _largest_zero_run(proj: np.ndarray, tol: int):
 
 def _xycut(ink: np.ndarray, vgap: int, hgap: int, tol: int, depth: int = 0
            ) -> list[np.ndarray]:
-    """Recursive XY-cut. An empty ROW band (a VERTICAL gap — the "height"
+    """Recursive XY-cut. An empty ROW band (a VERTICAL gap - the "height"
     control) splits when it is >= `vgap`; an empty COLUMN band (a horizontal
-    gap — the "distance" control) splits when it is >= `hgap`. Either can fire;
+    gap - the "distance" control) splits when it is >= `hgap`. Either can fire;
     when both do, the one that most exceeds its own threshold wins."""
     ys, xs = np.nonzero(ink)
     if xs.size < 20:
@@ -413,19 +465,19 @@ def _straight_edges(gray: "np.ndarray", box: tuple) -> int:
 
 
 def _classify_kind(gray: "np.ndarray", box: tuple) -> str:
-    """Best-effort guess at a block's role from the art around it — for the
+    """Best-effort guess at a block's role from the art around it - for the
     'box type' label only. It never moves, resizes, adds or drops a box; it
     just sets kind.
 
     A caption is boxed off by straight edges; dialogue is wrapped in a bright
     enclosed shape; text on open artwork is 'freefloat' (outside text).
-    Conservative — when unsure it returns 'bubble', and every box stays one
+    Conservative - when unsure it returns 'bubble', and every box stays one
     click from a manual fix.
 
     The caption question is asked FIRST. It has to be: page 006's caption is a
     white panel on a starfield, so the ring round it is 0.433 bright against a
     0.45 bar and the freefloat test claimed it before anything else got a
-    look. And it is safe to ask first — measured over the chapter it never once
+    look. And it is safe to ask first - measured over the chapter it never once
     called a balloon a caption.
     """
     H, W = gray.shape
@@ -435,7 +487,7 @@ def _classify_kind(gray: "np.ndarray", box: tuple) -> str:
     if _straight_edges(gray, box) >= RULE_SIDES:
         return "narration"
 
-    # freefloat: the margin around the text is mostly dark artwork, not paper —
+    # freefloat: the margin around the text is mostly dark artwork, not paper -
     # i.e. the text sits on the drawing, not inside a balloon or caption.
     mx = max(8, int(0.40 * bw)); my = max(8, int(0.40 * bh))
     ax0 = max(0, X1 - mx); ay0 = max(0, Y1 - my)
@@ -720,6 +772,9 @@ DUP_UNEVEN = 0.10
 # rectangle, before they are read as ONE piece of writing that came back in
 # pieces. See `_join_overlapping` for what this is measured on.
 JOIN_OVER = 0.05
+# ...and the same, raised, for a pair where only ONE of the two was seen by a
+# pass that measures ink. See `_join_overlapping`.
+JOIN_ALONE = 0.20
 # ...and the same question for two boxes that do NOT overlap: how far apart
 # they may stand and still be one piece of writing, as a share of the shorter
 # box's height, and how much of the perpendicular extent has to line up before
@@ -766,6 +821,28 @@ DIAG_BALANCE = 0.15
 # How dense with drawn strokes the margin of a paper-ringed box must be
 # before the strokes are read as a burst's rays. See `_ring_rays`.
 RAYS_DENS = 0.04
+# PAINTED LETTERING IS NOT DIALOGUE.
+#
+# How coloured the strokes may be, in Lab chroma, before the two WEAKEST
+# escapes from the demotion are refused. See `_ink_chroma`.
+#
+# Only those two: the burst's rays and the bright floor are the escapes that
+# never find anything drawn round the writing -- they read the ground and
+# infer a balloon from it. A balloon mask, a round wall and an enclosure are
+# all somebody's line round the letters, and a coloured line of dialogue
+# inside a real balloon must keep it. Two on this chapter do: the blue second
+# line on 008 scores 24.3 and 065's tinted shout 22.1, and both are inside
+# drawn ovals, so neither is ever asked.
+#
+# Measured over the sixteen boxes that reach the paper test on chapter 1.
+# Every one that is rightly dialogue scores 0.0 -- 042's two bursts, 044's two
+# spiky balloons, 017's ornate caption frame, 012's and 072's credit lines.
+# 로얀 수틀렉스 scores 33.5. Nothing on the chapter lands between, and the bar
+# sits at twelve with twelve below it and twenty-one above.
+INK_CHROMA = 12.0
+CHROMA_MIN_BOX = 100     # a box smaller than this has no letters to read
+CHROMA_MIN_INK = 30      # ...nor has one with fewer strokes than this
+CHROMA_FRAME = 2         # the border of the box, which the GROUND runs to
 # The box of a writing region is the writing. A single blob of ink this big,
 # outside every character the second detector sees, is a piece of the artwork
 # the mask swallowed -- the junk cases measure 2,267-23,619 against 1,048 for
@@ -796,8 +873,8 @@ SHAVE_NEAR = 8           # the margin round a character that is its own ink
 # touched by anything done for another format. lee: *"save what we ahve for
 # find text for manga and now we will modify it for manhwa"*.
 #
-# The other two start as COPIES, not aliases, so the fork costs nothing today —
-# a manhwa page is found exactly as it was this morning — and tuning one of
+# The other two start as COPIES, not aliases, so the fork costs nothing today -
+# a manhwa page is found exactly as it was this morning - and tuning one of
 # them can never reach back into manga. That is the whole point of the table:
 # not the values, which are identical right now, but the fact that they are
 # separate values.
@@ -881,7 +958,7 @@ TUNING = {
 # The webtoons, first pass. Three of the five moved, and why:
 #
 # lee, with all three box types ticked: *"its still missing a lot of sfx"*, and
-# the ones it did find came back in pieces — one hand-drawn 촤악 as boxes 4 and
+# the ones it did find came back in pieces - one hand-drawn 촤악 as boxes 4 and
 # 5, one 퍽 as boxes 1 and 2.
 #
 #   conf_thresh  unchanged      It was 0.22 here for one turn, on the
@@ -891,9 +968,9 @@ TUNING = {
 #                               printed type inside a drawn one. That is right
 #                               about WHY the head misses them and wrong about
 #                               what lowering the bar buys, and lee's own
-#                               chapter settled it. On page 028 — 720x2770,
+#                               chapter settled it. On page 028 - 720x2770,
 #                               sound effects covering something like a sixth
-#                               of it — the head returns 0 blocks at 0.22, 0
+#                               of it - the head returns 0 blocks at 0.22, 0
 #                               at 0.10 and 0 at 0.05. On page 021 it returns
 #                               the same 2 blocks at 0.05 as at 0.40. There is
 #                               no confidence at which those effects appear,
@@ -902,9 +979,9 @@ TUNING = {
 #                               an eye and a jewel on page 026. A bar lowered
 #                               for something it cannot reach, paid for in
 #                               artwork, goes back up.
-#   mask_thresh  0.30 -> 0.20   ...and so the COVERAGE pass — the one that
+#   mask_thresh  0.30 -> 0.20   ...and so the COVERAGE pass - the one that
 #                               re-reads the mask for ink the block head
-#                               missed, which is exactly this — has ink to
+#                               missed, which is exactly this - has ink to
 #                               find. A thin brush stroke on white is the
 #                               weakest thing on the mask.
 #   split_gap    1.80 -> 3.50   Both gaps are multiples of the MEDIAN mark in
@@ -912,7 +989,7 @@ TUNING = {
 #                               syllable blocks and a brush-drawn shape leaves
 #                               daylight between them, so the median mark is
 #                               small and the gaps between them are large next
-#                               to it — which is the arithmetic that cut one
+#                               to it - which is the arithmetic that cut one
 #                               effect into two boxes. Widened, so one sound
 #                               effect stays one sound effect. This is the
 #                               SIDEWAYS gap and it stays at 3.50: the effects
@@ -920,7 +997,7 @@ TUNING = {
 #                               side by side.
 #   split_height 3.50 -> 1.10   The gap DOWN the page, moved with its sideways
 #                               twin on the same reasoning and measured
-#                               afterwards — see THE DOUBLE BALLOON below.
+#                               afterwards - see THE DOUBLE BALLOON below.
 #   nms_thresh   unchanged      Nothing lee showed was two boxes on top of one
 #                               another; they were two boxes side by side.
 #
@@ -1238,7 +1315,7 @@ def _characters_in(pieces, bbox):
     """What the second detector sees inside this box: how many character
     groups, how much of the box they cover, and their median height.
 
-    A piece is counted if it meets the box at all — the same bar as
+    A piece is counted if it meets the box at all - the same bar as
     `_seen_by`, and for the same reason: real writing goes down to 0.07 of a
     box and there is no fraction the measurement supports. The COVER is the
     union of the pieces clipped to the box, so two marks that overlap are not
@@ -1268,16 +1345,16 @@ def _seen_by(pieces, x0: int, y0: int, x1: int, y1: int) -> bool:
     """Does the second detector see ANY writing inside this box?
 
     lee, of the boxes Find text draws on his chapter: half of what came back as
-    a sound effect had no writing in it at all — boxes on sword blades, faces,
+    a sound effect had no writing in it at all - boxes on sword blades, faces,
     buildings, clothing, gold ornaments, and five times on the little trailing
     ellipses of a thought balloon's tail. 18 of 36 on chapter 1.
 
     That is the coverage pass. It keeps whatever ink the mask left over after
     the block head had its turn, and the mask fires on drawn lines as happily
     as on written ones. Six ways of telling the two apart were measured on
-    those 36 boxes — how many separate marks, how even they are in size, ink
+    those 36 boxes - how many separate marks, how even they are in size, ink
     density, how thin the longest stroke is, how many holes it has, and which
-    pass made the box — and **not one of them separates**. The text and the
+    pass made the box - and **not one of them separates**. The text and the
     artwork sit on top of each other in every distribution. The mask's leftover
     ink genuinely looks like writing by every cheap statistic there is.
 
@@ -1289,20 +1366,20 @@ def _seen_by(pieces, x0: int, y0: int, x1: int, y1: int) -> bool:
          2 of 18 artwork boxes    0.10 and 0.19 of the box covered
         17 of 18 real effects     0.07 to 0.53
 
-    So the bar is the lowest one there is — any overlap at all. Not a fraction:
+    So the bar is the lowest one there is - any overlap at all. Not a fraction:
     a fraction would be a number to tune and the measurement does not support
     one, since the real effects run down to 0.07 and the two artwork boxes
     CRAFT does see run up to 0.19.
 
     **What it costs.** One real effect in eighteen: page 036's 휘잉, a thin
-    hand-drawn vertical scrawl on pale paper, which CRAFT scores at 0.000 —
+    hand-drawn vertical scrawl on pale paper, which CRAFT scores at 0.000 -
     and at 0.000 with `low_text` swept down to 0.15, so no amount of generosity
     recovers it. Nothing in the shape statistics tells it from the artwork
     boxes CRAFT also cannot see: page 031's face is 4 marks / 0.58 even / 0.133
     density / 1.4 thin / 4 holes against the 휘잉's 4 / 0.92 / 0.144 / 1.6 / 4.
 
     lee: *"Missed SFX is worse"* than an extra box to delete. So this is a
-    setting and not a law — `auto_kind`'s neighbour in Find text — and it is on
+    setting and not a law - `auto_kind`'s neighbour in Find text - and it is on
     because 16 boxes gone for 1 lost is the better default, not because the
     loss is acceptable in the abstract.
 
@@ -1421,6 +1498,33 @@ def _join_overlapping(regions: list, share: float) -> list:
     ...and two boxes that do not overlap at all but stand a letter's width
     apart on one line, or a line's leading apart in one column, are the same
     piece of writing too. See `_next_to`.
+
+    **A BOX ONLY CRAFT SAW NEEDS MORE THAN A GRAZE.** The floor above is
+    measured on pairs that were already there before anything grew, and
+    `_grow_to_the_stroke` runs first and deliberately, so that two clipped
+    boxes on one effect grow into each other and come out as one. On lee's
+    029 that mechanism runs backwards: a CRAFT core on the balustrade becomes
+    a box of its own, grows 5.2x following the dark band down the page, and
+    ends up grazing the box over the real 웅성. They join, and the effect's
+    box comes out 282x304 across a piece of architecture -- lee: *"029 has a
+    sfx green box thats donst exist"*.
+
+    What separates that pair from every pair that must join is not size, not
+    colour and not how far the boxes grew -- all three were measured and all
+    three put a real pair on the wrong side. It is **provenance**. A region
+    CRAFT invented over nothing carries no text mask: no pass that measures
+    ink ever saw it, so its rectangle is a guess about a mark, while the
+    other box's rectangle sits on a measurement. Over 26 pages of chapter 1
+    there are 24 overlapping pairs, and the ten where exactly one side is
+    CRAFT's alone are:
+
+        029#6 / the 웅성           0.090   <- the guess, and the only one wrong
+        042, 007, 031, 042 x4 ...  0.283 .. 1.000
+
+    Nothing between 0.090 and 0.283, and the nine above the gap include the
+    chapter title on 042 and the two balloons on 031. Pairs where BOTH sides
+    are CRAFT's alone are untouched by this and still join on `share`: 001's
+    fragment at 0.015 and 045's 울렁 at 0.093 both have to.
     """
     if not share:
         return regions
@@ -1443,8 +1547,13 @@ def _join_overlapping(regions: list, share: float) -> list:
             bx, by, bw, bh = [int(v) for v in b.bbox]
             ox = min(ax + aw, bx + bw) - max(ax, bx)
             oy = min(ay + ah, by + bh) - max(ay, by)
+            # Only one of the two was seen by a pass that measures ink, so a
+            # graze is not enough -- see the docstring.
+            bar = share
+            if (a.text_mask is None) != (b.text_mask is None):
+                bar = max(share, JOIN_ALONE)
             if not (ox > 0 and oy > 0
-                    and ox * oy >= share * min(aw * ah, bw * bh)) \
+                    and ox * oy >= bar * min(aw * ah, bw * bh)) \
                     and not _next_to(a.bbox, b.bbox):
                 continue
             ra, rb = find(id(a)), find(id(b))
@@ -1485,10 +1594,10 @@ def _sheltered(gray: "np.ndarray", bbox, mask=None) -> bool:
     """Is something drawn round this writing, with paper under or around it?
 
     The two answers that, agreeing, make a balloon: an enclosure (at the
-    gentle thresholds — a thought-circle is drawn fainter than a balloon
+    gentle thresholds - a thought-circle is drawn fainter than a balloon
     wall) and ground that reads as paper (the margin, or for a plate laid
     over artwork, the floor under the letters). Asked by the promotion, and
-    by the shout label as its refusal — a drawn shout never has a wall round
+    by the shout label as its refusal - a drawn shout never has a wall round
     it.
     """
     from .balloon import _round_wall_around
@@ -1526,6 +1635,73 @@ def _ring_rays(gray: "np.ndarray", bbox) -> float:
     fr[max(0, y - b0):max(0, y - b0 + h),
        max(0, x - a0):max(0, x - a0 + w)] = False
     return float((e > 0)[fr].mean()) if fr.any() else 0.0
+
+
+def _ink_chroma(bgr: "np.ndarray", bbox) -> float:
+    """How COLOURED the type in this box is.
+
+    lee's 로얀 수틀렉스 on page 055 is a magenta brush title laid across an
+    impact flash, and the app called it dialogue. Nothing in the demotion could
+    see why not: the flash is bright, its margin is dense with drawn strokes,
+    and the floor under the letters is white. Every measurement the demotion
+    has asks about the PAPER, and the paper round a title is the same paper as
+    round a shout.
+
+    The letters are not. Dialogue on this chapter is set in black, in white, or
+    in one grey; the titles and the sound effects are painted. So this asks the
+    one question the rest of the demotion never does -- what colour is the
+    writing -- and it takes two things to ask it honestly:
+
+    * **Find the glyphs, not the dark pixels.** Otsu inside the box, then keep
+      whichever side does NOT own the box's own border, because the ground
+      runs to the edges of a box and the letters do not. `_glyph_share`'s flat
+      `gray < INK` cannot do this: a white caption on a black plate has no
+      dark letters at all. Neither can "keep the smaller side", which is right
+      on nearly every real box and wrong on a tight one -- three fat glyphs
+      cropped close are most of their own box, and the minority there is the
+      paper.
+    * **Measure the stroke CORES.** The edge of any letter is a blend of ink
+      and ground, so a black glyph on cream paper has a warm rim, and over a
+      thin face the rim outnumbers the core. The distance transform picks the
+      middle of the stroke at whatever width the stroke happens to be -- which
+      a fixed erosion cannot, and eroding twice leaves 35 pixels of a caption
+      face to average.
+
+    Chroma in Lab, not saturation in HSV. Black, white and every grey between
+    sit at a = b = 128, so neutral type scores zero at any lightness; HSV
+    saturation reads 249 for a white-on-black caption plate, because hue means
+    nothing near black. Measured over all 212 boxes of the chapter:
+
+        bubble     n=109  median  0.0   p90  1.0
+        narration  n= 17  median  2.0   p90  3.2
+        freefloat  n= 15  median 19.8   p90 45.1
+        sfx        n= 71  median 20.2   p90 42.1
+    """
+    x, y, w, h = [int(v) for v in bbox]
+    H, W = bgr.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(W, x + w), min(H, y + h)
+    if (x1 - x0) * (y1 - y0) < CHROMA_MIN_BOX:
+        return 0.0
+    sub = bgr[y0:y1, x0:x1]
+    g = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
+    _t, dark = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY_INV +
+                             cv2.THRESH_OTSU)
+    d = dark > 0
+    edge = np.zeros(d.shape, bool)
+    edge[:CHROMA_FRAME, :] = edge[-CHROMA_FRAME:, :] = True
+    edge[:, :CHROMA_FRAME] = edge[:, -CHROMA_FRAME:] = True
+    ink = (~d if d[edge].mean() > 0.5 else d).astype(np.uint8)
+    if int(ink.sum()) < CHROMA_MIN_INK:
+        return 0.0
+    dt = cv2.distanceTransform(ink, cv2.DIST_L2, 3)
+    core = dt >= max(1.0, 0.5 * float(np.percentile(dt[ink > 0], 90)))
+    if int(core.sum()) < CHROMA_MIN_INK:
+        core = ink > 0
+    lab = cv2.cvtColor(sub, cv2.COLOR_BGR2LAB)
+    a = lab[..., 1].astype(np.float32) - 128.0
+    b = lab[..., 2].astype(np.float32) - 128.0
+    return float(np.median(np.hypot(a, b)[core]))
 
 
 def _a_stray_mark(gray: "np.ndarray", bbox, mask=None,
@@ -1578,8 +1754,14 @@ def _a_stray_mark(gray: "np.ndarray", bbox, mask=None,
         dark = (sub < INK).astype(np.uint8)
         light = (sub > 200).astype(np.uint8)
         ink = dark if dark.mean() <= light.mean() else light
-    if not ink.any():
-        return False
+    # A box with NOTHING in it is the emptiest case of this rule, not an
+    # exception to it. This used to read `return False` and keep it, which
+    # never showed while CRAFT was the only second detector -- over lee's
+    # whole chapter, all 23 boxes only CRAFT found have ink in them and the
+    # median is 33% -- and showed the moment a detector arrived that can put a
+    # rectangle on blank paper. Falling through gives the right answer for
+    # free: no marks is not more than STRAY_PIECES, and a fill of zero is
+    # under any threshold.
     n, _lab, st, _c = cv2.connectedComponentsWithStats(ink, 8)
     marks = sum(1 for i in range(1, n)
                 if int(st[i, cv2.CC_STAT_AREA]) >= STRAY_MARK)
@@ -1591,7 +1773,7 @@ def _a_stray_mark(gray: "np.ndarray", bbox, mask=None,
 
 def _pieces_and_bands(mask):
     """The components of a box's ink, and those components grouped into row
-    bands — the lines of the writing, if it is writing."""
+    bands - the lines of the writing, if it is writing."""
     n, lab, st, _ = cv2.connectedComponentsWithStats(
         (np.asarray(mask) > 0).astype(np.uint8), 8)
     ps = [(int(st[i, 0]), int(st[i, 1]),
@@ -1613,7 +1795,7 @@ def _pieces_and_bands(mask):
 
 
 def _two_texts_in(mask):
-    """Are there two separate texts in this one box — and which ink belongs
+    """Are there two separate texts in this one box - and which ink belongs
     to which?
 
     lee, with three crops of two-lobed balloons each holding two things said
@@ -1621,14 +1803,14 @@ def _two_texts_in(mask):
     that make each text box tehir own box and not merged"*.
 
     Neither existing split can see these. `_split_clusters` cuts on straight
-    empty bands, and its gaps scale with the median piece — which the merged
+    empty bands, and its gaps scale with the median piece - which the merged
     multi-character lines of exactly these boxes inflate: 044's pair needs a
     91px cut and the bar computes to 116. And 040's pair cannot be cut by any
     straight band at all: its two texts overlap in rows by 28%.
 
     What separates them is a fact about typesetting rather than about gaps.
     **A paragraph's lines share their columns.** Two utterances laid into the
-    two lobes of one balloon are set on a diagonal — down and across — so the
+    two lobes of one balloon are set on a diagonal - down and across - so the
     two groups share neither rows nor columns. A single text never does that:
     however ragged its lines, they stack.
 
@@ -1649,7 +1831,7 @@ def _two_texts_in(mask):
                   mask and so fails the staircase on columns.
 
     Both require each side to hold at least `DIAG_BALANCE` of the ink, which
-    is what keeps this away from 035's 쿵 — a drawn stroke with droplet marks
+    is what keeps this away from 035's 쿵 - a drawn stroke with droplet marks
     diagonal from it at 2% of the ink. And it is never asked about an sfx
     box at all: 001's 와아아아 is four syllables ON a diagonal, and joining
     those back together was this same session's work.
@@ -1695,13 +1877,154 @@ def _band_pieces(band, ps):
     return [p for p in ps if p[5] in band[5]]
 
 
-def _each_text_its_own_box(regions: list) -> list:
-    """Split every box holding two texts, until none does."""
+# TWO SOUND EFFECTS IN ONE BOX.
+#
+# lee, with a box drawn round 와아아아 AND 쾅: *"these 2 clusters shou be thei
+# own boxes"*, and the rule he read off the page himself -- *"if there are a
+# 2-3 box that are close to eachoter and one that fater away it probably a
+# difrent sfx"*.
+#
+# He is right about the shape, and the numbers say so. Measured over all 49
+# sound-effect boxes of a 46-page chapter, taking CRAFT's characters inside
+# each box and the gap between neighbours normalised by character size (the
+# same normalisation `reach_groups` uses, so big and small effects read on one
+# scale): every box that really is ONE effect has neighbour gaps of 0.35 or
+# less. Three boxes have a gap of 0.84, 1.26 and 1.75.
+#
+# **But distance alone splits two of those three wrongly**, which is why there
+# is a second condition. Cropped and looked at one at a time:
+#
+#     001#1  gap 0.84   와아아아 | 쾅              two effects  <- the one to split
+#     004#3  gap 1.26   콰앙 | a stray CRAFT box    one effect
+#     030#2  gap 1.75   킥킥 | its own trailing ..  one effect
+#
+# What separates them is not how far the far thing is, it is WHAT it is. In
+# 001#1 both sides are writing of comparable size -- 261px against 118px. The
+# other two are a speck on empty artwork and a pair of dots. Measured at the
+# cut the three come out 0.45, 0.29 and 0.14, so the bar sits at 0.35 with the
+# same kind of room either side that the gap bar has.
+#
+# **This is measured on ONE positive example.** lee: *"do this ill do anther
+# chapter later"*. So it is deliberately the conservative shape -- three
+# conditions, all of which must hold -- and on the chapter it was measured on
+# it makes exactly one change. Widen it when there are more chapters.
+SPLIT_GAP = 0.60         # ...against 0.35, the widest gap inside a real effect
+SPLIT_ALIKE = 0.35       # ...and the smaller side is at least this much of it
+SPLIT_LEAST = 3          # two characters cannot say which of them is the far one
+
+
+def _cores_in(pieces, bbox) -> list:
+    """CRAFT's characters that sit inside this box, as (x0, y0, x1, y1).
+
+    A whisker of slack on each side, because the box is the union of these
+    very rectangles and rounding has already put a character a pixel outside
+    the box it helped define.
+    """
+    x, y, w, h = [int(v) for v in bbox]
+    out = []
+    for q in (pieces or []):
+        gx0, gy0, gx1, gy1 = (int(v) for v in q[:4])
+        if gx0 >= x - 6 and gx1 <= x + w + 6 \
+                and gy0 >= y - 6 and gy1 <= y + h + 6:
+            out.append((gx0, gy0, gx1, gy1))
+    return out
+
+
+def _around(cores: list) -> tuple:
+    """The box round a group of characters, as (x, y, w, h)."""
+    x0 = min(c[0] for c in cores)
+    y0 = min(c[1] for c in cores)
+    x1 = max(c[2] for c in cores)
+    y1 = max(c[3] for c in cores)
+    return (x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+
+
+def _core_gap(a, b) -> float:
+    """The gap between two characters, in units of the smaller one."""
+    gx = max(0, max(a[0], b[0]) - min(a[2], b[2]))
+    gy = max(0, max(a[1], b[1]) - min(a[3], b[3]))
+    s = min(max(a[2] - a[0], a[3] - a[1]), max(b[2] - b[0], b[3] - b[1]))
+    return ((gx * gx + gy * gy) ** 0.5) / max(1, s)
+
+
+def _widest_link(cores: list):
+    """Grow a minimum spanning tree over the characters and hand back its
+    longest link, with the two groups that cutting the link would leave.
+
+    A tree, and not a bounding box or a pairwise maximum, because this is
+    about a CHAIN: 와아아아 is four characters strung in a row and the two ends
+    of that row are far apart. What is really far is the STEP from the row to
+    쾅, and only the longest link of a spanning tree is that step.
+    """
+    n = len(cores)
+    if n < 2:
+        return None
+    seen, rest, edges = {0}, set(range(1, n)), []
+    while rest:
+        best = min(((_core_gap(cores[i], cores[j]), i, j)
+                    for i in seen for j in rest), key=lambda t: t[0])
+        edges.append(best)
+        seen.add(best[2])
+        rest.discard(best[2])
+    edges.sort(key=lambda t: t[0])
+    par = list(range(n))
+
+    def find(a):
+        while par[a] != a:
+            par[a] = par[par[a]]
+            a = par[a]
+        return a
+
+    for _g, i, j in edges[:-1]:
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            par[ri] = rj
+    side: dict = {}
+    for k in range(n):
+        side.setdefault(find(k), []).append(k)
+    if len(side) != 2:
+        return None
+    a, b = side.values()
+    return edges[-1][0], a, b
+
+
+def _two_effects_in(cores: list):
+    """Is this box two sound effects? If so, the two groups of characters.
+
+    All three conditions, and every one of them has to hold. See the note
+    above for what each is worth and what it was measured against.
+    """
+    if len(cores) < SPLIT_LEAST:
+        return None
+    got = _widest_link(cores)
+    if got is None:
+        return None
+    gap, a, b = got
+    if gap < SPLIT_GAP:
+        return None
+    big = [max(max(cores[k][2] - cores[k][0], cores[k][3] - cores[k][1])
+               for k in side) for side in (a, b)]
+    if min(big) < SPLIT_ALIKE * max(big):
+        return None                  # a speck or a pair of dots, not an effect
+    return a, b
+
+
+def _each_text_its_own_box(regions: list, skip_sfx: bool = True) -> list:
+    """Split every box holding two texts, until none does.
+
+    `skip_sfx` is the manhwa behaviour and the default: there, a painted
+    effect's strokes scatter across the artwork and asking whether the box
+    holds "two texts" is asking about the drawing. The manga route passes
+    False, because a row of three effects painted across one panel comes back
+    from comic-text-detector as ONE rectangle -- 008's ガチャ ガチャ ガチャ at
+    434px -- and lee: *"teh box merging shou not happen"*.
+    """
     out = []
     todo = list(regions)
     while todo:
         r = todo.pop(0)
-        if _kinds.family_of(r.kind) == "sfx" or r.text_mask is None:
+        if (skip_sfx and _kinds.family_of(r.kind) == "sfx") \
+                or r.text_mask is None:
             out.append(r)
             continue
         found = _two_texts_in(r.text_mask)
@@ -1793,6 +2116,47 @@ def _drop_duplicates(regions: list) -> list:
     return keep
 
 
+def page_text_mask(img: "np.ndarray", model_path: str,
+                   mask_thresh: float = SEG_KEEP) -> "np.ndarray":
+    """comic-text-detector's `seg` head alone, as a full-page binary mask.
+
+    Split out of `detect_comictext` unchanged so a different detector can
+    borrow it, and it has to be borrowed: `inpaint` skips any region whose
+    `text_mask is None`, in three separate places, so a page whose boxes came
+    from something that returns rectangles and nothing else would not clean at
+    all. This head is the only thing in the app that says WHERE THE INK IS.
+
+    See `dbcoo`, which takes its boxes from two other models and its masks
+    from here.
+    """
+    net = _get_net(model_path)
+    if img.ndim == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    im_h, im_w = img.shape[:2]
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    lb, dw, dh = _letterbox(rgb, INPUT)
+    blob = cv2.dnn.blobFromImage(lb, scalefactor=1 / 255.0,
+                                 size=(INPUT, INPUT))
+    net.setInput(blob)
+    outs = net.forward(net.getUnconnectedOutLayersNames())
+    maps = [np.asarray(o) for o in outs if np.asarray(o).ndim == 4]
+    mask_raw = next((m for m in maps if m.shape[1] == 1),
+                    maps[0] if maps else None)
+    tmask = np.zeros((im_h, im_w), np.uint8)
+    if mask_raw is None:
+        return tmask
+    m = np.asarray(mask_raw).squeeze()
+    if m.ndim != 2:
+        return tmask
+    if m.max() > 1.5:                    # 0..255 rather than 0..1
+        m = m / 255.0
+    mm = (m > mask_thresh).astype(np.uint8) * 255
+    mm = mm[:INPUT - dh, :INPUT - dw]
+    if mm.size:
+        tmask = cv2.resize(mm, (im_w, im_h), interpolation=cv2.INTER_NEAREST)
+    return tmask
+
+
 def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
                      nms_thresh: float = 0.35, mask_thresh: float = SEG_KEEP,
                      split_gap: float = 1.8, split_height: float = 1.8,
@@ -1811,7 +2175,9 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
                      split_texts: bool = False,
                      link_touching: float = None,
                      classify: bool = True,
-                     second_opinion: bool = True
+                     second_opinion: bool = True,
+                     bubble_weights: str = "",
+                     want_sfx: bool = True
                      ) -> list[TextRegion]:
     net = _get_net(model_path)
     img = page.image
@@ -1843,8 +2209,29 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
     # boxes out; all that moves is when the work happens. Both nets release
     # the interpreter while they compute, which is what makes the overlap real
     # rather than two things taking turns.
+    # ...AND ONLY IF ANYBODY ASKED FOR SOUND EFFECTS.
+    #
+    # lee: *"i also want to make it so that if sfx are not selectd to be
+    # detected craft shoud not run"*. He is asking for the largest saving
+    # available anywhere in Find text and it is free: CRAFT is **93% of the
+    # run**, everything it contributes is a sound effect -- `merge_into`
+    # builds its regions with `kind="sfx"` and nothing else -- and
+    # `only_kinds` was throwing every one of them away afterwards. Eight
+    # seconds a page spent finding boxes that were then binned.
+    #
+    # The three ticks in the dialog steer the measuring detectors and used to
+    # walk straight past this one, because comic-text-detector reads the whole
+    # page whatever is ticked and CRAFT was hung off the format rather than
+    # off the choice.
+    # WHERE THE SECONDS GO, said out loud once a page.
+    #
+    # lee: *"ctd is taking 50 second per page, i timmed it"*, against 4.7 on
+    # the chapter measured here. A number nobody can break down is a number
+    # nobody can act on, so the run reports its own split rather than being
+    # argued about: the net, the wait on CRAFT, and everything after.
+    _t0 = _time.time()
     craft_job = None
-    if craft_x and craft_y:
+    if craft_x and craft_y and want_sfx:
         from . import craft as _craft
         if _craft.available():
             craft_job = _POOL.submit(_craft.pieces, img)
@@ -1856,7 +2243,7 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
     outs = net.forward(net.getUnconnectedOutLayersNames())
 
     # The model returns (blocks, mask, lines). Blocks are 3-D (1,N,5+nc); the
-    # 4-D maps are the mask and the line map — OpenCV sometimes reverses those,
+    # 4-D maps are the mask and the line map - OpenCV sometimes reverses those,
     # so the 1-channel one is the text mask.
     blks = next((o for o in outs if np.asarray(o).ndim == 3), None)
     maps = [np.asarray(o) for o in outs if np.asarray(o).ndim == 4]
@@ -1881,6 +2268,15 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
                 tmask = cv2.resize(mm, (im_w, im_h),
                                    interpolation=cv2.INTER_NEAREST)
 
+    # ...and the page keeps it. `detect_ctd_sfx` needs this exact mask to
+    # cut its sound-effect regions out of, and computing it there means
+    # running this net twice on one page -- 2.29s of the 9.44 the route was
+    # costing, for an answer that was already in this variable.
+    try:
+        page.seg_mask = tmask
+    except Exception:
+        pass
+
     rr_x = im_w / max(1, (INPUT - dw))
     rr_y = im_h / max(1, (INPUT - dh))
 
@@ -1902,11 +2298,11 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
         boxsel = np.zeros((im_h, im_w), bool)
         boxsel[Y1:Y2 + 1, X1:X2 + 1] = True
         text = (tmask > 0) & boxsel
-        if int(text.sum()) < 20:         # mask missed it — fall back to ink
+        if int(text.sum()) < 20:         # mask missed it - fall back to ink
             text = (gray <= INK) & boxsel
         if int(text.sum()) < 20:
             continue
-        # One block can hold two separate texts with a big gap between them —
+        # One block can hold two separate texts with a big gap between them -
         # give each its own box.
         block_regions: list[TextRegion] = []
         for cluster in _split_clusters(text.astype(np.uint8),
@@ -1957,7 +2353,9 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
     # box, and asking CRAFT twice for the same page would double what it costs.
     # ...and this is where the two come back together. Started at the top of
     # the run, collected here, which is the first line that needs both.
+    _t_net = _time.time()
     craft_pieces = craft_job.result() if craft_job is not None else None
+    _t_craft = _time.time()
 
     # Everything the block head never boxed. The box comes straight off the
     # mask -- re-measuring it from the ink was tried and made it worse: on
@@ -2090,11 +2488,37 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
         regions = _each_text_its_own_box(regions)
 
     # This model reports TEXT, so every region above has no balloon and the
-    # fitter would be handed the footprint of the Japanese — a tall narrow
-    # column — to lay horizontal English out in. Find the balloon each block
+    # fitter would be handed the footprint of the Japanese - a tall narrow
+    # column - to lay horizontal English out in. Find the balloon each block
     # sits in so the English can use the whole of it.
     from .balloon import attach_balloons
     attach_balloons(gray, regions)
+
+    # ...and the balloons INK CANNOT FIND, which is a different question.
+    #
+    # lee, three screenshots side by side: *"how are these bubble text ? and
+    # these grey bubble are not"*. Everything above works from ink -- a
+    # balloon is found when a dark outline separates its inside from the page
+    # -- and page 050's balloons are flat grey with no outline, overlapping
+    # the bright panels above and below. Nothing lies between the balloon and
+    # the panel, so they run together, the blob fails every shape test, and
+    # the region comes out with the box round its writing and the word
+    # `freefloat` on it. No threshold reaches a boundary that is not there.
+    #
+    # `comicbubble` is a model that knows what a balloon looks like without
+    # asking for an outline. It runs AFTER the measurement and only ever adds:
+    # a region that already has a mask keeps it, because that mask is a
+    # reading of this page and this is a guess about comics in general. Off
+    # unless the weights are on disk, so a machine that has not downloaded
+    # them finds a chapter exactly as it did before.
+    cb_boxes = None
+    if bubble_weights:
+        from . import comicbubble as _CB
+        # ONE forward pass, read twice: the balloons here, and the WORD on each
+        # box at the very end of this function, after every measured rule has
+        # had its say.
+        cb_boxes = _CB.look(img, bubble_weights)
+        _CB.name_the_balloons(img, regions, bubble_weights, boxes=cb_boxes)
 
     # A box called DIALOGUE with no balloon anywhere near it is not dialogue.
     #
@@ -2200,7 +2624,16 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
                 # ...or a BURST's rays. A burst is open to the page, so no
                 # wall ever shuts round one -- but its margin is dense with
                 # drawn strokes where bare paper is empty. See `_ring_rays`.
-                if _ring_rays(gray, r.bbox) >= RAYS_DENS:
+                #
+                # ...unless the LETTERING IS PAINTED. lee's 로얀 수틀렉스 is a
+                # magenta brush title laid across an impact flash, and a flash
+                # is speed lines: 0.053 of margin density against the 0.04
+                # bar, so this escape took it. Nothing that reads the ground
+                # can separate a flash from a burst -- both are bright with
+                # strokes all round -- and nothing has to, because the writing
+                # inside them is not the same writing. See `_ink_chroma`.
+                if _ring_rays(gray, r.bbox) >= RAYS_DENS \
+                        and _ink_chroma(img, r.bbox) < INK_CHROMA:
                     continue
             # ...and the paper it is printed on, which is the second opinion
             # page 048 needs: its margin is rays and its floor is the burst.
@@ -2214,7 +2647,13 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
             # not a tidying. Reached unconditionally it rescues every one of
             # them: 046#0 measures 255 under the letters as well as round
             # them, because there is nothing on that page but the letters.
-            elif _paper_under(gray, r.bbox, r.text_mask) >= UNDER_PAPER:
+            #
+            # The same veto as the rays: a bright floor under painted letters
+            # is the white core of a flash, not a plate. 로얀 measures 248
+            # here, which is how it stayed dialogue with the rays escape shut
+            # as well -- it needed both doors closed.
+            elif _paper_under(gray, r.bbox, r.text_mask) >= UNDER_PAPER \
+                    and _ink_chroma(img, r.bbox) < INK_CHROMA:
                 continue
             r.kind = "freefloat"
             demoted.add(id(r))
@@ -2543,6 +2982,41 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
         for n, r in enumerate(regions):
             r.id = n
 
+        # ...and one sound-effect box holding TWO effects comes apart. See
+        # `_two_effects_in` for the three conditions and what each was
+        # measured against.
+        #
+        # AFTER the last join, deliberately: a join is what puts the two
+        # halves of ONE effect back together, and a split running before it
+        # would be undone by the very next line. After the census too, so the
+        # kind read here is the settled one and not the coverage pass's first
+        # guess.
+        if craft_pieces is not None:
+            fresh = []
+            for r in regions:
+                two = None
+                if _kinds.family_of(r.kind) == "sfx":
+                    cores = _cores_in(craft_pieces, r.bbox)
+                    got = _two_effects_in(cores)
+                    if got is not None:
+                        two = [_around([cores[k] for k in side])
+                               for side in got]
+                if two is None:
+                    fresh.append(r)
+                    continue
+                for bb in two:
+                    part = copy.copy(r)
+                    part.bbox = bb
+                    part.bubble_mask = None
+                    part.bubble_bbox = bb
+                    part.polygon = None
+                    part.src_vertical = bb[3] > bb[2] * 1.15
+                    fresh.append(part)
+            if len(fresh) != len(regions):
+                regions = fresh
+                for n, r in enumerate(regions):
+                    r.id = n
+
     # THE FRAME A CAPTION SITS IN IS ITS BALLOON.
     #
     # lee, with arrows pushing a title plate's box out to its ornate frame:
@@ -2603,8 +3077,33 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
     # ...and LAST of all, the two lobes of one balloon become one box pair.
     #
     # Last because it reads `kind`, and every rule above can still change one.
-    # lee: *"it shoud only be bubble text and only be bubbles"* — both of those
+    # lee: *"it shoud only be bubble text and only be bubbles"* - both of those
     # are decided by the time the run gets here.
+    # ...and LAST of all but one, what each box IS.
+    #
+    # Every rule above decides dialogue-versus-outside-text by measuring the
+    # paper -- the margin's brightness, a closed wall, a balloon mask -- and
+    # those proxies lie in two places lee has reported all day: a caption on a
+    # pale empty page reads as inside a balloon, and a balloon on a dark panel
+    # reads as outside. The model was told which was which on eleven thousand
+    # comic pages instead of inferring it.
+    #
+    # It runs after the measuring, not instead of it: on 133 of 139 boxes the
+    # two agree, and where they do not this is the one that was right on every
+    # box that was looked at. It only ever changes the WORD -- never a corner,
+    # never a sound effect, never a sub-type somebody chose.
+    if bubble_weights and cb_boxes:
+        from . import comicbubble as _CB
+        _CB.name_the_kinds(img, regions, bubble_weights, boxes=cb_boxes)
+
     if link_touching:
         _BL.link_touching_bubbles(gray, regions, link_touching)
+
+    # CRAFT is started at the top and collected in the middle, so its cost is
+    # the WAIT - what the block head could not hide. On the first page of a
+    # run that wait carries the weight load too, which is why page one always
+    # reads far worse than the rest and why an average over one page is not a
+    # measurement.
+    _say_timing(page, _t0, _t_net, _t_craft, len(regions),
+                craft_job is not None)
     return regions

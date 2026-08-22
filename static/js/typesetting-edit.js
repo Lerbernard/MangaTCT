@@ -1,9 +1,9 @@
-/* typesetting-edit.js — Live typesetting preview while typing, style edits, gradient/shadow clears, rotation.
+/* typesetting-edit.js - Live typesetting preview while typing, style edits, gradient/shadow clears, rotation.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 /* ---------------- live typesetting overlay ----------------
    The browser draws the text itself over the CLEANED page. The server only
-   supplies line positions, which costs about 9ms — so edits show up as you
+   supplies line positions, which costs about 9ms - so edits show up as you
    make them instead of waiting on a full page re-render.               */
 let fontsReady=false;
 function ensureFonts(){
@@ -30,7 +30,7 @@ let editSeq=0;
 /* Bumped by every EDIT, not by every request.
 
    `editSeq` was bumped where the request goes out, so a reply was only
-   discarded when a newer request had already been sent — and typing between
+   discarded when a newer request had already been sent - and typing between
    "sent" and "received" does not send anything. The reply for the press
    before last was then accepted as current, and it overwrites the whole
    layout: the size and the line breaks. So the page took the smaller size
@@ -40,7 +40,7 @@ let editSeq=0;
    lee: *"something i make the text big it randonly becomes smalle while teh
    text box remain big"* and *"sometime the text just revert back why im
    eddit it"*. It reads as random because a preview is normally about nine
-   milliseconds — but the first one after any save has to rebuild the page,
+   milliseconds - but the first one after any save has to rebuild the page,
    which can take seconds, and that is the window.
 
    `editTick` is the truth: it moves the moment a key is pressed. A reply that
@@ -87,7 +87,7 @@ function livePreview(id, patch, immediate){
              edge1:j.edge1||'',edge2:j.edge2||'',
              edge_angle:+(j.edge_angle||0)};
     r.kind=j.kind||r.kind;
-    // When the box reshaped the text, the panel must say what the page says —
+    // When the box reshaped the text, the panel must say what the page says -
     // same breaks, same size. (Left alone if you are typing in the field.)
     if(patch.fit||patch.wrap){
       const la=$('lyLines');
@@ -96,7 +96,7 @@ function livePreview(id, patch, immediate){
       if(sz&&document.activeElement!==sz&&j.font_size) sz.value=j.font_size;
     }
     // If the block is being typed into on the canvas, the editor is what is
-    // visible — resize it too, or size changes look like they did nothing.
+    // visible - resize it too, or size changes look like they did nothing.
     if(editing===id && editBox) placeEditor(editBox, r);
     drawOverlay();
   };
@@ -117,13 +117,13 @@ function lyLinesNow(){
 }
 /* Set a block's lines from code, the way typing into the box would.
 
-   Used by anything that changes the words without a keystroke — turning a
+   Used by anything that changes the words without a keystroke - turning a
    text layer into a picture, for one, which has to leave the box empty or the
    page carries the typesetting twice. */
 function setTypesetLines(id, lines){
   const el=$('lyLines');
   const r0=regions.find(x=>x.id===id);
-  // A locked block is not typed into, but it can still be SET — putting the
+  // A locked block is not typed into, but it can still be SET - putting the
   // words back after undoing a conversion to an image is not an edit anybody
   // is making by hand.
   if(el && !(r0 && r0.locked) && (typeof sel==='undefined' || sel===id)){
@@ -190,7 +190,7 @@ function currentPatch(r){
           glow_size:el('lyGlowS')?+$('lyGlowS').value||0:(+ov.glow_size||6),
           iglow:el('lyIGlow')?$('lyIGlow').value:(ov.iglow||''),
           iglow_size:el('lyIGlowS')?+$('lyIGlowS').value||0:(+ov.iglow_size||5),
-          // 0 is a real answer here — a fully transparent block — so this one
+          // 0 is a real answer here - a fully transparent block - so this one
           // cannot be written with `||`.
           opacity:($('lyOpacity') ? Math.max(0,Math.min(100,+$('lyOpacity').value||0))
                                   : (ov.opacity ?? 100)),
@@ -202,7 +202,7 @@ function currentPatch(r){
           lspace:el('lyLspace')?+$('lyLspace').value||0:(+ov.lspace||0),
           // ONLY a frame the person actually dragged. Echoing back the frame
           // the server just computed turned every save into a hand placement,
-          // and the dx/dy baked into it were then added a second time — so
+          // and the dx/dy baked into it were then added a second time - so
           // the block crept by one nudge on every click.
           frame:ov.frame||null,
           // Two blocks in one box keep their own line positions: send them
@@ -223,8 +223,8 @@ function onTypesetEdit(id){
   // instant they change instead of waiting on the server round trip.
   if(r.layout){
     // Everything typed goes into the region AT ONCE, before any request is
-    // made. The panel is rebuilt on all sorts of things — a save landing, a
-    // poll, a stepper being released — and it is built from the region, so
+    // made. The panel is rebuilt on all sorts of things - a save landing, a
+    // poll, a stepper being released - and it is built from the region, so
     // anything not written down here is a field that snaps back to the last
     // answer the server gave while the new one is still in flight. That is
     // the "it reverts back" lee kept seeing, and with a stepper it swallowed
@@ -235,7 +235,7 @@ function onTypesetEdit(id){
     if($('lyRot'))  r.layout.rotate=+$('lyRot').value||0;
     // ALL CAPS shows AT ONCE. It is a change to what the letters look like,
     // not to what the fitter decides, so waiting on the round trip to see it
-    // was waiting for nothing — and the first preview after any save rebuilds
+    // was waiting for nothing - and the first preview after any save rebuilds
     // the page cache, which can take seconds. lee: *"the all caps either take
     // a long time or dosn't work"*. The server does the same thing to the
     // same lines; this only stops the screen lagging behind the switch.
@@ -243,7 +243,7 @@ function onTypesetEdit(id){
     if(_caps && r.layout.lines)
       r.layout.lines=r.layout.lines.map(x=>String(x).toUpperCase());
     if($('lyLines')){
-      // Every line as typed — blanks and leading spaces included, and an
+      // Every line as typed - blanks and leading spaces included, and an
       // empty box accepted. They used to be trimmed and dropped, so a blank
       // line between two paragraphs could not be typed and clearing the box
       // did nothing at all. lee: *"allow the text bx to acces line breaks
@@ -283,7 +283,7 @@ function onTypesetEdit(id){
   typesetDirty = id;          // there is now a change that has not been saved
 }
 
-/* Everything typed into the typesetting panel is only PREVIEWED as you type —
+/* Everything typed into the typesetting panel is only PREVIEWED as you type -
    the page redraws, but nothing is written down. The style fields used to be
    the only ones that then saved themselves, after a pause; the text, the size
    and the rotation were saved by "Keep this" and by nothing else. So typing a
@@ -307,7 +307,7 @@ function flushTypesetEdit(){
   saveTypesetting(id, true, null, true);
 }
 
-/* Discrete style picks (colour, outline, font) should just stick — save them
+/* Discrete style picks (colour, outline, font) should just stick - save them
    quietly once the person pauses, no "Keep this" needed. */
 let styleSaveTimer=null;
 function onTypesetStyle(id){
@@ -317,7 +317,7 @@ function onTypesetStyle(id){
 }
 
 
-/* `which` is 'fg' for the letters and 'edge' for the outline round them —
+/* `which` is 'fg' for the letters and 'edge' for the outline round them -
    two gradients, one clear button each. */
 function clearGradient(id, which){
   const ids = which==='edge' ? ['lyEdge1','lyEdge2'] : ['lyFg1','lyFg2'];

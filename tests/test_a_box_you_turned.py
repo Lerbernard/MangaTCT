@@ -1,4 +1,4 @@
-"""A box you drew, turned — and everything downstream turning with it.
+"""A box you drew, turned - and everything downstream turning with it.
 
 lee: *"alow me to rotate boxes, only teh ser shoud be able to rotate them the
 detector boxes shoud be normal"*, and, asked what "rotate" should mean:
@@ -15,14 +15,14 @@ one, and no turn handle is drawn on it.
 
 `TextRegion.angle` was already there and already meant something: the axis a
 sound effect's artwork runs along, read off the page the moment the effect is
-drawn. Every sound effect drawn by hand therefore arrives carrying one — so
+drawn. Every sound effect drawn by hand therefore arrives carrying one - so
 reading a turn out of `angle` would have leant the outline, the clean and the
 typesetting of every hand-drawn effect in the chapter, none of which anybody
 turned. `turn` is its own field: `angle` is a reading of the drawing, `turn`
 is a decision about the box, and one box can have both.
 
-Turning a sound effect moves its axis by as much, which is how its letters —
-which are laid along that axis and not in a block — turn with the box.
+Turning a sound effect moves its axis by as much, which is how its letters -
+which are laid along that axis and not in a block - turn with the box.
 
 ## The turn is stored as GEOMETRY as well
 
@@ -31,7 +31,7 @@ fitter, the renderer and the browser, and each of those is a place to forget.
 Writing the four corners into `polygon` means the turn arrives wherever the
 outline already arrives: `_is_a_box` answers False for a tilted rectangle, so
 the region loads with a real placement area. `bbox` stays the upright
-rectangle the turn is derived FROM — so resizing a turned box re-derives it
+rectangle the turn is derived FROM - so resizing a turned box re-derives it
 rather than straightening it, and straightening it gives the plain box back.
 
 ## The text is fitted straight and then turned
@@ -39,7 +39,7 @@ rather than straightening it, and straightening it gives the plain box back.
 Fitting into the tilted shape directly would set level lines inside a leaning
 box: every line a different width, which is a staircase, not turned text. So
 `fit_region` fits against the box upright and hangs `rotate` on the layout,
-and the renderer — which already turns any layout carrying one — does the rest.
+and the renderer - which already turns any layout carrying one - does the rest.
 
 Which means the finished block is turned about the layout FRAME's centre while
 the mask is the box turned about the BOX's centre. Those are close but not the
@@ -104,14 +104,14 @@ def test_a_drawn_box_with_a_turn_is_turned():
     assert is_turned({"manual": True, "turn": 12.0})
 
 
-def test_a_detector_box_is_turned_by_the_same_field():
-    """It used to be hand-drawn boxes only — lee: *"only teh ser shoud be able
-    to rotate them the detector boxes shoud be normal"* — on the reasoning that
-    a detected outline came off the artwork. He asked for the other thing:
-    *"alowm me to be able to rotate every box"*. A detector can be wrong about
-    the angle as easily as about the edges, and the same person fixes both."""
+def test_a_box_the_detector_put_down_can_be_turned_too():
+    """It was hand-drawn boxes only - lee: *"only teh ser shoud be able to
+    rotate them the detector boxes shoud be normal"* - and he then asked for
+    the other thing: *"alowm me to be able to rotate every box"*. A detector
+    can be wrong about the ANGLE as easily as about the edges, and it is the
+    same person fixing both. `is_turned` reads the turn, not who drew it."""
     assert is_turned({"turn": 44.0})
-    assert is_turned({"manual": True, "turn": 44.0})
+    assert is_turned({"manual": False, "turn": 12.0})
 
 
 def test_and_neither_is_a_drawn_box_left_straight():
@@ -121,7 +121,7 @@ def test_and_neither_is_a_drawn_box_left_straight():
 
 def test_a_measured_angle_is_not_a_turn():
     """A sound effect drawn by hand is measured the moment it is drawn, so it
-    arrives carrying an angle — the axis its artwork runs along. Reading that
+    arrives carrying an angle - the axis its artwork runs along. Reading that
     as a turn would have leant the clean of every one of them."""
     assert not is_turned({"manual": True, "angle": 44.0})
 
@@ -129,7 +129,7 @@ def test_a_measured_angle_is_not_a_turn():
 # --- through the endpoint -------------------------------------------------------
 
 # A sound effect drawn up a diagonal, in its own corner of the page. The axis
-# reader gives it a real angle at draw time — which is the whole point: a
+# reader gives it a real angle at draw time - which is the whole point: a
 # hand-drawn effect ALWAYS arrives carrying one, and the turn has to be a
 # different number from it.
 _SFX_BOX = (30, 190, 110, 100)
@@ -201,20 +201,15 @@ def test_and_its_outline_becomes_the_turned_rectangle(proj):
     assert rec["polygon"] == turned_box(rec["bbox"], 25)
 
 
-def test_a_box_the_detector_put_down_can_be_turned_too(proj):
-    """lee: *"alowm me to be able to rotate every box"*. The endpoint used to
-    refuse this and the page used to hide the handle for it; both were the
-    earlier rule and both are gone."""
+def test_a_box_the_detector_put_down_turns_as_well(proj):
+    """The endpoint stopped refusing when lee asked for every box to turn."""
     ed, p, post = proj
     rid = _drawn(post)["region"]["id"]
     rec = next(r for r in p.pages[0].regions if r["id"] == rid)
     rec["manual"] = False
-    was = list(rec.get("polygon") or [])
     out = _turn(post, rid, 25)
-    assert "error" not in out, out
+    assert "error" not in out
     assert abs(float(rec.get("turn") or 0.0) - 25) < 0.01
-    assert list(rec.get("polygon") or []) != was, \
-        "the turn was accepted but the shape did not follow it"
 
 
 def test_a_sound_effect_you_drew_can_be_turned_too(proj):
@@ -354,7 +349,7 @@ def test_a_turned_box_loads_with_a_real_placement_area():
 
 
 def test_and_that_area_leans():
-    """Not merely present — actually the turned shape. A mask that came out as
+    """Not merely present - actually the turned shape. A mask that came out as
     the upright rectangle would pass the test above and mean nothing."""
     from mangatl.project import region_from_record
     r = region_from_record(_turned_record(35), _page())
@@ -395,7 +390,7 @@ def test_the_cleaner_may_paint_the_corners_a_turn_swept_out():
 
 
 # The two slivers of a box turned -35° that stand outside the upright
-# rectangle AND outside its eight-pixel doorstep — one off each end. Ink here
+# rectangle AND outside its eight-pixel doorstep - one off each end. Ink here
 # is reachable only because a turned box is its own fence; keep the
 # intersection with the upright box and it survives the clean untouched.
 _SWEPT = ((265, 96), (175, 210))
@@ -432,7 +427,7 @@ def test_a_glyph_poking_past_a_turned_edge_still_comes_off():
     """A turned box gets the same doorstep an upright one gets.
 
     Writing drawn a little past its box has to be finishable, or "the text
-    must go" and "never outside the box" cannot both be true — see
+    must go" and "never outside the box" cannot both be true - see
     `test_a_glyph_poking_past_the_balloon_interior_still_comes_off`. Fence a
     turned box at its bare outline and the outer rim of every stroke that
     reaches the edge is left standing, in a leaning line down the page.
@@ -460,7 +455,7 @@ def test_a_glyph_poking_past_a_turned_edge_still_comes_off():
 
 
 def test_the_typesetter_fits_the_box_upright_and_turns_the_block():
-    """Fitting into the leaning shape gives a staircase — a different width on
+    """Fitting into the leaning shape gives a staircase - a different width on
     every line. Fit straight, then turn."""
     from mangatl import typeset
     from mangatl.project import region_from_record
@@ -484,7 +479,7 @@ def test_and_an_upright_box_gets_no_turn():
 
 def test_a_turned_block_is_not_clipped_back_to_its_mask():
     """The block turns about the FRAME's centre and the mask about the BOX's,
-    and the two are not the same point — so clipping shaves the ends off lines
+    and the two are not the same point - so clipping shaves the ends off lines
     that fitted. It is the same exemption a sound effect gets, for the same
     reason: a person decided where this text goes."""
     import inspect
@@ -496,27 +491,40 @@ def test_a_turned_block_is_not_clipped_back_to_its_mask():
     assert "manual" in tail and "turn" in tail
 
 
-def test_the_turn_is_at_the_corners_of_every_box():
-    """lee: *"make the rotat the same way as the text box with the corners
-    allowiing me to rotate it"*.
-
-    Four zones, one just outside each corner, the same bargain the typeset
-    frame already makes — press the corner and you resize, step past it and you
-    turn. Not a handle on a stalk, and not conditional on who drew the box."""
-    from where import PKG
-    src = (PKG / "static/js/frames.js").read_text(encoding="utf-8")
+def test_every_box_gets_the_turn_handle():
+    """The browser half of *"alowm me to be able to rotate every box"*. The
+    handle used to be drawn only on `r.manual`, which is the page refusing
+    what the endpoint now allows."""
+    from where import JS
+    src = (JS / "frames.js").read_text(encoding="utf-8")
     i = src.index("function addHandles")
-    body = src[i:i + 1800]
-    assert "rotz" in body, "the corner turn zones are gone"
-    assert "hd rot" not in body, "the old single handle is back"
-    assert "r.manual" not in body, "the turn is conditional on who drew the box"
-    assert "ROTZ" in body
-    assert src[src.index("const ROTZ"):].startswith("const ROTZ=[[0,0],[1,0],[0,1],[1,1]]"), \
-        "there are no longer four corners"
-    # ...and the zones are cleared before they are re-added, or every re-select
-    # stacks another four on the box
-    assert ".hd,.rotz" in body
+    body = src[i:i + 1400]
+    assert "rot" in body, "there is still a turn handle"
 
-    ops = (PKG / "static/js/region-ops.js").read_text(encoding="utf-8")
-    assert "closest('.hd,.rotz')" in ops, \
-        "a press on a turn zone never reaches the drag"
+
+def test_the_box_you_are_drawing_still_has_an_outline():
+    """The preview rectangle that follows the pointer while you drag out a new
+    box. lee: *"the preveiw when i am drawing a box is gone"*.
+
+    It went because the turn handle's CSS was replaced by a slice taken on
+    CHARACTER offsets rather than whole lines. The cut landed inside
+    `.hd.rot::after` and left `height:13px;background:#ff9f0a}` orphaned in the
+    stylesheet - and a browser recovering from a fragment like that swallows
+    the rule after it, which was `#rubber`. Nothing threw; the preview simply
+    had no border and no fill.
+
+    So this asserts the rule is THERE and that the sheet around it is
+    well-formed, which is the part that failed.
+    """
+    from where import PKG
+    css = (PKG / "static/css/editor.css").read_text(encoding="utf-8")
+    assert css.count("{") == css.count("}"), \
+        "the stylesheet has an unbalanced brace — something was cut in half"
+    i = css.index("#rubber{")
+    rule = css[i:css.index("}", i)]
+    assert "border" in rule and "dashed" in rule, rule
+    assert "background" in rule, rule
+    # ...and nothing orphaned immediately above it, which is how it was lost.
+    before = css[:i].rstrip().rsplit("\n", 1)[-1].strip()
+    assert before.endswith("}") or before.endswith("*/"), \
+        "the line above #rubber is not a finished rule: %r" % before

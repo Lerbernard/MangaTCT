@@ -5,7 +5,7 @@ was that the two halves of the program disagreed about where a line goes:
 
 * the FITTER centres every line on the balloon's own width at that line's
   height, and hangs the block from the top of its ink;
-* the OVERRIDE path — the one a hand edit takes — centred the whole block in
+* the OVERRIDE path - the one a hand edit takes - centred the whole block in
   the bounding RECTANGLE of the balloon.
 
 On any balloon that is not a rectangle those are different places. And merely
@@ -15,7 +15,7 @@ nobody has actually moved is placed by the fitter's own arithmetic.
 
 The other half is the clamp. `enforce_bounds` used to hold lines inside the
 bounding rectangle, which on a spiky or lobed balloon reaches out over the
-artwork — so a line could pass the check while sitting almost entirely on the
+artwork - so a line could pass the check while sitting almost entirely on the
 picture. It now holds each line inside the narrowest chord the balloon actually
 offers across that line's own ink.
 """
@@ -79,7 +79,7 @@ def test_untouched_override_lands_where_the_fitter_put_it():
     The override carries the same lines at the same size, and nobody dragged
     anything, so it has to resolve to the very same positions the fit produced.
 
-    What the page carries is the fit AFTER `anchor_to_frame` — `typeset_page`
+    What the page carries is the fit AFTER `anchor_to_frame` - `typeset_page`
     and the editor's preview both hand the fitter's result through it, because
     the block a person clicks on is a box and the words in it are spaced evenly
     down that box. Comparing against a bare `fit_region` asks the override to
@@ -139,8 +139,8 @@ def test_clamp_keeps_lines_on_the_balloon_not_just_in_its_box():
     """A line shoved at the bounding box's edge comes back onto the paper.
 
     The far lobe is what makes the bounding rectangle much wider than the
-    balloon at mid height. Pushed out there, the old clamp was satisfied — the
-    line was inside the rectangle — and the words sat on the artwork.
+    balloon at mid height. Pushed out there, the old clamp was satisfied - the
+    line was inside the rectangle - and the words sat on the artwork.
     """
     cfg = _cfg()
     m = _lopsided()

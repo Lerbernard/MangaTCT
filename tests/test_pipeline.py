@@ -22,6 +22,20 @@ from where import PKG
 
 # --------------------------------------------------------------- test fixtures
 
+
+def _bundled(name: str) -> str:
+    """A bundled face, found through the PACKAGE rather than through the
+    working directory. `fonts/AnimeAce.ttf` is only a path when pytest happens
+    to be run from the repository root, and these tests passed or failed on
+    which folder somebody was standing in."""
+    from where import PKG
+    return str(PKG / "fonts" / name)
+
+
+def _anime_ace() -> str:
+    return _bundled("AnimeAce.ttf")
+
+
 def _sample_pages(n: int = 4) -> list[str]:
     """Any manga pages available locally, or an empty list."""
     roots = [_os.environ.get("MANGATL_TEST_PAGES", ""),
@@ -38,8 +52,8 @@ def _sample_pages(n: int = 4) -> list[str]:
         # fixture images that are definitely not manga pages).
         #
         # `out` and `_tmp...` are matched at ANY depth, not just the first.
-        # The suite writes its own scratch pages — `_tmp_centred`, a working
-        # copy's `mangatl/out/input` — and a run that had written them scored
+        # The suite writes its own scratch pages - `_tmp_centred`, a working
+        # copy's `mangatl/out/input` - and a run that had written them scored
         # the bubble tests against renders of its own output, or, worse,
         # against a screenshot somebody had left in the folder. The tests that
         # need real pages then failed or passed depending on what had run
@@ -48,7 +62,7 @@ def _sample_pages(n: int = 4) -> list[str]:
         # a 512px PNG of the MangaTCT mark is an image in the tree, and this
         # search happily called it a manga page and then reported that the
         # detector finds no speech balloons on it. The app's OWN artwork is
-        # never a page — nor are the fonts, and nor is anything the suite or a
+        # never a page - nor are the fonts, and nor is anything the suite or a
         # package manager wrote.
         def ok(h: str) -> bool:
             parts = h.replace("\\", "/").split("/")
@@ -102,7 +116,7 @@ def test_empty_input():
 
 
 def test_slanted_gutter_still_separates():
-    """Two bands separated by a diagonal gutter — defeats an axis-aligned cut
+    """Two bands separated by a diagonal gutter - defeats an axis-aligned cut
     at 0 degrees, should be recovered by the rotation search."""
     top = [(0, 0, 60, 40), (200, 30, 60, 40)]
     bot = [(0, 150, 60, 40), (200, 180, 60, 40)]
@@ -157,7 +171,7 @@ def test_returns_none_when_impossible():
 
 
 def test_respects_per_line_widths():
-    """Narrow first line, wide second — the long word must land on line two."""
+    """Narrow first line, wide second - the long word must land on line two."""
     font = default_font_path()
     lines = break_lines(["hi", "extraordinarily"], [40.0, 400.0],
                         _measure(font, 12), _text_w(font, 12, " "))
@@ -212,7 +226,7 @@ def test_a_short_sentence_does_not_become_a_column():
     assert lay is not None
     assert len(lay.lines) <= 3, lay.lines
     # No line above the last may be a lone word while another runs far longer.
-    # The last line is allowed to fall short — that is normal typesetting.
+    # The last line is allowed to fall short - that is normal typesetting.
     longest = max(_text_w(lay.font_path, lay.font_size, ln) for ln in lay.lines)
     for ln in lay.lines[:-1]:
         if len(ln.split()) == 1:
@@ -224,7 +238,7 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     """The property lee picked out of the contact sheet. A short shout in a
     bubble barely wider than the longer word belongs on two big lines; laying
     it out as one ribbon is what forces the size down to something unreadable.
-    No knobs touched here — this is the shipped configuration answering."""
+    No knobs touched here - this is the shipped configuration answering."""
     from mangatl.typeset import fit_region
     lay = fit_region(_oval_region(180, 130, "HELLO, EVERYONE!"),
                      TypesetConfig(font_path=default_font_path()))
@@ -242,20 +256,20 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
 # that one term, alone, is what decides the layout.
 #
 # The fixtures are re-derived whenever a weight moves, not kept. Raising
-# `w_vfill` left four of these rows passing for the wrong reason — the term
+# `w_vfill` left four of these rows passing for the wrong reason - the term
 # had grown big enough to decide those particular ovals on its own, so
 # switching `w_ragged` off no longer changed the answer there and the row
 # stopped proving anything about `w_ragged`. A row that has quietly stopped
 # testing is worse than no row, because it still reads like coverage. Every
 # row below was re-derived after that move by sweeping ten oval sizes against
 # nine real sentences and keeping, per knob, a case where zeroing that one term
-# — and nothing else — moves the answer.
+# - and nothing else - moves the answer.
 @pytest.mark.parametrize("knob,w,h,text", [
     # Without it the short last line is free, so five lines with a long tail
     # beat six even ones and the size drops a point to pay for them.
     #
     # The four specimens marked BELOW were re-picked when the leading sweep
-    # lost its sub-solid candidate (see `TypesetConfig.leadings` — lee: "the
+    # lost its sub-solid candidate (see `TypesetConfig.leadings` - lee: "the
     # line gap shoud nver be less than 1"). Removing a candidate shrinks the
     # search, and a bubble that used to turn on a weight can stop turning on
     # anything; that is the sweep getting smaller, not the weight going dead.
@@ -266,7 +280,7 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     # a balloon can actually take instead of the settings dialog's range (see
     # `_feasible_top`). That makes the size ladder steeper in a small bubble,
     # so an oval where a break term used to win by a hair now goes to the
-    # bigger type — which is the point of the change and not a term going
+    # bigger type - which is the point of the change and not a term going
     # quiet. Proved rather than assumed before re-picking: over six sentences
     # by sixty-three ovals, zeroing `w_cpl` alone still changes the answer in
     # 50 of them, `w_balance` in 33 and `w_ragged` in 7, and the rows below
@@ -276,13 +290,13 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
      "THIS POWER CAN ONLY SAVE PEOPLE WHEN IT'S BOUND TO THE TRUE SAINT."),
     # Without it, the largest type that merely fits wins and every bubble
     # comes out cramped: 21pt on three lines becomes 17pt on two. This is the
-    # term the most specimens turn on — 37 of the 90 swept.
+    # term the most specimens turn on - 37 of the 90 swept.
     ("w_small", 180, 130, "MY HARD WORK PAID OFF TOO—"),
     # Without it a lone word on a half-empty line costs nothing, and the tall
     # narrow balloon takes the extra break.
     ("w_orphan", 175, 266, "MY HARD WORK PAID OFF TOO—"),
     # Without it there is no comfortable line length to aim at, so the block
-    # spreads from six full lines into seven short ones — buying a point of
+    # spreads from six full lines into seven short ones - buying a point of
     # size with a shape no typesetter would set.
     ("w_cpl", 135, 260,           # re-picked when the line-gap floor rose to 1.20
      "THIS POWER CAN ONLY SAVE PEOPLE WHEN IT'S BOUND TO THE TRUE SAINT."),
@@ -299,7 +313,7 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     # term speaks to. `vfill` is a one-sided ramp: it charges a block for the
     # height it leaves empty and says nothing about a block that fills the
     # balloon, so on a bubble sized for its sentence it is flat and decides
-    # nothing — zero of the ninety ovals in the sweep turn on it. Here it is
+    # nothing - zero of the ninety ovals in the sweep turn on it. Here it is
     # the whole story: a shout in a 150x300 balloon sets 34pt on two lines
     # with the term and a 26pt ribbon without it, floating in white.
     ("w_vfill", 150, 300, "NO WAY."),
@@ -340,7 +354,7 @@ def _wedge_region(w, h, text, flip=False):
 def test_a_wedge_lets_the_block_sit_where_it_is_widest(flip):
     """The block used to be nailed to the middle of the height it had.
 
-    In a symmetric oval that is right — the chord is widest across the centre,
+    In a symmetric oval that is right - the chord is widest across the centre,
     so anywhere else is narrower. In anything that is NOT symmetric it throws
     room away, and half of a split balloon never is. Here the same three lines
     are worth 21pt sitting down in the wide end and only 16 stuck in the
@@ -361,7 +375,7 @@ def test_a_wedge_lets_the_block_sit_where_it_is_widest(flip):
     rows = np.nonzero(r.bubble_mask.any(axis=1))[0]
     mask_mid = (int(rows[0]) + int(rows[-1])) / 2.0
     # Down into the wide end when the shape widens downward, up into it when
-    # it widens upward — a long way either side of centre, not a nudge.
+    # it widens upward - a long way either side of centre, not a nudge.
     if flip:
         assert ink_mid < mask_mid - 40, (ink_mid, mask_mid)
     else:
@@ -408,7 +422,7 @@ def test_a_split_balloon_is_divided_by_how_much_each_half_says():
     The detector's cut is where the Japanese changed block, so the English
     inherits a division that has nothing to do with its own length: here the
     twenty-six-character half gets the narrow top and the eighteen-character
-    half the wide bottom, and the fitter answers 15pt against 31pt — one
+    half the wide bottom, and the fitter answers 15pt against 31pt - one
     cramped, the other shouting in four one-word lines. That mismatch is what
     lee saw on the exported page.
 
@@ -508,11 +522,11 @@ def test_a_balloon_split_down_the_middle_typesets_each_block_in_its_own_box():
     here said why: two columns of Japanese overlapping over four fifths of
     their height, the shorter block handed a hundred-pixel strip, and a
     typesetter would stack the two blocks and give each the balloon's full
-    width. It did — 26pt and 19pt, against 14 and 14 for the columns.
+    width. It did - 26pt and 19pt, against 14 and 14 for the columns.
 
     lee looked at a page typeset that way and said no, twice: *"EACH BOX HAS
     ITS OWN TEXT"*, and then *"the typesetting shoud not be putting text
-    across 2 boxes it shoud never happen — for buble text make it so that teh
+    across 2 boxes it shoud never happen - for buble text make it so that teh
     text goes where teh box is with a little leeway"*. Full width and staying
     in your own box are mutually exclusive for two boxes side by side; there
     is no third answer, and he picked the box. The 26/19 -> 14/14 is the
@@ -555,7 +569,7 @@ def test_a_balloon_the_detector_already_divided_well_is_not_made_worse():
     """The guarantee that makes confining the blocks safe to ship.
 
     A wide shallow balloon divided down the middle is already the good
-    division — each block has a box it fits in, and cutting across would hand
+    division - each block has a box it fits in, and cutting across would hand
     each a band too short to typeset in. Confining a block to its own box is
     the same answer here, so the typesetting must not move at all.
     """
@@ -580,8 +594,8 @@ def _two_lobe_regions(right_text, left_text):
 
     lee's page-013 balloon: a tall oval with a rounder one budded off its lower
     left, the first block of dialogue in the tall one and the second in the
-    bud. The detector reports it stacked — the two columns of Japanese barely
-    overlap in y, so the balloon gets divided across — and that division is
+    bud. The detector reports it stacked - the two columns of Japanese barely
+    overlap in y, so the balloon gets divided across - and that division is
     what the region masks below carry, hairline gap and all.
     """
     import cv2
@@ -596,7 +610,7 @@ def _two_lobe_regions(right_text, left_text):
     m[tall | bud] = 255
 
     # The Japanese sits WHOLLY inside the lobe it was written in, as it does on
-    # the page — three columns in the trunk, two in the bud.
+    # the page - three columns in the trunk, two in the bud.
     inks = []
     for y0, y1, x0, x1 in ((70, 226, 150, 250), (280, 400, 55, 115)):
         ink = np.zeros_like(m)
@@ -621,7 +635,7 @@ def _two_lobe_regions(right_text, left_text):
 
 
 def test_a_two_lobed_balloon_is_divided_along_its_own_neck():
-    """Each block gets the lobe it was written in — not a slice of the balloon.
+    """Each block gets the lobe it was written in - not a slice of the balloon.
 
     A band cut, whichever way it runs, hands each block a share the full width
     or the full height of the balloon, and the fitter centres the block in the
@@ -630,7 +644,7 @@ def test_a_two_lobed_balloon_is_divided_along_its_own_neck():
     replaces with the trunk's empty white beside it. That off-centre placement
     is what lee sent back, twice, and no amount of extra point size fixes it.
 
-    Two overlapping ovals meet at two corners, one either side of the neck —
+    Two overlapping ovals meet at two corners, one either side of the neck -
     the only two places the outline turns back on itself. Cutting between them
     is not a guess at where the English should go, it is the page saying it,
     and the share it yields is small in BOTH directions: that is what this
@@ -681,7 +695,7 @@ def _burst_balloon_regions(top_text, bottom_text):
     """A jagged burst balloon: one lobe, spikes top and bottom.
 
     Its outline turns back on itself at every spike, so it has deep hull dents
-    exactly like a two-lobed balloon does — deeper, on lee's page 030, than the
+    exactly like a two-lobed balloon does - deeper, on lee's page 030, than the
     real neck on page 013. Depth alone cannot tell a spike from a neck.
     """
     import cv2
@@ -724,7 +738,7 @@ def test_a_burst_balloons_spikes_are_not_mistaken_for_a_neck():
 
     Both spikes here point inward from opposite sides of one round lobe, so the
     chord between them runs straight down the middle of it and slices both
-    blocks of dialogue in half — each keeping about half its own ink on its own
+    blocks of dialogue in half - each keeping about half its own ink on its own
     side. A neck does not do that: at a real neck each block sits wholly in one
     lobe and keeps all of it. So the division is only taken when every block
     keeps essentially all its ink, which is what separates lee's page 013 from
@@ -810,10 +824,10 @@ def test_gutters_grow_with_the_type_and_with_the_bubble():
 def test_text_is_not_crowded_against_the_bubble_edge():
     """Typesetting that ends a third of an em from the outline reads as if it is
     about to fall out of the bubble. The gutter has to be a real one, and it
-    has to scale with the type — a fixed pixel margin looks generous at 12pt
+    has to scale with the type - a fixed pixel margin looks generous at 12pt
     and looks like a mistake at 30pt."""
     # a bundled comic face, so the fixture is the same everywhere
-    font = _os.path.join("fonts", "CCWildWords.ttf")
+    font = _bundled("CCWildWords.ttf")
     gap, size = _edge_gap(TypesetConfig(font_path=font))
     assert gap >= 0.55 * size, f"only {gap:.1f}px of air around {size}pt type"
 
@@ -831,7 +845,7 @@ def test_round_bubbles_keep_their_gutter_on_the_curve():
     "too close to the edge". The fit is measured against the bubble eroded by
     the gutter instead, so the clearance is perpendicular to the outline.
     """
-    font = _os.path.join("fonts", "CCWildWords.ttf")
+    font = _bundled("CCWildWords.ttf")
     cfg = TypesetConfig(font_path=font)
     txt = "YOU'RE THE ONE WHO TOLD ME TO COME HERE IN THE FIRST PLACE."
     gap, size = _edge_gap(cfg, 150, 150, txt, shape="oval")
@@ -1035,7 +1049,7 @@ def test_overflowing_text_is_shrunk_and_flagged_not_spilled():
 
 def test_impossible_text_is_flagged_and_relies_on_clipping():
     """Some text cannot fit at any legible size. That must be flagged, and
-    rendering clips it — it must never be silently accepted as a good fit."""
+    rendering clips it - it must never be silently accepted as a good fit."""
     cfg = TypesetConfig(font_path=default_font_path())
     r = _fake_region(w=30, h=24, text="word " * 80)
     _, lay = _lines_outside(r, cfg)
@@ -1343,7 +1357,7 @@ def test_the_haze_sweep_still_spares_a_border_crossing_the_box():
 
 def test_a_clean_that_leaves_the_text_behind_says_so():
     """Off the flat path the fill is a reconstruction, and a second automatic
-    pass is as likely to make it worse — so the plate is checked and the region
+    pass is as likely to make it worse - so the plate is checked and the region
     is flagged with the path that produced it, rather than quietly shipped."""
     import cv2
     from mangatl import inpaint
@@ -1481,7 +1495,7 @@ def test_the_detect_dialog_boxes_behave_in_a_real_dom():
     only for comic-text-detector, and a stale "ai_boxes" left in somebody's old
     project.json changes nothing.
 
-    It had no wrapper for a long time, so it was never once run by the suite —
+    It had no wrapper for a long time, so it was never once run by the suite -
     which is how a jsdom test quietly stops matching the page it tests. Skipped
     where node or jsdom is unavailable."""
     import os
@@ -1566,7 +1580,7 @@ def test_free_text_detector_avoids_known_bubbles():
 
 def test_added_pages_go_to_the_end_in_order():
     """Adding pages used to re-sort the whole list by filename, which
-    scattered new pages among the old ones — so you would add three pages and
+    scattered new pages among the old ones - so you would add three pages and
     be looking at something else entirely."""
     import shutil
     from mangatl.project import Project
@@ -1662,7 +1676,7 @@ def test_reset_can_keep_your_settings():
 
 
 def test_folder_picker_degrades_without_a_desktop():
-    """No GUI toolkit means no dialog — that must be a graceful 'no', not a
+    """No GUI toolkit means no dialog - that must be a graceful 'no', not a
     crash, so the UI can fall back to a typed path."""
     from mangatl import pickdir
     assert isinstance(pickdir.available(), bool)
@@ -1671,7 +1685,7 @@ def test_folder_picker_degrades_without_a_desktop():
 
 def test_text_frame_is_independent_of_the_region():
     """Text has its own box. Moving it off the bubble must actually draw it
-    off the bubble — clipping the layer back to the region is what made
+    off the bubble - clipping the layer back to the region is what made
     rotation look like it did nothing."""
     import cv2
     from mangatl import render, typeset
@@ -1842,7 +1856,7 @@ def test_editing_text_keeps_it_where_you_put_it():
 def test_white_text_on_a_dark_panel_is_cleaned_correctly():
     """The ink threshold assumes dark text on a light background. On a
     white-on-black panel that reads the whole panel as text, erases it, and
-    fills with the colour of the typesetting — turning the panel into a pale
+    fills with the colour of the typesetting - turning the panel into a pale
     rectangle."""
     import cv2
     from mangatl import inpaint
@@ -1885,7 +1899,7 @@ def test_polarity_detection_leaves_ordinary_pages_alone():
 
 def test_outline_width_is_honoured_everywhere():
     """The colour pass and the drawing pass each decide the outline width
-    independently, so the rule has to be shared — otherwise the control moves
+    independently, so the rule has to be shared - otherwise the control moves
     the preview and leaves the export alone."""
     from mangatl.render import stroke_for
     from mangatl.models import TextRegion
@@ -1977,7 +1991,7 @@ def _tiny_project(root: str, n: int = 3):
 
 def test_a_cleaned_plate_is_still_there_after_a_restart():
     """Cleaning a page is the expensive part of showing it, and it only ever
-    lived in a six-entry dictionary in memory — so closing the app threw away
+    lived in a six-entry dictionary in memory - so closing the app threw away
     the whole chapter's work and the first visit to every page paid for it
     again. The plate now keeps a copy on disk under its own identity."""
     import shutil
@@ -2100,7 +2114,7 @@ def test_the_warm_up_gives_way_to_a_real_job():
 def test_warming_up_never_spends_the_hosted_cleaner_by_itself():
     """Building pages ahead of time is a kindness while it stays local. With
     the hosted cleaner switched on it would mean a call out to the network for
-    every page nobody has cleaned yet — so pressing Clean stays the thing that
+    every page nobody has cleaned yet - so pressing Clean stays the thing that
     spends that, and the warm-up only rebuilds what is already paid for."""
     import shutil
     from mangatl import editor
@@ -2152,8 +2166,8 @@ def test_the_page_image_url_changes_only_when_the_page_does():
 def test_choosing_a_font_does_not_throw_away_the_cleaned_page():
     """The scan and the cleaned plate carry no text, so the typesetting settings
     cannot change what they look like. Counting them meant picking a font
-    rebuilt the cleaned page from scratch — with the hosted cleaner, a call out
-    to the network and seconds of blank canvas — to arrive at the same image."""
+    rebuilt the cleaned page from scratch - with the hosted cleaner, a call out
+    to the network and seconds of blank canvas - to arrive at the same image."""
     import shutil
     from mangatl import editor
 
@@ -2342,7 +2356,7 @@ def test_colour_picker_works_without_the_native_dialog():
 
 def test_detect_all_honours_page_scope_and_kinds():
     """The chapter-wide endpoint used to ignore both the page list and the
-    chosen kinds — so "this page only" swept every page, and asking for
+    chosen kinds - so "this page only" swept every page, and asking for
     free-floating text silently did nothing."""
     import inspect
     from mangatl import editor
@@ -2416,7 +2430,7 @@ def test_single_glyph_bubbles_are_detected():
 def test_a_page_is_translated_with_the_one_before_it():
     """The translate payload carries the tail of the previous page.
 
-    Briefly it did not — dropped to see whether quality held. It was reverted,
+    Briefly it did not - dropped to see whether quality held. It was reverted,
     and this test is what the experiment left behind: the tail's PRESENCE was
     never asserted anywhere before, so removing it broke nothing and said
     nothing. Now it would.
@@ -2450,7 +2464,7 @@ def test_the_tail_is_still_kept_for_the_passes_that_use_it():
     Two things still read it: `name_evidence`, so a name introduced on the
     page before is not mistaken for one the model invented, and the
     PROOFREAD payload, so a first line that does not follow from the page
-    before is still caught — at the pass whose job that is.
+    before is still caught - at the pass whose job that is.
     """
     from mangatl.models import Page, TextRegion
     from mangatl.translate import SeriesContext, build_proofread_payload
@@ -2497,7 +2511,7 @@ def test_series_context_round_trips_characters(tmp_path):
 
 def test_translation_carries_characters_and_speaker_tail():
     """The character sheet accumulates (first sighting wins) and the page
-    tail carries speakers — the two levers against mid-chapter pronoun
+    tail carries speakers - the two levers against mid-chapter pronoun
     drift."""
     from types import SimpleNamespace
     import json as _json
@@ -2563,7 +2577,7 @@ def test_invented_speaker_never_reaches_the_sheet():
     data = translate_page(page, ctx, client=fake)
     assert "Aeda" not in ctx.characters
     assert any("Aeda" in r for r in data.get("characters_refused", []))
-    # the label is kept — it may well be the right person — but it is marked
+    # the label is kept - it may well be the right person - but it is marked
     assert "not named anywhere" in (page.regions[0].flagged or "")
 
 
@@ -2591,14 +2605,14 @@ def test_sanitize_only_emits_glyphs_the_font_has():
     glyph for reached the page and rendered as a tofu box. After sanitising,
     every character must be in the font's cmap.
 
-    This is the *substitutes on* behaviour — lee: *"hve a use subtitute button
+    This is the *substitutes on* behaviour - lee: *"hve a use subtitute button
     in the setting that if turned n will allow teh typeseeter to use subtitute
     symeboxes"*. With it off, nothing is stood in for; see the test below.
     """
     from fontTools.ttLib import TTFont
     from mangatl.typeset import sanitize_for_font
 
-    path = _os.path.join("fonts", "AnimeAce.ttf")
+    path = _anime_ace()
     cov = set(TTFont(path, lazy=True).getBestCmap().keys())
 
     nasty = "THE POWER OF HEALINGー —really— ♪oh♪ “yes” ōkami"
@@ -2617,13 +2631,13 @@ def test_sanitize_only_emits_glyphs_the_font_has():
 
 def test_with_substitutes_off_nothing_is_stood_in_for():
     """lee: *"Fonts should only us that font no substitute"*. With the switch
-    off the words go through exactly as typed — no letter is decomposed into
+    off the words go through exactly as typed - no letter is decomposed into
     another, no character is swapped for one the face happens to have, and
     nothing is silently dropped. What the font cannot draw is a problem to be
     SHOWN, not one to be papered over."""
     from mangatl.typeset import sanitize_for_font
 
-    path = _os.path.join("fonts", "AnimeAce.ttf")
+    path = _anime_ace()
     nasty = "THE POWER OF HEALINGー —really— ♪oh♪ “yes” ōkami"
     out = sanitize_for_font(nasty, path)          # default: substitutes off
 
@@ -2648,7 +2662,7 @@ def test_typeset_never_lets_tofu_reach_the_layout():
     r = TextRegion(id=0, bbox=(60, 100, 280, 200), bubble_mask=mask,
                    bubble_bbox=(50, 90, 300, 220),
                    dst_text="THE POWER OF HEALINGー… ♪")
-    font = _os.path.join("fonts", "AnimeAce.ttf")
+    font = _anime_ace()
     lay = fit_region(r, TypesetConfig(font_path=font, substitutes=True))
     assert lay and lay.lines
     cov = set(TTFont(font, lazy=True).getBestCmap().keys())
@@ -2703,15 +2717,15 @@ def test_a_missing_spare_font_never_takes_a_page_down(monkeypatch):
 
     r = _oval_region(300, 220, "THE PAGE STILL TYPESETS ITSELF.")
     lay = ts.fit_region(r, ts.TypesetConfig(
-        font_path=_os.path.join("fonts", "CCWildWords.ttf")))
+        font_path=_bundled("CCWildWords.ttf")))
     assert lay.lines and any(s.strip() for s in lay.lines)
 
 
 def _letterless_font(tmp_path) -> str:
     """A font file that opens perfectly and cannot draw a word of English.
 
-    Every machine has a drawerful of these — Wingdings, Webdings, Marlett,
-    Segoe MDL2 Assets, emoji and CJK-only faces — and they sit in the font
+    Every machine has a drawerful of these - Wingdings, Webdings, Marlett,
+    Segoe MDL2 Assets, emoji and CJK-only faces - and they sit in the font
     picker looking like any other choice. Built here by keeping only the
     punctuation of a real font, so the file is genuinely valid.
     """
@@ -2719,7 +2733,7 @@ def _letterless_font(tmp_path) -> str:
     from fontTools.ttLib import TTFont
     from fontTools.subset import Subsetter
     out = str(tmp_path / "symbols_only.ttf")
-    f = TTFont(_os.path.join("fonts", "CCWildWords.ttf"))
+    f = TTFont(_bundled("CCWildWords.ttf"))
     s = Subsetter()
     s.populate(text=".,!?")
     s.subset(f)
@@ -2733,8 +2747,8 @@ def test_a_font_with_no_letters_in_it_is_not_a_typesetting_font(tmp_path):
     from mangatl.typeset import can_typeset, usable_font, sanitize_for_font
     symbols = _letterless_font(tmp_path)
 
-    assert can_typeset(_os.path.join("fonts", "CCWildWords.ttf"))
-    assert usable_font(symbols)          # it really does load — that's the trap
+    assert can_typeset(_bundled("CCWildWords.ttf"))
+    assert usable_font(symbols)          # it really does load - that's the trap
     # and this is the damage: nothing of the line survives being made drawable
     assert not any(c.isalnum()
                    for c in sanitize_for_font("WAIT — REALLY?", symbols,
@@ -2744,7 +2758,7 @@ def test_a_font_with_no_letters_in_it_is_not_a_typesetting_font(tmp_path):
 
 def test_a_bubble_is_typeset_in_something_else_rather_than_left_empty(tmp_path):
     """A region whose font cannot draw its dialogue is typeset in a face that
-    can, and flagged — text in the wrong font is a thing you can see and put
+    can, and flagged - text in the wrong font is a thing you can see and put
     right, an empty bubble is not."""
     from mangatl.typeset import TypesetConfig, fit_region
     symbols = _letterless_font(tmp_path)
@@ -2758,7 +2772,7 @@ def test_a_bubble_is_typeset_in_something_else_rather_than_left_empty(tmp_path):
 
 
 def test_with_substitutes_off_it_is_not_handed_to_another_face(tmp_path):
-    """The rescue above is a substitution too — a different face standing in
+    """The rescue above is a substitution too - a different face standing in
     for the one that was chosen. With the switch off, the words are set in the
     font lee picked and nowhere else, and the missing glyphs are named on the
     flag so he can see what his face cannot draw."""
@@ -2774,8 +2788,8 @@ def test_with_substitutes_off_it_is_not_handed_to_another_face(tmp_path):
 
 
 def test_typesetting_again_never_empties_a_bubble_that_was_typeset(monkeypatch):
-    """The whole point of the guard: whatever a later run cannot do — a font
-    with no glyphs, a mask that came back empty — the typesetting already on the
+    """The whole point of the guard: whatever a later run cannot do - a font
+    with no glyphs, a mask that came back empty - the typesetting already on the
     page stays there instead of being replaced with nothing."""
     from mangatl import typeset as ts
 
@@ -2794,7 +2808,7 @@ def test_typesetting_again_never_empties_a_bubble_that_was_typeset(monkeypatch):
 
 def test_temperature_is_dropped_when_the_model_rejects_it():
     """Newer Anthropic models answer 400 '`temperature` is deprecated for
-    this model'. The translator must retry without it — and remember, so
+    this model'. The translator must retry without it - and remember, so
     page two doesn't pay the failed call again."""
     from types import SimpleNamespace
     import json as _json
@@ -2905,7 +2919,7 @@ def test_translate_survives_a_sloppy_first_reply():
 
 def test_openai_compat_drops_unsupported_knobs(monkeypatch):
     """A server that 400s on response_format (or temperature) gets the same
-    request again without it — one server quirk must not fail the page."""
+    request again without it - one server quirk must not fail the page."""
     import io
     import urllib.error
     import urllib.request
@@ -2941,7 +2955,7 @@ def test_openai_compat_drops_unsupported_knobs(monkeypatch):
 
 def test_single_page_translation_carries_the_whole_chapter():
     """'Translate this page only' must still show the AI every page (finished
-    translations preferred, source otherwise) — and only ask for this one."""
+    translations preferred, source otherwise) - and only ask for this one."""
     from types import SimpleNamespace
     import json as _json
     from mangatl.translate import SeriesContext, translate_page, build_payload
@@ -3002,7 +3016,7 @@ def test_the_repeated_half_of_the_payload_is_marked_for_the_cache():
     So the payload is cut where the repeated half ends: the synopsis, the
     glossary and the chapter context in one block with a breakpoint on it,
     everything that changes per page in a second block after it. Cutting a
-    JSON document in half is fine — the model is handed the blocks joined
+    JSON document in half is fine - the model is handed the blocks joined
     back together, so it reads exactly the string that went in. Only the
     billing sees the seam.
     """
@@ -3046,7 +3060,7 @@ def test_a_payload_with_no_moving_part_is_left_alone():
 
 
 def test_only_anthropic_is_asked_to_mark_anything():
-    """Google's cache is implicit — it needs the repeated part first, which
+    """Google's cache is implicit - it needs the repeated part first, which
     the key order already does, and nothing else. Sending it a marked block
     would be sending it a field it does not have."""
     import inspect
@@ -3065,7 +3079,7 @@ def test_chapter_context_reads_source_where_there_is_no_translation_yet():
     On a chapter nobody has started, it means the context is EMPTY: the model
     translates page 3 with no idea what happens on 2 or 4, which is the case
     the context exists for. Source text is not as good as a finished line, but
-    it is the story — and it is what a human translator would read.
+    it is the story - and it is what a human translator would read.
     """
     from mangatl.editor import chapter_context
 
@@ -3116,7 +3130,7 @@ def test_chapter_context_is_the_same_for_every_page_of_a_run():
     """The reason it is built for the RUN and not for each page.
 
     Identical bytes on every page of the run is what puts it inside the prompt
-    cache — see `_base_payload`, which keeps it above `characters` for exactly
+    cache - see `_base_payload`, which keeps it above `characters` for exactly
     this. A per-page context would be marginally better and would cost more
     than the whole chapter does, because nothing would ever hit.
     """
@@ -3174,7 +3188,7 @@ def test_ordering_uses_the_bubble_not_just_the_text():
 
 def test_manual_reading_order_is_sticky():
     """reorder() must never reshuffle numbers a human (or a finished pass)
-    already set — geometry only decides for regions that arrive unnumbered."""
+    already set - geometry only decides for regions that arrive unnumbered."""
     from mangatl.editor import reorder
 
     class FakeStore:
@@ -3189,13 +3203,13 @@ def test_manual_reading_order_is_sticky():
         def __init__(self, regions):
             self.pages = [FakeStore(regions)]
 
-    # human order 1,0 disagrees with geometry (0 is right of 1, RTL) — kept
+    # human order 1,0 disagrees with geometry (0 is right of 1, RTL) - kept
     regs = [{"id": 0, "bbox": [150, 10, 40, 40], "order": 1},
             {"id": 1, "bbox": [10, 10, 40, 40], "order": 0}]
     reorder(FakeProj(regs), 0)
     assert [r["order"] for r in regs] == [1, 0], "sticky order was reshuffled"
 
-    # A fresh, unnumbered region is only SLOTTED IN — the human's order for
+    # A fresh, unnumbered region is only SLOTTED IN - the human's order for
     # the existing regions must survive adding a box (it used to trigger a
     # full geometric recompute that reshuffled everything).
     regs.append({"id": 2, "bbox": [80, 10, 40, 40], "order": -1})
@@ -3215,7 +3229,7 @@ def test_manual_reading_order_is_sticky():
 
 def test_art_that_apes_a_bubble_is_rejected_by_edge_density():
     """A face, a horse, a whitish patch of background can satisfy every SHAPE
-    check — light interior, dark 'glyphs', decent solidity — and on real
+    check - light interior, dark 'glyphs', decent solidity - and on real
     chapters that meant several junk boxes per page. What art can't fake is a
     flat paper fill: its interior is full of drawn edges. The edge-density
     check must reject it while leaving a real bubble alone."""
@@ -3251,7 +3265,7 @@ def test_art_that_apes_a_bubble_is_rejected_by_edge_density():
 def test_bubble_with_gapped_outline_is_recovered():
     """A spoken tail is often drawn open, and whisper bubbles have wavy,
     broken borders. The interior then leaks into the panel background, so the
-    normal outline pass loses the bubble — a second pass with heavier gap
+    normal outline pass loses the bubble - a second pass with heavier gap
     closing must recover it. Seen on a real page where the two top bubbles of
     a panel were silently missing."""
     import cv2
@@ -3293,7 +3307,7 @@ def test_fitter_ignores_the_shorter_alternative():
                    bubble_bbox=(30, 30, 340, 240),
                    dst_text="He is coming for all of us right now!")
     r.dst_compact = "Run!"
-    font = _os.path.join("fonts", "AnimeAce.ttf")
+    font = _anime_ace()
     lay = fit_region(r, TypesetConfig(font_path=font))
     joined = " ".join(lay.lines)
     assert "coming" in joined
@@ -3308,16 +3322,16 @@ def test_prompt_and_schema_no_longer_ask_for_compact():
 
 
 def test_fitter_never_splits_a_word():
-    """Hyphenation is gone for good — the fitter uses line breaks and size
+    """Hyphenation is gone for good - the fitter uses line breaks and size
     only. Even a word too wide for the bubble must come through whole (the
     layout is flagged, not the word butchered)."""
     import cv2
     from mangatl.typeset import TypesetConfig, fit_region
     from mangatl.models import TextRegion
 
-    font = _os.path.join("fonts", "AnimeAce.ttf")
+    font = _anime_ace()
 
-    # a narrow column where big sizes cannot hold the words — it must break
+    # a narrow column where big sizes cannot hold the words - it must break
     # lines and drop the size, never split a word
     mask = np.zeros((520, 240), np.uint8)
     cv2.rectangle(mask, (40, 30), (200, 490), 255, -1)
@@ -3331,7 +3345,7 @@ def test_fitter_never_splits_a_word():
     assert set(" ".join(lay.lines).split()) == set(r.dst_text.split()), \
         "every word must arrive whole"
 
-    # a word genuinely wider than the bubble: still never split — it lays
+    # a word genuinely wider than the bubble: still never split - it lays
     # out flagged rather than hyphenated
     mask2 = np.zeros((300, 160), np.uint8)
     cv2.ellipse(mask2, (80, 150), (60, 120), 0, 0, 360, 255, -1)
@@ -3482,7 +3496,7 @@ def test_proofread_route_scopes_to_pages():
     """The route runs the pages it was given, not the whole chapter.
 
     Read to the end of the ROUTE rather than to the first `return`. It used to
-    stop at the first one, which was fine while the route had exactly one —
+    stop at the first one, which was fine while the route had exactly one -
     and then the coin check went in above the run with a `return` of its own
     (a 402 for a chapter nobody can pay for), and this went red about a route
     that had not changed.
@@ -3498,7 +3512,7 @@ def test_proofread_route_scopes_to_pages():
 
 def test_proofread_knows_kinds_and_skips_sfx():
     """The payload names each region's kind; sound effects are not sent at
-    all — but a page with SFX still finishes the proofread step (they are
+    all - but a page with SFX still finishes the proofread step (they are
     marked done, text untouched)."""
     from mangatl.translate import SeriesContext, build_proofread_payload
     from mangatl.models import Page, TextRegion
@@ -3628,7 +3642,7 @@ def test_proofread_reads_the_settings_sheet_not_the_translation():
 def test_canon_spellings_are_enforced_after_the_model_has_spoken():
     """One page in a chapter drifts and no page can see it, because every page
     is proofread alone and looks consistent with itself. So the sheet's
-    spelling is applied mechanically afterwards — but only where it is safe:
+    spelling is applied mechanically afterwards - but only where it is safe:
     a true romanization variant is rewritten, a near miss is only flagged, and
     an ordinary word that merely folds onto a name is never touched."""
     from mangatl.translate import (SeriesContext, canon_terms,
@@ -3660,7 +3674,7 @@ def test_canon_spellings_are_enforced_after_the_model_has_spoken():
 def test_proofread_report_leads_with_what_still_needs_a_human():
     """The report is for reading away from the editor, so the short list of
     things the proofreader could not settle comes first and the full script
-    second — hunting the flags out of the script is the wrong way round."""
+    second - hunting the flags out of the script is the wrong way round."""
     from mangatl import editor as ed
     from mangatl.translate import SeriesContext
 
@@ -3751,7 +3765,7 @@ def test_heal_rebuilds_texture_instead_of_blurring():
 
 
 def test_tools_never_open_the_text_editor():
-    """While ANY tool is armed — paint, zoom, selection, transform — a click
+    """While ANY tool is armed - paint, zoom, selection, transform - a click
     or double-click on typesetting must fall through to the tool, never into
     the text editor. The double-click path used to leak for the paint and
     zoom tools."""
@@ -3764,7 +3778,7 @@ def test_tools_never_open_the_text_editor():
     dbl = src.split("addEventListener('dblclick'", 1)[1] \
              .split("function editOnCanvas", 1)[0]
     for block, name in ((down, "mousedown"), (dbl, "dblclick")):
-        # The paint tools are asked about through paintArmed() now — one
+        # The paint tools are asked about through paintArmed() now - one
         # function instead of the same four names written out in five files,
         # which is what let the shape tool be added without silently missing
         # one of them. See tests/test_shapes.py.
@@ -3775,7 +3789,7 @@ def test_tools_never_open_the_text_editor():
 
 def test_em_dash_is_synthesized_for_fonts_without_the_glyph():
     """Comic fonts ship only a hyphen. The em-dash must survive sanitising,
-    reserve a proper (long) width in the layout, and render as a real bar —
+    reserve a proper (long) width in the layout, and render as a real bar -
     never a tofu box or a downgrade to a plain hyphen."""
     import cv2
     from fontTools.ttLib import TTFont
@@ -3784,7 +3798,7 @@ def test_em_dash_is_synthesized_for_fonts_without_the_glyph():
     from mangatl.render import render_page
     from mangatl.models import Page, TextRegion
 
-    path = _os.path.join("fonts", "AnimeAce.ttf")
+    path = _anime_ace()
     assert 0x2014 not in set(TTFont(path, lazy=True).getBestCmap().keys()), \
         "fixture assumes AnimeAce has no em-dash"
     assert not font_supports(path, "—")
@@ -3833,7 +3847,7 @@ def test_em_dash_is_a_borrowed_glyph_not_a_drawn_rectangle():
     donor = em_dash_donor()
     assert donor, "no Comic Sans-alike available to borrow an em-dash from"
 
-    path = _os.path.join("fonts", "CCWildWords.ttf")
+    path = _bundled("CCWildWords.ttf")
     adv, top, mask = em_dash_glyph(path, 40)
 
     # A borrowed outline has shaped ends. A rectangle's columns are identical,
@@ -3937,7 +3951,7 @@ def test_translations_json_endpoint_exists():
 
 
 def test_typeset_keeps_the_proofread_flag():
-    """Typesetting must NOT un-proofread the page — commit() rebuilds records
+    """Typesetting must NOT un-proofread the page - commit() rebuilds records
     without the editor-only 'proofread' flag, so do_typeset restores it
     (regression: proofread count dropped to 0 after typesetting)."""
     import shutil
@@ -4064,7 +4078,7 @@ def test_neural_all_routes_flat_bubbles_through_the_model():
 # ------------------------------------- "hard" means hard: what the model sees
 
 def _tone_gradient(h=200, w=240, period=6):
-    """Screentone whose dot size ramps left to right — a background with no
+    """Screentone whose dot size ramps left to right - a background with no
     single level, which is the case the flat-background sweep cannot handle."""
     import cv2
     img = np.full((h, w), 245, np.uint8)
@@ -4124,7 +4138,7 @@ def _spy(erase=False):
             return sub
         # Telea, plus a little grain. A perfectly flat answer where the page
         # around it has texture is now read as the model giving up and is sent
-        # to the local fill instead (see `_gave_up`) — which would make this a
+        # to the local fill instead (see `_gave_up`) - which would make this a
         # test of that guard rather than of how many times the model is asked.
         # A real reconstruction is never flat; this one is not either.
         out = cv2.inpaint(sub, sm, 5, cv2.INPAINT_TELEA)
@@ -4136,7 +4150,7 @@ def _spy(erase=False):
 
 
 def test_screentone_goes_to_the_model_when_there_is_one():
-    """The setting says "AI for hard areas — screentone, SFX, text on art", and
+    """The setting says "AI for hard areas - screentone, SFX, text on art", and
     screentone is the hardest of the three. It was being intercepted before the
     model by the pattern-copy branch, so the model never saw the regions it was
     turned on for; copying a block of dots is the no-model fallback, not a
@@ -4163,7 +4177,7 @@ def test_screentone_goes_to_the_model_when_there_is_one():
 
 def test_the_model_is_called_once_per_region_not_once_per_glyph():
     """A hosted inpainter handed a whole page splits the mask into connected
-    pieces and runs once per piece — once per GLYPH, each seeing a window too
+    pieces and runs once per piece - once per GLYPH, each seeing a window too
     small to tell what the background was doing. Sending a crop per region is
     both far fewer calls and a far better view."""
     from mangatl.inpaint import NEURAL_CTX, inpaint_page
@@ -4218,8 +4232,8 @@ def test_the_model_is_called_once_per_region_not_once_per_glyph():
 def test_the_stroke_skirt_is_inside_the_mask_on_a_gradient():
     """The measured haze sweep only ever ran on flat bubbles, because it needs
     something to call "the background" and a flat bubble has exactly one. On
-    tone the mask fell back to a fixed dilation — a guess at stroke width that
-    guesses low — and the skirt of every stroke survived as the outline of the
+    tone the mask fell back to a fixed dilation - a guess at stroke width that
+    guesses low - and the skirt of every stroke survived as the outline of the
     words. A per-pixel background makes the same measurement work here."""
     import cv2
     from mangatl.inpaint import inpaint_page
@@ -4230,7 +4244,7 @@ def test_the_stroke_skirt_is_inside_the_mask_on_a_gradient():
     dirty, tight = _typeset(img, [(80, 70, 92, 130), (80, 70, 150, 82)])
 
     # every pixel the typesetting darkened, skirt included, measured against the
-    # clean truth — that is the ink the model has to be asked to replace
+    # clean truth - that is the ink the model has to be asked to replace
     darkened = (cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(int) -
                 cv2.cvtColor(dirty, cv2.COLOR_BGR2GRAY).astype(int)) > 8
 
@@ -4240,7 +4254,7 @@ def test_the_stroke_skirt_is_inside_the_mask_on_a_gradient():
     seen = {}
     real = _ip._run_neural
 
-    # `**kw` so the spy keeps working when _run_neural gains an argument —
+    # `**kw` so the spy keeps working when _run_neural gains an argument -
     # the retry now takes `again`, the original page, so it redraws the page
     # rather than its own first answer.
     def rec(out, job, neural_, extra=0, **kw):
@@ -4272,7 +4286,7 @@ def test_the_stroke_skirt_is_inside_the_mask_on_a_gradient():
 def test_the_widened_mask_does_not_eat_the_screentone_around_it():
     """Being generous with the mask is free only while it stays on the words.
     Closing the image to find a local background wipes out the dot pattern too,
-    so every dot near a stroke reads as ink — which is why only haze CONTIGUOUS
+    so every dot near a stroke reads as ink - which is why only haze CONTIGUOUS
     with a stroke is taken, and passing line work is left standing."""
     import cv2
     from mangatl import inpaint as _ip
@@ -4282,14 +4296,14 @@ def test_the_widened_mask_does_not_eat_the_screentone_around_it():
     img = _tone_gradient()
     box = (80, 70, 150, 130)
     dirty, tight = _typeset(img, [(100, 90, 112, 120)])
-    # artwork passing close under the glyph — inside the sweep's reach, but not
+    # artwork passing close under the glyph - inside the sweep's reach, but not
     # joined to any stroke, which is the whole distinction
     cv2.line(dirty, (80, 125), (150, 125), (10, 10, 10), 3)
 
     seen = {}
     real = _ip._run_neural
 
-    # `**kw` so the spy keeps working when _run_neural gains an argument —
+    # `**kw` so the spy keeps working when _run_neural gains an argument -
     # the retry now takes `again`, the original page, so it redraws the page
     # rather than its own first answer.
     def rec(out, job, neural_, extra=0, **kw):
@@ -4308,7 +4322,7 @@ def test_the_widened_mask_does_not_eat_the_screentone_around_it():
     m = seen["m"]
     assert m[88:122, 98:115].any(), "the typesetting itself was not masked"
     # What "left standing" means changed on 2026-07-30. The mask the MODEL is
-    # given is grown by `MODEL_PAD` — a model reconstructs what it is handed, and
+    # given is grown by `MODEL_PAD` - a model reconstructs what it is handed, and
     # a mask that stops at the glyph's edge leaves the rim of every stroke on the
     # page, which is what lee kept photographing. So artwork within MODEL_PAD of
     # a stroke IS redrawn now; what must still be left alone is line work further
@@ -4350,7 +4364,7 @@ def test_a_ghost_after_a_neural_clean_is_retried_wider_before_it_is_flagged():
 # ------------------------------------- light on dark: what counts as typesetting
 
 def _dark_tone_panel(h=260, w=300, period=7, dot=2):
-    """A black panel carrying WHITE screentone — the case where the light/dark
+    """A black panel carrying WHITE screentone - the case where the light/dark
     split hands back the tone as well as the words."""
     import cv2
     img = np.full((h, w), 20, np.uint8)
@@ -4363,7 +4377,7 @@ def _dark_tone_panel(h=260, w=300, period=7, dot=2):
 def test_white_screentone_is_not_mistaken_for_white_typesetting():
     """The solid black rectangles. On a dark panel the detector's mask is the
     panel, so cleaning throws it away and splits the region light-from-dark
-    instead — and on a panel carrying white tone, the light side is the dots as
+    instead - and on a panel carrying white tone, the light side is the dots as
     well as the words. Dilating a field of dots by the few pixels a glyph edge
     needs joins them into a filled box, and the inpainter, asked to redraw a
     box, answers with a flat block where the artwork used to be."""
@@ -4402,7 +4416,7 @@ def test_white_screentone_is_not_mistaken_for_white_typesetting():
 def test_bright_artwork_crossing_the_box_survives_on_a_dark_panel():
     """`glyphs_only` drops ink that carries on past the region, which is what
     stops a bubble outline being hacked in half. It labelled the DARK side of
-    the page to do it — so on a white-on-black panel it was labelling the
+    the page to do it - so on a white-on-black panel it was labelling the
     background, found nothing, and erased the artwork along with the words."""
     import cv2
     from mangatl import inpaint
@@ -4430,12 +4444,12 @@ def test_a_split_that_swallows_its_panel_is_cleaned_conservatively():
 
     Every step above is a guess at where the typesetting is, and on a dark panel
     the guess replaces the detector's answer entirely. This test used to prove
-    that a guess gone wrong left the page ALONE — which is safe for the artwork
+    that a guess gone wrong left the page ALONE - which is safe for the artwork
     and is also how a page came back with its sound effects still on it, box
     after box, with nothing erased and nothing said.
 
     So a swallowing split no longer skips. It drops back to the letter-like core
-    — no halo, no model padding — and cleans that. What is protected now is what
+    - no halo, no model padding - and cleans that. What is protected now is what
     was actually at risk: the artwork OUTSIDE the box, which a generous mask
     handed to an inpainter turns into a flat block. Inside its own box the
     region is cleaned, and flagged so it gets looked at.
@@ -4462,7 +4476,7 @@ def test_a_split_that_swallows_its_panel_is_cleaned_conservatively():
     assert r.flagged and "only the strokes were erased" in r.flagged, \
         "a conservative clean has to say so"
 
-    # the page beyond the box AND its doorstep is untouched — that is the thing
+    # the page beyond the box AND its doorstep is untouched - that is the thing
     # worth protecting (inpaint.GLYPH_REACH is the doorstep; see the fence at
     # the end of inpaint_page)
     from mangatl.inpaint import GLYPH_REACH as REACH
@@ -4479,7 +4493,7 @@ def test_a_split_that_swallows_its_panel_is_cleaned_conservatively():
 def test_the_seam_does_not_keep_half_the_stroke_edge():
     """The pale outlines on a grey fill. Feathering by blurring the mask puts
     the halfway point exactly on the mask's edge, so half of whatever sits
-    there is blended back in — and at the edge of a mask drawn round a letter,
+    there is blended back in - and at the edge of a mask drawn round a letter,
     what sits there is the letter's own anti-aliased rim. The haze sweep cannot
     find it either: it looks for ink darker than its surroundings, and this is
     a BRIGHT rim on a finished fill."""
@@ -4495,7 +4509,7 @@ def test_the_seam_does_not_keep_half_the_stroke_edge():
 
     out = cv2.cvtColor(inpaint._feather(orig, filled, mask), cv2.COLOR_BGR2GRAY)
     # measured: 33 levels of stroke left over with the ramp across the edge,
-    # 10 with it outside — against a field at 120
+    # 10 with it outside - against a field at 120
     assert int(out.max()) - 120 < 18, \
         f"{int(out.max()) - 120} levels of the old stroke survived the fill"
 
@@ -4506,7 +4520,7 @@ def _heal_post(base, img, msk):
     """POST a heal request the way paint.js does and return the reply.
 
     No `ai` flag: there is one healing brush and it is the AI one. It used to
-    be a choice of two, and the flag picked between them —
+    be a choice of two, and the flag picked between them -
     lee: *"remoev teh regualr healing brush, its ass"*.
     """
     import base64, json, urllib.request, urllib.error
@@ -4592,7 +4606,7 @@ def test_the_heal_brush_goes_through_the_ai_cleaner_when_one_is_set_up():
 
 def test_a_dead_cleaner_endpoint_says_so_instead_of_healing_locally():
     """This used to fall through to the local fill and hand back a patch, so a
-    dead endpoint was invisible — the spot changed, the layer appeared, and the
+    dead endpoint was invisible - the spot changed, the layer appeared, and the
     brush lee wanted had never run. That fill is gone
     (*"remoev teh regualr healing brush, its ass"*), so there is nothing to
     fall through to and the only honest answer is the reason."""
@@ -4629,7 +4643,7 @@ def test_a_dead_cleaner_endpoint_says_so_instead_of_healing_locally():
 def test_the_healed_spot_is_not_half_the_old_pixels_at_its_edge():
     """The seam feather used to blur the mask itself, so alpha crossed 0.5
     exactly ON the mask boundary and the outer rim of everything erased came
-    back at half strength — the pale outlines of the original typesetting. The
+    back at half strength - the pale outlines of the original typesetting. The
     ramp has to sit OUTSIDE the painted spot, so every pixel the user marked
     is fully replaced.
 
@@ -4668,7 +4682,7 @@ def test_the_healed_spot_is_not_half_the_old_pixels_at_its_edge():
 
 
 def test_there_is_no_brush_left_that_avoids_the_model():
-    """Two tests stood here — one proving the plain brush never called the
+    """Two tests stood here - one proving the plain brush never called the
     cleaner, one proving the two brushes could not both be armed. Both are
     about a brush that no longer exists. lee: *"remoev teh regualr healing
     brush, its ass"*.
@@ -4712,8 +4726,8 @@ def test_there_is_no_brush_left_that_avoids_the_model():
 def test_the_healing_brush_sends_enough_context_for_a_model_to_use():
     """A model can only continue artwork it can see, so the collar paint.js
     sends has to be comparable to what the Clean step sends
-    (inpaint.NEURAL_CTX). It used to be picked per brush — the local one was
-    happy with 40px — and there is one brush now, so there is one number."""
+    (inpaint.NEURAL_CTX). It used to be picked per brush - the local one was
+    happy with 40px - and there is one brush now, so there is one number."""
     import os
     import re as _re
     from mangatl.inpaint import NEURAL_CTX
@@ -4769,7 +4783,7 @@ def _sfx_region(tilt, dst="GRRR", vertical=True, text="GRR"):
     gray, box = _drawn_sfx(tilt, vertical=vertical, text=text)
     img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
     x, y, w, h = box
-    # The text mask is the ink itself, the way the detector hands one over —
+    # The text mask is the ink itself, the way the detector hands one over -
     # not a filled rectangle. The axis reader measures whatever it is given,
     # and a solid block is too square to have an axis at all.
     ink = np.zeros(gray.shape, np.uint8)
@@ -4813,7 +4827,7 @@ def test_a_straight_effect_is_left_straight_and_a_bubble_is_never_measured():
 
 
 def test_the_measured_angle_survives_the_journey_through_the_project_file():
-    """Measured at detection, used at typeset — with the project file, and
+    """Measured at detection, used at typeset - with the project file, and
     possibly a restart, in between."""
     import cv2
     from mangatl.project import region_from_record, region_record
@@ -4825,7 +4839,7 @@ def test_the_measured_angle_survives_the_journey_through_the_project_file():
     assert abs(back.sfx_len - r.sfx_len) < 0.01
     assert abs(back.sfx_wid - r.sfx_wid) < 0.01
     # A record written before any of this existed loads as never measured,
-    # not as measured at zero — the two mean different things to the fitter.
+    # not as measured at zero - the two mean different things to the fitter.
     old = {k: v for k, v in rec.items()
            if k not in ("angle", "sfx_vertical", "sfx_len", "sfx_wid")}
     older = region_from_record(old, np.full((460, 380, 3), 240, np.uint8))
@@ -4834,8 +4848,8 @@ def test_the_measured_angle_survives_the_journey_through_the_project_file():
 
 def test_a_sound_effect_is_typeset_along_the_axis_it_was_drawn_on():
     """The English leans the same way the Japanese did. `rotate` turns the
-    opposite way round from the page's own reading of the tilt — PIL and the
-    browser both turn anticlockwise — so the sign matters and is checked."""
+    opposite way round from the page's own reading of the tilt - PIL and the
+    browser both turn anticlockwise - so the sign matters and is checked."""
     from mangatl.typeset import fit_region
     _, r = _sfx_region(-22)
     lay = fit_region(r, TypesetConfig(font_path=default_font_path()))
@@ -4855,7 +4869,7 @@ def test_a_sound_effect_running_down_the_page_is_still_typeset_as_a_word():
 
     The Japanese ran down the page, so this is the case that used to come out
     as a column of single capitals. It goes down as one word now, leaning the
-    way the column leaned, and it keeps the ink weight the column had — the
+    way the column leaned, and it keeps the ink weight the column had - the
     word must not shrink to the width of one character.
     """
     from mangatl.typeset import fit_region
@@ -4917,7 +4931,7 @@ def test_a_sound_effect_nobody_ever_measured_is_still_typeset():
 
 def test_the_editor_preview_does_not_square_a_leaning_effect_back_up():
     """The preview is what the person actually looks at, and it ran every fit
-    through enforce_bounds — which drags each line back inside the region's
+    through enforce_bounds - which drags each line back inside the region's
     own box. A leaning effect is laid out along its own axis and turned
     afterwards, so "inside the box" is not a thing its lines are: clamping
     them there stacks the ones that hang over onto the edge, on top of each
@@ -4972,7 +4986,14 @@ def test_detection_is_where_the_angle_gets_read():
         _, found = _sfx_region(-22)
         found.angle, found.sfx_len, found.sfx_wid = 0.0, 0.0, 0.0
         freetext.detect_free_text = lambda page, avoid=None, kind="sfx": [found]
-        p.detect(0, ["sfx"])
+        # `no_big_sfx=False`, because this is about WHERE the angle is read and
+        # not about the big-effect bar. The drawn effect in this fixture is
+        # 226px on a 380px page -- 0.59 of the width, over the bar at every
+        # setting there has ever been, manga's 0.244 and the 0.435 default
+        # alike -- so with the bar on, `big_sfx` drops the region before
+        # anything can be asserted about its angle and the test reads as a
+        # detection failure. See `project.big_sfx`.
+        p.detect(0, ["sfx"], no_big_sfx=False)
         rec = p.pages[0].regions[0]
         assert rec["kind"] == "sfx"
         assert abs(rec["angle"] + 22) <= 6, rec["angle"]
@@ -4984,7 +5005,7 @@ def test_detection_is_where_the_angle_gets_read():
 
 def test_calling_a_box_a_sound_effect_reads_its_angle_there_and_then():
     """Changing a region's kind by hand happens long after detection, and the
-    page it happens on has not been cleaned yet — so the angle is still there
+    page it happens on has not been cleaned yet - so the angle is still there
     to be taken, and this is the last chance to take it."""
     import json as _json
     import shutil
@@ -5031,7 +5052,7 @@ def test_calling_a_box_a_sound_effect_reads_its_angle_there_and_then():
 def test_the_rotation_box_follows_a_leaning_effect_in_a_real_dom():
     """A sound effect comes out of the fitter already leaning, with nothing
     hand-set on it. The Rotation field has to show that angle rather than a
-    zero, and "5 degrees more" has to mean five more than the lean — from
+    zero, and "5 degrees more" has to mean five more than the lean - from
     zero it snaps the effect upright the first time you touch the button."""
     import os
     import shutil
@@ -5056,7 +5077,7 @@ def test_the_rotation_box_follows_a_leaning_effect_in_a_real_dom():
 
 def test_the_exported_page_shows_the_effect_leaning():
     """The end of the line. Everything above is arithmetic until the ink
-    lands on the page at the angle it was measured at — so the render is read
+    lands on the page at the angle it was measured at - so the render is read
     back with the same reader that took the measurement in the first place."""
     import cv2
     from mangatl.render import render_page
@@ -5081,7 +5102,7 @@ def test_exporting_cleaned_art_writes_the_plate_with_no_english_on_it():
     """The cleaned raws are a deliverable of their own.
 
     Same folder machinery, same cleaning, one thing withheld: the typesetting.
-    What lands on disk has to be the plate itself, pixel for pixel — not the
+    What lands on disk has to be the plate itself, pixel for pixel - not the
     plate with faint English on it, and not the original page with the
     Japanese still there. Both failures look almost right in a thumbnail,
     so this compares against the plate rather than eyeballing ink.
@@ -5125,7 +5146,7 @@ def test_pressing_typeset_lays_out_a_page_that_was_typeset_by_hand():
     already been.
 
     A hand correction stores `locked` in the region's override, and a locked
-    region skips the fitter entirely — so on any page lee had touched, the
+    region skips the fitter entirely - so on any page lee had touched, the
     Typeset button did nothing at all and there was no way to ask for the
     automatic layout back short of resetting each bubble one at a time.
 
@@ -5146,7 +5167,7 @@ def test_pressing_typeset_lays_out_a_page_that_was_typeset_by_hand():
         assert auto and auto["lines"], "nothing was typeset to begin with"
         auto = dict(auto)
 
-        # retyped, shrunk, dragged out of the bubble, turned — and painted
+        # retyped, shrunk, dragged out of the bubble, turned - and painted
         p.pages[0].regions[0]["layout_override"] = {
             "lines": ["WHO"], "font_size": 8, "leading": 2.0,
             "dx": 25, "dy": -12, "frame": [10, 10, 40, 30], "rotate": 15,
@@ -5162,7 +5183,7 @@ def test_pressing_typeset_lays_out_a_page_that_was_typeset_by_hand():
         assert lay["rotate"] == 0.0, lay["rotate"]
         assert not ov.get("locked"), "the region is still pinned"
         # ...and so does everything else that was chosen by hand. Typeset used
-        # to keep the DRESSING — the colour, the outline, the shadow — and
+        # to keep the DRESSING - the colour, the outline, the shadow - and
         # drop only the placement, so there was no way back to a clean page
         # short of undoing each block one at a time. lee: *"when i re typseet a
         # page any custom chnages to text boxes or custom text box dshoud be
@@ -5195,8 +5216,8 @@ def test_looking_at_a_page_or_exporting_it_never_undoes_a_hand_correction():
 
 
 def test_a_step_that_falls_over_says_where_it_fell_over():
-    """The red bar carried a bare type and message — "IndexError: too many
-    indices for array" — which names no file, no line and no step. The person
+    """The red bar carried a bare type and message - "IndexError: too many
+    indices for array" - which names no file, no line and no step. The person
     reading it has nothing to report and nothing to look at, and the actual
     traceback goes to a console window nobody has open. The innermost frame
     of our own code goes in the bar with it."""
@@ -5215,7 +5236,7 @@ def test_a_balloon_whose_outline_reads_oddly_does_not_take_the_page_down():
 
     Reading a balloon's neck asks OpenCV for the dents in its hull. Every
     build this has run against answers with an (N, 1, 4) array, and the code
-    unpacked that middle axis on the spot — so a build that hands back a plain
+    unpacked that middle axis on the spot - so a build that hands back a plain
     (N, 4) raised "IndexError: too many indices for array: array is
     2-dimensional, but 3 were indexed", inside a worker thread, which killed
     the whole Typeset run for the chapter. A page of dialogue was lost to a
@@ -5262,7 +5283,7 @@ def test_a_balloon_whose_outline_reads_oddly_does_not_take_the_page_down():
 
 
 def test_the_side_by_side_switch_is_where_it_can_be_used():
-    """It sat beside "Snap boxes", visible on every tab and in every view —
+    """It sat beside "Snap boxes", visible on every tab and in every view -
     including the Original view, where the pane it opens shows the same
     picture twice, and the Results and Settings tabs, where no page is on
     screen at all. It belongs next to the "Translated text" switch, which
@@ -5293,7 +5314,7 @@ def test_returning_to_the_edit_tab_puts_the_page_back_on_screen():
     The editing pane centres the page inside a wide pan border, so the middle
     of the scroll range is the only place the page is visible from. A scroll
     box that is display:none has its scroll position reset to zero by the
-    browser, and it has no width to measure a fit against either — so setTab
+    browser, and it has no width to measure a fit against either - so setTab
     unhiding the stage and doing nothing else handed back a pane scrolled to
     the corner of the border, at a zoom worked out from a zero-width box."""
     import os
@@ -5322,7 +5343,7 @@ def test_the_box_on_screen_is_the_writing_and_the_balloon_is_behind_it():
     The detector was right all along. `bbox` is where Find text measured the
     WRITING; `bubble_bbox` is the balloon found round it afterwards, so the
     typesetter can use the whole of the paper rather than the narrow column the
-    Japanese ran down. The editor drew `bubble_bbox||bbox` — the balloon — as
+    Japanese ran down. The editor drew `bubble_bbox||bbox` - the balloon - as
     though it were the box that had been found, so a thin line of kana in a wide
     oval looked like a box over the oval with the writing in one corner of it.
 
@@ -5384,7 +5405,7 @@ def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
     """Page 8, bottom right: "PLEASE, LISTEN TO WHAT THIS CHILD HAS TO SAY."
 
     lee runs 10 to 34. That balloon takes 16 at the outside, so the whole
-    ladder available in it is 10..16 — and the fitter used to measure how
+    ladder available in it is 10..16 - and the fitter used to measure how
     small a layout was against 10..34, where the step from 14 to 16 is 8% of
     the span and worth about 0.29 of score. Any layout at 14 whose breaks came
     out a shade more even bought the smaller type for less than it was worth,
@@ -5392,7 +5413,7 @@ def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
     half empty. Two things had to change for it to typeset at 16: the ladder is
     now the sizes the balloon can really take (`_feasible_top`), and a tall
     bubble is allowed the lines its height affords before the stack penalty
-    fires (`rows_afforded`) — seven short lines in a narrow balloon is the
+    fires (`rows_afforded`) - seven short lines in a narrow balloon is the
     shape doing what it was drawn to do, not a column of stubs.
 
     Both assertions bite, and they bite on different halves: the size is what
@@ -5401,7 +5422,7 @@ def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
     balloon came out 15pt across five lines filling 40% of the height.
 
     The bars were 16pt and 48% while the fitter could set solid. It cannot any
-    more — lee: *"make teh minimun line gap be 1.20"* — and on a balloon this
+    more - lee: *"make teh minimun line gap be 1.20"* - and on a balloon this
     narrow the two things are in direct competition. Measured on this exact
     shape, every option:
 
@@ -5412,7 +5433,7 @@ def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
 
     The seven-line answer needed 1.00 flat. So the floor costs this balloon two
     points of type and a tenth of its fill, and that is the trade lee asked
-    for — recorded here rather than quietly written down, because it is the
+    for - recorded here rather than quietly written down, because it is the
     number to look at if he ever wants the old typesetting back.
     """
     from mangatl.typeset import fit_region
@@ -5440,19 +5461,19 @@ def test_a_neck_cut_that_strangles_the_dialogue_gives_way():
     balloon's own outline was followed off a cliff.
 
     The gap is asserted at both ends and against itself, so the test cannot go
-    quiet by both numbers drifting up together — which is how it nearly did
+    quiet by both numbers drifting up together - which is how it nearly did
     when `small` began measuring against the sizes a balloon can really take
     and the strangled lobe rose from 12 to 14.
 
     So the neck cut is measured now rather than taken on sight. It keeps the
-    balloon unless something typesets a quarter larger — page 013 with its short
-    lines is beaten by nine percent and stays exactly as he asked for it — and
+    balloon unless something typesets a quarter larger - page 013 with its short
+    lines is beaten by nine percent and stays exactly as he asked for it - and
     the something has to keep at least half of each block's own Japanese, or it
     is typesetting big by sliding the English off the words it replaces.
 
     What the test asserts about SIZE has since been overtaken. Every share is
-    now trimmed back to its block's own box before it is typeset — lee's HUH!?
-    was landing at the balloon's waist because it wasn't — and the trim costs
+    now trimmed back to its block's own box before it is typeset - lee's HUH!?
+    was landing at the balloon's waist because it wasn't - and the trim costs
     more than the choice of cut wins: the straight cut's 19 and 20 come out as
     17 and 13. The comparison the search actually makes is still pinned here,
     on the untrimmed shares it is made on, and that is the whole of what this
@@ -5500,7 +5521,7 @@ def test_a_neck_cut_that_strangles_the_dialogue_gives_way():
 
 
 def _two_balloons_in_one_group(right_text, left_text):
-    """TWO balloons, overlapping — not one balloon with two lobes.
+    """TWO balloons, overlapping - not one balloon with two lobes.
 
     lee's page 008 has a pair like this, a tall one behind and a rounder one in
     front of it, each with its own dialogue. They touch, so they arrive as one
@@ -5549,7 +5570,7 @@ def test_a_cut_that_typesets_over_the_gap_between_two_balloons_loses():
     Every share is kept inside the BOX around its shape, and for one balloon
     that is close enough. For two balloons that touch at a corner it is not:
     the box around the top halves of both spans the gap between them, so a cut
-    straight across measures 25pt where the neck cut measures 18 — by putting
+    straight across measures 25pt where the neck cut measures 18 - by putting
     LET'S MEET where there is no balloon at all. Cheap to see once the question
     is asked, invisible to a fitter that only ever asks how big the type came
     out.
@@ -5584,7 +5605,7 @@ def test_a_cut_that_typesets_over_the_gap_between_two_balloons_loses():
 def _block_with_one_line_across_the_art(cfg):
     """A tidy block of twenty lines, one of which lies across the artwork.
 
-    The shape is a plain white column with a single pinched row band in it —
+    The shape is a plain white column with a single pinched row band in it -
     the stand-in for the gap between two balloons that touch. Nineteen lines
     sit on white; the twentieth is far wider than the pinch, so `enforce_bounds`
     centres it on that stub of a chord and the rest of it lands on the art.
@@ -5616,8 +5637,8 @@ def test_one_line_across_the_art_is_not_averaged_away():
     the one lying over the artwork between two balloons. Averaged over the
     block it hid: on lee's page 008 the last two lines of "I'M SORRY. WE HAVE
     TO BE GETTING BACK." reached across the neck into the balloon behind, 7.6%
-    on the line he could see came out as 4.7% over the block — a third of a
-    point under the bar — and the cut that carried the dialogue across the neck
+    on the line he could see came out as 4.7% over the block - a third of a
+    point under the bar - and the cut that carried the dialogue across the neck
     was adopted as the best available. This fixture is that failure with the
     arithmetic made obvious: nineteen lines clean, one of them half on the art,
     so the average is comfortably inside the bar and the block is not.
@@ -5640,7 +5661,7 @@ def test_one_line_across_the_art_is_not_averaged_away():
     average = sum(per) / len(per)
     worst = max(per)
     # The fixture is only worth anything if the two numbers land either side of
-    # the bar — that is the whole shape of the bug.
+    # the bar - that is the whole shape of the bug.
     assert average < SPILL_ALLOWED < worst, (average, worst)
 
     got = _off_balloon(region, lay, cfg, m)
@@ -5651,7 +5672,7 @@ def test_one_line_across_the_art_is_not_averaged_away():
 # ------------------------------------------------------- vertical centring
 
 def _neck_region(w, h, text, narrow_at_bottom=True):
-    """A balloon with a neck at one end — the shape half a split bubble has.
+    """A balloon with a neck at one end - the shape half a split bubble has.
 
     The widest chords sit at the opposite end from the neck, so the fit search
     is pulled that way looking for room to break the line, and the block ends
@@ -5689,7 +5710,7 @@ def test_the_block_settles_back_to_the_middle_of_its_balloon():
     """Room is used to choose the breaks and then given back.
 
     A necked balloon's widest chords are all at one end, so the placement
-    search — which is looking for width, and rightly so — picks a top down
+    search - which is looking for width, and rightly so - picks a top down
     there and leaves the type sitting on the floor of the bubble. But the
     lines are only wide once they are broken, and by then they fit far higher
     than the chord that chose them. Sliding the finished block back to the most
@@ -5750,7 +5771,7 @@ def _side_by_side_lobes(right_text, left_text):
 
     lee's page 008 farewell balloon: a tall oval low on the left and a rounder
     one high on the right, overlapping over most of their height. The shape
-    matters because of what a cut straight across does to it — a horizontal
+    matters because of what a cut straight across does to it - a horizontal
     band spans BOTH lobes, so each block is handed a share the full width of
     the balloon and the fitter centres it on the balloon rather than on the
     lobe the artist wrote it in. That is the picture lee keeps sending back:
@@ -5772,7 +5793,7 @@ def _side_by_side_lobes(right_text, left_text):
     m[right | left] = 255
 
     # Each block's Japanese sits wholly inside the lobe it was written in, and
-    # the two columns overlap in y — which is why the detector reports them
+    # the two columns overlap in y - which is why the detector reports them
     # stacked and hands the balloon over divided across.
     inks = []
     for y0, y1, x0, x1 in ((22, 135, 95, 165), (120, 232, 30, 90)):
@@ -5807,8 +5828,8 @@ def _lobe_centres(mask, right, left):
 def test_a_block_is_centred_in_its_own_lobe_not_in_the_whole_balloon():
     """Side-by-side lobes: each block centres on the lobe it was written in.
 
-    A cut straight across this balloon letters five points larger — 18 against
-    13 — because the lower band spans both lobes and the long sentence gets the
+    A cut straight across this balloon letters five points larger - 18 against
+    13 - because the lower band spans both lobes and the long sentence gets the
     balloon's whole width to break on. It buys that by dragging each block off
     its own lobe: it keeps 58% of each block's own writing, and centres both on
     the balloon's axis, 34 and 46 pixels from the lobes they belong to. That is
@@ -5816,7 +5837,7 @@ def test_a_block_is_centred_in_its_own_lobe_not_in_the_whole_balloon():
     bubble, not the whole thing.
 
     So size alone does not carry it. A division only overrules the neck the
-    artist drew if it also keeps three quarters of each block's own Japanese —
+    artist drew if it also keeps three quarters of each block's own Japanese -
     the stacked balloon in `test_a_neck_cut_that_strangles_the_dialogue_gives_way`
     keeps 86% and still wins, this one keeps 58% and does not.
     """
@@ -5832,13 +5853,13 @@ def test_a_block_is_centred_in_its_own_lobe_not_in_the_whole_balloon():
         own = right if r.id == 1 else left
         m = shares[r.id] > 0
         # the chord the artist would have drawn is straight and the lobes are
-        # round, so the overlap goes wholly to one of them — three quarters of
+        # round, so the overlap goes wholly to one of them - three quarters of
         # each lobe, and no part of the other.
         #
         # Three quarters, not all of it: the share is then trimmed back to the
         # block's own box, which is what keeps the words off the balloon's
         # waist. What matters here is that every pixel it kept is its OWN
-        # lobe's, and that it kept all of its own writing — both below.
+        # lobe's, and that it kept all of its own writing - both below.
         assert float((m & own).sum()) / float(own.sum()) > 0.72, r.id
         assert float((m & ~own).sum()) / float(m.sum()) < 0.02, r.id
         ink = r.text_mask > 0                # and all of its own writing
@@ -5890,7 +5911,7 @@ def test_an_answer_about_a_page_you_left_is_refused_in_a_real_dom():
     lee: *"the page lagged and merge 2 section from one page with another when
     i switch pages too fast"*. Two dozen places apply `j.regions` the moment it
     lands; one of them checked first and the rest did not. Worse than a wrong
-    picture — with another page's boxes in `regions`, the next drag posts THOSE
+    picture - with another page's boxes in `regions`, the next drag posts THOSE
     ids to the page now on screen, so the mix-up is written to disk.
     """
     import os

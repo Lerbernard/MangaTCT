@@ -8,7 +8,7 @@ There is no ellipsis on that page. The model put it there because this prompt
 taught it to: the rule for a sentence carried across two balloons said the
 first bubble ENDS with three periods and the second one BEGINS with three
 periods. That is a scanlation habit rather than the author's punctuation, and
-it ends up on the front of standalone lines that continue nothing at all —
+it ends up on the front of standalone lines that continue nothing at all -
 which is what happened here, on a label lying on the artwork.
 
 The trailing half stays. Three periods at the END of a line is how trailing
@@ -88,7 +88,7 @@ def test_the_source_is_read_past_its_brackets():
 
 def test_the_translator_is_no_longer_taught_to_open_with_one():
     """Stripping it at the door is the safety net. The prompt is where it
-    stops being written in the first place — and this prompt used to ASK for
+    stops being written in the first place - and this prompt used to ASK for
     it."""
     sys = build_system("manga", "en", "ja")
     assert "the next bubble BEGINS" not in sys, \

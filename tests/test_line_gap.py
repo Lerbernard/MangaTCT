@@ -4,7 +4,7 @@ lee, first: "the line gap shoud nver be less than 1 by default". Later, looking
 at his own pages: *"make teh minimun line gap be 1.20"*. The floor moved; the
 argument for having one did not.
 
-Set solid — a gap of exactly one type size — the ascenders on one line already
+Set solid - a gap of exactly one type size - the ascenders on one line already
 reach up to where the descenders on the line above come down. Anything tighter
 and they interleave, and a block that interleaves stops looking like lines of
 speech and starts looking like a grey brick. It is the cheapest-looking thing a
@@ -16,7 +16,7 @@ The way out of a balloon that will not take the words is a smaller size, not a
 smaller gap. So the floor holds in the two places the FITTER chooses a gap for
 itself: the sweep of leadings it tries, and the emergency wrap it falls through
 to when nothing in the sweep fits. It does not hold over a number typed into
-the panel — that is a person deciding, and lee asked for exactly that once he
+the panel - that is a person deciding, and lee asked for exactly that once he
 had the floor.
 
 The floor itself is `typeset.MIN_LEADING`. The tests below say "at least
@@ -46,7 +46,7 @@ def _cfg(**kw):
 
 
 def test_no_leading_the_fitter_may_choose_is_under_solid():
-    """The sweep itself. Nothing to measure — just read the list."""
+    """The sweep itself. Nothing to measure - just read the list."""
     for lead in _cfg().leadings:
         assert lead >= 1.0, (lead, _cfg().leadings)
 
@@ -67,7 +67,7 @@ def _balloon(rx, ry):
                                    (240, 70), (70, 120), (110, 95)])
 def test_a_fitted_block_never_closes_its_lines_tighter_than_solid(rx, ry):
     """Balloons of every proportion, including ones far too small for the
-    speech — the cramped ones are exactly where the fitter used to reach for a
+    speech - the cramped ones are exactly where the fitter used to reach for a
     tighter gap, so they are the ones worth asking."""
     r, bub = _balloon(rx, ry)
     lay = fit_region(r, _cfg(), bub)
@@ -81,7 +81,7 @@ def test_a_fitted_block_never_closes_its_lines_tighter_than_solid(rx, ry):
 
 def test_the_emergency_wrap_is_held_to_the_same_floor():
     """`_plain_fit` is the fall-through when nothing in the sweep fits, and it
-    set its own line height off the ink box — which came out under solid on
+    set its own line height off the ink box - which came out under solid on
     every font this app ships."""
     shape = np.zeros((H, W), np.uint8)
     cv2.rectangle(shape, (250, 250), (330, 400), 255, -1)   # far too narrow
@@ -133,7 +133,7 @@ def test_the_emergency_wrap_keeps_the_floor():
 
     `MIN_LEADING`'s own docstring says it bounds "the sweep of leadings and the
     emergency wrap". The sweep honoured it; the emergency wrap set `leading=1.0`
-    and packed the lines at the ink height — the tight grey mass the floor is
+    and packed the lines at the ink height - the tight grey mass the floor is
     there to prevent. It is the LAST-RESORT path, so it is exactly the one that
     runs on the worst-fitting bubbles, which is where it shows.
     """
@@ -145,7 +145,7 @@ def test_the_emergency_wrap_keeps_the_floor():
 
 
 def test_the_lines_it_places_are_really_that_far_apart():
-    """The reported number and the geometry have to be the same thing — the
+    """The reported number and the geometry have to be the same thing - the
     gap is what you see, the number is only what the panel says."""
     from mangatl import typeset as T
     lay, cfg = _cramped("WOULD THE QUEEN OF ZARUDONE TELL YOU TO PEEK")
@@ -156,7 +156,7 @@ def test_the_lines_it_places_are_really_that_far_apart():
 
 
 def test_it_shrinks_rather_than_tightening():
-    """The way out of a box this cramped is a smaller size, not a smaller gap —
+    """The way out of a box this cramped is a smaller size, not a smaller gap -
     which is what the size sweep is for."""
     from mangatl import typeset as T
     roomy, _ = _cramped("SHORT LINE", w=300, h=220)

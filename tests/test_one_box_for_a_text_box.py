@@ -4,15 +4,15 @@ lee, twice, with pictures: *"when i created a new text box it created a new box
 as well , it shoud [not] do that it shud just create the text box inependent of
 everything"*, and then *"the etxt box still crated a new box"*.
 
-There was never a second region — the endpoint makes exactly one, and that is
+There was never a second region - the endpoint makes exactly one, and that is
 measured here too. There are two RECTANGLES, and on this kind of box they must
 not be allowed to come apart:
 
 * the **region**, drawn once with the text tool and never moved again; and
 * the **typesetting frame**, which is what the handles actually drag.
 
-On every other box those mean different things — the region is where the
-Japanese was, the frame is where the English goes — and both are worth seeing.
+On every other box those mean different things - the region is where the
+Japanese was, the frame is where the English goes - and both are worth seeing.
 On a text box there is no Japanese. So the two coming apart leaves an empty box
 sitting where you first drew it while the words are somewhere else entirely,
 which is lee's first screenshot; and while the box is selected, both being
@@ -21,7 +21,7 @@ his second.
 
 Two halves, then. The region FOLLOWS the frame, wherever the frame is last put.
 And while a text box is the selected one and its frame is therefore on screen,
-the frame is its box — the region's own outline is not drawn as well.
+the frame is its box - the region's own outline is not drawn as well.
 """
 import json
 import shutil
@@ -79,7 +79,7 @@ def _text_box(base, x=60, y=50, w=170, h=110, text="THE WRONG DOLL LOL"):
 
 
 def _new_id(j):
-    """The reply carries the whole page's regions plus the one just made —
+    """The reply carries the whole page's regions plus the one just made -
     `regions[0]` is whatever was already there."""
     return j["region"]["id"]
 
@@ -156,7 +156,7 @@ def test_and_it_stays_that_way_when_the_project_is_reopened(tmp_path):
 
 def test_an_ordinary_box_keeps_its_own_rectangle(tmp_path):
     """This is the half that must NOT change. On a translated bubble the region
-    is where the Japanese was — the cleaner erases it, the reader read it — and
+    is where the Japanese was - the cleaner erases it, the reader read it - and
     the frame is where the English is set. Moving the English must not move the
     record of where the original was."""
     from mangatl import editor
@@ -204,7 +204,7 @@ def _browser(fn, tmp_path):
             pg.evaluate("setTab('edit'); setView('typeset')")
             browserpool.settled(pg)
             # Entering the Translation view puts the region boxes away, and
-            # this whole question is about what happens when they are ON —
+            # this whole question is about what happens when they are ON -
             # which is the state lee's screenshot was taken in.
             pg.evaluate("""(()=>{document.getElementById('hideboxes')
               .checked=false; drawBoxes();})()""")
@@ -226,7 +226,7 @@ def _boxes(pg):
 
 def test_a_selected_text_box_is_drawn_once(tmp_path):
     """Both at once is two outlines and two sets of handles round one
-    rectangle — which is the picture lee sent."""
+    rectangle - which is the picture lee sent."""
     def check(pg, rid):
         pg.evaluate("select(%d)" % rid)
         pg.wait_for_timeout(700)
@@ -273,7 +273,7 @@ def _row(pg, rid):
 
 
 def test_it_is_not_in_the_translation_at_all(tmp_path):
-    """The list is the translation — a row per piece of Japanese, with what it
+    """The list is the translation - a row per piece of Japanese, with what it
     says and what it will say. A box holding your own words is not one of
     those, and every part of it that said otherwise was a lie about where it
     came from: a green **1.00**, a *"no text read"* line, a reading-order
@@ -349,7 +349,7 @@ def test_the_number_of_a_deleted_box_is_not_given_to_the_next_one(tmp_path):
     teh same text as teh olde text box"*.
 
     Everything the editor holds about a box while it is in the air is filed
-    under its NUMBER — the keystroke not yet sent, the edit whose save has not
+    under its NUMBER - the keystroke not yet sent, the edit whose save has not
     come home, the undo snapshot. Ids used to be `max(existing) + 1`, which
     hands the dead box's number to the next one drawn, and every one of those
     then lands on a box that never asked for it.
@@ -404,7 +404,7 @@ def test_and_not_after_the_project_is_reopened(tmp_path):
 
 def test_typing_into_it_does_not_resize_the_box(tmp_path):
     """New words mean the old line breaks and the old point size are not this
-    text's — so the fitting is dropped and done again. On a bubble that costs
+    text's - so the fitting is dropped and done again. On a bubble that costs
     nothing: the frame is read off the balloon. A text box has no balloon. Its
     frame IS the rectangle you dragged, and it was going down with the rest of
     the layout. lee: *"the new text box ... reset in size when i clcik off teh

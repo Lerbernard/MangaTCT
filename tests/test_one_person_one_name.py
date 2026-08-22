@@ -11,12 +11,12 @@ Measured on a translated chapter of lee's, all in one run:
 Four labels for two people, and three terms that are each two terms. The
 character sheet and the glossary travel with every request already and did not
 stop any of it, for a reason each: a one-off speaker never joins the sheet BY
-DESIGN — a guard, a bystander, the narration voice — and a term nobody thought
+DESIGN - a guard, a bystander, the narration voice - and a term nobody thought
 to propose never joins the glossary at all.
 
 `already_said` is the rest of it: what the run has SAID, whether or not it was
 written down. It is per-run and thrown away with the run, which is the right
-lifetime — it is about one chapter agreeing with itself, and the sheet and the
+lifetime - it is about one chapter agreeing with itself, and the sheet and the
 glossary are what carry across chapters.
 """
 from mangatl import translate as T
@@ -106,7 +106,7 @@ def test_the_first_page_of_a_chapter_sends_nothing():
 
 def test_it_sits_below_the_cached_part_of_the_request():
     """It changes page to page. Up in the prefix it would break the cache on
-    every page — see the note on key order in `_base_payload`."""
+    every page - see the note on key order in `_base_payload`."""
     c = _ctx()
     c.speakers_seen = ["Kim Jinwoo"]
     keys = list(T.build_payload(_page([_r(0, "응?")]), c))

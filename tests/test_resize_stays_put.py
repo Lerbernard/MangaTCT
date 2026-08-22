@@ -6,15 +6,15 @@ to teh edge of the text when i try to resize them it happens wheni i let go"*.
 Dragging a corner posts the new rectangle back with `snap:false`, and
 `region_from_box` documents that as "the rectangle is used exactly as drawn".
 It was not. Both ends of the no-snap path went through `_fallback`, which
-measured the ink inside the rectangle and returned THAT as `bbox` — and `bbox`
+measured the ink inside the rectangle and returned THAT as `bbox` - and `bbox`
 is the rectangle the editor draws. So the box sprang inwards onto the letters
 the instant the mouse came up. Measured on the real chapter beforehand: of 250
 drags over detected boxes, 250 came back somewhere other than where they were
 released; a plain 12% grow lost its new room about two times in three.
 
 `_fallback` now takes `exact`, and the no-snap path passes it. The ink is still
-measured — it is what `src_vertical` is read from, and `text_mask` is still the
-ink inside the rectangle, so cleaning is untouched — it just no longer
+measured - it is what `src_vertical` is read from, and `text_mask` is still the
+ink inside the rectangle, so cleaning is untouched - it just no longer
 overrules a rectangle somebody dragged on purpose.
 
 The tightening itself is not gone. A rectangle drawn round writing that has no

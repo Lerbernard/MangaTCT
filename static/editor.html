@@ -51,7 +51,7 @@
            be accesabe at a time"*.
 
            It is called File now, and it is a screen with a section rail down
-           the side like Settings has — New project is the only section on it
+           the side like Settings has - New project is the only section on it
            today, and the rail is what makes room for the next one.
            lee: *"rename the forst button to file and wheni clcik it a tab with
            multiple section shoud show rigt now new project shoud be the only
@@ -71,11 +71,11 @@
        to spend is true on every tab. lee: *"also add a coin count in the ui at
        the top"*.
 
-       Clicking it opens the purse — what each step would cost this chapter,
+       Clicking it opens the purse - what each step would cost this chapter,
        what the last runs came to, and the way to put more in. -->
   <div class="side coinwrap">
     <button id="coinBtn" onclick="toggleWallet(event)"
-            title="TCT Coins — click for what things cost">
+            title="TCT Coins - click for what things cost">
       <svg class="coinface" width="15" height="15" aria-hidden="true"><use
             href="#tctcoin"/></svg>
       <b id="coinN">&mdash;</b></button>
@@ -85,7 +85,7 @@
        above the pages: it is the same three buttons whatever you have
        scrolled to, and on a long chapter they were off the top of the screen.
        lee: *"add this to the top bar in the result page to the right and flipe
-       the order"* — so it reads outwards from the one you press last. -->
+       the order"* - so it reads outwards from the one you press last. -->
   <div class="side right" id="resultTools" style="display:none">
     <button onclick="newChapter()">Start a new project</button>
     <button onclick="exportSettings()">Export story context</button>
@@ -98,7 +98,7 @@
   <div class="side right" id="pageTools">
     <!-- The zoom READOUT, and nothing else. The hand, the two zoom tools and
          the text button were up here as well as in the toolbox down the left,
-         which is the same tool twice — lee: *"the hand tool and text tool is
+         which is the same tool twice - lee: *"the hand tool and text tool is
          sttill duplicated up too"*. What is left is a number with a minus and
          a plus, which is not a tool: there is nothing to arm. -->
     <span class="zoomer">
@@ -122,8 +122,8 @@
     <!-- Cutting a page in two by hand, and joining two back into one.
          lee: *"add page splitter that allow the user to splite the pages
          manualy to the translation tab"*, then *"also add a page mergin
-         feature"*. It belongs to the Translation view — the artwork as it
-         came — because that is the one you are looking at when you notice the
+         feature"*. It belongs to the Translation view - the artwork as it
+         came - because that is the one you are looking at when you notice the
          page is wrong, and it is gone from the Image view where the boxes are
          placed and cutting is refused anyway.
 
@@ -139,13 +139,13 @@
     <label id="showTextWrap" class="swx" title="Hide the text">
       <input type="checkbox" id="showText" checked onchange="onShowText()">
       <i></i><span>Translated text</span></label>
-    <!-- "Original" and "Edit" — the second of which had the same name as the
+    <!-- "Original" and "Edit" - the second of which had the same name as the
          tab it sat under, so the bar read Edit ▸ Edit. Both say what you are
          looking at now: the artwork with the translation typeset on it, and
          the artwork as it came. lee: *"rename teh last two boxes to something
          better"*, then *"rename the to translation tab and image tab"*, and
          *"cha teh names of teh 2 tabs aroung so the image tabs shoud be named
-         translation"* — so Translation is the one on the left, and each
+         translation"* - so Translation is the one on the left, and each
          button opens what its name says. -->
     <span class="views">
       <button id="vOriginal" class="vw on" onclick="setView('original')">Translation</button>
@@ -158,9 +158,18 @@
   <div class="side" id="steps"></div>
   <div class="side right">
     <div id="job" class="idle">
+      <!-- The words live ON the bar, not above it. lee picked this one out of
+           five: *"redesgn the loading bar ... let me choose fro deferent
+           ones"*. A 6px hairline under 11px grey said how far and nothing
+           else, and at 4% it looked like it does at 96%. -->
       <div class="jobcol">
-        <div id="jobtxt" onclick="showJobMessage()">Ready</div>
-        <div class="barrow"><div id="bar"><div id="fill"></div></div></div>
+        <div class="barrow">
+          <div id="bar" onclick="showJobMessage()">
+            <div id="fill"></div>
+            <div class="joblab"><span id="jobtxt">Ready</span><span
+              id="jobpct"></span></div>
+          </div>
+        </div>
       </div>
       <button id="cancelJob" onclick="cancelJob()" title="Stop the current action"
               style="display:none">Cancel</button>
@@ -234,9 +243,9 @@
 
     <label>What to write</label>
     <select id="expMode" onchange="expModeChanged()">
-      <option value="full">Finished pages — cleaned art, English typeset on</option>
-      <option value="clean">Cleaned pages only — Japanese erased, no English</option>
-      <option value="boxes">Boxes drawn on — the original art, marked up for checking</option>
+      <option value="full">Finished pages - cleaned art, English typeset on</option>
+      <option value="clean">Cleaned pages only - Japanese erased, no English</option>
+      <option value="boxes">Boxes drawn on - the original art, marked up for checking</option>
     </select>
 
     <label>Which pages</label>
@@ -274,21 +283,45 @@
     <label class="opt"><input type="checkbox" id="kBubble" checked>
       <span><b>Speech and narration bubbles</b><br>
       <i>The reliable one.</i></span></label>
-    <label class="opt"><input type="checkbox" id="kFree">
+    <label class="opt"><input type="checkbox" id="kFree" checked>
       <span><b>Text outside bubbles</b><br>
       <i>Asides lying loose on the artwork. Would rather miss some than box
       the wrong thing.</i></span></label>
     <!-- This row was greyed out with a "Coming soon" pill on manhwa and
          manhua, because on chapter 1 the pass was wrong about half the time
          there. Re-measured over 46 pages after the character census and the
-         art veto: 49 boxes, 47 with real writing in them. lee, shown that:
-         give me the tick back. It is a plain live tick on every format now,
-         and it starts unticked, so nothing arrives unasked for. -->
-    <label class="opt"><input type="checkbox" id="kSfx">
-      <span><b>Sound effects</b><br>
-      <i>Typeset with the SFX font and left out of the cleaning pass. You can
-      also draw one by hand: a box on the Translation view, then <b>3</b>.</i>
-      </span></label>
+         art veto: 49 boxes, 47 with real writing. lee, shown that: give me
+         the tick back.
+
+         ONE box, with the sub-option inside it and hidden until the tick is
+         on. lee: *"it shoud be in one box and just be ine or 2 line and shoud
+         only show up when sfx is clicked"*. The sub-option is a SIBLING of
+         the label rather than inside it: a second checkbox inside a label
+         still activates the label, so clicking "leave out the big ones" would
+         have switched sound effects off. -->
+    <div class="optbox">
+      <label class="optrow"><input type="checkbox" id="kSfx" checked
+             onchange="syncSfxOpts()">
+        <span><b>Sound effects</b>
+        <span id="kSfxRough" class="pill warn">May include mistakes</span><br>
+        <i>Set in the sound-effect font, and left out of the cleaning pass. A
+        box can stop short of the end of a stroke, two effects can share one
+        box, and a faint one can be missed.</i></span></label>
+      <!-- "over 300px" was a number off lee's own pages. `BIG_SFX` is a SHARE
+           of the page width, 0.435, so on a chapter scanned at 1400px the cut
+           is 609px and the label was simply wrong. lee: *"dont mak it
+           spacific to any mnahwa"*. Said as the share it actually is.
+           ...and the share itself is per-format now -- a manga page is
+           several panels wide, so the same effect is a much smaller part of
+           it. `sayHowBig` writes this sentence from the number the server
+           sends; the text below is what a browser sees before it arrives. -->
+      <label class="optrow sub" id="kSfxOpts" style="display:none">
+        <input type="checkbox" id="kSfxBig" checked>
+        <span>Leave out the biggest effects<br>
+        <i id="kSfxBigWhy">Wider than about two fifths of the page &mdash; the
+        cleaner makes a mess of those.</i>
+        </span></label>
+    </div>
     <div class="row" style="margin-top:14px">
       <button class="pri" onclick="runDetect(false)">Find on every page</button>
       <button onclick="runDetect(true)">This page only</button>
@@ -300,7 +333,7 @@
 <!-- The File screen. A rail of sections down the side, exactly as Settings
      has, with the whole of the old New project screen as the first of them.
      lee: *"wheni clcik it a tab with multiple section shoud show rigt now new
-     project shoud be the only one"* — so the rail is here with one entry in
+     project shoud be the only one"* - so the rail is here with one entry in
      it, and the next thing that belongs under File is a button and a section,
      not a rebuild. -->
 <div id="picker">
@@ -312,7 +345,7 @@
     <!-- Saving and opening a chapter belong beside starting one, not three
          screens away under Settings. lee: *"also add a save project save as
          and a load project and move into te files tab too"*, and then
-         *"these shoud be button onthe side bar"* — so they are the rail
+         *"these shoud be button onthe side bar"* - so they are the rail
          itself rather than a row inside a screen you have to reach first.
          Each one shows the section as it runs, because that is where it says
          what it did and where it put it. -->
@@ -350,8 +383,8 @@
 
     <div class="pkstep on" data-step="1">
 
-    <div class="row" style="gap:12px;margin-top:14px">
-      <div style="flex:1">
+    <div class="row" style="gap:12px;margin-top:14px;flex-wrap:wrap">
+      <div style="flex:1 1 280px">
         <label style="margin-top:0">What is this?</label>
         <select id="pkMedium" onchange="mediumChosen('pk')">
           <option value="manga">Manga</option>
@@ -359,7 +392,7 @@
           <option value="manhua">Manhua</option>
         </select>
       </div>
-      <div style="flex:1">
+      <div style="flex:1 1 200px">
         <label style="margin-top:0"
                title="Source language">
                Written in</label>
@@ -373,14 +406,14 @@
           <option value="fr">French</option>
         </select>
       </div>
-      <div style="flex:1">
+      <div style="flex:1 1 200px">
         <label style="margin-top:0">Reading direction</label>
         <select id="pkDirection" onchange="mediumHint()">
           <option value="rtl">Right to left</option>
           <option value="ltr">Left to right</option>
         </select>
       </div>
-      <div style="flex:1">
+      <div style="flex:1 1 200px">
         <label style="margin-top:0">Translate into</label>
         <select id="pkTarget">
           <option value="en">English</option>
@@ -444,9 +477,32 @@
     </div><!-- /step 1 -->
 
     <div class="pkstep" data-step="2">
+      <!-- Somewhere to WRITE the story context, and not only to load one.
+           lee: *"add pace for me to dd the tittl e and sysnopis for new
+           projects"*.
+
+           A first chapter has no last chapter to import from, so until now
+           this step had exactly one thing you could do and it was the one
+           thing a new series cannot do. These are the SAME two fields as
+           Settings ▸ Synopsis - same ids' worth of content, same
+           `/api/settings` save - put where the decision is made, because the
+           synopsis is what the translator treats as ground truth and it is
+           worth the most before the first Read text rather than after it.
+
+           They come FIRST and the drop zone second: typing a sentence is the
+           common case on a new series, and importing is the shortcut for one
+           that is already running. Either fills these boxes, so whichever
+           way it arrives you can see it and correct it before pressing on. -->
+      <label style="margin-top:2px">Title</label>
+      <input id="pkStoryTitle" maxlength="120" oninput="pkContextTyped()"
+             placeholder="What this manga is called">
+      <label>Series synopsis (guides the translation)</label>
+      <textarea id="pkStorySynopsis" rows="4" oninput="pkContextTyped()"
+        placeholder="Who the story is about, what is happening, and - most useful of all - each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
+      <p class="muted" style="margin:10px 0 2px">or bring last chapter's over</p>
       <div class="drop" id="dropJson">
         <p><strong>Drop a story context here</strong></p>
-        <p class="muted">a <b>.tct</b> from the last chapter — or the older
+        <p class="muted">a <b>.tct</b> from the last chapter - or the older
           <b>.json</b>, which still opens</p>
         <button class="pri" onclick="$('impSetPk').click()">Choose a story context…</button>
       </div>
@@ -459,7 +515,7 @@
         <span style="flex:1"></span>
         <button onclick="pkFinish()">Skip</button>
         <button class="pri" id="pkDoneBtn" disabled
-                title="Add a settings file, or press Skip"
+                title="Write a title or a synopsis, add a settings file, or press Skip"
                 onclick="pkFinish()">Done</button>
       </div>
     </div><!-- /step 2 -->
@@ -475,12 +531,12 @@
        and the faces it typesets in. Open one anywhere and it is exactly as you
        left it.</p>
      <p class="muted" style="margin:4px 0 0">It carries your settings too, and
-       that includes any API keys saved in this project — treat the file the
+       that includes any API keys saved in this project - treat the file the
        way you would treat the keys.</p>
 
      <p class="muted" style="margin:10px 0 0">The <b>story context</b> beneath
        it is the other file: a <b>.tct</b> holding the synopsis, the
-       characters, the places and terms and how this series is set — the part
+       characters, the places and terms and how this series is set - the part
        that carries into chapter two.</p>
      <input id="tctpFile" type="file" accept=".tctp"
             style="display:none" onchange="uploadProject(this)">
@@ -503,7 +559,12 @@
 
 <div id="main">
   <div id="pages"></div>
-  <!-- The reference pane sits on the LEFT — read the original, edit on the
+  <!-- lee: *"alwo me to resize teh side side bar with the titles"*. The page
+       names are as long as the person who zipped the chapter made them, so no
+       one width is right; this is the width being his to set. -->
+  <div id="pagesGrip" title="Drag to resize · double-click to reset"
+       onmousedown="railGrab(event)" ondblclick="railWidth(RAIL_DEFAULT)"></div>
+  <!-- The reference pane sits on the LEFT - read the original, edit on the
        right, like a translator's desk. -->
   <div id="refWrap" title="Original">
     <div id="refStage"><img id="refImg" draggable="false"></div>
@@ -534,7 +595,7 @@
          into. lee: *"Add a manual translation mode that allows download a txt
          template with the boxes labeled and uploading that withhteh
          trasnalation Or just typing it in the text tab"*, and then *"move teh
-         ill translate myselt to the translation tab"* — it spent a while in
+         ill translate myselt to the translation tab"* - it spent a while in
          Settings, which is where you go to decide a thing once and not where
          you go to do it.
 
@@ -557,7 +618,7 @@
       margin-bottom:8px;font-size:12px;line-height:1.45"></div>
     <div id="list"></div>
     <details id="histpanel">
-      <summary>History — this session</summary>
+      <summary>History - this session</summary>
       <div id="histList"></div>
     </details>
     <p class="muted" style="margin-top:12px">
@@ -572,7 +633,7 @@
       <!-- One Settings page with two groups, not two pages with two navs.
            lee: *"merege the setting into one and have it be into 2 section one
            setting and teh other manga setting or somthing more newtral that
-           donrt have teh word manga in it"*. "Story" — the app does manhwa and
+           donrt have teh word manga in it"*. "Story" - the app does manhwa and
            manhua too, and none of this is about manga in particular. -->
       <div class="setnav-title" >Story</div>
       <button class="setnav-btn on" data-sec="story" onclick="setSettingsTab('story')">Story settings</button>
@@ -580,11 +641,16 @@
       <button class="setnav-btn" data-sec="characters" onclick="setSettingsTab('characters')">Characters</button>
       <button class="setnav-btn" data-sec="terms" onclick="setSettingsTab('terms')">Places, terms &amp; other</button>
       <div class="setnav-title" style="margin-top:16px">Settings</div>
-      <button class="setnav-btn" data-sec="fonts" onclick="setSettingsTab('fonts')">Fonts &amp; typesetting</button>
+      <!-- Pipeline order, top to bottom: what the chapter IS, what finds the
+           text, what reads and writes it, what cleans the page, what sets the
+           words. lee: *"organize tehm better"*. The keys are unchanged - only
+           the order and the one name: "Translation engine" said less than
+           the screen does, which sets the model for all three AI steps. -->
       <button class="setnav-btn" data-sec="language" onclick="setSettingsTab('language')">Language &amp; direction</button>
       <button class="setnav-btn" data-sec="detection" onclick="setSettingsTab('detection')">Detection &amp; OCR</button>
-      <button class="setnav-btn" data-sec="translation" onclick="setSettingsTab('translation')">Translation engine</button>
+      <button class="setnav-btn" data-sec="translation" onclick="setSettingsTab('translation')">AI models</button>
       <button class="setnav-btn" data-sec="cleaning" onclick="setSettingsTab('cleaning')">Page cleaning</button>
+      <button class="setnav-btn" data-sec="fonts" onclick="setSettingsTab('fonts')">Fonts &amp; typesetting</button>
     </nav>
     <div class="setmain">
     <div id="setBody">
@@ -593,7 +659,7 @@
         <p class="sethint">The synopsis, the character sheet and the glossary
           are what keep chapter 4 calling her the same thing chapter 3 did.
           They travel with every page, and the AI adds to them as it reads.
-          Some projects want none of that — a one-shot, a gag strip, a script
+          Some projects want none of that - a one-shot, a gag strip, a script
           somebody else already wrote.</p>
 
         <!-- The master switch. lee: *"add a story setting that allow the user
@@ -651,8 +717,8 @@
           <input id="maxf" type="number" value="34" onchange="saveSettings()"></div>
       </div>
       <!-- The project-wide ALL CAPS switch is gone from view. Capitals are a
-           decision about a BLOCK — one shout in capitals on a page that is
-           not — and that switch is in the typesetting panel where the block is.
+           decision about a BLOCK - one shout in capitals on a page that is
+           not - and that switch is in the typesetting panel where the block is.
            lee: *"remove teh all caps in teh seeting"*. The input stays,
            hidden, because `saveSettings` reads it and a project that had it on
            must keep it on. -->
@@ -660,7 +726,7 @@
              onchange="saveSettings()">
 
       <!-- The face you picked is the face the words are set in. With this
-           off — which is how a project starts — the typesetter will not swap
+           off - which is how a project starts - the typesetter will not swap
            a character for one the font happens to have (ō for o, a curly
            quote for a straight one) and will not hand a line to another
            family because the chosen face has no lowercase. A font that is
@@ -707,7 +773,7 @@
 
       <!-- Everything about strips, shown only when the chapter IS one.
            lee: *"this setting shoud only be a thing for manhwa and manhua"*.
-           A manga chapter is never re-cut — see `STRIP_MEDIA` — so on manga
+           A manga chapter is never re-cut - see `STRIP_MEDIA` - so on manga
            these were controls for something that could not happen.
            `stripSettings()` in project-io.js opens and closes it. -->
       <div id="stripSet" style="display:none">
@@ -715,7 +781,7 @@
         <input id="restitch_strips" type="checkbox" style="width:auto" onchange="saveSettings()">
         <span>Re-cut webtoon strips when a chapter is loaded</span></label>
       <p class="muted" style="margin:4px 0 0">A webtoon is drawn as one long
-        strip and served as tiles cut every so many pixels — through balloons,
+        strip and served as tiles cut every so many pixels - through balloons,
         through faces, through the middle of the typesetting. When a chapter
         arrives looking like that it is joined back up and cut again in the
         gaps between panels. Turn this off to keep the tiles exactly as they
@@ -781,31 +847,35 @@
 
       <section class="set-section" data-sec="detection">
         <h2 class="set-h">Detection &amp; OCR</h2>
-        <label>Text reader (OCR)</label>
+        <!-- WHO READS THE TEXT. lee: *"add a selecteabe tile for mangaorc
+             and ai for the read text like teh find text"* - two cards, the
+             same shape Find text uses for its detector routes - and then:
+             *"no add the setting in the setting page not in the popup"*, so
+             they live here rather than on the dialog that starts the run.
 
-        <label>Reading detail</label>
-        <select id="ocr_detail" onchange="saveSettings()">
-          <option value="">Best for this format — recommended</option>
-          <option value="page">Whole page at once — 1 request per page</option>
-          <option value="auto">Cut the page up — up to 4 requests per page</option>
-          <option value="high">Finest — up to 9 requests per page</option>
-          <option value="boxes">Each box on its own, zoomed in — 1 request per
-            page, and cheaper</option>
-        </select>
-        <p class="muted" style="margin:6px 0 0">
-          <b>Best for this format</b> sends a close-up of each box on manhwa
-          and manhua, and cuts the page up on manga.</p>
-        <p class="muted" style="margin:6px 0 0">
-          <b>Each box on its own</b> sends a close-up of every box instead of
-          the page, each blown up so its characters arrive the same size
-          whatever the page length. Read a Korean chapter four ways and scored
-          against the printed pages, it was the only setting that got an
-          unfamiliar name right — a whole-page read pulls a name it does not
-          know toward one it does. It is also about a third fewer image tokens.
-          It sees less of the artwork around a box, so a box drawn too tight
-          has less to fall back on, and that is why manga — vertical
-          typesetting, furigana beside it, never measured this way — stays on
-          cutting the page up.</p>
+             HOW FINELY the page is cut up is gone from this screen and from
+             everywhere else. lee: *"make teh zoomed ... teh only option for
+             the read text ... it sho9ud just happen in teh backgroud"*. A
+             close-up of each box won on both formats it was ever scored on.
+             See `ocr.detail_for`. -->
+        <label>Who reads the text</label>
+        <div id="readerCards" class="cards">
+          <button type="button" class="card" data-reader="ai"
+                  onclick="pickReader('ai')">
+            <b>The AI reader</b>
+            <i>sees the whole chapter</i>
+            <span>Reads each box with the rest of the page behind it, so it
+              can settle a name it has met before - and it is the one that
+              reads painted sounds.</span></button>
+          <button type="button" class="card" data-reader="offline"
+                  onclick="pickReader('offline')">
+            <b id="offlineName">On this computer</b>
+            <i>no key, no coins, no network</i>
+            <span id="offlineWhy">One box at a time. Level on dialogue and it
+              never files a line under the wrong box, but it invents dialogue
+              when handed a painted sound.</span></button>
+        </div>
+
 
         <!-- lee: *"add a button in the setting setting to auto emove boxes
              taht are only symbol like ! or ....... etc make it on by defaut
@@ -821,36 +891,87 @@
           <input type="checkbox" id="drop_symbol_only" checked
             onchange="saveSettings()"><i></i>
           <span>Delete boxes that turn out to hold only symbols</span></label>
-        <p class="sethint" style="margin-top:6px">After Read text, a box the
-          reader found nothing in but marks — <b>!</b>, <b>……</b>, <b>?!</b>,
-          <b>♡</b> — is removed. Any letter or digit in any script keeps it,
-          so <b>ㅋㅋㅋ</b> and <b>3</b> stay. A box you typed yourself, one you
-          have locked, and one that already has a translation are never
-          touched. Off: they are flagged for review instead of deleted.</p>
+        <!-- Two more switches stood under that one - a drop of a box whose
+             reading was part of an overlapping box's, and a demotion of a
+             "sound effect" that read as a sentence. lee: *"make it so that
+             read text only read teh etxt and not modify boxes exapt for
+             removing boxes with no text or remoeving boxes with only
+             symobos"*, so both the switches and the passes behind them are
+             gone. See `editor.do_ocr`. -->
 
-        <label>Text detector</label>
-        <select id="detector" onchange="$('yolocfg').style.display='block';$('ctdcfg').style.display='block';saveSettings()">
-          <option value="comictext">comic-text-detector (text blocks, one .onnx)</option>
-        </select>
+        <!-- THE DETECTOR, AS FOUR CARDS AND NOTHING ELSE.
 
-        <div id="yolocfg" style="display:none">
-          <label>Model path (.pt for Trained model, .onnx for comic-text-detector)</label>
-          <input id="weights" placeholder="comic-speech-bubble-detector.pt  /  comictextdetector.pt.onnx"
-                 onchange="saveSettings()">
-          <div id="ctdcfg" style="display:none">
-            <label style="display:flex;gap:6px;align-items:center;text-transform:none;margin-top:6px">
-              <input id="auto_kind" type="checkbox" style="width:auto" onchange="saveSettings()">
-              <span>Label box types (bubble / outside text / narration)</span></label>
-          </div>
-          <label>Text model path (optional — finds text outside bubbles)</label>
-          <input id="text_weights" placeholder="models/comic-text-segmenter-yolov8m.pt"
-                 onchange="saveSettings()">
+             lee: *"clean up the whole detecot setting page make it look nice
+             and reeove redunced or duplicate settings and remove the long
+             explanation"*, and *"also give them proper names"*.
+
+             What went: a one-option `<select>` that could only ever say
+             comic-text-detector; a "Text model path" that pointed at a
+             detector nothing has called since the routes arrived; and four
+             paragraphs of prose saying what each number on a card already
+             says. The model path went too, later: an empty setting already
+             means "look beside the app", which is where the download puts
+             the file. -->
+        <label>Detector</label>
+        <div id="routeCards" class="cards">
+          <button type="button" class="card" data-route=""
+                  data-sec="2.94" data-missed="5" data-junk="13"
+                  onclick="pickRoute('')">
+            <b>comic-text-detector</b>
+            <i>dmMaze &middot; one model</i>
+            <em class="est"></em>
+            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span>The fallback. Nothing to download.</span></button>
+          <button type="button" class="card" data-route="two_specialists"
+                  data-sec="9.9" data-missed="6" data-junk="4"
+                  onclick="pickRoute('two_specialists')">
+            <b>DB++ / COO</b>
+            <i>with comic-text-detector</i>
+            <em class="est"></em>
+            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span>Trained on painted sounds, so it says which boxes are paint.</span></button>
+          <button type="button" class="card" data-route="manga_segmenter"
+                  data-sec="12.7" data-missed="7" data-junk="3"
+                  onclick="pickRoute('manga_segmenter')">
+            <b>Manga109 YOLO26</b>
+            <i>with DB++/COO</i>
+            <em class="est"></em>
+            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span>Finds balloons as shapes, so more lines read as speech.</span></button>
+          <button type="button" class="card" data-route="animetext"
+                  data-sec="14.3" data-missed="11" data-junk="0"
+                  onclick="pickRoute('animetext')">
+            <b>AnimeText YOLO12-L</b>
+            <i>with DB++/COO</i>
+            <em class="est"></em>
+            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span>The default. Finds every line of dialogue and every
+              caption.</span></button>
+          <div id="routeWhy" class="cardwhy"></div>
         </div>
+
+        <!-- The "Model file" box stood here. lee: *"remove the thig in teh
+             screenshot it shoud happen in the backgeound"*. An empty setting
+             already means "look beside the app" - `Project.detector_weights`
+             - which is where the download puts it, so the box only ever had
+             one right answer and a hundred wrong ones. A path typed into a
+             project by hand is still obeyed; there is just no longer a place
+             to type one. -->
+        <label class="swx" style="margin-top:14px">
+          <input type="checkbox" id="auto_kind" onchange="saveSettings()"><i></i>
+          <span>Label box types</span></label>
+
+        <!-- ...and the "Name boxes from the text" switch. lee: *"reovename
+             text"*. It was off by default and stayed off: the rule behind it
+             is written from Japanese typography and its thresholds were never
+             swept against real reader output, so removing the switch leaves
+             it where the measurement left it. `kind_from_text` is still read
+             from a project file for anyone who sets it by hand. -->
 
       </section>
 
       <section class="set-section" data-sec="translation">
-        <h2 class="set-h">Translation engine</h2>
+        <h2 class="set-h">AI models</h2>
 
         <!-- A "Claude model" menu stood here and a "Translation engine" menu
              stood below the three boxes, and between them they answered the
@@ -863,137 +984,146 @@
 
              A project set up on the old pair is not lost: `migrate_engine`
              copies its engine onto whichever of the three steps had none. -->
-        <label style="margin-top:14px">API KEYS</label>
-        <p class="sethint">One key per service, not one per step. A key is a
-          fact about the provider — the same Google key that reads the page
-          translates it — and three boxes meant typing it twice and never
-          being sure which of the two a run would use.</p>
+        <!-- THE KEY BOXES STOOD HERE. lee: *"remove tehh keys they shoud
+             happen in te backend and remove teh text"*. The three keys are
+             still read from a project that has them - `editor.key_for` is
+             unchanged - so nothing that was working stops; there is simply no
+             box for typing one, because the answer is not the person's to
+             type any more. -->
+        <label style="margin-top:14px">THE COMPANY AND MODEL FOR EACH STEP</label>
         <div class="stepai">
+          <label style="margin-top:10px">READ TEXT - the model that reads the page</label>
+          <!-- Two questions and nothing else: the COMPANY, as three filled
+               plates, and the MODEL. lee: *"i just wan the ai compay and teh
+               ai model"*. The select under the plates is still the value
+               everything saves and prices - see `segify`. Which KEY carries
+               the call is not asked here at all: the company's own key
+               first, the OpenRouter key when that one is missing or refused
+               - see `editor.or_openrouter`. -->
+          <label class="sublab">AI company</label>
+          <!-- The makers themselves. lee: *"sinatsd of otrher it shodu be
+               open deepsek quwen etc"*. Claude and Google are their own
+               services; every other maker is bought through OpenRouter -
+               `pickCompany` saves the backend, and the model menu narrows
+               to that maker. The backend itself is the hidden input below:
+               the same stored pair as always. -->
+          <select id="ocr_company" onchange="pickCompany('ocr')">
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">Qwen (Alibaba)</option>
+          </select>
+          <input id="ocr_backend" type="hidden" onchange="saveSettings()">
+          <label class="sublab">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
-            <label style="flex:1 1 130px;margin:0;align-self:center">Claude API</label>
-            <input id="key_anthropic" type="password" placeholder="sk-ant-…"
-                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
-          </div>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <label style="flex:1 1 130px;margin:0;align-self:center">Google AI Studio</label>
-            <input id="key_gemini" type="password" placeholder="AIza…"
-                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
-          </div>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <label style="flex:1 1 130px;margin:0;align-self:center">OpenRouter</label>
-            <input id="key_openrouter" type="password" placeholder="sk-or-…"
-                   onchange="saveSettings();modelsStale()" style="flex:2 1 200px">
-          </div>
-        </div>
-
-        <label style="margin-top:14px">THE MODEL FOR EACH STEP</label>
-        <p class="sethint">Each step calls its own model, and each one is
-          priced on what that model really costs — so reading every page on a
-          cheap model and checking it once on a good one is the difference
-          between a chapter costing thirty coins and three hundred. The menus
-          list what this app can price; anything else is charged at the
-          highest rate and says so.</p>
-        <div class="stepai">
-          <label style="margin-top:10px">READ TEXT — the model that reads the page</label>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <select id="ocr_backend" onchange="saveSettings();modelsStale('ocr')" style="flex:1 1 150px">
-              <option value="anthropic">Claude API</option>
-              <option value="gemini">Google AI Studio</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-            <!-- The provider, then the model. A reseller's list is a
-                 hundred models from a dozen makers, and picking one out of a
-                 flat list of that is not a choice, it is a search. Shown only
-                 when the ids carry a maker — a direct service has one. -->
-            <select id="ocr_vendor" onchange="pickVendor('ocr')"
+            <select id="ocr_vendor" data-locked="1" onchange="pickVendor('ocr')"
                     style="flex:1 1 130px;display:none"></select>
             <select id="ocr_model_sel" onchange="pickModel('ocr')"
                     style="flex:2 1 200px"></select>
           </div>
-          <!-- The model, as a value rather than a box. The menu above is
-               the only way to set it now — there is no "Other…" row and
-               nothing to type into. This carries what was chosen so that
-               everything downstream reads one field in one place. -->
+          <!-- The model as a value, and the odd-endpoint address. Neither is
+               a box on screen any more; the address input stays because a
+               saved project may carry one, and `saveSettings` reads it. -->
           <input id="ocr_model" type="hidden">
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <input id="ocr_base_url" placeholder="address, only for a local or odd one"
-                   onchange="saveSettings()" style="flex:2 1 200px">
-          </div>
+          <input id="ocr_base_url" type="hidden" onchange="saveSettings()">
         </div>
         <div class="stepai">
-          <label style="margin-top:10px">TRANSLATE — the model that writes the English</label>
+          <label style="margin-top:10px">TRANSLATE - the model that writes the English</label>
+          <!-- Two questions and nothing else: the COMPANY, as three filled
+               plates, and the MODEL. lee: *"i just wan the ai compay and teh
+               ai model"*. The select under the plates is still the value
+               everything saves and prices - see `segify`. Which KEY carries
+               the call is not asked here at all: the company's own key
+               first, the OpenRouter key when that one is missing or refused
+               - see `editor.or_openrouter`. -->
+          <label class="sublab">AI company</label>
+          <!-- The makers themselves. lee: *"sinatsd of otrher it shodu be
+               open deepsek quwen etc"*. Claude and Google are their own
+               services; every other maker is bought through OpenRouter -
+               `pickCompany` saves the backend, and the model menu narrows
+               to that maker. The backend itself is the hidden input below:
+               the same stored pair as always. -->
+          <select id="translate_company" onchange="pickCompany('translate')">
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">Qwen (Alibaba)</option>
+          </select>
+          <input id="translate_backend" type="hidden" onchange="saveSettings()">
+          <label class="sublab">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
-            <select id="translate_backend" onchange="saveSettings();modelsStale('translate')" style="flex:1 1 150px">
-              <option value="anthropic">Claude API</option>
-              <option value="gemini">Google AI Studio</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-            <!-- The provider, then the model. A reseller's list is a
-                 hundred models from a dozen makers, and picking one out of a
-                 flat list of that is not a choice, it is a search. Shown only
-                 when the ids carry a maker — a direct service has one. -->
-            <select id="translate_vendor" onchange="pickVendor('translate')"
+            <select id="translate_vendor" data-locked="1" onchange="pickVendor('translate')"
                     style="flex:1 1 130px;display:none"></select>
             <select id="translate_model_sel" onchange="pickModel('translate')"
                     style="flex:2 1 200px"></select>
           </div>
-          <!-- The model, as a value rather than a box. The menu above is
-               the only way to set it now — there is no "Other…" row and
-               nothing to type into. This carries what was chosen so that
-               everything downstream reads one field in one place. -->
+          <!-- The model as a value, and the odd-endpoint address. Neither is
+               a box on screen any more; the address input stays because a
+               saved project may carry one, and `saveSettings` reads it. -->
           <input id="translate_model" type="hidden">
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <input id="translate_base_url" placeholder="address, only for a local or odd one"
-                   onchange="saveSettings()" style="flex:2 1 200px">
-          </div>
+          <input id="translate_base_url" type="hidden" onchange="saveSettings()">
         </div>
         <div class="stepai">
-          <label style="margin-top:10px">PROOFREAD — the model that checks it</label>
+          <label style="margin-top:10px">PROOFREAD - the model that checks it</label>
+          <!-- Two questions and nothing else: the COMPANY, as three filled
+               plates, and the MODEL. lee: *"i just wan the ai compay and teh
+               ai model"*. The select under the plates is still the value
+               everything saves and prices - see `segify`. Which KEY carries
+               the call is not asked here at all: the company's own key
+               first, the OpenRouter key when that one is missing or refused
+               - see `editor.or_openrouter`. -->
+          <label class="sublab">AI company</label>
+          <!-- The makers themselves. lee: *"sinatsd of otrher it shodu be
+               open deepsek quwen etc"*. Claude and Google are their own
+               services; every other maker is bought through OpenRouter -
+               `pickCompany` saves the backend, and the model menu narrows
+               to that maker. The backend itself is the hidden input below:
+               the same stored pair as always. -->
+          <select id="proofread_company" onchange="pickCompany('proofread')">
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">Qwen (Alibaba)</option>
+          </select>
+          <input id="proofread_backend" type="hidden" onchange="saveSettings()">
+          <label class="sublab">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
-            <select id="proofread_backend" onchange="saveSettings();modelsStale('proofread')" style="flex:1 1 150px">
-              <option value="anthropic">Claude API</option>
-              <option value="gemini">Google AI Studio</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-            <!-- The provider, then the model. A reseller's list is a
-                 hundred models from a dozen makers, and picking one out of a
-                 flat list of that is not a choice, it is a search. Shown only
-                 when the ids carry a maker — a direct service has one. -->
-            <select id="proofread_vendor" onchange="pickVendor('proofread')"
+            <select id="proofread_vendor" data-locked="1" onchange="pickVendor('proofread')"
                     style="flex:1 1 130px;display:none"></select>
             <select id="proofread_model_sel" onchange="pickModel('proofread')"
                     style="flex:2 1 200px"></select>
           </div>
-          <!-- The model, as a value rather than a box. The menu above is
-               the only way to set it now — there is no "Other…" row and
-               nothing to type into. This carries what was chosen so that
-               everything downstream reads one field in one place. -->
+          <!-- The model as a value, and the odd-endpoint address. Neither is
+               a box on screen any more; the address input stays because a
+               saved project may carry one, and `saveSettings` reads it. -->
           <input id="proofread_model" type="hidden">
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            <input id="proofread_base_url" placeholder="address, only for a local or odd one"
-                   onchange="saveSettings()" style="flex:2 1 200px">
-          </div>
+          <input id="proofread_base_url" type="hidden" onchange="saveSettings()">
         </div>
 
-            <label class="swx" style="margin-top:12px"
-             title="Sets the four configurable thresholds to OFF">
-        <input type="checkbox" id="gemini_safety_off" onchange="saveSettings()">
-        <i></i><span>Turn Gemini's safety thresholds down</span></label>
-      <!-- This one line stays. It is not an explanation of how to use the
-           software, it is a limit on what the switch above can do: the four
-           categories Google lets you set go to OFF, and its protections
-           against core harms are not configurable and remain on either way.
-           A switch labelled only "turn safety down" would claim more than it
-           does. -->
-      <p class="help" style="margin:3px 0 0">Core protections stay on.</p>
+      <!-- The "Turn Gemini's safety thresholds down" switch stood here. lee:
+           *"remove this no api shoud have a conetent filter"*, so the four
+           thresholds Google lets a caller set are now set on every request
+           rather than being a box to find. It is what the switch did, done
+           without asking: a chapter is refused on ordinary drawn violence
+           often enough that the switch was the answer every time it came up.
+
+           The limit on it has not moved, and is worth writing down where the
+           switch used to explain it. Google's protections against core harms
+           are NOT configurable and stay on at any threshold, so a page can
+           still come back refused - `translate._refusal` is what says so
+           plainly. And it is only ever sent to Google: the same field posted
+           anywhere else is ignored at best and a 400 at worst. -->
 </section>
 
       <section class="set-section" data-sec="cleaning">
         <h2 class="set-h">Page cleaning</h2>
       <label>Method</label>
       <select id="ai_clean" onchange="toggleAiCfg();saveSettings()">
-        <option value="off">Local — instant, no cost (default)</option>
-        <option value="hard">AI for hard areas — screentone, SFX, text on art</option>
+        <option value="off">Local - instant, no cost (default)</option>
+        <option value="hard">AI for hard areas - screentone, SFX, text on art</option>
         <option value="all">AI for the whole page</option>
       </select>
       <div id="aicfg" style="display:none">
@@ -1011,10 +1141,16 @@
       </div>
       </section>
 
-      <section class="set-section on" data-sec="synopsis">
+      <!-- No `on` in the markup on any of these. The page used to carry TWO
+           defaults - this section open and `Story settings` lit in the nav -
+           and they disagreed: opening Settings showed the Synopsis under a
+           highlighted Story settings. `openSettingsDlg` opens whichever
+           section the lit button names, so there is one default and it is the
+           button. -->
+      <section class="set-section" data-sec="synopsis">
         <h2 class="set-h">Synopsis</h2>
         <!-- The name of the thing. It travels with the synopsis and the cast
-             rather than with the settings, because it is content — and it is
+             rather than with the settings, because it is content - and it is
              what the story context file and the chapter file get named, which
              beats "mangatl-project" on both counts.
              lee: *"in teh symo[psis tab add a tilee box fort the manga"*. -->
@@ -1023,7 +1159,7 @@
                placeholder="What this manga is called">
         <label>Series synopsis (guides the translation)</label>
         <textarea id="synopsis" onchange="saveSettings()" oninput="growSynopsis()"
-          placeholder="Who the story is about, what is happening, and — most useful of all — each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
+          placeholder="Who the story is about, what is happening, and - most useful of all - each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
       </section>
 
       <section class="set-section" data-sec="characters">
@@ -1066,7 +1202,7 @@
 
 <!-- Cutting a page in two, and joining two into one. The automatic re-cut
      only ever runs on a chapter that arrived as a sliced strip, before any
-     work is done, and only when it is sure — three good rules that between
+     work is done, and only when it is sure - three good rules that between
      them leave every other long page alone. This is the knife for those. -->
 <div id="cutdlg" class="modal">
   <div class="sheet" style="max-width:520px">
@@ -1102,7 +1238,7 @@
         <button class="pri" id="cutGo" onclick="cutHere()">Cut here</button>
       </span>
     </div>
-    <p class="muted" style="margin:10px 0 0">The pages you had are kept —
+    <p class="muted" style="margin:10px 0 0">The pages you had are kept -
       they move into <code>split</code> or <code>merged</code> beside the
       chapter rather than being deleted.</p>
   </div>
@@ -1128,6 +1264,7 @@
 <script src="/static/js/typesetting-edit.js"></script>
 <script src="/static/js/project-io.js"></script>
 <script src="/static/js/pagecut.js"></script>
+<script src="/static/js/boxselect.js"></script>
 <script src="/static/js/toolbar.js"></script>
 <script src="/static/js/view.js"></script>
 <script src="/static/js/boot.js"></script>

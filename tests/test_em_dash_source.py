@@ -11,7 +11,7 @@ forbid it, but a prompt is a request; this is the part that holds. An edge
 dash comes off unless the source earned it.
 
 The awkward case is ー. On its own it is the ordinary long-vowel mark and turns
-up in perfectly everyday words, so it cannot count as a dash — but a run of
+up in perfectly everyday words, so it cannot count as a dash - but a run of
 them is a drawn-out cry, and that is a dash.
 """
 import pytest
@@ -76,8 +76,8 @@ def test_edge_dashes_come_off(dst, want):
 def test_a_dash_in_the_middle_of_a_line_becomes_a_comma():
     """This used to leave it alone, on the grounds that it was doing a job.
 
-    Measured over a chapter, the job it was doing was the model's own voice —
-    "Legend of the Dragon 7—a game that..." out of Korean with no dash in it
+    Measured over a chapter, the job it was doing was the model's own voice -
+    "Legend of the Dragon 7-a game that..." out of Korean with no dash in it
     anywhere. A comma says the same thing and a comic font can draw it. A
     source with a real dash still exempts the whole line, which is the test
     below.
@@ -90,7 +90,7 @@ def test_a_dash_the_source_earned_is_kept():
     """The rule is about dashes the model invented, not dashes it translated.
 
     At the TAIL and in the middle. The leading one is no longer part of this
-    exemption — see the test below, which is lee's page 4.
+    exemption - see the test below, which is lee's page 4.
     """
     assert strip_added_dashes("HOLD ON—", "まって—") == "HOLD ON—"
     assert strip_added_dashes("NOOO—", "やめてーー") == "NOOO—"
@@ -99,20 +99,20 @@ def test_a_dash_the_source_earned_is_kept():
 def test_a_dash_at_the_FRONT_goes_even_when_the_source_has_one():
     """lee's chapter, two source lines punctuated identically: page 4 came
     back "-Be resolute before pain." and page 25 came back with no dash at
-    all. Nothing decided that — the leading dash survived on whichever page
+    all. Nothing decided that - the leading dash survived on whichever page
     the model happened to type one.
 
     A dash at the front of a Korean or Japanese bubble marks speech arriving
     from off-panel. English typesetting has never used it: the balloon's tail
     says it, and so does the box type. So it comes off whichever mark the
-    scan drew it with — the same rule `strip_added_ellipsis` already applies
+    scan drew it with - the same rule `strip_added_ellipsis` already applies
     to a leading ellipsis.
     """
     assert strip_added_dashes("-Be resolute before pain.",
                               "-고통 앞에\n의연하라.") == "Be resolute before pain."
     assert strip_added_dashes("—AND THEN?", "〜それで") == "AND THEN?"
     # The plain hyphen is the one that was getting through: the class knew
-    # `—` and `–`, and a scan letters its dashes with whatever the keyboard
+    # `-` and `–`, and a scan letters its dashes with whatever the keyboard
     # has. Neither the source nor the English here has a long dash anywhere.
     assert strip_added_dashes("-WAIT", "まって") == "WAIT"
     # A word the speaker was cut off in the middle of keeps its hyphen. That

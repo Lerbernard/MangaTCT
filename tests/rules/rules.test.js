@@ -3,7 +3,7 @@
    The editor runs on their computer, so everything it can reach they can
    reach: with a browser console and their own ID token they can send whatever
    request the rules permit. These tests are that boundary, asked of a real
-   Firestore — the emulator runs the same rules engine production does, so a
+   Firestore - the emulator runs the same rules engine production does, so a
    rule that passes here is a rule that holds there.
 
    Run:  npx firebase emulators:exec --only firestore --project mangatctproject \

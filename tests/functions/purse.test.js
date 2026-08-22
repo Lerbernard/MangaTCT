@@ -1,6 +1,6 @@
 /* The money decisions, argued with.
 
-   These run anywhere — no emulator, no network, no Firebase. That is the
+   These run anywhere - no emulator, no network, no Firebase. That is the
    point of `purse.js` being pure: the part that decides how much money moves
    is the part that must not be wrong, and it should not need a 60MB download
    to find out whether it is.
@@ -30,7 +30,7 @@ describe('a username is unique to a person, not to a byte string', () => {
 
   it('folds the digits people use as letters', () => {
     expect(usernameKey('l33t')).toBe(usernameKey('leet'));
-    // 1, l and i are the classic confusable set — all three fold together.
+    // 1, l and i are the classic confusable set - all three fold together.
     expect(usernameKey('1ee')).toBe(usernameKey('lee'));
     expect(usernameKey('adm1n')).toBe(usernameKey('admin'));
     expect(usernameKey('lil')).toBe(usernameKey('l1l'));
@@ -212,7 +212,7 @@ describe('refunding a run that did not happen', () => {
   });
 
   it('refuses one coin more than the run took', () => {
-    // Without this, anybody signed in as themselves can print money — and
+    // Without this, anybody signed in as themselves can print money - and
     // being signed in as yourself is exactly the position an attacker is in.
     expect(refund(0, 31, 30).ok).toBe(false);
   });
@@ -233,7 +233,7 @@ describe('refunding a run that did not happen', () => {
 });
 
 describe('the packs', () => {
-  it('are the only thing sold — there is no subscription', () => {
+  it('are the only thing sold - there is no subscription', () => {
     // lee: *"fuck teh subcription, it too omplicated jus have teh pacjks"*.
     // Which takes with it the monthly allowance, the ceiling over it, the
     // expiry date, and the second pocket that existed to hold the perishable
@@ -251,7 +251,7 @@ describe('the packs', () => {
       expect(Number.isInteger(q.coins), q.id).toBe(true);
       expect(q.coins, q.id).toBeGreaterThan(0);
       // Compared with a tolerance, because `19.99 * 100` is 1998.9999999999998
-      // in binary floating point — which is exactly why no BALANCE here is
+      // in binary floating point - which is exactly why no BALANCE here is
       // ever a float.
       expect(Math.abs(q.usd * 100 - Math.round(q.usd * 100)), q.id)
         .toBeLessThan(1e-6);
@@ -264,8 +264,8 @@ describe('the packs', () => {
   });
 
   it('never sell a coin for more than a cent', () => {
-    // Face value is the ceiling on price. A hundred coins is a dollar — see
-    // `coins.py`, where every figure is a real provider cost, doubled — so no
+    // Face value is the ceiling on price. A hundred coins is a dollar - see
+    // `coins.py`, where every figure is a real provider cost, doubled - so no
     // arrangement of these numbers can charge more than that.
     for (const q of PACKS) {
       expect(q.coins / q.usd, q.id).toBeGreaterThanOrEqual(100);
@@ -303,7 +303,7 @@ describe('coins in', () => {
 
   it('are not capped and do not expire', () => {
     // Bought outright, this minute, on purpose. Refusing part of a purchase
-    // somebody just made is not a policy, it is a bug with a reason — and
+    // somebody just made is not a policy, it is a bug with a reason - and
     // there is no longer any rule anywhere that takes a coin back.
     const huge = 999999;
     expect(buy(huge, 5400).balance).toBe(huge + 5400);
@@ -371,14 +371,14 @@ describe('refundedShare', () => {
   });
 });
 
-describe('clawback — a purchase undone', () => {
+describe('clawback - a purchase undone', () => {
   it('takes the coins off', () => {
     expect(clawback(3000, 3000)).toEqual({ ok: true, balance: 0, coins: 3000 });
   });
 
   it('goes NEGATIVE when they have already been spent', () => {
     // The whole point. Somebody who bought 3,000, spent 500 and then took all
-    // their money back is at minus 500 — not at zero, which would mean the 500
+    // their money back is at minus 500 - not at zero, which would mean the 500
     // coins of work were free and the trick works again tomorrow.
     expect(clawback(2500, 3000).balance).toBe(-500);
   });
@@ -424,7 +424,7 @@ describe('a price id is checked for being one before it is written', () => {
   });
 
   it('refuses the other id on the product page', () => {
-    // `prod_...` is the one right next to it, and it is the wrong one — a
+    // `prod_...` is the one right next to it, and it is the wrong one - a
     // Checkout Session takes a price, not a product.
     expect(looksLikePriceId('prod_V1JWOROYDWUVHX')).toBe(false);
   });
@@ -444,7 +444,7 @@ describe('a price id is checked for being one before it is written', () => {
 
   it('does not claim to know whether the id exists', () => {
     // Shape only. A well-formed sandbox id passes here and fails at Stripe,
-    // and that is the division of labour on purpose — this check must never
+    // and that is the division of labour on purpose - this check must never
     // grow into something that pretends to have asked.
     expect(looksLikePriceId('price_1AAAAAAAAAAAAAAAAAAAAAAA')).toBe(true);
   });

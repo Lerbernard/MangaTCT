@@ -41,22 +41,22 @@ def text_likeness(region: TextRegion) -> float:
     if len(comps) < 2:
         return 0.15
 
-    # 1. component count — text is many small marks
+    # 1. component count - text is many small marks
     count_s = min(1.0, len(comps) / 8.0)
 
-    # 2. size consistency — glyphs are similar in size, art debris is not
+    # 2. size consistency - glyphs are similar in size, art debris is not
     sizes = np.array([max(s[2], s[3]) for s, _ in comps], dtype=np.float32)
     cv_size = float(sizes.std() / max(1e-6, sizes.mean()))
     size_s = float(np.clip(1.0 - cv_size, 0.0, 1.0))
 
-    # 3. alignment — vertical text shares an x centre, horizontal a y centre
+    # 3. alignment - vertical text shares an x centre, horizontal a y centre
     cx = np.array([c[0] for _, c in comps], dtype=np.float32)
     cy = np.array([c[1] for _, c in comps], dtype=np.float32)
     span = max(1.0, float(max(w, h)))
     align = 1.0 - min(float(cx.std()), float(cy.std())) / span
     align_s = float(np.clip(align, 0.0, 1.0))
 
-    # 4. stroke-width consistency — typesetting is drawn with one nib
+    # 4. stroke-width consistency - typesetting is drawn with one nib
     _, cv_stroke = _stroke_width(sub)
     stroke_s = float(np.clip(1.0 - cv_stroke, 0.0, 1.0))
 

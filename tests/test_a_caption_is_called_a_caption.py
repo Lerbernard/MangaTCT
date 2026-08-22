@@ -10,7 +10,7 @@ one box in eight.
 
 **Two things were wrong with the old test.** It measured the mean darkness of a
 6-pixel strip outside each side and wanted 0.5, which a 3-pixel rule inside a
-6-pixel strip cannot reach — and widening the strip makes it worse, not better,
+6-pixel strip cannot reach - and widening the strip makes it worse, not better,
 so page 006 scores 0.00 on every side at every distance out to 70 pixels. And
 it was looking for the wrong thing anyway: half this chapter's captions have no
 dark rule at all. Four are navy system panels with an ornate LIGHT frame and
@@ -20,11 +20,11 @@ two are gold.
 Flood the paper the writing sits on and ask whether it is a rectangle: on a
 white page a white caption panel's inside is continuous with the page around
 it, so it is not. Region fill came out at 0.68 for captions against 0.77 for
-balloons — no separation at all. The same fact that killed the two-white-lobes
+balloons - no separation at all. The same fact that killed the two-white-lobes
 idea for the double balloon.
 
 So ask about the EDGE and not the region. Scan outward from each side for one
-row — or column — where the picture changes sharply at the same place right
+row - or column - where the picture changes sharply at the same place right
 across the box. A printed rule does that; so does the boundary of a navy panel,
 a gold frame, and a white panel lying on artwork. A balloon outline is a curve
 and crosses any given row in two places, so it cannot.
@@ -109,7 +109,7 @@ def test_a_light_frame_on_a_dark_panel_counts():
 
 
 def test_a_borderless_panel_on_artwork_counts():
-    """No rule drawn at all — just white paper laid over the drawing. The
+    """No rule drawn at all - just white paper laid over the drawing. The
     boundary is still a straight edge."""
     g = _page(fill=40)
     g[60:260, 60:340] = 250

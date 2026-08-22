@@ -1,7 +1,7 @@
 """Sending a close-up of every box instead of the page.
 
 lee: *"would it be feasible to instad of sending the pages, we send zommed
-version of allthe boxes instread? hwo woud that wowrk or affct the frice?"* —
+version of allthe boxes instread? hwo woud that wowrk or affct the frice?"* -
 and then, given the numbers, *"yes do that"*.
 
 MEASURED on 9 pages of his chapter 1, 20 tiles and 40 boxes, counting image
@@ -17,7 +17,7 @@ It is CHEAPER because the hair and the sky and the trousers stop being paid
 for. Page 011's name arrives at 40 px today; for less money it arrives at 64.
 
 **Scaled by the GLYPHS, not by the crop.** Scaling each crop to a fixed long
-side looks like the same thing and is not — 048's small box would go 33 px to
+side looks like the same thing and is not - 048's small box would go 33 px to
 143 and 029's wide narration panel 33 to 44, because a wide box spreads a fixed
 budget over more writing. The glyph is what decides a misread, so the glyph is
 what is held constant.
@@ -28,7 +28,7 @@ for a dozen times and the whole saving is gone, so they ride in one turn.
 
 The cost of it, which is real: a crop shows less of the page than a tile does,
 and a box drawn too tight has less to fall back on. `BOX_PAD` is that
-allowance, and it is the reason page 011's dashes — which sit OUTSIDE its box —
+allowance, and it is the reason page 011's dashes - which sit OUTSIDE its box -
 are still in the picture.
 """
 import base64
@@ -107,7 +107,7 @@ def test_the_glyphs_arrive_at_the_size_asked_for():
 
 
 def test_a_big_box_and_a_small_one_arrive_at_the_same_glyph_size():
-    """Scaling by the crop's long side would make these two wildly different —
+    """Scaling by the crop's long side would make these two wildly different -
     that is the trap this is written against."""
     p = _page([(60, 100, 560, 90)], glyph=34)
     q = _page([(60, 100, 120, 50)], glyph=14)
@@ -125,7 +125,7 @@ def test_a_big_box_and_a_small_one_arrive_at_the_same_glyph_size():
 
 
 def test_the_crop_carries_the_page_around_the_box():
-    """`BOX_PAD` — and it is not cosmetic. Page 011's dashes sit OUTSIDE its
+    """`BOX_PAD` - and it is not cosmetic. Page 011's dashes sit OUTSIDE its
     box, and a hard crop is how they would be lost for a second time."""
     p = _page([(200, 400, 200, 60)])
     b, _ids = ocr.page_box_crops(p, glyph_px=20)[0]
@@ -151,7 +151,7 @@ def test_a_tiny_box_still_arrives_big_enough_to_look_at():
 
 
 def test_the_default_target_is_the_measured_one():
-    """Called with no argument — which is how the app calls it. 64 px is the
+    """Called with no argument - which is how the app calls it. 64 px is the
     row of the table that is a third cheaper than sending the page."""
     assert 48 <= ocr.BOX_GLYPH <= 80
     p = _page([(80, 100, 300, 60)], glyph=20)
@@ -169,7 +169,7 @@ def test_it_costs_less_than_the_page_does():
     webtoon strip, mostly artwork, with ordinary-sized writing in it.
 
     NOT true of every page, and the test says which kind it is true of. A short
-    page of very small writing goes the other way — the crops are scaled up
+    page of very small writing goes the other way - the crops are scaled up
     several times and the page was cheap to begin with. The saving comes from
     not paying for a 690x3000 strip of hair and sky.
     """
@@ -189,12 +189,14 @@ def test_the_reading_detail_setting_picks_it():
     assert len(ocr.page_label_tiles(p, detail="auto")) == 1
 
 
-def test_the_settings_page_offers_it():
+def test_the_settings_page_does_not_offer_it_any_more():
+    """It is not a choice: lee: *"make teh zoomed ... teh only option for the
+    read text ... it sho9ud just happen in teh backgroud"*. The menu that used
+    to stand here is gone, and so is every other reading-detail control."""
     from pathlib import Path
     html = (Path(ocr.__file__).parent / "static" / "editor.html").read_text(
         encoding="utf-8")
-    sel = html.split('id="ocr_detail"')[1].split("</select>")[0]
-    assert 'value="boxes"' in sel
+    assert 'id="ocr_detail"' not in html
 
 
 # --------------------------------------------------------------- the batching
@@ -276,14 +278,20 @@ def test_the_webtoons_get_a_crop_per_box():
     assert ocr.detail_for("manhua") == "boxes"
 
 
-def test_manga_stays_on_the_page_cut_up():
-    """The measurement is a 690px Korean strip with horizontal typesetting. A
-    manga page is a different shape, reads vertically, and carries furigana
-    beside the line; the crops were never scored on one. A default is not the
-    place to guess."""
-    assert ocr.detail_for("manga") == "auto"
-    assert ocr.detail_for("") == "auto"
-    assert ocr.detail_for(None) == "auto"
+def test_manga_gets_a_crop_per_box_too_now_that_it_has_been_scored():
+    """It used to stay on tiles because the crops had never been scored on a
+    manga page. They have been: chapter 3, 23 pages, 225 boxes, read at 4
+    pieces, 9 pieces and zoomed, each against manga-ocr - which reads one
+    box's pixels and so cannot file an answer under the wrong number.
+
+    4 pieces misfiled 16 boxes on 7 pages, 9 pieces misfiled 20 on 9 pages,
+    and the crops misfiled 2 - both of which are two boxes that really do hold
+    the same words. Cutting FINER made it worse, which says the mistake was
+    never resolution: it is matching what was read to numbers drawn on a page,
+    and a crop with one box in it has nothing to match."""
+    assert ocr.detail_for("manga") == "boxes"
+    assert ocr.detail_for("") == "boxes"
+    assert ocr.detail_for(None) == "boxes"
 
 
 def test_the_project_arrives_with_nothing_chosen():
@@ -295,24 +303,25 @@ def test_the_project_arrives_with_nothing_chosen():
     assert '"ocr_detail": "",' in inspect.getsource(Project)
 
 
-def test_the_menu_offers_it_and_it_is_the_first_thing_there():
+def test_the_saved_key_is_kept_even_though_nothing_reads_it():
+    """A project saved by an older copy of the app has a word in `ocr_detail`.
+    The key stays in the sheet, empty: one that vanished would be deleted by
+    the next save, and a settings file that loses keys when the app is
+    upgraded is a settings file nobody can downgrade."""
     from pathlib import Path
-    html = (Path(ocr.__file__).parent / "static" / "editor.html").read_text(
-        encoding="utf-8")
-    menu = html.split('id="ocr_detail"', 1)[1].split("</select>", 1)[0]
-    assert '<option value="">' in menu
-    assert menu.index('value=""') < menu.index('value="page"')
     js = (Path(ocr.__file__).parent / "static" / "js" / "project.js").read_text(
         encoding="utf-8")
-    assert "ocr_detail||''" in js, \
-        "the browser would turn the format default back into a fixed choice"
+    assert "ocr_detail:''" in js
+    import inspect
+    from mangatl.project import Project
+    assert '"ocr_detail": ""' in inspect.getsource(Project)
 
 
 # ------------------------------- the setting that was measured and taken out
 
 def test_there_is_no_resolution_toggle_left():
-    """It never won. Nothing at all under a crop per box — the bytes come back
-    identical — and on tiles it cost +50% and produced the worst of the four
+    """It never won. Nothing at all under a crop per box - the bytes come back
+    identical - and on tiles it cost +50% and produced the worst of the four
     runs, five misreads no other run made. A setting that only has a wrong
     answer is worse than no setting."""
     import inspect
@@ -394,13 +403,18 @@ def test_a_manhwa_project_nobody_configured_reads_a_crop_per_box(monkeypatch):
                      monkeypatch).get("detail") == "boxes"
 
 
-def test_a_manga_project_nobody_configured_cuts_the_page_up(monkeypatch):
-    assert _run_read({"medium": "manga"}, monkeypatch).get("detail") == "auto"
-    assert _run_read({}, monkeypatch).get("detail") == "auto"
+def test_a_manga_project_nobody_configured_reads_a_crop_per_box_too(monkeypatch):
+    """Driven through the real step, the same as the webtoon case above.
+    See `detail_for` for the chapter 3 numbers that moved this."""
+    assert _run_read({"medium": "manga"}, monkeypatch).get("detail") == "boxes"
+    assert _run_read({}, monkeypatch).get("detail") == "boxes"
 
 
-def test_a_choice_somebody_made_by_hand_is_not_overruled(monkeypatch):
-    """A manhwa project set to 'whole page' stays on whole page. The format
-    default is what happens when the menu is left alone, not a rule."""
+def test_an_old_saved_choice_is_not_obeyed(monkeypatch):
+    """There is no menu to have chosen from any more, so a word left in the
+    file is last year's answer rather than somebody's decision - and a chapter
+    half-read on tiles and half on crops would be two runs under one name."""
     got = _run_read({"medium": "manhwa", "ocr_detail": "page"}, monkeypatch)
-    assert got.get("detail") == "page"
+    assert got.get("detail") == "boxes"
+    got = _run_read({"medium": "manga", "ocr_detail": "high"}, monkeypatch)
+    assert got.get("detail") == "boxes"

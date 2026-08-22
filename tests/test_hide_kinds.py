@@ -12,15 +12,15 @@ exactly as they were.
 
 The two claims that need pinning are opposite sides of the same coin.
 
-**Not considered.** Every stage — reading, translating, proofreading, cleaning,
-typesetting, rendering, exporting — builds its page in `Project.materialize`, and
+**Not considered.** Every stage - reading, translating, proofreading, cleaning,
+typesetting, rendering, exporting - builds its page in `Project.materialize`, and
 that now sees only the active boxes. So one filter, in one place, covers every
 step there is and every step there will be. The counts and the page status go
 with it: a page whose sound effects are put away must read as finished when its
 speech is done, not as "12 of 15".
 
 **Not deleted.** `commit` writes a worked-on page back over the record, and the
-page it is given no longer contains the hidden boxes — so without care the first
+page it is given no longer contains the hidden boxes - so without care the first
 stage to run after hiding a group would wipe it. The hidden records are merged
 back in. Find text is the one exception, and passes `keep_hidden=False`: it is
 replacing this page's boxes on purpose.
@@ -107,7 +107,7 @@ def test_a_narration_caption_answers_to_the_speech_box_now():
 
 def test_a_sub_type_is_hidden_by_its_own_familys_switch():
     """Every box belongs to a family now, including one whose sub-type nobody
-    recognises any more — so there is no box the three switches cannot reach.
+    recognises any more - so there is no box the three switches cannot reach.
 
     That is a change. There used to be a fourth state: a type invented by hand
     belonged to no group, so no switch touched it and it stayed on screen with
@@ -126,7 +126,7 @@ def test_a_sub_type_is_hidden_by_its_own_familys_switch():
 
 @pytest.mark.parametrize("kind", ["thought", "shout", "narration"])
 def test_every_balloon_type_answers_to_the_speech_switch(kind):
-    """Thought, burst and caption are all closed shapes with a tail — the same
+    """Thought, burst and caption are all closed shapes with a tail - the same
     geometry, told apart by the typesetting. Putting speech away and leaving a
     thought balloon on screen would be a switch that lies."""
     from mangatl.models import TextRegion
@@ -169,7 +169,7 @@ def test_speech_and_narration_go_together():
 
 
 def test_the_counts_and_the_status_are_about_the_work_not_the_store():
-    """A hidden box may well be translated already — it was on the page before
+    """A hidden box may well be translated already - it was on the page before
     it was put away. Counting it would report four of three done, and a page
     that reads 4/3 never matches its own total and never turns green."""
     st = _state()
@@ -431,13 +431,13 @@ def test_the_first_checkbox_says_speech_and_narration():
 
 
 def test_the_card_offers_one_switch_per_group_and_the_every_page_box():
-    # One switch per family, named once — the table is in frames.js and the
+    # One switch per family, named once - the table is in frames.js and the
     # card is built from it, so there is no second list of names to go stale.
     js = (JS / "panels.js").read_text(encoding="utf8")
     assert "const BOX_GROUPS=KIND_FAMILIES.map(" in js
     frames = (JS / "frames.js").read_text(encoding="utf8")
     for key, label in (("bubble", "Bubble text"),
-                       ("freefloat", "Outside text"),
+                       ("freefloat", "Freefloat text"),
                        ("sfx", "Sound effect")):
         assert f"{key}:'{label}'" in frames.replace(", ", ","), key
     assert "hideAllPages" in js

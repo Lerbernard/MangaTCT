@@ -8,7 +8,7 @@ This is deliberately conservative: on a page of dense artwork almost anything
 can look like a stroke, so it would rather miss a sound effect than hand back
 a page covered in false boxes.
 
-The second half of this file — `column_blocks` and `read_the_writing` — answers
+The second half of this file - `column_blocks` and `read_the_writing` - answers
 the same question a different way, because the stroke-cluster method above
 fragments a passage of vertical narration and misses most of it. See the
 docstring on `column_blocks`.
@@ -168,8 +168,8 @@ def _joinable(c, d, cfg: ColumnConfig) -> bool:
     """Are these two runs of marks the same column of writing?
 
     Sideways, their centres must agree to within about half a character; down
-    the page, the white between them must be less than a character tall. Ruby —
-    the tiny reading printed beside a kanji — is too far sideways to join, and
+    the page, the white between them must be less than a character tall. Ruby -
+    the tiny reading printed beside a kanji - is too far sideways to join, and
     comes back at the next step as a column of its own standing against its
     parent.
     """
@@ -223,19 +223,19 @@ def _stack(marks, by_id, cfg: ColumnConfig):
 def _tidy(col, by_id, cfg: ColumnConfig) -> bool:
     """Is this column a run of characters, or a trail of specks?
 
-    Writing is set on a LINE. Whatever else varies down a column of Japanese —
+    Writing is set on a LINE. Whatever else varies down a column of Japanese -
     and a great deal does, because a full-size kanji, a small っ and a tiny ruby
-    gloss all stand in the same column — the characters are hung on one axis,
+    gloss all stand in the same column - the characters are hung on one axis,
     so their centres barely wander. Artwork does not do that: a spray of
     flowers, a hedge, a row of distant rooftops all drift as they go.
 
     Measured on lee's splash page, real columns wander by 0.05 to 0.19 of their
     own width and the artwork by 0.26 and up. Size spread is kept too, but held
     loose (0.60), because it is the mixing of kanji with ruby that pushes a real
-    column's spread to 0.52 — reading that as artwork is exactly what threw
+    column's spread to 0.52 - reading that as artwork is exactly what threw
     away the whole of page 039 before.
 
-    Pitch — the spacing between one character and the next — was measured here
+    Pitch - the spacing between one character and the next - was measured here
     too and thrown out. It sounds like the strongest signal of all and it is
     not: real columns came in at 0.40, 0.51, 0.55, 0.70, 0.79, because a ruby
     mark sitting between two kanji halves one gap, and a character the ink
@@ -250,7 +250,7 @@ def _tidy(col, by_id, cfg: ColumnConfig) -> bool:
     # is not one size, it is a body size with small companions hung beside it:
     # ruby at about a quarter of the area, a small っ, a run of dots. Measured
     # over everything, lee's "私…っ" came to 0.633 against a limit of 0.60 and
-    # the column was thrown away as artwork — which is why the shout on his
+    # the column was thrown away as artwork - which is why the shout on his
     # page 38 was boxed one column wide, with 私…っ left outside it. Measured
     # over the body characters alone it is 0.11. Artwork gains nothing from
     # this: a spray of stipple has no body size to find, so dropping its small
@@ -271,14 +271,14 @@ def _passages(cols, cfg: ColumnConfig):
     Two columns belong together when the white between them is narrower than a
     character, they run down the page alongside each other, and their
     characters are the same size. That is what keeps the caption to the left of
-    a drawing out of the box round the caption to its right — one sentence to a
+    a drawing out of the box round the caption to its right - one sentence to a
     reader, two places to a typesetter, and a box spanning both would put English
     across the drawing between them.
 
     The reach is measured against the SMALLER of the two columns' own character
     size, and never against the group's. An earlier version took the largest
     character anywhere in the group, which meant every column joined widened
-    the group's reach — so one 60-pixel shout at the left of a page dragged in
+    the group's reach - so one 60-pixel shout at the left of a page dragged in
     everything across it, and whole panels came back as a single passage.
     """
     cols = sorted(cols, key=lambda c: -c["cx"])          # right to left
@@ -322,7 +322,7 @@ def _measure(block, lab, by_id) -> None:
     """How thick the block is drawn, as a fraction of a character's size.
 
     Four times the area over the perimeter is the width of the band you would
-    get if you unrolled the mark into a ribbon — a mark's stroke width, in
+    get if you unrolled the mark into a ribbon - a mark's stroke width, in
     other words, and the one number that says whether something is DRAWN like
     printing. Holes count towards the perimeter, which is right: a complex
     glyph full of counters is thinner than a blob of the same area.
@@ -356,7 +356,7 @@ def _is_writing(block, by_id, cfg: ColumnConfig) -> bool:
     matters. Print is cut to a stroke: run over lee's chapter, every real
     passage came in between 0.21 and 0.42 of a character's size, whether it was
     a 12-pixel caption or a 60-pixel shout. The false blocks sat outside on both
-    sides — the flower embroidered on the dress on page 8 at 0.60, because it is
+    sides - the flower embroidered on the dress on page 8 at 0.60, because it is
     a solid blob, and two long strands of the girl's hair on page 38 at 0.18 and
     0.17, because they are hairlines. Neither is written, and neither is drawn
     the way writing is.
@@ -404,7 +404,7 @@ def _unruled(block, by_id, bar: np.ndarray, cfg: ColumnConfig) -> None:
     thing and says it too late and too weakly: it asks `detect_panels` for the
     frames, and on lee's page 8 the top panel bleeds off the paper so there is
     no white rectangle to find and no frame comes back. The border itself is
-    still right there on the page — a black bar four hundred pixels long — and
+    still right there on the page - a black bar four hundred pixels long - and
     that is what this reads.
 
     The sprig of embroidery on the dress in that top panel is character-sized,
@@ -448,8 +448,8 @@ def _unruled(block, by_id, bar: np.ndarray, cfg: ColumnConfig) -> None:
 def column_blocks(gray: np.ndarray, cfg: ColumnConfig | None = None):
     """Every passage of writing on the page, found from the ink alone.
 
-    Every detector in `classical.py` is enclosure-first: it looks for a shape —
-    a white blob, a dark outline — that HOLDS dark glyphs, and takes the inside
+    Every detector in `classical.py` is enclosure-first: it looks for a shape -
+    a white blob, a dark outline - that HOLDS dark glyphs, and takes the inside
     of that shape as the region. That is the right way round for speech
     balloons and useless for the other half of a manga page, where a whole
     passage of narration is typeset directly over the drawing.
@@ -457,7 +457,7 @@ def column_blocks(gray: np.ndarray, cfg: ColumnConfig | None = None):
     lee sent back two pages showing both ways it fails. On one the text is
     simply MISSED: the shout down the middle of the splash got one box, 25
     pixels square, round a single kanji, and the passage beside it got nothing
-    — there is no white shape round either to find. On the other it is found by
+    - there is no white shape round either to find. On the other it is found by
     ACCIDENT, when a pale panel background happens to enclose it, and then the
     box is the whole panel: one narration box 753x262 covering the toys, the
     flowers and both captions at once. That is lee's "box 5 spanning a whole
@@ -472,7 +472,7 @@ def column_blocks(gray: np.ndarray, cfg: ColumnConfig | None = None):
     wrong thing first. Every number below was taken off lee's own pages, over
     nineteen blocks labelled by hand, before any of it was written down.
 
-    STRAIGHTNESS, per column — the spread of the marks' centre-x over the
+    STRAIGHTNESS, per column - the spread of the marks' centre-x over the
     column's own width. Writing is set on a LINE, and artwork is not:
 
     | column                        | straightness |
@@ -480,13 +480,13 @@ def column_blocks(gray: np.ndarray, cfg: ColumnConfig | None = None):
     | real columns of Japanese      | 0.05 - 0.19  |
     | hair, stipple, embroidery     | 0.26 and up  |
 
-    The obvious measure here is PITCH — characters come at a regular spacing,
-    artwork does not — and it was measured and thrown out. Real columns came in
+    The obvious measure here is PITCH - characters come at a regular spacing,
+    artwork does not - and it was measured and thrown out. Real columns came in
     at 0.40, 0.47, 0.51, 0.55, 0.70, 0.79: a ruby mark between two kanji halves
     one gap and a missed character doubles the next, so a real column's pitch is
     all over the place. Rejecting on it threw away nearly every true column.
 
-    THINNESS, per block — four times a mark's area over its perimeter, which is
+    THINNESS, per block - four times a mark's area over its perimeter, which is
     the width of the ribbon you would get by unrolling it, divided by the size
     of a character. Holes count towards the perimeter, and should: a kanji full
     of counters is drawn thinner than a blob of the same area.
@@ -497,8 +497,8 @@ def column_blocks(gray: np.ndarray, cfg: ColumnConfig | None = None):
     | two strands of hair          | 0.165, 0.183  |
     | embroidery on a dress        | 0.604         |
 
-    That one holds across scale — 12px captions and 60px shouts sit in the same
-    band — and it fails on both sides at once, which is why it works: artwork is
+    That one holds across scale - 12px captions and 60px shouts sit in the same
+    band - and it fails on both sides at once, which is why it works: artwork is
     either hairline-thin or a solid blob, and typesetting is neither. The measure
     that was tried before it, block-level size spread, separated cleanly on one
     page (0.09-0.20 text against 0.34-0.53 artwork) and collapsed on the next,
@@ -530,7 +530,7 @@ def _block_region(block, lab, shape, cfg: ColumnConfig) -> TextRegion:
 
     It carries a rectangle for a polygon and NO balloon mask, so the fitter
     typesets it inside its box rather than inside a rectangle pretending to be
-    a bubble outline — and so a save and a reload hands back the same thing.
+    a bubble outline - and so a save and a reload hands back the same thing.
     """
     H, W = shape[:2]
     x0 = max(0, block["x0"] - cfg.pad)
@@ -564,7 +564,7 @@ def _straddles(box, frames) -> bool:
 
     Panel finding is approximate by design, so a box is only called a
     straddler when two panels each hold a fifth of it and neither holds it
-    whole — enough to catch a column that has stacked down through a gutter,
+    whole - enough to catch a column that has stacked down through a gutter,
     and not enough for a rounded panel corner to trigger it.
     """
     if not frames:
@@ -583,8 +583,8 @@ def not_already_read(loose: list[TextRegion], taken: list[TextRegion],
     its mind about pages it was never asked about. It groups ink by closing it
     with a 13-pixel brush, so on lee's page 10 the two toy rabbits closed
     together with the caption beside them into one block, which was then thrown
-    out for being the wrong shape. Blank out the caption first — which is what
-    handing it the reader's boxes to avoid does — and the rabbits stand alone,
+    out for being the wrong shape. Blank out the caption first - which is what
+    handing it the reader's boxes to avoid does - and the rabbits stand alone,
     pass every test, and come back as a box round a drawing of two rabbits.
 
     So the stroke pass is run on the untouched page, exactly as it always was,
@@ -607,7 +607,7 @@ def absorb_fragments(regions: list[TextRegion],
     lee, on two crops of his own pages: "make the box be one text the second
     and third picture shoud be one box for example". Reading the writing first
     puts one box round the whole passage, but the enclosure-first detectors have
-    already been over the page and they leave crumbs inside it — a box round the
+    already been over the page and they leave crumbs inside it - a box round the
     single kanji 国, because the white counter inside the character looked like a
     tiny balloon, and a box round the ruby printed beside it.
 
@@ -654,7 +654,7 @@ def read_the_writing(page: Page, found: list[TextRegion],
       panel;
     * and any passage nobody has a box for is added.
 
-    `found` is modified in place — panels are removed from it — and the new
+    `found` is modified in place - panels are removed from it - and the new
     regions come back to be appended. Ids are not touched; the caller hands
     them out.
     """
@@ -684,7 +684,7 @@ def read_the_writing(page: Page, found: list[TextRegion],
     for r in panels:
         found.remove(r)
 
-    # 2. Every passage nobody has a box for now becomes one — unless it runs
+    # 2. Every passage nobody has a box for now becomes one - unless it runs
     #    across a panel border, which no passage of writing ever does. On lee's
     #    page 8 a sprig of embroidery on a dress in the top panel stacked
     #    straight down into the speech below it and came back as one tall box

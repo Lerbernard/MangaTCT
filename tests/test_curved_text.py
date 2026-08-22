@@ -3,20 +3,20 @@
 lee: *"Add text curve"*.
 
 `curve` is one number: the whole angle, in degrees, that the line subtends. That
-makes it mean the same thing on "OH" as on "OH NO, LOOK OUT!!" and at any size —
+makes it mean the same thing on "OH" as on "OH NO, LOOK OUT!!" and at any size -
 the radius is worked out from the arc length, `R = length / angle`. Positive
 arches up like a rainbow, negative sags, 0 is straight.
 
 Three things had to be got right, and each of them was wrong first:
 
 1. **The bend must not move the line.** Hung from its middle, an arch sinks by
-   its whole sagitta — a third of the line's length at 140 degrees — and the
+   its whole sagitta - a third of the line's length at 140 degrees - and the
    words walk out of the box. Half the sagitta comes back off, so the middle
    rides as far up as the ends ride down.
 2. **A letter is not its own bounding box.** `ImageDraw.text` cannot rotate, so
    each letter is stamped as a turned mask; centring each mask on the arc put
    every comma and descender on the line's middle. The offset has to be measured
-   from the same anchor the straight path draws from — the middle of the
+   from the same anchor the straight path draws from - the middle of the
    letter's advance, on the middle of the line.
 3. **The outline of the whole line goes down before any fill does**, or each
    letter's outline eats into the face of the one before it.
@@ -151,8 +151,8 @@ def test_zero_curve_is_the_straight_path_untouched():
 
 
 def test_a_curve_carries_the_outline_and_the_glow_round_with_it():
-    """Every pass that draws the line — the shadow, the glow silhouette, the
-    letters, the gradient mask, the inner-glow mask — has to be given the same
+    """Every pass that draws the line - the shadow, the glow silhouette, the
+    letters, the gradient mask, the inner-glow mask - has to be given the same
     curve, or one of them stays straight and the block comes out doubled."""
     plain, _ = _draw(dict(BASE, curve=90))
     glowed, _ = _draw(dict(BASE, curve=90, glow="#ff3b30", glow_size=9))

@@ -5,8 +5,8 @@ so that the ai alway writes a discption"*.
 
 The rule lives in `translate.merge_glossary` and nowhere else, so it is about
 the SHEET rather than about one route into it. Before this, `ctx.glossary`
-was written by a bare `.update()` in two places — the live translator and the
-hand-typed reply upload — and only one of them could ever have been made to
+was written by a bare `.update()` in two places - the live translator and the
+hand-typed reply upload - and only one of them could ever have been made to
 check anything.
 """
 import re
@@ -41,9 +41,13 @@ def test_a_hyphen_inside_a_name_is_not_a_description():
 def test_the_python_and_the_panel_split_a_name_the_same_way():
     """`gloss_name` / `gloss_note` are `glossName` / `glossNote` from
     `static/js/project.js`. If they disagree about where a name ends, the panel
-    shows one thing and the rule enforces another — and the row a person just
+    shows one thing and the rule enforces another - and the row a person just
     filled in reads back empty."""
-    js = open("static/js/project.js", encoding="utf-8").read()
+    # Asked of the PACKAGE rather than of the working directory: pytest may
+    # be run from anywhere, and a relative path here made this pass or fail on
+    # which folder you happened to be standing in. See `where`.
+    from where import JS
+    js = (JS / "project.js").read_text(encoding="utf-8")
     for py, name in ((r"\s*[（(]|\s+[—–-]\s+", "glossName split"),
                      (r"[（(]([^)）]*)[)）]", "glossNote bracket"),
                      (r"\s+[—–-]\s+(.+)$", "glossNote dash")):
@@ -105,8 +109,10 @@ def test_no_route_writes_the_glossary_behind_the_rule():
     """`ctx.glossary.update()` is how a bare term used to get in. There is no
     reason for it to exist anywhere now, and a test is cheaper than
     remembering."""
+    from where import PKG
     for path in ("translate.py", "editor.py"):
-        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        for n, line in enumerate(
+                (PKG / path).read_text(encoding="utf-8").splitlines(), 1):
             # Prose about the rule may name it; code may not. A backtick is how
             # this codebase quotes an identifier it is talking ABOUT.
             if re.search(r"glossary\.update\(", line) and "`" not in line:

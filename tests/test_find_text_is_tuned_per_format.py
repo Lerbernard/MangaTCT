@@ -3,7 +3,7 @@
 lee: *"save what we ahve for find text for manga and now we will modify it for
 manhwa"*.
 
-Every number the detector runs on was measured on his manga chapters — the
+Every number the detector runs on was measured on his manga chapters - the
 confidence the block head must reach, how much two blocks may overlap, how sure
 a pixel of the mask has to be, and the two gaps that end one block of writing.
 They were arrived at by cropping and looking at every box the gates dropped
@@ -11,7 +11,7 @@ across 39 pages. They are not to be moved by anything done for another format.
 
 So they are a TABLE, one entry per format, and `manhwa` and `manhua` hold their
 own COPIES rather than being aliases of `manga`. Five of those seven have since
-moved for the webtoons — see `WEBTOON` below — and manga has not, which is the
+moved for the webtoons - see `WEBTOON` below - and manga has not, which is the
 table earning itself.
 
 These tests are the guard on that. They pin manga's numbers to the measured
@@ -35,7 +35,7 @@ MEASURED = {
     "mask_thresh": 0.30,
     "split_gap": 1.8,
     "split_height": 1.8,
-    # None means the CIRCLE — the straight-line reach of `LEFT_NEAR`, which is
+    # None means the CIRCLE - the straight-line reach of `LEFT_NEAR`, which is
     # what manga was measured on. The webtoons use an ellipse instead.
     "join_x": None,
     "join_y": None,
@@ -213,7 +213,7 @@ def test_manga_could_not_turn_the_second_detector_on_even_by_accident():
 
 def test_the_one_nothing_asked_to_move_did_not():
     """`nms_thresh` is about two boxes ON TOP OF one another. Nothing lee
-    showed was that — they were two boxes side by side — so it stays where it
+    showed was that - they were two boxes side by side - so it stays where it
     was measured, and a change to it should have to be argued for."""
     assert CT.tuning_for("manhwa")["nms_thresh"] == MEASURED["nms_thresh"]
 
@@ -269,7 +269,7 @@ def test_the_detector_takes_all_of_them(tmp_path):
 
 def test_a_chapter_is_found_with_its_own_formats_numbers(tmp_path, monkeypatch):
     """The wiring. `Project.detect` has to ask the table which format it is
-    holding — a hard-coded call here is how the fork ends up decorative."""
+    holding - a hard-coded call here is how the fork ends up decorative."""
     seen = {}
 
     def fake(page, weights, **kw):
@@ -284,7 +284,14 @@ def test_a_chapter_is_found_with_its_own_formats_numbers(tmp_path, monkeypatch):
         60, 200, (300, 200, 1), dtype=np.uint8), 3, axis=2)
     p.add_uploaded("a.png", cv2.imencode(".png", img)[1].tobytes())
     p.settings["detector"] = "comictext"
-    p.settings["weights"] = "not-a-real-model.onnx"
+    # A REAL file, though nothing loads it: `detect_comictext` is faked above.
+    # `Project.detector_weights` checks that a named path exists rather than
+    # that the box is non-empty - a name that is not there resolves to empty
+    # and the run falls through to the classical branch, which never reaches
+    # the call this is watching.
+    fake_model = tmp_path / "not-a-real-model.onnx"
+    fake_model.write_bytes(b"x")
+    p.settings["weights"] = str(fake_model)
 
     p.settings["medium"] = "manga"
     p.detect(0)
@@ -323,7 +330,7 @@ def test_the_circle_is_what_manga_still_gets():
 
 def test_two_strokes_of_one_sound_effect_join_sideways():
     """Measured on lee's page 18 of chapter 227. The two halves of one 퍽써!
-    are 53px apart sideways and 10px vertically, next to a 36px mark — 1.47
+    are 53px apart sideways and 10px vertically, next to a 36px mark - 1.47
     and 0.28 smaller-marks. The circle refuses that at 0.6 and cut the effect
     into two boxes; the ellipse takes it."""
     spec = [(100, 100, 136, 136), (189, 110, 225, 146)]
@@ -334,7 +341,7 @@ def test_two_strokes_of_one_sound_effect_join_sideways():
 def test_two_different_sound_effects_stacked_do_not_join():
     """The other half of the measurement, from page 28. Two effects one above
     the other: no sideways gap at all and 129px vertically, next to a 126px
-    mark — 1.02 smaller-marks. A circle wide enough to fix page 18 swallows
+    mark - 1.02 smaller-marks. A circle wide enough to fix page 18 swallows
     both of these into one box 17% of the page; the ellipse refuses it."""
     spec = [(100, 100, 226, 226), (100, 355, 226, 481)]
     assert len(_groups(spec, near=2.0)) == 1, "a circle that wide merges them"

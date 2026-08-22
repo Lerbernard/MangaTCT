@@ -7,14 +7,14 @@ try to keep to raw translation as much as posible and teh proffreeder shoud make
 sure everything is conststant"*.
 
 Three rules, three places. The sheet already refused unnamed bit parts; what it
-did not say was that a name has to be PRINTED — nothing stopped a name being
+did not say was that a name has to be PRINTED - nothing stopped a name being
 coined from the artwork. The translator now has a stated bias toward what is
 written rather than what could be inferred, and the proofreader has consistency
 as an explicit job with a stated tie-breaker.
 
 Prompts cannot be unit-tested for behaviour without calling the model, and there
 is no key in this container. What is locked here is that the instructions are
-present, unambiguous and cannot be quietly dropped — which is the failure mode
+present, unambiguous and cannot be quietly dropped - which is the failure mode
 that matters: a prompt rule deleted in an edit and nobody noticing for a
 chapter.
 """
@@ -26,7 +26,7 @@ SRC = (PKG
 
 
 def _flat(s):
-    """One line, single-spaced — the prompt is wrapped for reading."""
+    """One line, single-spaced - the prompt is wrapped for reading."""
     return " ".join(s.split())
 
 

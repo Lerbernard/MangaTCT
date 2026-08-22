@@ -227,7 +227,7 @@ class _Net:
 
 
 def _outside_text_page(hollow, paper=30, letter=245):
-    """A square page — dark all over, so `_classify_kind` says freefloat — with
+    """A square page - dark all over, so `_classify_kind` says freefloat - with
     one specimen of writing in the middle of it, and the mask that goes with it.
 
     Square because `_letterbox` then does nothing and the mask lands where it

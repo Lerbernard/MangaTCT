@@ -5,14 +5,14 @@ The chapter came back with page 049 reading::
     "His soul is completely gone," / "and in just a few hours, he'll stop
     breathing altogether."
 
-Two complete Korean sentences — `영혼이 존재하지 않아.` and `몇 시간 뒤면 완전히
-숨이 멈출 거다.` — welded together with a comma. Page 029 did the same and
+Two complete Korean sentences - `영혼이 존재하지 않아.` and `몇 시간 뒤면 완전히
+숨이 멈출 거다.` - welded together with a comma. Page 029 did the same and
 invented an "And" to bridge it.
 
 **Two different facts were sharing one field.** `reads_on` links regions whose
 WORDS run on, which is the case the translation prompt is written for: each
 half is only correct as part of the whole. `link_touching_bubbles` links two
-lobes of one drawn balloon, which is a fact about the PICTURE — and an artist
+lobes of one drawn balloon, which is a fact about the PICTURE - and an artist
 draws two statements in one balloon as readily as one sentence. Both wrote
 `link`, and the prompt reads `link` as "ONE continuous sentence broken across
 several bubbles".
@@ -105,8 +105,8 @@ def test_and_still_says_what_a_link_is():
 
 def test_the_reader_is_not_told_they_are_one_sentence_either():
     """`_ocr_context` said "ONE sentence" about the same groups. For the reader
-    it barely mattered — the instruction it hangs off is "do not complete a
-    word across the split" — but a sentence it is not."""
+    it barely mattered - the instruction it hangs off is "do not complete a
+    word across the split" - but a sentence it is not."""
     p = _page([_region(0, "가", 3, "balloon"), _region(1, "나", 3, "balloon")])
     note = T._ocr_context(p, _ctx())
     assert "two lobes of one drawn balloon" in note

@@ -6,8 +6,8 @@ shoud be a sub category of the the bubble type same as anfry bubbles ... each
 bubble shoud have a default that is regualt speach for bubble, outiuside text
 or free floating box and sound effect for the shoud efct box"*.
 
-Before this there were six flat types in one menu — speech, open typesetting,
-SFX, caption, thought, burst — in six unrelated colours, with up to ten more
+Before this there were six flat types in one menu - speech, open typesetting,
+SFX, caption, thought, burst - in six unrelated colours, with up to ten more
 that could be added anywhere in the same list. Nothing said that a thought
 balloon and a burst are both BALLOONS, and the colours actively said they were
 not: thought was blue and burst was pink.
@@ -16,7 +16,7 @@ What this file pins:
 
 * the three families, and that every kind belongs to exactly one;
 * each family's default sub-type, which cannot be removed, and whose key is
-  the family's own name — so every box already on disk still reads;
+  the family's own name - so every box already on disk still reads;
 * ten more per family, which is the ceiling lee asked for after seeing five;
 * colour lives on the SUB-TYPE and never leaves its family;
 * Find text only ever produces the three defaults;
@@ -118,7 +118,7 @@ def test_narration_is_in_two_families_and_they_are_two_things():
     """lee: *"naration type shiude be in both bubble and outside box as a pre
     loaded custum"*.
 
-    A caption in a ruled box is a balloon — a closed shape with writing in it,
+    A caption in a ruled box is a balloon - a closed shape with writing in it,
     cleaned and typeset like one. Narration lying straight on the artwork has
     no shape at all. Same voice, different piece of drawing, and it is the
     drawing that decides how the box behaves.
@@ -148,7 +148,7 @@ def test_the_types_that_were_built_in_keep_their_keys():
 def test_a_family_has_no_colour_of_its_own_its_default_carries_it():
     """lee: *"the main catheory shou not have a color but the defaut shoud
     have the color"*. The family key and its default's key are the same
-    string, so this is the same statement twice — which is the point."""
+    string, so this is the same statement twice - which is the point."""
     for f in FAMILIES:
         assert K.kind_colour(f) == K.FAMILY_COLOUR[f]
 
@@ -198,7 +198,7 @@ def test_every_colour_in_a_family_can_be_told_from_every_other():
 
 def test_the_families_never_reach_into_each_other():
     """Whatever spread a family is given, no colour of one may be mistakable
-    for a colour of another — that is the whole reason the colour is worth
+    for a colour of another - that is the whole reason the colour is worth
     looking at."""
     def rgb(c):
         return [int(c[i:i + 2], 16) / 255.0 for i in (1, 3, 5)]
@@ -245,7 +245,7 @@ def test_find_text_only_ever_produces_the_three_defaults():
 
 
 def test_the_find_text_ticks_are_about_families():
-    """Three ticks in the dialog, three families — and a box answers to the
+    """Three ticks in the dialog, three families - and a box answers to the
     tick for the family it is in, however finely it has been labelled since."""
     from mangatl.project import only_kinds
 
@@ -262,7 +262,7 @@ def test_the_find_text_ticks_are_about_families():
 # ------------------------------------------------ what each family does
 
 def test_the_two_families_that_have_no_balloon_still_have_none():
-    """The one distinction that changes the geometry, and the only one — and
+    """The one distinction that changes the geometry, and the only one - and
     it is decided by the FAMILY, never by the sub-type."""
     from mangatl.project import NO_BALLOON_KINDS, _no_balloon
     assert set(NO_BALLOON_KINDS) == {"freefloat", "sfx"}
@@ -302,7 +302,7 @@ def test_a_burst_is_still_set_larger_than_speech():
 
 @pytest.mark.parametrize("kind", ["thought", "narration"])
 def test_the_rest_are_set_at_normal_size(kind):
-    """Told apart by the FACE, not the size — which is what a sub-type's own
+    """Told apart by the FACE, not the size - which is what a sub-type's own
     font is for, and what a typesetter does."""
     cfg = _cfg()
     assert _size(kind, cfg) == _size("bubble", cfg)
@@ -322,7 +322,7 @@ def test_a_burst_still_fits_its_balloon():
 
 def test_each_main_type_has_its_own_font_row():
     """Three rows, one per family. A sub-type's face is set beside it under
-    Box types and travels on its own record — it is part of what that sub-type
+    Box types and travels on its own record - it is part of what that sub-type
     is, not a setting off in another section."""
     from pathlib import Path
     html = (PKG / "static"
@@ -339,7 +339,7 @@ def test_the_names_on_screen_are_the_ones_in_the_guides():
     from pathlib import Path
     js = (PKG / "static" / "js"
           / "frames.js").read_text(encoding="utf8")
-    for word in ("Bubble text", "Outside text", "Sound effect",
+    for word in ("Bubble text", "Freefloat text", "Sound effect",
                  "Regular speech"):
         assert word in js, word
 

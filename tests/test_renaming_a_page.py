@@ -3,10 +3,10 @@
 Two of lee's, from the same message:
 
 * *"if i right clcik on one of these tabs i shou dhave the option to rename the
-  file"* — and the FILE moves, not just the label. The name in the list is the
+  file"* - and the FILE moves, not just the label. The name in the list is the
   name on disk and they must not come apart.
 * *"if have a have a tool active and i clcik of cleaned ot nay other tab and a
-  popup window opend it shoud just be the mouse pointer over the popup"* — the
+  popup window opend it shoud just be the mouse pointer over the popup"* - the
   brush ring and the eyedropper's loupe are pinned to the window at z-index 70
   and 71, above the dialog backdrop at 60, so "Clean the pages?" came up with a
   brush circle drawn across it.
@@ -87,7 +87,7 @@ def test_an_empty_name_is_refused(tmp_path, bad):
 @pytest.mark.parametrize("bad", [".jpg", ".", "..", ".hidden"])
 def test_a_name_that_starts_with_a_dot_is_refused(tmp_path, bad):
     """".jpg" splits as a whole hidden filename with no extension, not as an
-    extension with nothing in front of it — so it would make a hidden file
+    extension with nothing in front of it - so it would make a hidden file
     called ".jpg.jpg"."""
     p = _proj(str(tmp_path / "out"))
     assert p.rename_page(0, bad) == "a name cannot start with a dot"
@@ -106,8 +106,8 @@ def test_not_even_when_they_live_in_different_folders(tmp_path):
 
     A project scanned from a folder and then added to keeps its pages in TWO
     directories, so two pages really can be called the same thing while neither
-    file is in the other's way. What breaks then is everything keyed by name —
-    the ticks, the cache keys, the export filenames — and the list shows the
+    file is in the other's way. What breaks then is everything keyed by name -
+    the ticks, the cache keys, the export filenames - and the list shows the
     same name twice with no way to tell which is which.
     """
     src = tmp_path / "scan"
@@ -221,7 +221,7 @@ def test_typing_a_new_name_moves_the_file():
         pg.click("#pgmenu .tbrow")
         pg.wait_for_timeout(250)
         assert pg.evaluate("!!document.querySelector('.pg .nmedit')")
-        # the extension is not offered — the field holds the stem
+        # the extension is not offered - the field holds the stem
         assert pg.evaluate("document.querySelector('.pg .nmedit').value") == "001"
         pg.fill(".pg .nmedit", "cover")
         pg.press(".pg .nmedit", "Enter")
@@ -237,7 +237,7 @@ def test_typing_a_new_name_moves_the_file():
 def test_a_press_anywhere_else_ends_it():
     """Blur alone does not do this. The canvas, the toolbox and the page strip
     all call preventDefault on mousedown to stop a drag selecting text, and a
-    prevented mousedown never moves the focus — so the field sat open with the
+    prevented mousedown never moves the focus - so the field sat open with the
     click having gone somewhere else entirely. lee: *"for teh rename thing if i
     clcik anywhere on teh screen it shoud turn off"*."""
     def check(pg, p):
@@ -260,7 +260,7 @@ def test_even_a_press_on_something_that_swallows_the_event():
     """`capture`, and this is why it has to be.
 
     Some controls stop a mousedown dead so a drag on them cannot start one
-    somewhere else — the eye on a box row does, and so does every frame handle
+    somewhere else - the eye on a box row does, and so does every frame handle
     on the Translation view. A listener on the way UP never hears those, so the
     field stayed open for exactly the presses most likely to be the one that
     means "I am done here"."""
@@ -315,7 +315,7 @@ def test_escape_leaves_the_name_alone():
 def test_a_renamed_page_keeps_its_tick():
     """`selPages` is keyed by page NAME, so without help the tick would stay
     behind on a name that no longer exists and the page would come back
-    unticked — quietly dropped from every "do all"."""
+    unticked - quietly dropped from every "do all"."""
     def check(pg, p):
         pg.wait_for_timeout(300)
         assert pg.evaluate("selPages.has('001.png')")
@@ -334,7 +334,7 @@ def test_a_renamed_page_keeps_its_tick():
 
 
 def test_the_ring_is_gone_the_moment_a_dialog_opens():
-    """Measured, not read off the stylesheet — and with the mouse standing
+    """Measured, not read off the stylesheet - and with the mouse standing
     still, which is the case the JS guard alone cannot cover."""
     def check(pg, p):
         pg.evaluate("setView('typeset')")

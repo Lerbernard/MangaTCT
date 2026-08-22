@@ -6,10 +6,10 @@ text in the raw so there shoud be notjing in the transated"**.
 
 ## Where that comma came from
 
-The model wrote `...—The existence known as Kim Jinwoo...`. Then:
+The model wrote `...-The existence known as Kim Jinwoo...`. Then:
 
-1. `strip_added_dashes` looked at the dash. It was not at position 0 — three
-   periods were in front of it — so it read as an INTERIOR dash and became
+1. `strip_added_dashes` looked at the dash. It was not at position 0 - three
+   periods were in front of it - so it read as an INTERIOR dash and became
    `", "`, which is that rule working exactly as written.
 2. `strip_added_ellipsis` ran immediately after, saw a leading ellipsis the
    Korean does not have, and took it away.
@@ -17,7 +17,7 @@ The model wrote `...—The existence known as Kim Jinwoo...`. Then:
 Two cleaners, each correct about the thing it was looking at, and a comma
 standing on its own at the front of the line that neither of them was looking
 at. The edge-dash rule was widened at the same time so the dash is recognised
-as an edge dash and comes off cleanly — but that fixes the two steps that
+as an edge dash and comes off cleanly - but that fixes the two steps that
 happened to collide this week.
 
 `strip_added_lead` is the rule lee actually stated, and it is a check on the
@@ -26,8 +26,8 @@ the front of a line, the answer is the same: the source draws it or it goes.
 
 ## What counts as being in front of the words
 
-Punctuation. A quote and a bracket are not — they WRAP a line rather than
-precede it — and `¿` and `¡` open a sentence in Spanish, which is one of the
+Punctuation. A quote and a bracket are not - they WRAP a line rather than
+precede it - and `¿` and `¡` open a sentence in Spanish, which is one of the
 targets. All of those are read past on both sides, which is what `_OPENERS`
 already did for the ellipsis rule.
 """
@@ -136,7 +136,7 @@ def _flat(fn):
 
     What these three are about is the ORDER of three calls. Matching the
     wrapped text instead went red the first time a line was re-indented, which
-    is how a test stops being read — the same lesson as
+    is how a test stops being read - the same lesson as
     `test_the_line_has_to_fit`.
     """
     import inspect

@@ -1,7 +1,7 @@
 /* Next frame, in any host.
 
    jsdom has no `requestAnimationFrame` and the UI tests run there, so a bare
-   call throws — and inside a MutationObserver callback nothing catches it, so
+   call throws - and inside a MutationObserver callback nothing catches it, so
    the console fills and whatever came after the call never happens. Browsers
    both have it; this is the one line that keeps the tests honest and the app
    the same in Chrome, in Firefox and under test.
@@ -12,8 +12,8 @@ const soon = (typeof requestAnimationFrame === 'function')
 /* At most one of each kind of redraw per frame.
 
    A mouse can report a hundred moves a second; a screen shows sixty. Every
-   one of those moves was repainting the whole page — clearing a canvas the
-   size of the scan, replaying every paint layer onto it, compositing it — so
+   one of those moves was repainting the whole page - clearing a canvas the
+   size of the scan, replaying every paint layer onto it, compositing it - so
    on a 3000-pixel page dragging a shape did several times more work than the
    screen could ever show, and the drag fell behind the pointer. lee: *"there
    is a lot of lag with the shapes"*.
@@ -29,8 +29,8 @@ function onFrame(key, fn){
   }
   _frameJobs.set(key, fn);
 }
-/* Do the pending redraws now. Anything that ENDS an interaction — letting go
-   of a stroke, applying a transform — calls this, so what is on screen when
+/* Do the pending redraws now. Anything that ENDS an interaction - letting go
+   of a stroke, applying a transform - calls this, so what is on screen when
    the mouse comes up is the finished thing and not a frame from mid-drag. */
 function flushFrame(){
   const jobs=_frameJobs;
@@ -39,11 +39,11 @@ function flushFrame(){
   jobs.forEach(f=>{ try{ f(); }catch(e){ console.error(e); } });
 }
 
-/* core.js — App state shared by every module, the api() fetch helper, toast, top-bar resize.
+/* core.js - App state shared by every module, the api() fetch helper, toast, top-bar resize.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 let proj=null, cur=0, regions=[], sel=null, scale=1, pageW=1;
-/* The proofreader's remark about the page as a whole — what it could not fix
+/* The proofreader's remark about the page as a whole - what it could not fix
    on its own. Per page, refreshed by showPage. */
 let pageNote='';
 /* Which boxes the proofreader's remark is about, as region ids. Rendered
@@ -53,7 +53,7 @@ let pageNoteIds=[];
 /* ONE WAY IN for a new set of regions.
    The page draws the boxes and their reading-order numbers; the sidebar draws
    the same numbers in its own list; the overlay draws the typesetting. All three
-   read `(r.order??0)+1` off the same array, so they cannot disagree — unless
+   read `(r.order??0)+1` off the same array, so they cannot disagree - unless
    one of them is simply not redrawn, and then the screen shows two different
    answers until something else happens to refresh it.
 
@@ -66,10 +66,10 @@ let pageNoteIds=[];
    So there is one function now, every site that replaces `regions` goes through
    it, and a test fails if a new assignment appears anywhere else. `opts.list`
    is false for a quiet background save, which must not rebuild the sidebar
-   under an open colour dialog — the boxes are still redrawn. */
+   under an open colour dialog - the boxes are still redrawn. */
 /* ---- typing in the side panel is never thrown away ----
    The two text boxes in the inspector saved on `change`, which the browser
-   fires on blur — and blur never happens if the element is REMOVED while it
+   fires on blur - and blur never happens if the element is REMOVED while it
    still has focus. Clicking the page, another box, or anything that redraws the
    list did exactly that, so a line typed and then clicked away from was gone.
    lee: *"whne i add text to the side panel in the original tab it hsoud stay
@@ -99,11 +99,11 @@ function flushEdit(){
 /* Edits whose save has not come back yet.
 
    Saving is a round trip, and the page is refreshed from the server by all
-   sorts of things that have nothing to do with the edit — clicking another
+   sorts of things that have nothing to do with the edit - clicking another
    box, a poll landing, the picture being rebuilt. If one of those answers
    arrives while a save is still in the air it carries the value from BEFORE
    the edit, and laying it over the region puts the old number back on screen.
-   The change is not lost — it reaches disk — but it looks exactly as though it
+   The change is not lost - it reaches disk - but it looks exactly as though it
    were, and the next edit then starts from the stale number.
 
    lee: *"sometime some edits just revert when i lcik on a ballon"*. Measured:
@@ -114,7 +114,7 @@ function flushEdit(){
 const inFlight = new Map();          // region id -> the fields still in the air
 /* Bumped every time an edit is made. A page fetch that was already on its way
    when that happened is answering a question about the page as it WAS, so it
-   is not allowed to redraw the regions — it is stale by definition, however
+   is not allowed to redraw the regions - it is stale by definition, however
    quickly it comes back. */
 let editStamp = 0;
 
@@ -133,7 +133,7 @@ function markInFlight(id, patch){
   return at;
 }
 
-/* A save that never came back — the request failed, the page went away. The
+/* A save that never came back - the request failed, the page went away. The
    mark would otherwise sit over every future answer for ever. */
 function dropInFlight(id){ inFlight.delete(id); }
 
@@ -143,7 +143,7 @@ function dropInFlight(id){ inFlight.delete(id); }
    It cannot be held any longer than this. Agreement alone is not enough to let
    go: not every save is answered with the regions, so a mark can be left with
    nothing to agree with, and then the next answer that says something DIFFERENT
-   — a change made elsewhere, a re-fit the server did — is pinned under the old
+   - a change made elsewhere, a re-fit the server did - is pinned under the old
    number for ever, because "the server agrees" never comes true.
 
    `seq` is the edit this reply belongs to: a slow first save must not release
@@ -155,7 +155,7 @@ function settleInFlight(id, seq){
 
 function _matches(have, want){
   // Arrays FIRST. `typeof [] === 'object'`, so an array fell into the branch
-  // below and was walked key by key — over the indices present in `want`
+  // below and was walked key by key - over the indices present in `want`
   // only. `_matches(["A","B"], ["A"])` therefore came back true: the server
   // still holding two lines "agreed" with the one line just typed, the mark
   // was dropped, and the deleted line came straight back.
@@ -200,9 +200,9 @@ function applyInFlight(list){
 }
 
 function setRegions(list, opts){
-  // Never redraw over an unsaved edit — from EITHER panel. This used to flush
+  // Never redraw over an unsaved edit - from EITHER panel. This used to flush
   // only the region list, and the typesetting panel was flushed by
-  // `renderInspector` — which a refresh with `{list:false}` never calls. So a
+  // `renderInspector` - which a refresh with `{list:false}` never calls. So a
   // page reload landing while a size or a line was half-typed dropped it, and
   // the panel came back showing the value from before.
   flushEdit();
@@ -224,8 +224,8 @@ function setRegions(list, opts){
 let kindsHere=[], hiddenKinds=[];
 /* Boxes put away ONE AT A TIME, by id, and the little the list needs to draw a
    row for each with a closed eye on it. They are deliberately not in
-   `regions` — a hidden box takes no part in the page's work, and anything that
-   walks `regions` would start treating it as work again — so this is the only
+   `regions` - a hidden box takes no part in the page's work, and anything that
+   walks `regions` would start treating it as work again - so this is the only
    way back to one. lee: *"i shud be able to hide individual boxes"*. */
 let hiddenIds=[], hiddenRows=[];
 /* Extra boxes picked with c+click. Empty means "just `sel`"; when it has
@@ -251,7 +251,7 @@ window.addEventListener('resize',()=>{
   if($('img').naturalWidth){ fitZoom=fitScale(); applyZoom(); drawOverlay(); }
 });
 const $=id=>document.getElementById(id);
-/* Every server URL — api calls, page images, exports — goes through apiUrl().
+/* Every server URL - api calls, page images, exports - goes through apiUrl().
    Today API_BASE is '' and this is a no-op. When the editor is hosted with
    several projects open at once, set API_BASE to the project scope (for
    example '/p/<project-id>') and the whole client follows; nothing else in
@@ -270,7 +270,7 @@ const api=async(u,m,b)=>{
   const r=await fetch(apiUrl(u),{method:m||'GET',headers:{'Content-Type':'application/json'},
     body:b?JSON.stringify(b):null});
   const j=await r.json().catch(()=>(
-    {error:`The server answered ${r.status} without data — if it was just `+
+    {error:`The server answered ${r.status} without data - if it was just `+
            `updated, restart it and reload this page.`}));
   if(j.error) toast(j.error);
   // An answer about a page you have already left is not about what is on
@@ -279,20 +279,20 @@ const api=async(u,m,b)=>{
   // lee, switching pages quickly on a slow one: *"the page lagged and merge 2
   // section from one page with another when i switch pages too fast"*. Two
   // dozen places apply `j.regions` the moment it arrives, and each of them is
-  // somewhere the check can be forgotten — one of them already had it and the
+  // somewhere the check can be forgotten - one of them already had it and the
   // rest did not. Worse than a wrong picture: with another page's boxes in
   // `regions`, the next drag or type posts THAT id to the page you are now on,
   // so the mix-up gets written to disk.
   //
   // So it is refused here, in the one place every one of them passes through,
   // and by the SAME rule for all of them. What is dropped is only the part
-  // that belongs to a page — an answer also carrying a job id or a setting
+  // that belongs to a page - an answer also carrying a job id or a setting
   // keeps it.
   if(asked!=null && typeof cur!=='undefined' && cur!==asked
      && j && typeof j==='object' && !Array.isArray(j)){
     // The BOXES and nothing else. They are what carries ids, and an id is
     // what turns a wrong picture into a wrong write. Everything else an answer
-    // holds — the page's size, its cache key, which groups it has — is applied
+    // holds - the page's size, its cache key, which groups it has - is applied
     // by `showPage` behind its own ticket check and is only ever cosmetic if
     // it slips; stripping those as well broke a panel that reads them.
     // A COPY. Deleting from the answer itself edits an object the caller may
@@ -308,10 +308,10 @@ function toast(m,ms){const t=$('toast');t.textContent=m;t.style.display='block';
 
 /* ---- one tool at a time ----
    Every tool arms itself through this: picking any tool puts every OTHER
-   tool away — hand, magnifiers, brush, clone, heal, eraser, selections,
+   tool away - hand, magnifiers, brush, clone, heal, eraser, selections,
    free transform. Each toggle stays responsible for its own UI; this only
    guarantees the exclusivity. (Defined here in core.js, called at runtime
-   when every module is loaded — the typeof guards cover boot order.) */
+   when every module is loaded - the typeof guards cover boot order.) */
 function disarmTools(keep){
   if(keep!=='hand'   && typeof handMode!=='undefined' && handMode) toggleHand(false,true);
   if(keep!=='zoom'   && typeof zoomTool!=='undefined' && zoomTool) setZoomTool(null);

@@ -25,7 +25,7 @@ setTimeout(()=>{
     w.eval("cur=0; view='typeset'; regions=[];");
     w.renderInspector();          // builds the settings panel
     w.setToolTab('shapes');
-    // The tools live in the toolbox down the left of the page now — one
+    // The tools live in the toolbox down the left of the page now - one
     // place, always on screen. They used to be in the panel as WELL, so
     // every tool was on screen twice. lee: *"the tools are duplicated it
     // shoud only be onteh side bar"*. So the lit state is read from the

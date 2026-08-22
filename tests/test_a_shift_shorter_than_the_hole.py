@@ -1,7 +1,7 @@
 """The smear in the middle of a pattern-copied box.
 
-`shift_fill` looks for the one translation of the page whose ring — the band of
-real pixels just outside the hole — best matches the ring where it lands, then
+`shift_fill` looks for the one translation of the page whose ring - the band of
+real pixels just outside the hole - best matches the ring where it lands, then
 copies that block of real pixels in. Whatever the shift cannot source falls
 through to Telea, which invents no texture at all.
 
@@ -12,7 +12,7 @@ matches perfectly and reports a flawless zero.
 
 Measured, on period-9 vertical hatching with a 64x36 hole cut in it: the winner
 was dx=18, ring score exactly 0.00. It sourced 83% of the hole and Telea blurred
-the remaining 18-pixel strip — a true error of 48.9, against the 0.00 that
+the remaining 18-pixel strip - a true error of 48.9, against the 0.00 that
 dy=36 was sitting there offering with the same perfect ring and nothing left
 over. That grey strip through the middle of otherwise real hatching is the smear.
 
@@ -20,7 +20,7 @@ The fix charges the unsourced share of the hole at `rough`, the variance of the
 artwork in the ring. That is the honest price of not sourcing a pixel: Telea
 reproduces the local mean and none of the texture, so its squared error on
 textured art is near enough that texture's variance. On flat paper the figure is
-~0 and coverage stops mattering, which is right — there Telea is perfect.
+~0 and coverage stops mattering, which is right - there Telea is perfect.
 
 Over 175 measured holes across hatching at five periods and five angles,
 screentone at four pitches, line art, a panel border, gradients and paper grain:
@@ -100,7 +100,7 @@ def test_the_short_shift_with_the_perfect_ring_no_longer_wins():
     out = shift_fill(punched, m)
 
     # 42.41 before, and 4761 of the hole's 6912 values were tones that are
-    # nowhere on the page — the Telea strip.
+    # nowhere on the page - the Telea strip.
     assert _err(out, truth, m) < 0.5
     assert _invented(out, truth, m) == 0
     # ...and it is not that Telea got lucky: it is far worse than either.
@@ -126,8 +126,8 @@ def test_smooth_shading_still_takes_the_nearer_shift():
     shift is 40px off the tone and covers most of the hole; the nearest shift
     that covers ALL of it is twice as far and twice as wrong. Preferring full
     coverage outright, or charging the shortfall at any fixed price, picks the
-    far one and scores 12.57. Charging it at the local variance — which on
-    smooth shading is almost nothing — leaves the answer exactly where it was.
+    far one and scores 12.57. Charging it at the local variance - which on
+    smooth shading is almost nothing - leaves the answer exactly where it was.
     """
     truth = _gradient()
     punched, m = _hole(truth, 140, 80)
@@ -141,8 +141,8 @@ def test_a_box_in_the_corner_of_the_page():
     In the middle of a page it makes no difference which way round it is
     counted: for a tidy rectangle, going left covers exactly as much as going
     right, and the opposite shift is in the candidate list anyway. In a corner
-    it is the whole story — one direction runs off the paper and the other does
-    not — and counting the wrong one of the pair pushes this hole from an exact
+    it is the whole story - one direction runs off the paper and the other does
+    not - and counting the wrong one of the pair pushes this hole from an exact
     fill to 72.05.
     """
     truth = _hatch(7, np.pi / 2)
@@ -158,7 +158,7 @@ def test_a_box_against_the_edge_cannot_source_off_the_page():
     """Pixels beyond the paper are not a source, and must not be counted as one.
 
     The lookup has to be clamped to the page or it walks off the array, and a
-    clamped read lands on the edge row — which is real, unmasked artwork, and
+    clamped read lands on the edge row - which is real, unmasked artwork, and
     would otherwise be counted as a perfectly good source. Then a shift that
     hangs half of itself over the edge of the page looks fully covered, wins,
     and delivers half a fill. On this hole that is 0.19 against 12.87.

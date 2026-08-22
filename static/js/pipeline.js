@@ -1,11 +1,11 @@
-/* pipeline.js — Detect / translate / typeset steps, scoped runs, template round-trip, job polling.
+/* pipeline.js - Detect / translate / typeset steps, scoped runs, template round-trip, job polling.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
 /* ---------------- jobs ---------------- */
 let scopeEp=null;
 /* Which PAID step each scoped endpoint is, for pricing it. "" is a step that
-   runs on this machine and costs nothing — and it must stay "" rather than be
+   runs on this machine and costs nothing - and it must stay "" rather than be
    left out, because a step nobody priced and a step that is free look the
    same on the button and are not the same thing. */
 const SCOPE_STEP = {ocr_all:'ocr', translate_all:'translate',
@@ -13,13 +13,13 @@ const SCOPE_STEP = {ocr_all:'ocr', translate_all:'translate',
                     typeset_all:''};
 
 /* The price of each choice, on the choice. lee: *"on the pop up it shoud tell
-   teh price for all the pages and and this page onli on the side"* — so it
+   teh price for all the pages and and this page onli on the side"* - so it
    goes beside the label rather than in it, and the two numbers are the two
    things you are actually choosing between.
 
    Both come from one request, priced server-side for exactly the pages each
    button would run: `prices` for the ones the button says, `one` for the page
-   on screen. A free step shows nothing at all — a price of zero on a button
+   on screen. A free step shows nothing at all - a price of zero on a button
    reads as a price nobody has worked out yet, not as free. */
 let scopeQuote = null;
 
@@ -41,6 +41,14 @@ function priceScope(){
       `<span class="scpcoin">${n} <svg class="coinpip" width="13" height="13"` +
       ` aria-hidden="true"><use href="#tctcoin"/></svg></span>`);
   };
+  // A read that happens on this computer is not bought from anybody, so the
+  // button carries no number - the same silence every other free step gets.
+  // lee: *"instaead of sayong free it shoud show nothiing"*. `run_price`
+  // agrees on the server; this is that fact, said early enough to choose on.
+  if(step === 'ocr' && typeof proj !== 'undefined' && proj
+     && (proj.settings.ocr_reader || 'ai') === 'offline'){
+    put(all, null); put(one, null); return;
+  }
   if(!step || !scopeQuote){ put(all, null); put(one, null); return; }
   put(all, (scopeQuote.prices||{})[step]);
   put(one, (scopeQuote.one||{})[step]);
@@ -101,8 +109,8 @@ async function applyTranslateResponse(){
     `${j.pages} page${j.pages===1?'':'s'}`, null);
   toast(`Replaced ${j.regions} translation${j.regions===1?'':'s'} on `+
     `${j.pages} page${j.pages===1?'':'s'}`+
-    (j.missing&&j.missing.length?` — ${j.missing.length} had no matching bubble`:'')+
-    (j.typeset_started?' — laying the text out now…':'.'), 4000);
+    (j.missing&&j.missing.length?` - ${j.missing.length} had no matching bubble`:'')+
+    (j.typeset_started?' - laying the text out now…':'.'), 4000);
   await loadProject();
   poll();                      // follows the automatic re-typeset
   showPage(cur);
@@ -118,7 +126,7 @@ async function downloadTranslateRequest(){
   URL.revokeObjectURL(u);
   toast(j.pages&&j.pages.length
     ? `Request for ${j.pages.length} page${j.pages.length>1?'s':''} downloaded.`
-    : 'Downloaded — but no page has read text yet, so it only holds the prompt.');
+    : 'Downloaded - but no page has read text yet, so it only holds the prompt.');
 }
 /* The proofread, as something you can read on a phone or hand to somebody
    else: what still wants a human first, then the whole script with the
@@ -132,8 +140,8 @@ async function downloadProofreadReport(){
   a.href=u; a.download=(j.name||'chapter')+'-proofread.md'; a.click();
   URL.revokeObjectURL(u);
   toast(j.flags
-    ? `Report downloaded — ${j.flags} thing${j.flags===1?'':'s'} still want a look.`
-    : 'Report downloaded — nothing was left flagged.');
+    ? `Report downloaded - ${j.flags} thing${j.flags===1?'':'s'} still want a look.`
+    : 'Report downloaded - nothing was left flagged.');
 }
 
 async function runScoped(thisPageOnly){
@@ -148,24 +156,24 @@ async function runScoped(thisPageOnly){
 function openDetect(){ syncDetectKinds(); $('modal').classList.add('on'); }
 function closeModal(){ $('modal').classList.remove('on'); }
 
-/* comic-text-detector — and the AI in "find" mode — read the whole page in one
+/* comic-text-detector - and the AI in "find" mode - read the whole page in one
    pass and say what kind every block is, rather than being sent looking for one
    kind at a time. The boxes below used to be greyed out for those two, on the
    grounds that they had nothing to steer; but the kind of each block IS known
    by the time the page comes back, so the choice applies perfectly well at the
-   other end — see only_kinds() in project.py. They stay live for every finder.
+   other end - see only_kinds() in project.py. They stay live for every finder.
    All the note does now is say which way round it is working. */
 /* SOUND EFFECTS, on the webtoons: the tick is back, and it works.
 
    It was greyed out with a "Coming soon" pill for four turns of one argument,
    and all four came off ONE number: on chapter 1, 82 boxes came back as sound
-   effects and of the 36 checked by hand **eighteen held no writing** — sword
+   effects and of the 36 checked by hand **eighteen held no writing** - sword
    blades, a face, two buildings, a gold ornament, a leg, a bed. lee's
    *"shound affct shoud be sissable for the detector not the user"* followed
    from that and from nothing else.
 
-   Everything built since — the character census, the art veto, the stray-mark
-   sweep — was aimed at exactly those. Re-measured on all 46 pages of the new
+   Everything built since - the character census, the art veto, the stray-mark
+   sweep - was aimed at exactly those. Re-measured on all 46 pages of the new
    chapter, every box cropped and looked at: **49 sound-effect boxes, 47 hold
    real writing**. Two do not, and they are an architectural ornament and a
    gold braid: the same class, 2 instead of 18.
@@ -176,7 +184,9 @@ function closeModal(){ $('modal').classList.remove('on'); }
    always did. `only_kinds` in project.py is what enforces the tick, and
    always was. */
 function syncDetectKinds(){
-  const det = $('detector') ? $('detector').value : '';
+  // One detector, and no menu to read it off any more.
+  const det = (typeof proj!=='undefined' && proj && proj.settings
+               && proj.settings.detector) || 'comictext';
   ['kBubble','kFree','kSfx'].forEach(id=>{
     const cb=$(id); if(!cb) return;
     cb.disabled = false;
@@ -190,7 +200,38 @@ function syncDetectKinds(){
   // whole page and the ticks are applied at the other end. It was true and it
   // was three lines of grey nobody needed before pressing a button.
   // lee: *"remove the undeserasy tet"*.
+  syncSfxOpts();
   syncTallWarning();
+}
+
+/* The sub-options under Sound effects appear with it. lee: *"shoud only
+   show up when sfx is clicked"*. Their VALUES are left alone, so turning
+   sound effects off and on again finds the sub-tick as it was. */
+function syncSfxOpts(){
+  const box=$('kSfxOpts'), on=$('kSfx') && $('kSfx').checked;
+  if(box) box.style.display = on ? '' : 'none';
+  sayHowBig();
+}
+
+/* ...AND THE SENTENCE HAS TO SAY THE FORMAT'S OWN NUMBER.
+
+   lee: *"can you swith teh manga version of this to be something more
+   appropriate to manga"*.
+
+   "About two fifths of the page" was measured on a webtoon, where the page IS
+   the panel. A manga page holds several panels across, so the same effect is
+   a much smaller share of it, and the bar was catching one sound effect in
+   sixty-two. `project.BIG_SFX_BY_MEDIUM` is where the numbers live and the
+   server sends the one that applies, so there is only ever one of each -- the
+   same arrangement as `TALL_ASPECT` below, and for the same reason: a
+   sentence with a number copied into it goes wrong quietly the first time the
+   number moves. */
+function sayHowBig(){
+  const el=$('kSfxBigWhy'); if(!el) return;
+  const share=(typeof proj!=='undefined' && proj && proj.big_sfx_share)
+              || 0.435;
+  el.textContent = 'Wider than about ' + Math.round(share * 100)
+    + '% of the page - the cleaner makes a mess of those.';
 }
 
 /* PAGES TOO LONG TO READ PROPERLY.
@@ -205,7 +246,7 @@ function syncDetectKinds(){
    number so there is only one of it.
 
    The warning says what was measured and not more than that. It is NOT that
-   the writing goes missing — padding eleven pages out to eight times their
+   the writing goes missing - padding eleven pages out to eight times their
    width barely moved recall. It is that the box list and the LABELS go: past
    six, a page loses about a quarter of its boxes and a third of what survives
    comes back a different kind. */
@@ -251,16 +292,20 @@ async function runDetect(thisPageOnly){
   const kinds=chosenKinds();
   if(!kinds.length){toast('Pick at least one kind of text.');return;}
   closeModal();
+  // The sub-tick under Sound effects. Sent every time rather than only when
+  // it is off, because the server reads ABSENT as on - so a message that
+  // forgets it and a message that means "on" have to look the same.
+  const noBig = $('kSfxBig') ? $('kSfxBig').checked : true;
   if(thisPageOnly){
     // Route through the job so single-page detection shows in the progress bar
     // too, instead of running silently.
-    await api('/api/detect_all','POST',{kinds, pages:[cur]});
+    await api('/api/detect_all','POST',{kinds, pages:[cur], no_big_sfx:noBig});
     poll();
     return;
   }
   const sel=scopedPages();
   if(!sel.length){ toast('No pages are checked.'); return; }
-  await api('/api/detect_all','POST',{kinds, pages:sel});
+  await api('/api/detect_all','POST',{kinds, pages:sel, no_big_sfx:noBig});
   poll();
 }
 
@@ -285,13 +330,13 @@ const STEPS=[
 async function typesetAll(){
   await api('/api/typeset_all','POST',{});
   setView('typeset');              // reviewing typesetting means seeing it
-  toast('Laying out the typesetting — check it before exporting.');
+  toast('Laying out the typesetting - check it before exporting.');
   poll();
 }
 
 /* Has THIS page finished step `i`?
 
-   One page, one step, one answer — the step bar counts these up and the page
+   One page, one step, one answer - the step bar counts these up and the page
    list draws one for each. It used to be written out only in the aggregate,
    so the list could show a page as a single green dot and say nothing about
    which of the six things had actually happened to it. lee: *"istaed of 1
@@ -299,7 +344,7 @@ async function typesetAll(){
    one for each step"*.
 
    A checked page with no text has nothing to do, so it PASSES every text
-   step — otherwise the counts stall (e.g. 26/30) forever on empty pages. */
+   step - otherwise the counts stall (e.g. 26/30) forever on empty pages. */
 function pageDoneStep(p, i){
   if(!p) return false;
   const checked = p.status!=='pending';
@@ -311,7 +356,7 @@ function pageDoneStep(p, i){
     case 2: return passed('translated');
     case 3: return passed('proofread');
     // clean: a page with no text has nothing to erase, and a page you cleaned
-    // yourself is excluded from cleaning — both are done the moment they
+    // yourself is excluded from cleaning - both are done the moment they
     // exist, or the step never reaches the end and Typeset stays locked.
     case 4: return noText || !!p.cleaned || !!p.custom_clean;
     case 5: return passed('typeset');
@@ -322,8 +367,8 @@ function pageDoneStep(p, i){
 
 function stepProgress(){
   const P=proj?proj.pages:[];
-  // Progress is counted over the SELECTED pages — the ones a "do all" run
-  // actually touches — so the denominator matches the ticked count, not the
+  // Progress is counted over the SELECTED pages - the ones a "do all" run
+  // actually touches - so the denominator matches the ticked count, not the
   // whole chapter. Nothing selected falls back to every page.
   const selP = (typeof selPages!=='undefined')
     ? P.filter(p=>selPages.has(p.name)) : P;
@@ -338,7 +383,7 @@ function stepProgress(){
    lee: *"this shoud be split into 3 section text for the fist 4, image or
    panel fro teh next 2 and exort"*.
 
-   The first four are about the WORDS and each one needs the one before it —
+   The first four are about the WORDS and each one needs the one before it -
    you cannot read text that has not been found, or translate what has not been
    read. The next two are about the PICTURE: cleaning can start the moment the
    boxes exist, in parallel with the whole text side, and only the typesetting
@@ -347,7 +392,7 @@ function stepProgress(){
    art or a box sheet. */
 /* The four steps that produce the WORDS, the two that produce the picture, and
    the one that writes it out. The first group was called Text, which named the
-   thing on the page rather than the work — lee: *"chnage the text on
+   thing on the page rather than the work - lee: *"chnage the text on
    screenshot 4 to say translation"*. */
 const STEP_GROUPS = [
   {label: 'Translation', steps: [0, 1, 2, 3]},
@@ -357,20 +402,20 @@ const STEP_GROUPS = [
 
 /* Nothing waits its turn any more.
 
-   The seven went unlocked for a round — lee: *"allow the user to clcik all
-   the button like clean translate without any locks"* — then locked again on
+   The seven went unlocked for a round - lee: *"allow the user to clcik all
+   the button like clean translate without any locks"* - then locked again on
    his next word, *"accualty bring ba k the locks for the 1-6 tabs but kepp the
    lock offf the edit tab"*, and now unlocked for good: *"remove the loacks on
    all the tabs"*.
 
-   The dependencies they encoded are real — you cannot read text that has not
+   The dependencies they encoded are real - you cannot read text that has not
    been found, and typesetting onto Japanese that is still there sits on top of
-   it — but they are lee's to know. The step bar still SAYS where the chapter
+   it - but they are lee's to know. The step bar still SAYS where the chapter
    is, in the count on every button and the fill under it; what it no longer
    does is decide what he is allowed to press. Running a step out of turn does
    what it always did: nothing, over nothing, and reports it.
 
-   The three groups stay. They were never the lock — they are what the seven
+   The three groups stay. They were never the lock - they are what the seven
    are FOR: the words, the picture, and writing it out. */
 function runStep(i){
   if(manualOff(i)) return;       // translating it yourself: nothing to call
@@ -407,7 +452,7 @@ function downloadManualTemplate(fmt){
   const u='/api/translation_template?fmt='+(fmt==='json'?'json':'txt');
   const a=document.createElement('a');
   a.href=u; a.download=''; a.click();
-  toast('Template downloaded — type under each label and upload it back.');
+  toast('Template downloaded - type under each label and upload it back.');
 }
 
 async function uploadManualTranslation(input){
@@ -421,8 +466,8 @@ async function uploadManualTranslation(input){
     `${j.pages} page${j.pages===1?'':'s'}`, null);
   toast(`Replaced ${j.regions} translation${j.regions===1?'':'s'} on `+
     `${j.pages} page${j.pages===1?'':'s'}`+
-    (j.missing&&j.missing.length?` — ${j.missing.length} label${j.missing.length===1?'':'s'} matched nothing`:'')+
-    (j.typeset_started?' — laying the text out now…':'.'), 4000);
+    (j.missing&&j.missing.length?` - ${j.missing.length} label${j.missing.length===1?'':'s'} matched nothing`:'')+
+    (j.typeset_started?' - laying the text out now…':'.'), 4000);
   await loadProject();
   poll();
   showPage(cur);
@@ -479,7 +524,7 @@ function _resetCancelBtn(){
 
 /* The server builds every page in the background so that moving to one for
    the first time is instant. That work is silent, which made the first minute
-   after opening a chapter look like nothing was happening — say so instead,
+   after opening a chapter look like nothing was happening - say so instead,
    in the same place the steps report themselves. Only runs while nothing else
    is going on, and stops the moment the pages are all made. */
 async function pollWarm(){
@@ -494,14 +539,40 @@ async function pollWarm(){
      || job.className==='warn') return;   // don't paint over the warning
   if(!w || !w.running || !w.total){
     if(pollWarm._said){ pollWarm._said=false; $('jobtxt').textContent='Ready';
+                        if($('jobpct')) $('jobpct').textContent='';
+                        job.classList.remove('warm');
                         $('fill').style.width='100%'; }
     return;
   }
   pollWarm._said=true;
+  /* Loading the models is not a job - `paintJob` never sees it, and the strip
+     stays `idle`, where the fill is dimmed because idle means finished. It is
+     WORK though, and it must look like work, so it gets the busy paint
+     without the busy class the guard above reads. */
+  job.classList.add('warm');
   const pct=Math.round(100*w.done/w.total);
-  $('jobtxt').textContent=`Preparing pages… ${w.done} of ${w.total}`;
+  $('jobtxt').textContent=`Preparing pages ${w.done} of ${w.total}`;
+  if($('jobpct')) $('jobpct').textContent=pct+'%';
   $('fill').style.width=pct+'%';
   pollWarm._t=setTimeout(pollWarm,1000);
+}
+
+/* THE STEP'S OWN NAME, out of whatever the run is currently saying.
+
+   A step writes its progress into the same field the step is named by, so
+   `job.label` arrives as "Reading text - AI reader, piece 17 of 23...". Two
+   things went wrong with that. The bar showed the whole sentence, cut with an
+   ellipsis, and lee wanted the name: *"remove the explation for the loading
+   bar, it shoud just say reading tetx or finsinhg text or tralstion etc"*.
+   And `renderSteps` lights a step by comparing that field to the step's job
+   name, so while a run was saying anything at all, the step it was running
+   went dark.
+
+   Everything up to the dash is the name. What follows it is the run talking,
+   and it has the whole of the bar's width to say it in only when it is a
+   warning or an error, which is what the title and the toast are for. */
+function stepName(label){
+  return String(label || '').split('\u2014')[0].split(' - ')[0].trim();
 }
 
 /* What the strip says, split out of `poll` so it can be tested without a
@@ -511,17 +582,36 @@ function paintJob(j, pct){
   const job=$('job');
   if(!job) return;
   // Three states, not two. `error` stopped the run; `warn` means it finished
-  // and something inside it quietly did the wrong thing — the case that had lee
+  // and something inside it quietly did the wrong thing - the case that had lee
   // staring at smeared pages with the bar saying "Ready".
   job.className = j.error?'err' : (j.running?'busy':(j.warn?'warn':'idle'));
   // The label is the warning's own first clause, not a fixed sentence: it used
   // to say "AI cleaning did not run" for every remark, including the ones that
   // are not faults at all.
+  /* A RUN LOADING ITS MODELS IS NOT A RUN ON PAGE ONE.
+     The checkpoints come off the disk before the first page - DB++/COO is 54s
+     on page one of a fresh process against 9.6s by page three - and the bar
+     used to spend that whole time saying "Detecting… 0 of 30". lee timed that
+     on three different cards and read it as a fifty-second page every time.
+     Say what is actually happening instead. */
+  /* The percentage has its own slot on the right of the bar now, so it comes
+     out of the sentence. That is what buys the room: the words and the number
+     used to share one 250px line, and "Proofreading… 23 of 23 pages (100%)"
+     only just fitted it. */
   const said = j.error ? j.error
-    : (j.running ? `${j.label}… ${j.done} of ${j.total} pages (${pct}%)`
-                 : (j.warn ? j.warn.split('—')[0].trim().replace(/[.,]$/,'')
-                           : 'Ready'));
+    : (j.running
+        ? (j.loading_model
+            ? `Loading ${j.loading_model}…`
+            : `${stepName(j.label)} ${j.done} of ${j.total}`)
+        : (j.warn ? j.warn.split('—')[0].trim().replace(/[.,]$/,'')
+                  : 'Ready'));
   $('jobtxt').textContent = said;
+  /* ...and it is only shown while there is a run to measure. A percentage
+     beside "Ready" is a number about nothing, and beside an error it is a
+     number about a run that stopped. */
+  const pctEl = $('jobpct');
+  if(pctEl) pctEl.textContent =
+    (j.running && !j.loading_model) ? pct + '%' : '';
   // The WHOLE of it, both on hover and on the click below. The strip is a
   // fixed width and cuts with an ellipsis, so a provider's four-hundred
   // character answer is readable without being allowed to resize the bar and
@@ -530,7 +620,12 @@ function paintJob(j, pct){
   const full = j.error || j.warn || '';
   job.title = full;
   job._full = full;
-  $('fill').style.width=(j.running?pct:(j.error?0:100))+'%';
+  /* Pacing, not measuring, while the checkpoints load: `.wait` gives the
+     fill a width of its own and slides it. */
+  const pacing = !!(j.running && j.loading_model);
+  $('bar').classList.toggle('wait', pacing);
+  $('fill').style.width =
+    pacing ? '35%' : (j.running?pct:(j.error?0:100))+'%';
 }
 
 /* Clicking the strip says the whole thing, in a toast that wraps. Nothing
@@ -551,8 +646,11 @@ async function poll(){
   const pct=j.total?Math.round(100*j.done/j.total):0;
   paintJob(j, pct);
   const cb=$('cancelJob'); if(cb) cb.style.display = j.running ? '' : 'none';
-  renderSteps(j.running?j.label:null);
-  // Which action is running right now, by its queue id — the label alone
+  // The NAME, not the sentence: `renderSteps` matches it against the step's
+  // own job name, and a step in the middle of saying something matched
+  // nothing and went dark.
+  renderSteps(j.running?stepName(j.label):null);
+  // Which action is running right now, by its queue id - the label alone
   // cannot tell two Cleans apart.
   const nowRunning = j.running
     ? ((j.queue && j.queue.running_qid) || j.label) : null;
@@ -570,7 +668,7 @@ async function poll(){
     // art did not appear until the translation had finished too.
     // lee: *"when the translat e finishes the cleanig aslso showed up"*.
     // One action ending is a moment worth looking at, so the page is brought
-    // up to date then — once per action, not once per poll.
+    // up to date then - once per action, not once per poll.
     if(changed){
       await refreshPages();
       if(proj.pages[cur]) showPage(cur);
@@ -579,14 +677,14 @@ async function poll(){
   _resetCancelBtn();
   poll._at = undefined;
   // A run has just ended, so the purse has changed and so has what the rest
-  // of the chapter would cost — pages that are now read have text boxes the
+  // of the chapter would cost - pages that are now read have text boxes the
   // translator will be charged for.
   if(typeof refreshCoins==='function') refreshCoins();
   pollWarm();
   await refreshPages();
   if(proj.pages[cur]) showPage(cur);
   if(j.cancelled){
-    toast(`Stopped — ${j.done} page${j.done===1?'':'s'} done before cancelling.`);
+    toast(`Stopped - ${j.done} page${j.done===1?'':'s'} done before cancelling.`);
   } else if(j.info && !j.warn){
     // Who cleaned what, in the words of the person asking. The only way to
     // know the hosted model is doing the hard regions used to be to stare at

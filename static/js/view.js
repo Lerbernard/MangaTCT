@@ -1,4 +1,4 @@
-/* view.js — Zoom, pan, hand tool, view switching (original/clean/typeset), tabs, results list.
+/* view.js - Zoom, pan, hand tool, view switching (original/clean/typeset), tabs, results list.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -30,7 +30,7 @@ function applyZoom(){
   const img=$('img');
   // Same authority as fitScale, and for a sharper reason here: the width was
   // taken from the ELEMENT while `scale` divided it by pageW, so between
-  // pages those two were describing different pictures — and `scale` is what
+  // pages those two were describing different pictures - and `scale` is what
   // every box is drawn with. A stale width did not just size the page wrong,
   // it put the boxes somewhere the writing is not.
   const nw=pageW||img.naturalWidth;
@@ -41,19 +41,19 @@ function applyZoom(){
     // `height:auto`.
     //
     // `auto` takes its height from the canvas's own BITMAP aspect, and the
-    // bitmap is only resized when someone paints — so on the page after a tall
+    // bitmap is only resized when someone paints - so on the page after a tall
     // one it is still 690 by 3000, and 629 CSS pixels wide at that aspect is
     // 2735 tall. The canvas lives inside the stage, so the stage became 2735
-    // tall for an 821-tall picture, and `centerPage` — which centres the
-    // STAGE — put the middle of that empty column in front of you with the
+    // tall for an 821-tall picture, and `centerPage` - which centres the
+    // STAGE - put the middle of that empty column in front of you with the
     // page scrolled 613 pixels off the top of the pane.
     //
     // lee, on the framing for the fourth time: *"try to fi the issue of teh
     // image not being centered"*. Measured in a real browser, turning from the
     // tall page to the short one left the picture at top −599 in an 849-tall
-    // pane. Every other state measured — first paint, turning back, the Find
+    // pane. Every other state measured - first paint, turning back, the Find
     // text dialog open, Fit page, 2x, hiding the side panel, a page wider than
-    // the pane — was centred to the pixel, which is why this one lasted.
+    // the pane - was centred to the pixel, which is why this one lasted.
     const nh=pageH||img.naturalHeight||0;
     pc.style.width=(nw*fitZoom*zoom)+'px';
     pc.style.height=nh ? (nh*fitZoom*zoom)+'px' : 'auto';
@@ -64,10 +64,10 @@ function applyZoom(){
   if(ri && sideBySide) ri.style.width=w+'px';   // reference keeps the zoom
   scale=w/nw;
   // The percentage is the REAL one: how big a page pixel is on screen.
-  // It used to be `zoom`, which is measured from the fit — so a page shrunk
+  // It used to be `zoom`, which is measured from the fit - so a page shrunk
   // to a third to get it in the window read "100%", and there was no number
   // anywhere that meant actual size. lee: *"double clciking teh hadns dosnt
-  // change teh zoom it jyst centers it"* — it did exactly what the readout
+  // change teh zoom it jyst centers it"* - it did exactly what the readout
   // said, which was the problem.
   $('zlabel').textContent=Math.round(scale*100)+'%';
   drawBoxes();
@@ -83,11 +83,11 @@ function toggleSideBySide(on){
   const ck=$('sbs'); if(ck) ck.checked=sideBySide;
   syncViewChrome();
   refSync();
-  // the editing pane just changed width — refit and recentre both panes
+  // the editing pane just changed width - refit and recentre both panes
   fitZoom=fitScale(); applyZoom(); centerPageSoon();
 }
 /* The reference pane is the page you are working on beside the page you
-   started from, so it says something only in the Edit view of the Edit tab —
+   started from, so it says something only in the Edit view of the Edit tab -
    on the Original view it is the same picture twice, and on Results or
    Settings there is no page in front of you at all. The switch goes where the
    pane can go, next to the other switch that follows the same rule. */
@@ -101,7 +101,7 @@ function syncViewChrome(){
   if (stw) stw.style.display = (view === 'typeset') ? 'inline-flex' : 'none';
   const rw = $('refWrap');
   if (rw) rw.style.display = (ok && sideBySide) ? 'block' : 'none';
-  // Cut / join belongs to the Translation view — the artwork as it came. In
+  // Cut / join belongs to the Translation view - the artwork as it came. In
   // the Image view the boxes are placed against the page and the server
   // refuses to cut it, so a button there would only ever offer a refusal.
   //
@@ -132,7 +132,7 @@ function refSync(){
   if(ri.dataset.page!==String(cur)){
     ri.dataset.page=String(cur);
     // With no key on the URL the server has to answer no-store, so the scan
-    // came down the wire again on every single page turn — the lag the side by
+    // came down the wire again on every single page turn - the lag the side by
     // side pane was adding. Keyed, the browser reuses the copy it has.
     // One definition of the URL, shared with showPage and the prefetcher, so
     // what was warmed is what gets asked for.
@@ -168,7 +168,7 @@ function zoomBy(f){
   // Anchor on the PAGE, not on raw scroll offsets: the old math divided
   // scroll positions (which include the huge pan border) by the image size,
   // so every click of +/− pushed the page off centre. The image point in
-  // the middle of the pane stays in the middle — an untouched, centred view
+  // the middle of the pane stays in the middle - an untouched, centred view
   // therefore zooms exactly on the centre of the page.
   const ir=img.getBoundingClientRect(), wr=wrap.getBoundingClientRect();
   let px=((wr.left+wr.width/2)-ir.left)/Math.max(1,ir.width);
@@ -188,7 +188,7 @@ function zoomBy(f){
 /* The zoom steps in whole percentage points, and lands on round ones.
 
    It used to multiply by 1.25, so from a fit of 43% the readout walked 54, 67,
-   84, 105 — every number a different arbitrary one, and never 100.
+   84, 105 - every number a different arbitrary one, and never 100.
    lee: *"when i clcik the plus and minus in the zoom it shoud not go to theses
    random bumbers, it shiud increase and decrease by 5"*. */
 const ZOOM_STEP = 5;
@@ -219,7 +219,7 @@ function centerPage(){
   wrap.scrollTop =(wrap.scrollHeight-wrap.clientHeight)/2;
 }
 /* Centre and KEEP it centred while the page is still settling. Fixed retry
-   counts kept losing the race against slow renders and late layout — so
+   counts kept losing the race against slow renders and late layout - so
    instead the centre stays "pending" and a ResizeObserver re-centres on
    every size change of the wrap or the stage, until the person takes over
    the view themselves (drag, wheel, pan). */
@@ -241,9 +241,9 @@ function centerPageSoon(){
   if(typeof ResizeObserver!=='undefined'){
     // The WRAP changing size is a different event from the stage changing
     // size, and it needs more than a re-centre: the fit was measured against
-    // the old pane. A page opened while this pane was the wrong size — the
+    // the old pane. A page opened while this pane was the wrong size - the
     // settings page still up, the window not yet laid out, a sidebar
-    // appearing — was fitted to a pane that no longer exists, so it comes out
+    // appearing - was fitted to a pane that no longer exists, so it comes out
     // too big for the one you are looking at and centring it only puts its
     // middle in front of you. lee: *"some pages are still not at the center of
     // the workspace"*.
@@ -280,8 +280,8 @@ function toggleHand(on, quiet){
   const was=handMode;
   handMode = (on===undefined) ? !handMode : !!on;
   if(handMode){ disarmTools('hand'); handPanned=false; }
-  // Picking the hand up and putting it straight back down — without ever
-  // panning — reads as "bring the page back": recentre it. NOT when another
+  // Picking the hand up and putting it straight back down - without ever
+  // panning - reads as "bring the page back": recentre it. NOT when another
   // tool put the hand away (quiet): switching tools must never move the view.
   else if(was && !handPanned && !quiet) centerPageSoon();
   // The toolbox is the one place that says what is armed; the hand's own
@@ -367,7 +367,7 @@ function syncBoxesForView(v){
   if(v==='typeset'){
     // Only on the way IN. This runs again on every page change (showPage calls
     // it), and forcing the box unconditionally meant that turning the boxes
-    // back on lasted exactly until the next page — lee: *"the hide boxes shoud
+    // back on lasted exactly until the next page - lee: *"the hide boxes shoud
     // stay off wheni switch pages"*. Entering the view still hides them; after
     // that the choice is his.
     if(boxPrefBeforeText===null){ boxPrefBeforeText=cb.checked; cb.checked=true; }
@@ -376,7 +376,7 @@ function syncBoxesForView(v){
   }
 }
 
-// A page is ready for the Edit view once its plate exists — that is, once it
+// A page is ready for the Edit view once its plate exists - that is, once it
 // has been CLEANED. The Edit view is where you paint the plate and fix the
 // typesetting, and the plate is the thing you paint on; holding the view shut
 // until typeset kept you out of it while the only thing it needs was already
@@ -384,7 +384,7 @@ function syncBoxesForView(v){
 // you did not want yet. Typeset can be re-run from inside the view. A page
 // with no text has nothing to erase and counts as ready.
 /* The Edit view is always reachable. It used to wait for the page to be
-   cleaned, on the grounds that it paints on the cleaned plate — but a page
+   cleaned, on the grounds that it paints on the cleaned plate - but a page
    that has not been cleaned simply paints on the scan, which is a thing to
    look at rather than a thing to be stopped from doing.
    lee: *"allwo teh user to clcik teh edit tab whenever"*. */
@@ -418,7 +418,7 @@ function syncTextToggle(){
   wrap.classList.toggle('off',!typeset);
   wrap.title = typeset
     ? 'Hide the text'
-    : 'Nothing is typeset yet — run Typeset to lay the text out.';
+    : 'Nothing is typeset yet - run Typeset to lay the text out.';
 }
 
 async function setView(v){
@@ -439,7 +439,7 @@ async function setView(v){
   // The strip does not need redrawing here: the view change goes through
   // `stopBrush`/`paintToolUI` on the way out of the Edit view and through
   // `showPage` on the way back in, and both of those redraw it already. A
-  // call here was a third one that could not be told from the other two —
+  // call here was a third one that could not be told from the other two -
   // and code no test can distinguish from its own absence is code that is
   // not really there.
   renderList();
@@ -453,28 +453,28 @@ async function setView(v){
   // Image (the `typeset` view) the right-hand one.
   //
   // lee's *"no i wanted you to swithc the names not the button locations"*
-  // was two things at once. The buttons were MOVING — the two switches for
+  // was two things at once. The buttons were MOVING - the two switches for
   // the typeset view appeared to the right of the pill and shoved it along,
-  // which is fixed in the markup — and the names were on the wrong buttons.
+  // which is fixed in the markup - and the names were on the wrong buttons.
   const vg=document.querySelector('.views');
   if(vg) vg.classList.toggle('right', v==='typeset');
   // The bar over the canvas is a READOUT, not a lesson. It carries the live
   // position while something is being dragged and is out of the way the rest
-  // of the time. lee: *"remove all the pop up explaiantion / tips — make teh
+  // of the time. lee: *"remove all the pop up explaiantion / tips - make teh
   // sorfware clean and prfesioanal"*.
   const hint=$('modehint');
   if(hint){ hint.textContent=''; hint.style.display='none'; }
   showPage(cur);
 }
 
-/* Whether anything has been exported yet — see refreshExports below. */
+/* Whether anything has been exported yet - see refreshExports below. */
 var hasExports = false;
 
 /* Which of the four tabs can be pressed at all.
 
    Edit with no pages is a canvas with nothing on it and a sidebar about a page
    that does not exist; Results with nothing exported is a gallery of nothing.
-   Neither is a place to be, so neither can be reached — by a click or by a
+   Neither is a place to be, so neither can be reached - by a click or by a
    call. lee: *"al the edit page shoud not be assibisble is therae are no
    pages"* and *"it hsoud not be accassel uptil the user export"*. */
 function hasPages(){
@@ -494,13 +494,13 @@ function hasPages(){
 /* Results was unlocked for exactly one round. lee: *"the result tab shoud be
    unloacked"*, then, having looked at it: *"re lock the results page after
    export is doen"*. So it is shut again until this project has written
-   something out — which is what he asked for in the first place, *"it hsoud
+   something out - which is what he asked for in the first place, *"it hsoud
    not be accassel uptil the user export"*. */
 function tabShut(t){
   if(t==='edit' && !hasPages())
-    return 'Nothing to work on yet — add pages on the File tab first.';
+    return 'Nothing to work on yet - add pages on the File tab first.';
   if(t==='results' && !hasExports)
-    return 'Nothing exported yet — finish a page and press Export on the ' +
+    return 'Nothing exported yet - finish a page and press Export on the ' +
            'Workspace tab, and the results appear here.';
   return '';
 }
@@ -520,7 +520,7 @@ function setTab(t, byHand){
   // "manga" was a page of its own. It is a group inside Settings now, so the
   // old name still works and lands in the same place.
   if(t==='manga') t='settings';
-  // A tab that cannot be opened says why — but only when a person asked. The
+  // A tab that cannot be opened says why - but only when a person asked. The
   // app itself calls setTab('edit') after saving settings and after closing
   // the picker, and a toast about missing pages in the middle of that is an
   // answer to a question nobody put.
@@ -551,7 +551,7 @@ function setTab(t, byHand){
   syncViewChrome();
   // Coming back to the page. While another tab was up the stage was hidden,
   // and a hidden scroll box has its scroll position reset to zero by the
-  // browser — on a pane that centres the page with a wide pan border either
+  // browser - on a pane that centres the page with a wide pan border either
   // side, zero means the page is parked off in the corner, out of sight. The
   // pane also had no width to fit against while it was hidden, so the fit is
   // measured again now that it has one, and the page is put back in the
@@ -560,7 +560,7 @@ function setTab(t, byHand){
   if(typeof renderToolbar==='function') renderToolbar();
   // The step bar (Find text / Read / … progress) belongs to the editing
   // workflow, so it only shows on the Edit page. So do the page tools in the
-  // top bar — zoom, snap, hide boxes, Original/Edit — which on any other tab
+  // top bar - zoom, snap, hide boxes, Original/Edit - which on any other tab
   // are controls for a canvas that is not on screen.
   const wk=$('work'); if(wk) wk.style.display = t==='edit' ? '' : 'none';
   const pt=$('pageTools');
@@ -568,7 +568,7 @@ function setTab(t, byHand){
   const rt=$('resultTools');
   if(rt) rt.style.display = t==='results' ? '' : 'none';
   // The page list carries the "+ Add pages" button, which is not offered on
-  // Results — so the list has to be rebuilt when the tab changes, not only
+  // Results - so the list has to be rebuilt when the tab changes, not only
   // when the pages do.
   if(typeof renderPages==='function') renderPages();
   syncTabs();
@@ -593,19 +593,19 @@ function _pickSection(nav, body, name){
 function setSettingsTab(name){
   _pickSection('#setNav','#setBody',name);
   // The synopsis lives on one of these sections and cannot be measured until
-  // that section is the visible one — a textarea inside a hidden page measures
+  // that section is the visible one - a textarea inside a hidden page measures
   // as zero.
   if(typeof growSynopsis==='function') growSynopsis();
 }
 /* The story sections used to be a page of their own. Anything that still asks
    for one by its old name lands on the same section. */
 function setMangaTab(name){ setSettingsTab(name); }
-/* The File screen's rail. One section on it today — New project — and the
+/* The File screen's rail. One section on it today - New project - and the
    machinery is the settings page's, so adding the second is a button and a
    <section>. */
 function setFileTab(name){ _pickSection('#fileNav','#fileBody',name); }
 /* Whether anything has been exported yet. The Results tab is not a place to
-   go and look at nothing — until a chapter has been exported there is nothing
+   go and look at nothing - until a chapter has been exported there is nothing
    there and no reason to be able to press it.
    lee: *"the resulat page shoud be empty until the project is exported and it
    hsoud not be accassel uptil the user export"*.
@@ -638,7 +638,7 @@ async function loadResults(){
     // column of a centred grid and reads as a caption for a page that is not
     // there.
     : `<p class="muted" style="flex:1 0 100%;text-align:center;margin:40px 0">
-       Nothing exported yet. Press <b>Export folder</b> — pages
+       Nothing exported yet. Press <b>Export folder</b> - pages
        will appear here and in <code>${j.dir||'out/pages'}</code>.</p>`;
 }
 function openResult(i,name){

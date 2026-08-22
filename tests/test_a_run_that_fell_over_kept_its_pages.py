@@ -6,8 +6,8 @@ tranaltiong look into that"*.
 A run over a chapter did all its pages and then saved once, after the loop.
 Two ways out of that loop skipped the save entirely:
 
-* an exception — a rate limit on page 12, a reply the model mangled, a network
-  blip — jumped straight past it to the `except`;
+* an exception - a rate limit on page 12, a reply the model mangled, a network
+  blip - jumped straight past it to the `except`;
 * and until it was found, every page before the failure lived in memory and
   nowhere else. The editor answers from memory, so the words were still on
   screen and everything looked fine. They were gone the next time the project
@@ -16,8 +16,8 @@ Two ways out of that loop skipped the save entirely:
 Twenty-three pages translated, a failure on the twelfth, and eleven pages of
 translation never written down. That is the shape of "sometimes I lose some".
 
-So: each page is written as it is finished — through `save_soon`, which
-coalesces, so a chapter still costs about one write — and the run writes again
+So: each page is written as it is finished - through `save_soon`, which
+coalesces, so a chapter still costs about one write - and the run writes again
 on the way out however it leaves, error or cancel or clean finish.
 """
 import json
@@ -116,7 +116,7 @@ def test_each_page_is_written_as_it_goes_not_only_at_the_end(proj):
 
 def test_the_write_is_coalesced_so_a_long_chapter_still_costs_one(proj):
     """`save_soon` is what makes per-page affordable. Marking it dirty forty
-    times must not be forty half-megabyte writes into a synced folder —
+    times must not be forty half-megabyte writes into a synced folder -
     lee: *"it works but very slow"* is the other half of this."""
     writes = []
     real = Project.save

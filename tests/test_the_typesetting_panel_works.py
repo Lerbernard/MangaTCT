@@ -4,10 +4,10 @@
 * *"the outline obsucures the gradient"*
 * *"ehen i turn off teh gradient it donts accualy turn off"*
 * *"th outer line donet work"*
-* *"remove the last 2 buttons"* — Keep this / Auto-fit again
+* *"remove the last 2 buttons"* - Keep this / Auto-fit again
 * *"make the x buttons red"*
-* *"remove this box"* — the Text box, with a picture of it
-* *"the text is overflowing"* — the overflow warning, cut off by the row
+* *"remove this box"* - the Text box, with a picture of it
+* *"the text is overflowing"* - the overflow warning, cut off by the row
 * *"this message sho8d show on teh edit page"*
 * *"something i make the text big it randonly becomes smalle while teh text box
   remain big"*
@@ -87,7 +87,7 @@ def test_the_text_box_is_gone_and_the_warning_is_there_instead(ed):
     """lee, with a picture of the Text group: *"remove this box"*. The words
     are typed on the PAGE, where you can see them land; a second copy in the
     panel was the same sentence in two places. And the warning about this
-    block belongs where the block is worked on — it used to be a chip in the
+    block belongs where the block is worked on - it used to be a chip in the
     box list, which is not on screen in the Edit view at all."""
     pg, _p, errs = ed
     titles = pg.evaluate(
@@ -122,7 +122,7 @@ def test_the_warning_is_only_in_one_place(ed):
     """lee, with a picture of each: *"this shoud not be on this page anymore
     becasue its alraedy on teh edit page remve it"*.
 
-    It used to be in both — a chip in the box list AND the line under the
+    It used to be in both - a chip in the box list AND the line under the
     sub-type. The list copy is the one that goes: everything the warning asks
     you to do about it (set the block smaller, widen the box, cut a word) is
     done in the Edit view."""
@@ -144,7 +144,7 @@ def test_the_warning_is_not_hard_against_the_sub_type_box(ed):
     """lee, with a picture: *"add some sapce betwwen these in teh edit page"*.
 
     A red box touching the bottom edge of a select reads as part of that
-    select — as if the sub-type itself were in error. It needs more air above
+    select - as if the sub-type itself were in error. It needs more air above
     it than the 3px a label sits above its own control, or the grouping says
     the wrong thing."""
     pg, _p, errs = ed
@@ -194,7 +194,7 @@ def test_all_caps_reaches_the_page(ed):
 
 
 def test_turning_the_gradient_off_turns_it_off(ed):
-    """It was read as `ov.fg2 || st.fg2` — the SAVED override first — so a
+    """It was read as `ov.fg2 || st.fg2` - the SAVED override first - so a
     colour just cleared went on being drawn: the live style was `''`, which
     `||` steps straight past, and the override still held the old value.
     lee: *"ehen i turn off teh gradient it donts accualy turn off"*."""
@@ -208,7 +208,7 @@ def test_turning_the_gradient_off_turns_it_off(ed):
         "document.querySelectorAll('#overlay .tl.grad').length") > 0
     # Checked AT ONCE. The round trip eventually writes the empty colour into
     # the override as well, at which point both readings agree and the bug is
-    # invisible — the whole complaint is about what the page does in the
+    # invisible - the whole complaint is about what the page does in the
     # meantime, which is every moment you are actually looking at it.
     pg.evaluate("clearGradient(1)")
     pg.wait_for_timeout(120)
@@ -227,7 +227,7 @@ def test_turning_the_gradient_off_turns_it_off(ed):
 
 def test_the_outline_does_not_cover_the_gradient(ed):
     """The gradient was a background on the LINE, and the outline span is a
-    child of that line — so it painted over the background and swallowed the
+    child of that line - so it painted over the background and swallowed the
     whole gradient at any width above a hairline.
     lee: *"the outline obsucures the gradient"*."""
     pg, _p, errs = ed
@@ -272,7 +272,7 @@ def test_the_outer_glow_shows(ed):
 
 def test_a_reply_that_predates_the_last_keystroke_is_thrown_away(ed):
     """The ordering counter was bumped where the request went OUT, so a reply
-    was only discarded when a newer request had already been sent — and typing
+    was only discarded when a newer request had already been sent - and typing
     between "sent" and "received" sends nothing. The older reply was then
     accepted and overwrote the whole layout.
 
@@ -281,7 +281,7 @@ def test_a_reply_that_predates_the_last_keystroke_is_thrown_away(ed):
     """
     pg, _p, errs = ed
     # a slow preview, and an edit made while it is in the air
-    # `fetch`, not `api` — `const api` in a classic script is a lexical
+    # `fetch`, not `api` - `const api` in a classic script is a lexical
     # binding and not a property of `window`, so replacing `window.api`
     # replaces nothing and the whole race would quietly never happen.
     got = pg.evaluate("""(async()=>{
@@ -326,7 +326,7 @@ def test_a_shorter_list_of_lines_is_not_mistaken_for_agreement(ed):
 
 def test_the_list_is_not_rebuilt_under_the_caret(ed):
     """`renderList` blew the list DOM away including the box being typed in,
-    and rebuilt it from `r.dst_text` — which is a keystroke behind by
+    and rebuilt it from `r.dst_text` - which is a keystroke behind by
     definition, because typing only notes a pending edit."""
     pg, _p, errs = ed
     pg.evaluate("setView('original')")
@@ -404,7 +404,7 @@ def test_a_text_layer_becomes_an_image_layer(ed):
     assert _lines(pg) == ["look closely", "at this"]
     pg.evaluate("textToImage(1)")
     # Waited for, not slept on. The picture is drawn by the SERVER and fetched,
-    # so how long it takes is how busy the machine is — a fixed pause that is
+    # so how long it takes is how busy the machine is - a fixed pause that is
     # long enough on an idle box is not long enough on a loaded one, and this
     # test failed twice in a full suite run while passing every time on its
     # own.
@@ -422,7 +422,7 @@ def test_a_text_layer_becomes_an_image_layer(ed):
 
 def test_the_picture_is_the_typesetting_and_nothing_else(tmp_path):
     """Drawn by the SERVER, by the same renderer that writes the exported
-    page — so what you get is what would have been printed, not the browser's
+    page - so what you get is what would have been printed, not the browser's
     approximation of it. On clear paper: no plate, no other block."""
     from mangatl import editor, render as render_mod
     p = _project(str(tmp_path / "rast"))
@@ -451,7 +451,7 @@ def test_deleting_every_word_on_the_page_leaves_it_empty(ed):
     look into that and dont stop untill it works"*.
 
     The words are typed on the PAGE now, and `closeCanvasEdit` refused to
-    commit an edit that came back empty — `lines.length` was a guard on the
+    commit an edit that came back empty - `lines.length` was a guard on the
     save. So selecting everything in a block and pressing delete committed
     nothing at all and the words came straight back when the editor closed.
     Deleting all of it is the most deliberate edit there is.
@@ -492,7 +492,7 @@ def test_deleting_the_words_is_in_the_history_and_can_be_undone(ed):
     history so i cant undo the delete chnage that"*.
 
     Two faults in one line. `saveTypesetting` snapshots `r.layout_override` for
-    its undo — but `closeCanvasEdit` had already written the edit into the
+    its undo - but `closeCanvasEdit` had already written the edit into the
     region before calling it, so the undo restored the edit and pressing it
     did nothing. And the entry said "typesetting changed", which over an emptied
     block is the one line in the list you would never think to press. The
@@ -540,7 +540,7 @@ def test_undo_puts_back_the_hand_edit_and_does_not_re_typeset(ed):
     """lee: *"undo shou dnot undo the typeseeting only user made chnages"*.
 
     Set the size by hand, then delete the words, then undo. What must come
-    back is the block as the PERSON left it — hand size and all — not the
+    back is the block as the PERSON left it - hand size and all - not the
     fitter's own answer. `reset` is the endpoint's word for "there was no hand
     edit here, typeset it from the sentence"; using it unconditionally would
     make every undo throw away whatever the person had already done to that
@@ -571,7 +571,7 @@ def test_the_outline_box_says_what_is_actually_drawn(ed):
     """lee, with a screenshot of a heavily outlined *COUGH*: *"make sure the
     outile alway match, the caufht outline says 1 when it clearly not"*.
 
-    The box fell back to a bare 1 when the region carried no saved style —
+    The box fell back to a bare 1 when the region carried no saved style -
     which is every region on a page that has just been opened, because
     `r.style` only exists after a save has been round-tripped. Meanwhile the
     canvas drew `L.stroke`, the width the fitter chose: two or more on
@@ -593,7 +593,7 @@ def test_the_outline_box_says_what_is_actually_drawn(ed):
 
 
 def test_a_blank_line_typed_on_the_page_survives(ed):
-    """`editLines` trimmed every line and dropped the empty ones — the same
+    """`editLines` trimmed every line and dropped the empty ones - the same
     rule the panel's line box abandoned rounds ago."""
     pg, _p, errs = ed
     pg.evaluate("editOnCanvas(1)")

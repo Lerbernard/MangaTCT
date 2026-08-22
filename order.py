@@ -66,7 +66,7 @@ def _rotate_boxes(boxes: Sequence[Box], deg: float) -> list[Box]:
 
 
 def _find_gaps(intervals: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """Clear gaps along one axis as (width, midpoint), widest first — the
+    """Clear gaps along one axis as (width, midpoint), widest first - the
     widest gutter is the likeliest real panel boundary."""
     if len(intervals) < 2:
         return []
@@ -125,7 +125,7 @@ def _xycut(idxs: list[int], rot_boxes: list[list[Box]], rtl: bool,
                         + _xycut(second, rot_boxes, rtl, gray))
 
     # 1. HORIZONTAL cuts, searched across EVERY rotation before any vertical
-    #    cut is considered — rows before columns is how these pages read.
+    #    cut is considered - rows before columns is how these pages read.
     #    (Vertical used to fire at 0° before a slanted row gutter was ever
     #    tried at ±6°, which split diagonal layouts into columns and read a
     #    bottom panel before the top panel had finished.)
@@ -156,7 +156,7 @@ def _xycut(idxs: list[int], rot_boxes: list[list[Box]], rtl: bool,
 
     # 3. No clean cut anywhere: overlapping / heavily diagonal layout.
     #    Band the boxes into visual rows by vertical position and read each
-    #    band across — much closer to how a human resolves a messy page than
+    #    band across - much closer to how a human resolves a messy page than
     #    the old rightmost-edge sort.
     base = rot_boxes[0]
     order = sorted(idxs, key=lambda i: base[i][1] + base[i][3] / 2)
@@ -209,7 +209,7 @@ def _order_box(r) -> Box:
 def _page_gray(page):
     """Grayscale page image for panel-border detection, or None. A blank
     placeholder image (the editor builds one when it only re-orders existing
-    boxes) is uniform, which would read as border everywhere — reject it so
+    boxes) is uniform, which would read as border everywhere - reject it so
     ordering falls back to the geometry-only path."""
     img = getattr(page, "image", None)
     if img is None or getattr(img, "size", 0) == 0 or getattr(img, "ndim", 0) < 2:

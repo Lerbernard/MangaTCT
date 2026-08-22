@@ -7,7 +7,7 @@ managa itselft has it"*.
 Softening a swear is a mistranslation. The author decided how hard that line
 lands, and a translator who letters "f***" where the Japanese says the word
 outright has edited the book. Mirroring a mask the page DOES carry is the
-opposite — that mask is part of what the page says, and it has to survive the
+opposite - that mask is part of what the page says, and it has to survive the
 trip through the typesetter intact.
 
 Two halves, because neither is enough alone:
@@ -19,7 +19,7 @@ Two halves, because neither is enough alone:
   censoring on its own account, and the region is flagged so lee sees it.
 
 It only reports. Nothing can put a word back once the model has thrown it away,
-and a page that fails outright is worse than a page with one line to check —
+and a page that fails outright is worse than a page with one line to check -
 lee: *"ill ratter have it do a bad job then not do it at all"*.
 """
 from types import SimpleNamespace

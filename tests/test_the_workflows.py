@@ -34,7 +34,7 @@ def test_both_workflows_are_there():
 def test_the_site_is_rebuilt_rather_than_shipped_as_committed(site):
     """`index.html` is generated. Deploying the committed copy ships whatever
     was last built by hand, which on the day somebody forgets is a stale
-    page — and a stale page looks exactly like a current one."""
+    page - and a stale page looks exactly like a current one."""
     assert "python site/build.py" in site
     assert "channelId: live" in site
 
@@ -70,7 +70,7 @@ def test_two_deploys_cannot_race(site):
 
 def test_a_broken_picture_cannot_reach_the_live_site():
     """The guard is `build.py`'s exit code, so the workflow needs nothing of
-    its own — but something has to hold that it still exits non-zero."""
+    its own - but something has to hold that it still exits non-zero."""
     src = (PKG / "site" / "build.py").read_text(encoding="utf-8")
     assert "raise SystemExit(1 if broken else 0)" in src
 
@@ -79,20 +79,20 @@ def test_a_broken_picture_cannot_reach_the_live_site():
 
 def test_the_test_workflow_names_no_tests(tests_wf):
     """The whole point. A list of test files in a YAML file is a list that
-    rots — you add a file, and CI silently stops covering it."""
+    rots - you add a file, and CI silently stops covering it."""
     body = tests_wf.split("jobs:", 1)[1]
     named = re.findall(r"tests/test_\w+\.py", body)
     assert not named, named
 
 
 def test_it_runs_the_whole_suite_and_lets_the_browser_tests_skip(tests_wf):
-    """`tests/browserpool.py` skips when Chromium is not there — it has since
+    """`tests/browserpool.py` skips when Chromium is not there - it has since
     it was written, because a machine without one was always a case it had to
     survive. So CI installs everything EXCEPT Playwright and gets the
     non-browser tests for free, with the rest reported as skipped rather than
     quietly missing."""
     assert "python -m pytest tests" in tests_wf
-    # Asked of what is INSTALLED, not of the file — the comment above the step
+    # Asked of what is INSTALLED, not of the file - the comment above the step
     # has to be able to say the word it is explaining.
     installed = " ".join(re.findall(r"pip install ([^\n]*(?:\n\s+[^\n-][^\n]*)*)",
                                     tests_wf))
@@ -171,7 +171,7 @@ def test_the_firebase_web_config_is_allowed_to_be_there():
 
 def test_the_generated_page_is_not_carried_in_the_history():
     """Three megabytes of base64, rewritten on every build. `index.html` IS
-    tracked — it is what Firebase serves and it is small."""
+    tracked - it is what Firebase serves and it is small."""
     ign = (PKG / ".gitignore").read_text(encoding="utf-8")
     assert "site/mangatct-site-standalone.html" in ign
     assert "\nsite/index.html" not in ign
@@ -181,12 +181,12 @@ def test_the_generated_page_is_not_carried_in_the_history():
 
 def test_no_test_builds_a_project_outside_its_own_temp_directory():
     """`Project.__init__` calls `os.makedirs` on the path it is given. A test
-    that hands it an absolute path writes there — and the one that did wore a
+    that hands it an absolute path writes there - and the one that did wore a
     name saying it would not: `/nonexistent-so-nothing-is-written`.
 
     A name is not a permission. Running as root it created that directory at
     the root of the filesystem, every run, for as long as it existed; running
-    as anybody else — which is what CI is — it was a PermissionError and a red
+    as anybody else - which is what CI is - it was a PermissionError and a red
     build. The two look nothing alike and are the same mistake.
     """
     import re

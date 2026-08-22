@@ -5,12 +5,12 @@ lee's clean report for one page:
 > *Cleaned 10 boxes: 6 filled flat (plain bubbles), 4 cleaned by the AI.*
 
 That page has five plain white bubbles on it. The sixth flat fill is a box that
-had no business on that path — and there was no way to ask which one it was.
+had no business on that path - and there was no way to ask which one it was.
 Several rounds went into guessing at it: a black balloon, a column of outside
 text on a hatched cloak, a sound effect, all plausible, none checkable.
 
-The cleaner has always known this per box — `rec["how"]` in `inpaint_page`'s
-own bookkeeping — and thrown it away, keeping only a count for the chapter. It
+The cleaner has always known this per box - `rec["how"]` in `inpaint_page`'s
+own bookkeeping - and thrown it away, keeping only a count for the chapter. It
 is written onto the region now, stored with it, and shown on the row in
 Cleaning per bubble.
 
@@ -31,7 +31,7 @@ H, W = 520, 760
 def _page(seed=0):
     """`seed` puts a unique speck on the page. The finished plate is CACHED by
     what is in the page, so two tests built from identical pixels would share
-    one plate — and a reused plate has no routes to report, because the
+    one plate - and a reused plate has no routes to report, because the
     inpainter never ran. That is honest (the chapter report says the same
     thing about a reused page) and it would make these tests measure the cache
     rather than the cleaner."""
@@ -52,7 +52,7 @@ def _project(root, seed=0):
     from mangatl import editor
     from mangatl.project import Project
     # The finished plate is cached in memory under the page's BOX GEOMETRY, and
-    # every fixture here has the same boxes — so without this the second test
+    # every fixture here has the same boxes - so without this the second test
     # would be handed the first one's plate, the inpainter would never run, and
     # there would be no routes to report. (A reused plate legitimately has
     # none: `test_a_reused_plate_reports_nothing` pins that.)
@@ -82,9 +82,9 @@ def test_each_box_says_which_way_it_went(tmp_path):
     assert routes[1] == "flat fill", routes
     assert routes[2] and routes[2] != "flat fill", routes
     # …and every route named on a box is one the chapter report also counted.
-    # A box can say more than one thing — "telea + second + redraw" is a box
+    # A box can say more than one thing - "telea + second + redraw" is a box
     # the ordinary clean did, the second step went back over, and the redraw
-    # put a line back through — so each part is looked up on its own.
+    # put a line back through - so each part is looked up on its own.
     said = {"second": "second pass", "redraw": "redrawn"}
     for r in page.regions:
         for part in (r.clean_route or "").split(" + "):
@@ -124,7 +124,7 @@ def test_it_is_stored_with_the_box(tmp_path):
 
 def test_it_is_not_restored_from_the_record(tmp_path):
     """A fact about the last run. Handing it back on load would answer "how was
-    this cleaned" with something that may no longer be true — and the answer
+    this cleaned" with something that may no longer be true - and the answer
     people act on is worse than useless when it is stale."""
     from mangatl import editor
     from mangatl.project import region_from_record
@@ -140,7 +140,7 @@ def test_it_is_not_restored_from_the_record(tmp_path):
 
 
 def test_strokes_only_is_recorded_beside_the_route(tmp_path):
-    """"core only" is not a route — it is something that ALSO happened. It
+    """"core only" is not a route - it is something that ALSO happened. It
     rides beside the route on the box for the same reason it does in the
     report: the box still went somewhere, it just went there with only its
     letter strokes in the mask.
@@ -177,7 +177,7 @@ def test_strokes_only_is_recorded_beside_the_route(tmp_path):
 
 
 def test_a_box_with_the_eye_closed_is_still_cleaned_underneath(tmp_path):
-    """A closed eye does not stop the cleaner — the page is cleaned in full and
+    """A closed eye does not stop the cleaner - the page is cleaned in full and
     that box's original pixels are pasted back over the finished plate, which
     is what makes the toggle instant. So it HAS a route, and the row does not
     show it: "not cleaned" is the truer thing to say about a box you asked to
@@ -201,7 +201,7 @@ def test_a_box_with_the_eye_closed_is_still_cleaned_underneath(tmp_path):
 
 
 def test_the_panel_says_it_in_words(tmp_path):
-    """The row reads "Region 1 — filled flat", not "Region 1 — flat fill".
+    """The row reads "Region 1 - filled flat", not "Region 1 - flat fill".
     Parsed out of the file, so the names on the row and the names in the
     report cannot drift apart unnoticed."""
     from pathlib import Path
@@ -217,7 +217,7 @@ def test_the_panel_says_it_in_words(tmp_path):
 
 def test_a_reused_plate_reports_nothing(tmp_path):
     """When the plate comes back from the cache the inpainter never ran, so
-    there is nothing to say about how any box was cleaned — and saying nothing
+    there is nothing to say about how any box was cleaned - and saying nothing
     is right. A route left over from some earlier page would be a lie about
     this one."""
     from mangatl import editor

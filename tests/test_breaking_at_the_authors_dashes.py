@@ -1,6 +1,6 @@
 """A balloon too narrow for its words breaks where the author already broke it.
 
-lee, with eight before-and-afters — GLOW-SAN! set as GLOW- / SAN!, LOOK
+lee, with eight before-and-afters - GLOW-SAN! set as GLOW- / SAN!, LOOK
 CLOSELY... set as LOOK / CLOSELY / ... :
 
 > *can you make it so that when there isnst enoghth space to have teh minimuin
@@ -14,7 +14,7 @@ dictionary says a word may be cut. This adds nothing at all: it breaks only
 where the text already has a dash or a row of dots, and if there is no dash
 and no row of dots it does nothing.
 
-It only runs when the ordinary fit has already failed at `min_font` — that is
+It only runs when the ordinary fit has already failed at `min_font` - that is
 the condition lee named, and it is what keeps the rule from quietly reshaping
 balloons that were fine.
 """
@@ -46,7 +46,7 @@ def _balloon(text, w, h):
 
 
 def _both(text, w, h, cfg=None):
-    """(without the pass, with it) — layout and flag for each."""
+    """(without the pass, with it) - layout and flag for each."""
     from mangatl import typeset as T
     cfg = cfg or _cfg()
     r = _balloon(text, w, h)
@@ -86,7 +86,7 @@ def test_a_break_needs_something_on_both_sides():
     """A trailing dash is how a line ends and a leading one is an interrupted
     speaker. Cutting at either would leave a dash standing alone on a line of
     its own, which is the one thing a dash must never do. Same for an
-    ellipsis that opens a sentence — it belongs to the words it introduces."""
+    ellipsis that opens a sentence - it belongs to the words it introduces."""
     assert author_breaks("WHAT—") == ["WHAT—"]
     assert author_breaks("—WELL") == ["—WELL"]
     assert author_breaks("...GLOW") == ["...GLOW"]
@@ -104,7 +104,7 @@ def test_a_full_stop_is_a_full_stop():
 
 def test_pieces_that_are_not_broken_go_back_together():
     """The fitter is handed the pieces spaced apart so it MAY break between
-    them. Two pieces that land on one line are one word again — GLOW- SAN!
+    them. Two pieces that land on one line are one word again - GLOW- SAN!
     with a space in it is not a word anybody wrote."""
     toks, glue = author_break_tokens("GLOW-SAN!")
     assert (toks, glue) == (["GLOW-", "SAN!"], [False, True])
@@ -129,7 +129,7 @@ def test_lines_that_are_not_the_sequence_handed_out_are_left_alone():
     assert rejoin_author_breaks(["GLOW-"], toks, glue) == ["GLOW-"]
     # The one that bites: the right NUMBER of words, drawn from the wrong end
     # of the sequence. Rebuilding from the pieces in hand would silently
-    # rewrite the line — LOOK would appear in a line that never had it.
+    # rewrite the line - LOOK would appear in a line that never had it.
     toks, glue = author_break_tokens("LOOK CLOSELY...")
     assert rejoin_author_breaks(["CLOSELY ..."], toks, glue) == ["CLOSELY ..."]
 
@@ -140,8 +140,8 @@ def test_putting_a_pair_back_together_never_widens_the_line():
     The fitter measured lines with a space between the pieces; the rejoined
     line has that space taken out, so it is narrower, so a layout that fitted
     still fits and a line that was centred is still centred on the same
-    point. If a font ever made a rejoin WIDER — a kerning pair that opens up
-    where a space closes — that reasoning breaks and this says so."""
+    point. If a font ever made a rejoin WIDER - a kerning pair that opens up
+    where a space closes - that reasoning breaks and this says so."""
     from mangatl.typeset import _font
     f = _font(default_font_path(), 14)
     for spaced, joined in [("FACT ...", "FACT..."), ("GLOW- SAN!", "GLOW-SAN!"),
@@ -151,7 +151,7 @@ def test_putting_a_pair_back_together_never_widens_the_line():
 
 
 def test_nothing_to_break_at_costs_nothing():
-    """The fit is the expensive thing on the page — it walks every size and
+    """The fit is the expensive thing on the page - it walks every size and
     every leading. A text with no dash and no dot run has nothing this pass
     can do, and must not pay for a second identical walk to find that out.
 
@@ -159,7 +159,7 @@ def test_nothing_to_break_at_costs_nothing():
     used to be counted: one call for a plain text, two for one with a dash in
     it. That was true when this was the only thing standing behind the
     ordinary fit, and stopped being true the day a second fallback joined it
-    — a text with nothing to break at now walks on to the narrower fit, which
+    - a text with nothing to break at now walks on to the narrower fit, which
     is its own walk and its own question. The claim here is unchanged; only
     the way of asking it had to stop depending on what else exists."""
     from mangatl import typeset as T
@@ -196,12 +196,12 @@ def test_lees_four_examples_are_set_the_way_he_set_them(text, w, h, want):
     (a, fa), (b, fb) = _both(text, w, h)
     assert a.lines != want, "the balloon already broke here; fixture too easy"
     assert b.lines == want, b.lines
-    # Bigger, not smaller — the whole reason to break at all.
+    # Bigger, not smaller - the whole reason to break at all.
     assert b.font_size > a.font_size, (a.font_size, b.font_size)
     # …and above the minimum.
     assert b.font_size >= _cfg().min_font, b.font_size
     # Without this pass the block came out of `_plain_fit`, which wraps into
-    # the bounding RECTANGLE and says so by reporting `fit_ok=False` — the
+    # the bounding RECTANGLE and says so by reporting `fit_ok=False` - the
     # corners of a rectangle drawn round a balloon are not inside the balloon.
     # With it, the words are fitted to the SHAPE.
     #
@@ -222,7 +222,7 @@ def test_a_pair_the_fitter_did_not_break_is_drawn_as_one_word():
     break, does not need the dot break, and HARD... must come out as one word
     and not as HARD followed by a space and an ellipsis.
 
-    Whether that space is there is not a detail — a gap before the dots is
+    Whether that space is there is not a detail - a gap before the dots is
     the difference between a pause and a typo, and it would be in the export
     and on the page."""
     (a, fa), (b, fb) = _both("SELF-CONTROL IS HARD...", 88, 140)
@@ -241,7 +241,7 @@ def test_every_word_still_goes_in_whole(text, w, h, want):
     """Nothing is dropped and nothing is invented: run the lines together and
     you have the sentence, character for character.
 
-    Not `" ".join(lines).split() == text.split()` — that is the check for the
+    Not `" ".join(lines).split() == text.split()` - that is the check for the
     ordinary fitter, where every break is a space. Here a break can fall
     inside a word, so the words on the page are not the words in the
     sentence. What must hold is the characters, in order, once the whitespace
@@ -274,7 +274,7 @@ def test_it_stays_inside_the_box(text, w, h, want):
 
 def test_a_balloon_that_already_fits_is_not_touched():
     """The pass runs only when the ordinary fit found nothing at `min_font` or
-    above. A roomy balloon must typeset exactly as it did — otherwise this is
+    above. A roomy balloon must typeset exactly as it did - otherwise this is
     not a fallback, it is a change to how every page is set."""
     for text, w, h, _want in CASES:
         (a, fa), (b, fb) = _both(text, w + 130, h + 130)
@@ -286,7 +286,7 @@ def test_a_balloon_that_already_fits_is_not_touched():
 
 
 def test_text_with_no_dash_and_no_dots_is_unchanged():
-    """Nothing to break at, so nothing happens — including the flag, which
+    """Nothing to break at, so nothing happens - including the flag, which
     still says what it always said."""
     text = "ABSOLUTELY UNBREAKABLE PRONOUNCEMENT"
     (a, fa), (b, fb) = _both(text, 70, 90)
@@ -299,7 +299,7 @@ def test_text_with_no_dash_and_no_dots_is_unchanged():
 def test_a_word_is_still_never_split():
     """The standing rule, restated where it could most easily be broken. One
     long word with no dash in it goes under the minimum and is flagged, as it
-    always has been — no hyphen appears anywhere."""
+    always has been - no hyphen appears anywhere."""
     (a, fa), (b, fb) = _both("SUPERCALIFRAGILISTIC", 64, 90)
     assert b.lines == a.lines == ["SUPERCALIFRAGILISTIC"], (a.lines, b.lines)
     assert "-" not in "".join(b.lines)
@@ -315,7 +315,7 @@ def _tight(text, w, h):
     own chords and `_plain_fit` against the bounding rectangle, so a fixture
     that is round leaves a gap between them big enough to hide what is being
     asked. Here the two see the same box and the only difference left is the
-    one under test — where the wrap is allowed to break.
+    one under test - where the wrap is allowed to break.
     """
     W, H = w + 60, h + 60
     m = np.zeros((H, W), np.uint8)
@@ -348,8 +348,8 @@ def test_the_last_resort_breaks_at_the_dash_rather_than_shrink_under_it():
     type shoud do the line break thing wjhen the text is too small"*.
 
     Every path above this one already broke at the author's dashes before it
-    shrank anything. This one — the only one that goes UNDER the legibility
-    floor — did not, so a box with room for GLOW- over SAN! at the minimum got
+    shrank anything. This one - the only one that goes UNDER the legibility
+    floor - did not, so a box with room for GLOW- over SAN! at the minimum got
     one illegible line instead. It is one word: there is no space in it, so
     wrapping on spaces could never do anything but shrink."""
     (a, fa), (b, fb) = _with_and_without_breaks("GLOW-SAN!", 55, 60)

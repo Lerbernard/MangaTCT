@@ -2,12 +2,12 @@
 
 lee, with a before-and-after of a column of vertical Japanese printed on a
 girl's white cloak beside her hatched hood: *"can you look into why this
-cleened like this — it jusm amde a white box insated of mathing the
+cleened like this - it jusm amde a white box insated of mathing the
 backgroung"*.
 
 `_flat_from` decides whether the paper behind a block of text is one colour,
 and what colour. It samples the area with the ink stood off by
-`DILATE_PX + HALO_REACH` — twelve pixels — because twelve is how far the halo
+`DILATE_PX + HALO_REACH` - twelve pixels - because twelve is how far the halo
 fill can reach, so the question is asked over the paper the answer will be used
 to paint.
 
@@ -15,14 +15,14 @@ It had a fallback: if that left fewer than thirty pixels, ask again with a
 THREE pixel stand-off. On a column of vertical Japanese that fallback is not a
 smaller sample, it is a different question. A column's box is about thirty
 pixels wide; the ink grown by twelve covers all of it, so the proper sample is
-not small, it is **empty** — zero pixels, measured on the fixture below. What
+not small, it is **empty** - zero pixels, measured on the fixture below. What
 answered instead was a three-pixel rim hugging the letters: the least
 representative paper on the page, and on lee's crop the white cloak the words
 happen to be printed on. "Flat, and white" then licenses `_with_halo` to paint
 white out to nine pixels and `_sweep_ghosts` to widen that to fifteen.
 
 So the fallback is gone. "I cannot see enough background to tell" is not "the
-background is flat" — a region nobody can measure goes to the model, which is
+background is flat" - a region nobody can measure goes to the model, which is
 where the hard ones belong.
 
 What this file does NOT claim: that this was the cause of the white box in
@@ -102,13 +102,13 @@ def test_the_rim_would_have_said_flat_and_white():
 
 def test_a_handful_of_pixels_is_not_a_measurement():
     """Thirty, and not one. A dozen pixels of paper can be a dozen pixels of
-    anything — a fold, a stroke's skirt, the edge of a panel — and a verdict
+    anything - a fold, a stroke's skirt, the edge of a panel - and a verdict
     taken from them is the same mistake as the rim in a smaller costume."""
     img = np.full((80, 80, 3), 250, np.uint8)
     img[10:14, 10:15] = 90                     # something that is not paper
     ink = np.zeros((80, 80), np.uint8)
     ink[35:45, 35:45] = 255
-    # the area is the ink's own reach and a scrap of paper beside it — twenty
+    # the area is the ink's own reach and a scrap of paper beside it - twenty
     # pixels, which is what a narrow box leaves once the stand-off is honoured
     area = (I._dilated(ink, I.DILATE_PX + I.HALO_REACH) > 0).astype(np.uint8) * 255
     area[10:14, 10:15] = 255
@@ -121,7 +121,7 @@ def test_a_handful_of_pixels_is_not_a_measurement():
 
 def test_a_textured_background_is_not_flat():
     """The measurement itself still means something. Plenty of sample, and it
-    is tone rather than paper — the answer is no."""
+    is tone rather than paper - the answer is no."""
     img = np.full((160, 160, 3), 250, np.uint8)
     for yy in range(0, 160, 6):
         for xx in range(0, 160, 6):

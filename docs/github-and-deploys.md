@@ -2,16 +2,16 @@
 
 Everything here is one-time except the last line, which is `git push`.
 
-The repository is **private**, the site deploys to **Firebase Hosting** — the
+The repository is **private**, the site deploys to **Firebase Hosting** - the
 same project as the auth, the purse and the Stripe functions, which is where
-`firebase.json` already points it — and the tests run on every push.
+`firebase.json` already points it - and the tests run on every push.
 
 ---
 
 ## 1. Make the repository
 
 In a normal terminal on your machine (PowerShell or Git Bash), not through
-Cowork — git through the file bridge cannot delete its own lock files and
+Cowork - git through the file bridge cannot delete its own lock files and
 leaves a mess behind.
 
 ```bat
@@ -29,7 +29,7 @@ Nothing to install. Go to <https://github.com/new> and make a repository:
 That last line matters. This folder is already a git repository with its own
 history; a repo created with a README has a commit of its own, the two
 histories have nothing in common, and the push is refused with
-`fetch first` — which reads like a network problem and is not one.
+`fetch first` - which reads like a network problem and is not one.
 
 Then, in the folder:
 
@@ -39,7 +39,7 @@ git remote add origin https://github.com/YOURNAME/mangatl.git
 git push -u origin main
 ```
 
-The first push opens a browser to sign in — that is Git Credential Manager,
+The first push opens a browser to sign in - that is Git Credential Manager,
 which comes with Git for Windows, and it only asks once.
 
 If `git remote add` says *"remote origin already exists"*, the address is
@@ -57,7 +57,7 @@ git remote set-url origin https://github.com/YOURNAME/mangatl.git
 winget install --id GitHub.cli
 ```
 
-Then **close and reopen PowerShell** — a new program is not on the PATH of a
+Then **close and reopen PowerShell** - a new program is not on the PATH of a
 window that was already open, which is what
 `The term 'gh' is not recognized` means. After that it is one command instead
 of three:
@@ -75,7 +75,7 @@ Already excluded by `.gitignore`, and worth knowing:
 |---|---|
 | `.env` | your keys |
 | `out/`, `proj_*/` | 425MB of chapters you have worked on |
-| `models/`, `*.pt`, `*.onnx` | 200MB of model weights — `get_models.py` fetches them |
+| `models/`, `*.pt`, `*.onnx` | 200MB of model weights - `get_models.py` fetches them |
 | `node_modules/`, `.firebase/` | rebuildable |
 | `_to_delete/` | the folder Cowork moves things to instead of deleting |
 | `site/mangatct-site-standalone.html` | generated, and 3MB of base64 per rebuild |
@@ -84,7 +84,7 @@ Already excluded by `.gitignore`, and worth knowing:
 private keys, API keys, Stripe keys and service accounts before writing this.
 The two things that look like keys are a test fixture called
 `s3cret-token-nobody-should-see` and the Firebase web config in
-`site/config.js`, which is not a secret — it identifies the project and
+`site/config.js`, which is not a secret - it identifies the project and
 authorises nothing. What stops somebody using it is `firestore.rules` and the
 Cloud Functions.
 
@@ -101,7 +101,7 @@ One command, run in the same folder:
 firebase init hosting:github
 ```
 
-This one is the **Firebase** CLI, not `gh` — a different program, and the one
+This one is the **Firebase** CLI, not `gh` - a different program, and the one
 you already have if `npm run test:rules` has ever worked. If it has not:
 
 ```bat
@@ -117,13 +117,13 @@ GitHub as a repository secret called
 **`FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT`**, and offers to write workflow
 files.
 
-**Say NO to "run a build script before every deploy"** — `site.yml` already
+**Say NO to "run a build script before every deploy"** - `site.yml` already
 runs `python site/build.py`. **Say NO to "automatic deployment to your live
 channel when a PR is merged"** as well: that is exactly what `site.yml` does,
 and two workflows deploying one site would race.
 
 It writes `.github/workflows/firebase-hosting-pull-request.yml` whatever you
-answer. Keep it — it only runs on pull requests and gives each one a temporary
+answer. Keep it - it only runs on pull requests and gives each one a temporary
 preview URL, which nothing else here does.
 
 `site.yml` reads `FIREBASE_SERVICE_ACCOUNT_MANGATCTPROJECT`, the name the CLI
@@ -135,7 +135,7 @@ by hand would quietly stop being the one it updates.
 
 It creates the account and then asks Google to grant it permissions a moment
 later, before the account has finished propagating. Wait a minute and run it
-again. If it keeps happening, do it by hand — Google Cloud Console → Service
+again. If it keeps happening, do it by hand - Google Cloud Console → Service
 Accounts → create one with **Firebase Authentication Admin**, **Firebase
 Hosting Admin**, **Cloud Run Viewer** and **API Keys Viewer**, download a JSON
 key, and paste the whole file into a GitHub secret of that name.
@@ -157,14 +157,14 @@ minute. Push anything at all and the tests run.
 
 ## What the two workflows do
 
-### `.github/workflows/site.yml` — the site
+### `.github/workflows/site.yml` - the site
 
 Runs on a push to `main` that touches `site/`, and on a button in the Actions
 tab when you want it live without touching a file.
 
 **It rebuilds the page rather than shipping what you committed.** `index.html`
 is generated by `site/build.py`, so building it here means what goes live is,
-by definition, what `build.py` makes — a commit you forgot to rebuild cannot
+by definition, what `build.py` makes - a commit you forgot to rebuild cannot
 quietly ship a stale page.
 
 `build.py` **exits non-zero when the page asks for a picture that is not in
@@ -173,25 +173,25 @@ empty *slot* is a different thing and is fine: it is a screenshot you have not
 taken yet, and it is drawn as a labelled dashed box. The build prints the list
 of what it is still waiting for every time it runs.
 
-Deploys are serialised, and a newer push cancels an older one still running —
+Deploys are serialised, and a newer push cancels an older one still running -
 two overlapping deploys land in either order, and the one that lands second is
 the one you see.
 
-### `.github/workflows/tests.yml` — the tests
+### `.github/workflows/tests.yml` - the tests
 
 Runs on every push and every pull request.
 
 **There is no list of which tests to run in it, and there must not be.** A list
 in a workflow file rots: you add a test file, and CI silently stops covering
 it. Instead it installs everything except Playwright, and the browser tests
-skip themselves — `tests/browserpool.py` has done that since it was written,
+skip themselves - `tests/browserpool.py` has done that since it was written,
 because a machine with no Chromium was always a case it had to survive.
 
 That is **1,601 tests in about five minutes**, with the ~390 that need a
 browser reported as *skipped* rather than quietly missing. The full run,
 browsers and all, is still `python -m pytest tests` on your own machine.
 
-A second job runs `npx vitest run tests/functions` — the arithmetic that
+A second job runs `npx vitest run tests/functions` - the arithmetic that
 decides what a pack is worth and what a refund gives back. `tests/rules` is not
 in CI: it needs the Firestore emulator and the Firebase CLI, and it runs on
 your machine.

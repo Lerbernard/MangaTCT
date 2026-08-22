@@ -5,7 +5,7 @@ make t so that when i update it teh bubble type it accuavly changes or make it
 the typeseeting accuaooly redo the page when i hit the tyset tehh page"*.
 
 He was right, and the reason is worth writing down. A chapter is held as
-GEOMETRY — masks are rebuilt from records on every load — and the balloon a
+GEOMETRY - masks are rebuilt from records on every load - and the balloon a
 region was given is stored as its `polygon`. Calling a box "outside text" only
 rewrote `kind`. The panel-shaped polygon the balloon finder had handed it was
 still sitting in the record, so the page came back with the same placement area
@@ -14,7 +14,7 @@ another, and the geometry won. Pressing Typeset could not help: it lays the
 page out again from the same geometry.
 
 So a change of kind now takes the geometry with it. Calling a box something
-that cannot have a balloon — outside text, or a sound effect — puts its polygon
+that cannot have a balloon - outside text, or a sound effect - puts its polygon
 back to a plain rectangle round the writing, which is how "no balloon" is
 written everywhere else in the project. The placement is dropped either way, so
 the region is measured again instead of keeping a fit made for a shape it no
@@ -29,7 +29,7 @@ from mangatl.editor import NO_BALLOON_KINDS, _kind_changed
 
 
 def _rec(kind="bubble"):
-    """A record whose polygon is a PANEL — the shape lee was stuck with."""
+    """A record whose polygon is a PANEL - the shape lee was stuck with."""
     return {"id": 1, "bbox": [600, 120, 40, 300],
             "bubble_bbox": [80, 80, 700, 400],
             "polygon": [[80, 80], [780, 90], [770, 470], [90, 460]],
@@ -153,8 +153,8 @@ def test_the_label_beats_a_stale_outline_on_the_way_back_in():
     """lee changed the type, saw it work, restarted, and got the panel back.
 
     Nothing rewrites the stored outline except the moment of the change
-    itself, so a page saved before that — or a record the change never touched
-    — reloaded with the balloon it used to have. The label has to win at the
+    itself, so a page saved before that - or a record the change never touched
+    - reloaded with the balloon it used to have. The label has to win at the
     door every page comes back through, not only at the moment somebody
     clicks.
     """

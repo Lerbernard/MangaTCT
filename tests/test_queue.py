@@ -6,7 +6,7 @@ queue ... allow me to move the iteme sin teh queue and cancek them"*.
 
 Every long action in the app goes through `run_job`, which used to start a
 thread there and then. Two at once share one `p.job`, so the bar reported
-whichever wrote last and the two runs walked over each other's pages — in
+whichever wrote last and the two runs walked over each other's pages - in
 practice you had to sit and wait before pressing anything else.
 
 Now `run_job` puts the work in a line and one dispatcher takes it off, one at a
@@ -51,7 +51,7 @@ def _quiet(secs=5.0):
 
     Waiting for the dispatcher to LEAVE, rather than forcing the flag down
     under it: a live one whose flag has been taken away carries on popping
-    work, and the next `run_job` — seeing the flag down — starts a second. Two
+    work, and the next `run_job` - seeing the flag down - starts a second. Two
     dispatchers on one line take alternate items and run them at the same time,
     which is the whole thing the queue exists to prevent, and it shows up as
     another test failing at random.
@@ -247,7 +247,7 @@ def test_clearing_the_line_stops_what_had_not_started(proj):
 def test_a_dispatcher_reports_into_the_project_the_work_came_from(proj):
     """One global queue, and the editor is handed a new project whenever one
     is opened. A dispatcher that captured the project it started with would
-    write its progress into a project nobody is looking at any more — and
+    write its progress into a project nobody is looking at any more - and
     under the test suite, where one project follows another through the same
     module, it did exactly that."""
     import shutil
@@ -272,7 +272,7 @@ def test_a_dispatcher_reports_into_the_project_the_work_came_from(proj):
         # Wait for it to actually STOP before the folder goes. Asserting on the
         # progress and then deleting the pages out from under a dispatcher that
         # is still working left a thread reading a file that no longer existed
-        # — which surfaced as a different test failing, later, at random.
+        # - which surfaced as a different test failing, later, at random.
         editor.queue_clear()
         _wait(lambda: not editor._Q_RUN["on"] and not other.job.get("running")
               and not proj.job.get("running"), 8.0)
@@ -301,7 +301,7 @@ def test_the_next_action_starts_when_the_one_before_it_finishes(proj):
 
 def test_a_flag_left_up_by_a_dead_dispatcher_does_not_strand_the_line(proj):
     """The flag says "a dispatcher is on it". Every way of leaving it up on the
-    way out — a raise between two turns of the lock, a thread that died — used
+    way out - a raise between two turns of the lock, a thread that died - used
     to strand everything queued behind it for ever, and from outside that is a
     Clean that finished and a Translate that never began.
 
@@ -357,8 +357,8 @@ def test_the_line_survives_an_action_that_finishes_with_an_error(proj):
 def test_an_action_arriving_as_the_line_is_torn_down_still_runs(proj):
     """A failed run drops what was waiting and puts the flag down. If those are
     two separate turns of the lock there is a gap between them, and an action
-    that arrives in the gap sees the flag still up — with the dispatcher still
-    alive, so the liveness check passes too — joins a line that is being
+    that arrives in the gap sees the flag still up - with the dispatcher still
+    alive, so the liveness check passes too - joins a line that is being
     abandoned, and waits for somebody who has already gone home.
 
     Widened here to something a test can hit: the teardown is made slow, and an
@@ -393,7 +393,7 @@ def test_the_page_is_brought_up_to_date_as_each_action_ends(proj):
 
     The page on screen was refreshed only when the whole line was empty. With
     Clean running and Translate waiting behind it, the cleaned art therefore
-    did not appear until the translation had finished as well — two actions'
+    did not appear until the translation had finished as well - two actions'
     worth of work arriving at once, long after the first one was done.
     """
     from pathlib import Path
@@ -409,7 +409,7 @@ def test_the_page_is_brought_up_to_date_as_each_action_ends(proj):
 
 def test_it_is_one_refresh_per_action_not_one_per_poll(proj):
     """A poll every 700ms rebuilding the page would make the whole run
-    unusable — the refresh is hung on the running action CHANGING."""
+    unusable - the refresh is hung on the running action CHANGING."""
     from pathlib import Path
     js = (PKG / "static" / "js"
           / "pipeline.js").read_text(encoding="utf8")

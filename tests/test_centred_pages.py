@@ -4,7 +4,7 @@ lee: *"Change the settings layout make it like the add page with a center focus
 do it to both settings pages and the results pages"* and *"Change the add pages
 so it's 2 pages, add the pages , next, add json, with done or skip button"*.
 
-Two separate things, measured the same way — by asking the browser where things
+Two separate things, measured the same way - by asking the browser where things
 actually ended up, not by reading the stylesheet. A rule that is present and
 overridden is a rule that is not there.
 
@@ -12,8 +12,8 @@ Settings, Manga settings and Results were all left-aligned against a 224px nav
 and capped at 600px, so on any normal screen the eye started a third of the way
 in and the right half of the window was empty. They are centred on a card now.
 
-Add pages asked three questions at once — what language, which pages, and do
-you have a settings file — with the .json button sitting between the two "add
+Add pages asked three questions at once - what language, which pages, and do
+you have a settings file - with the .json button sitting between the two "add
 pages" buttons as though it were a third way of adding pages. It is now two
 screens: pages, Next; then the settings file, Done or Skip.
 """
@@ -119,7 +119,7 @@ def test_the_nav_is_inside_the_card_not_beside_it(tab, nav, card):
     """lee: *"the side bar shoud be intergrated with the center"*.
 
     It was a full-height column against the left edge of the window with the
-    content floating separately to its right — two things, and the eye had to
+    content floating separately to its right - two things, and the eye had to
     cross a gap between them."""
     def check(pg, p):
         pg.evaluate(tab)
@@ -134,7 +134,7 @@ def test_the_nav_is_inside_the_card_not_beside_it(tab, nav, card):
 
 @pytest.mark.parametrize("tab,card", [
     ("setTab('settings')", "#settingsPage .setcard"),
-    # Was `setSettingsTab('project')` — a Settings screen for files, which is
+    # Was `setSettingsTab('project')` - a Settings screen for files, which is
     # gone; everything a file does is under File now. Any other section makes
     # the same point, which is that the card's foot follows the section.
     ("setTab('settings'); setSettingsTab('cleaning')", "#settingsPage .setcard"),
@@ -142,7 +142,7 @@ def test_the_nav_is_inside_the_card_not_beside_it(tab, nav, card):
 def test_save_and_cancel_end_the_card_at_the_bottom_right(tab, card):
     """lee: *"the save an cancel button shoud be at teh bttom right"*.
 
-    They were pinned to the foot of the nav column on the far left — a whole
+    They were pinned to the foot of the nav column on the far left - a whole
     screen away from the last control you touched."""
     def check(pg, p):
         pg.evaluate(tab)
@@ -200,7 +200,7 @@ def test_the_card_is_the_only_card():
                     radius:parseFloat(c.borderTopLeftRadius)};})()""")
         assert got["section"] == "0px", got
         # The File screen is a card with a section rail now, exactly as this
-        # one is, and `.pk` inside it is a section — so the card to compare
+        # one is, and `.pk` inside it is a section - so the card to compare
         # against is `.filecard`. A panel background on `.pk` as well would be
         # the box in a box this test exists to catch.
         assert got["cardBg"] == got["pkBg"], got
@@ -258,7 +258,7 @@ def test_nothing_exported_yet_reads_as_a_sentence_not_a_caption():
     sits under a page that is not there.
 
     Reachable when the export folder is emptied on disk under an app that has
-    already been there — the tab itself is shut until something is exported."""
+    already been there - the tab itself is shut until something is exported."""
     def check(pg, p):
         import os
         pg.evaluate("setTab('results')")
@@ -335,7 +335,7 @@ def test_next_with_nothing_staged_says_so_on_an_empty_project():
 
 
 def test_next_moves_on_when_the_chapter_is_already_loaded():
-    """Opening this again on a chapter that is loaded is a real thing to do —
+    """Opening this again on a chapter that is loaded is a real thing to do -
     you came back for the settings file. A Next that refused would leave no way
     to reach the second screen at all."""
     def check(pg, p):
@@ -363,7 +363,7 @@ def test_skip_closes_it():
 def test_done_does_nothing_until_a_file_has_been_added():
     """lee: *"done shoud not work if no file was uploaded"*.
 
-    Done and Skip both closed the screen, and Done was the primary — the yellow
+    Done and Skip both closed the screen, and Done was the primary - the yellow
     one, the one you press. So the ordinary way through was to press the button
     that means "I added the file" without having added one, and never find out
     the settings had not come in.
@@ -417,7 +417,7 @@ def test_a_file_that_will_not_read_does_not_open_done(tmp_path):
 def test_done_ships_shut():
     """`pkStep` shuts it, and `showPicker` calls `pkStep`. But the markup says
     so as well: a button whose only closed state comes from a script is open
-    for as long as that script has not run — and one broken file above it in
+    for as long as that script has not run - and one broken file above it in
     editor.html is enough for that to be for ever."""
     from pathlib import Path
     html = (PKG / "static"
@@ -466,7 +466,7 @@ def test_a_settings_file_chosen_on_the_second_screen_goes_in(tmp_path):
 
 def test_adding_more_pages_later_does_not_reopen_the_dialog(tmp_path):
     """The two screens are for STARTING a chapter. "+ Add pages" on a chapter
-    already open must not put a settings-file question in the way — and must
+    already open must not put a settings-file question in the way - and must
     not clear the chapter it is adding to."""
     shot = tmp_path / "extra.png"
     cv2.imwrite(str(shot), np.full((300, 200, 3), 240, np.uint8))
@@ -496,7 +496,7 @@ def test_the_page_tools_are_only_on_the_edit_tab():
 
     Every one of those acts on the page on the canvas. Results and both
     settings pages have no canvas, so on those tabs they are controls for
-    something that is not there — a 100% button that zooms nothing and an
+    something that is not there - a 100% button that zooms nothing and an
     Original/Edit pair that appears to say which view you are on when you are
     not on either.
     """
@@ -540,7 +540,7 @@ def test_add_pages_is_not_offered_on_the_results_tab():
 
     Results is the gallery of what came out. Offering to add pages there is an
     editing action on the one screen that is only ever about the finished
-    thing — and the page list is shared with the Edit tab, so it came along
+    thing - and the page list is shared with the Edit tab, so it came along
     without anybody deciding it should."""
     def check(pg, p):
         pg.evaluate("setTab('edit')")
@@ -578,7 +578,7 @@ def test_it_comes_back_on_the_edit_tab():
 def test_the_top_bar_is_reachable_from_the_add_pages_screen():
     """lee: *"the add page shoud have this top bar be visible"*.
 
-    It used to cover the whole window — brand, Add pages, and all four tabs —
+    It used to cover the whole window - brand, Add pages, and all four tabs -
     so from that screen there was no way to Edit, Results or Settings at all.
     The Close button is the only way out and it is not shown until a chapter is
     loaded, which is exactly when you are least able to get anywhere."""
@@ -601,7 +601,7 @@ def test_the_top_bar_is_reachable_from_the_add_pages_screen():
         assert got["overBar"], "the picker is drawn over the top bar"
         assert got["tabClickable"], "a tab cannot be clicked through it"
         assert got["above"] >= 0, got
-        # Centred in the room BELOW the bar, not in the whole window — the
+        # Centred in the room BELOW the bar, not in the whole window - the
         # difference only shows once the card is tall enough that half of it
         # would reach up behind the bar, and then it is the top of the card
         # that goes missing.
@@ -625,7 +625,7 @@ def test_a_tab_pressed_from_the_add_pages_screen_gets_you_there():
 def test_the_top_button_says_what_it_does():
     """lee: *"rename it from add paeg to new project"*.
 
-    It never added pages to the chapter you have open — it opens the screen
+    It never added pages to the chapter you have open - it opens the screen
     that starts a new one, and starting one throws the old one away. "Add
     pages" is the button on the page list, which is a different thing."""
     from pathlib import Path
@@ -638,7 +638,7 @@ def test_the_top_button_says_what_it_does():
 def test_there_is_no_separate_clear_this_project():
     """lee: *"remoev teh close this project it shoud do it by default"*.
 
-    Loading pages already resets — a red button next to it offering to do the
+    Loading pages already resets - a red button next to it offering to do the
     same thing first reads as something you have to remember to press."""
     def check(pg, p):
         pg.evaluate("showPicker(true)")
@@ -649,7 +649,7 @@ def test_there_is_no_separate_clear_this_project():
 
 def test_starting_a_chapter_clears_the_last_one_s_content(tmp_path):
     """The custom text types and where the last chapter exported to belong to
-    the chapter just finished. Fonts and the translation engine do not — you
+    the chapter just finished. Fonts and the translation engine do not - you
     would be setting those up again every time."""
     shot = tmp_path / "a.png"
     cv2.imwrite(str(shot), np.full((300, 200, 3), 240, np.uint8))
@@ -695,7 +695,7 @@ def test_the_choices_made_on_that_screen_survive_the_clearing(tmp_path):
 
 def test_the_folder_on_this_computer_route_is_gone():
     """lee: *"remoe direct fom computer"*. A box you type a path into, on a
-    screen that already takes a folder by drag or by button — and the endpoint
+    screen that already takes a folder by drag or by button - and the endpoint
     behind it took whatever path it was handed."""
     from pathlib import Path
     root = PKG
@@ -715,7 +715,7 @@ def test_there_is_one_settings_page():
     setting and teh other manga setting or somthing more newtral"*.
 
     Two full-page tabs with two navs and two Save buttons, both writing through
-    the same save — which of them you were on decided nothing except which four
+    the same save - which of them you were on decided nothing except which four
     sections you could reach."""
     from pathlib import Path
     root = PKG
@@ -750,7 +750,7 @@ def test_every_section_is_reachable_from_the_one_nav():
     def check(pg, p):
         pg.evaluate("setTab('settings')")
         browserpool.settled(pg)
-        # "project" was here — a Settings screen for the series file. It is
+        # "project" was here - a Settings screen for the series file. It is
         # gone; everything a FILE does is under File now, next to the chapter
         # file. lee: *"move the import to the file tab and remove this tab"*.
         for sec in ("fonts", "language", "detection", "translation", "cleaning",
@@ -783,7 +783,7 @@ def test_the_card_is_the_same_size_whichever_section_is_open():
     and it there more text a side scroll bar shoud appear"*.
 
     Fonts & typesetting is five times the height of Synopsis, and the card
-    resized to each of them — so moving between two sections moved everything
+    resized to each of them - so moving between two sections moved everything
     on screen, including the Save button."""
     def check(pg, p):
         pg.evaluate("setTab('settings')")
@@ -867,7 +867,7 @@ def test_it_goes_out_again_when_that_screen_closes():
 
 def test_close_ends_the_row_on_the_left():
     """lee: *"close shoud be at teh bottom left"*. It was up beside the title,
-    which is where a dialog's dismiss goes — but this screen has a row of
+    which is where a dialog's dismiss goes - but this screen has a row of
     buttons at the bottom and Close belongs in it."""
     def check(pg, p):
         pg.evaluate("showPicker(true)")

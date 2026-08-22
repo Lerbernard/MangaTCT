@@ -15,19 +15,19 @@ the size and the fitter typesets into both. Measured on the fixture below:
 
 Then it freezes. A balloon is stored as a POLYGON in the box's record;
 `region_from_record` rebuilds the shape from it on every page build, and
-`find_balloons` skips anything that already has one — *"a balloon found once is
+`find_balloons` skips anything that already has one - *"a balloon found once is
 not searched for again"*. That is right almost always and exactly wrong once
 the artwork it was read from has been mended: painting the wall back and
 rebuilding gave 50,601px, unchanged.
 
 Two things had to move:
 
-* `Project.repaired` — the scan with the under-text touch-up strokes painted
+* `Project.repaired` - the scan with the under-text touch-up strokes painted
   onto it. The balloon finder reads that now, because a balloon's outline is
   artwork and a person is allowed to mend it. The WRITING is still read off
   the bare scan: painting over a line of Japanese means "leave this alone", not
   "there was never anything here to erase".
-* `_unfreeze_repaired_balloons` — paint that lands on or near a stored outline
+* `_unfreeze_repaired_balloons` - paint that lands on or near a stored outline
   drops that outline, so the next build looks again. Only where the paint
   actually reaches it, and never for a box drawn or tightened by hand: that
   shape is a decision, not a reading.
@@ -190,7 +190,7 @@ def test_the_finder_reads_the_page_as_it_now_stands(tmp_path):
 
 def test_the_writing_is_still_read_off_the_scan(tmp_path):
     """Painting over a line of Japanese says "leave this alone". It must not
-    also mean "there was never anything here to erase" — the cleaner would
+    also mean "there was never anything here to erase" - the cleaner would
     then have nothing to do and the words would stay on the page."""
     from mangatl import editor
 
@@ -255,7 +255,7 @@ def test_a_box_drawn_by_hand_keeps_its_shape(tmp_path):
 
 
 def test_a_box_that_never_had_a_balloon_keeps_its_rectangle(tmp_path):
-    """A rectangle in the polygon field is not a drawn outline — it is what is
+    """A rectangle in the polygon field is not a drawn outline - it is what is
     stored for a region no balloon was found for, and for one tightened by
     hand. Nothing is gained by forgetting it (the shape is searched for again
     on every build anyway), and something is lost: `bubble_bbox` is the

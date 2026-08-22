@@ -1,4 +1,4 @@
-/* picker.js — Colour picker popover, HSV conversions, eyedropper + loupe.
+/* picker.js - Colour picker popover, HSV conversions, eyedropper + loupe.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -30,7 +30,7 @@ async function pickColour(){
    square, a hue strip, a hex field and the recent colours. */
 let pkH=30, pkS=0.05, pkV=0.96, pkRecent=[];
 /* Where the picked colour goes. null = the brush; anything else supplies
-   its own get/set — the typesetting swatches use this. */
+   its own get/set - the typesetting swatches use this. */
 let pkTarget=null;
 function pkGet(){
   if(pkTarget) return pkTarget.get();
@@ -107,7 +107,7 @@ function buildPicker(){
     if(q){ pkH=q.h; pkS=q.s; pkV=q.v; pickerApply(); }
   });
   document.addEventListener('mousedown',e=>{
-    // An armed eyedropper owns the next click — closing the popover here
+    // An armed eyedropper owns the next click - closing the popover here
     // disarmed it a split second early, and the click painted instead.
     if(picking) return;
     if(el.style.display==='block' && !el.contains(e.target)
@@ -140,7 +140,7 @@ function paintPicker(){
 function pickerApply(){
   const hex=hsv2hex(pkH,pkS,pkV);
   pkSet(hex);
-  // The popover may not exist yet — the eyedropper also lands here.
+  // The popover may not exist yet - the eyedropper also lands here.
   const now=$('pkNow'), hx=$('pkHex');
   if(now){ now.style.background=hex; hx.value=hex; paintPicker(); }
 }
@@ -170,7 +170,7 @@ function closePicker(){
   if(picking) stopPagePick();          // closing puts the eyedropper away too
   const hex=pkGet();
   pkRecent=[hex, ...pkRecent.filter(c=>c!==hex)].slice(0,7);
-  // Whoever the popover was writing to gets one "finished" — the moment to
+  // Whoever the popover was writing to gets one "finished" - the moment to
   // write a history entry and save, instead of one per pixel of the drag
   // round the wheel.
   const t=pkTarget;
@@ -302,9 +302,9 @@ function paintToolUI(){
 }
 
 /* The pointer's last position, so size changes (slider, [ ]) can redraw the
-   cursor rings immediately — no need to wiggle the mouse first. */
+   cursor rings immediately - no need to wiggle the mouse first. */
 let lastMouse=null;
-/* A dialog in front of the page hides both of these — in the STYLESHEET, not
+/* A dialog in front of the page hides both of these - in the STYLESHEET, not
    here. They are moved on mousemove and a dialog can open without the mouse
    moving at all, so a guard on this line is a guard that fires too late; and
    with the stylesheet doing it, a guard here changes nothing a test can see.
@@ -356,7 +356,7 @@ function brushSync(which, v){
 
 /* [ and ] step the brush size, as in Photoshop. */
 function nudgeBrush(dir){
-  // works with or without the panel on screen — brushState is the truth
+  // works with or without the panel on screen - brushState is the truth
   const v = $('brushSz') ? +$('brushSz').value : brushState.sz;
   const step = v<=10 ? 1 : v<=30 ? 2 : 4;
   const nv = Math.max(1, Math.min(60, v + dir*step));

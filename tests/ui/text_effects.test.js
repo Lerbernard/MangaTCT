@@ -1,7 +1,7 @@
 /* Outer glow, inner glow and transparency in the browser's own preview.
 
    The preview and the exported page have to agree, or the panel is a guess.
-   Two of the three are exact — the glow is a text-shadow stack, the fade is
+   Two of the three are exact - the glow is a text-shadow stack, the fade is
    the block's opacity, both of which is what the exporter does. The inner
    glow is the one deliberate approximation: CSS cannot light the inside of a
    letter, so the preview draws a soft rim on the edge instead. */

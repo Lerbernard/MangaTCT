@@ -2,7 +2,12 @@
 numpy>=1.24
 # contrib build: brings cv2.xphoto, whose patch-based inpainting rebuilds
 # screentone and hatching for the heal tool instead of smearing it
-opencv-contrib-python-headless>=4.8
+# ...and BELOW 5. OpenCV 5.0's new dnn engine runs comictextdetector 2.4x
+# slower than 4.11 - measured on one page, same machine: 5.7s against 2.5s -
+# and on lee's 20-core PC, 5.0 plus a thread count something had knocked down
+# to one was 65 seconds a page. 4.x is what every number in this app was
+# measured on.
+opencv-contrib-python-headless>=4.8,<5
 pillow>=10.0
 
 # translation
@@ -14,8 +19,36 @@ manga-ocr>=0.1.11
 # OCR — Korean and Chinese, for manhwa and manhua
 # easyocr>=1.7
 
-# optional: trained detector
-# ultralytics>=8.2
+# the colour-balloon model (detect/comicbubble.py). NOT optional once the
+# weights are on disk: without it the pass goes quiet and grey balloons come
+# back as Outside text with the box round the writing, which is the bug it
+# was added to fix. Nothing else here needs it — the block head's .onnx runs
+# on cv2.dnn, and cv2.dnn segfaults on this one.
+onnxruntime>=1.16
+
+# The two specialist detectors (Settings -> Text detector). Optional in the
+# sense that nothing runs unless the two checkpoints are downloaded AND the
+# switch is on -- but not optional once they are, so they are named here
+# rather than left to fail at the first page:
+#
+#   einops     the manga-text model rearranges its feature map for the
+#              self-attention block  (detect/_dbnet/DBNet_resnet34.py)
+#   pyclipper  DB shrinks its polygons when it trains and they have to be
+#              pushed back out  (detect/onomatopoeia.py)
+#   shapely    ...and the offset is computed off the polygon's own area
+#              over its perimeter
+#   ultralytics  the Manga109 segmenter is a YOLO26 checkpoint and there is
+#              no reading one without it  (detect/mangaseg.py)
+#
+# `dbtext.why_not`, `onomatopoeia.why_not` and `mangaseg.why_not` say which
+# is missing, and `Project.two_specialists` / `Project.manga_segmenter`
+# refuse to switch their route on until none of them is -- a machine with the
+# weights and not the wheels detects the way it always did instead of
+# crashing mid-run.
+einops>=0.7
+pyclipper>=1.3
+shapely>=2.0
+ultralytics>=8.2
 
 # dev
 pytest>=8.0

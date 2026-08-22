@@ -147,8 +147,8 @@ def test_two_puts_it_back_to_outside_text():
 # ------------------------------------ the box does not vanish when you do it
 
 def test_the_box_comes_back_out_when_its_group_is_hidden():
-    """lee's actual failure. With the sound effects put away — which is how his
-    pages are saved — the box he just made disappeared the instant he made it.
+    """lee's actual failure. With the sound effects put away - which is how his
+    pages are saved - the box he just made disappeared the instant he made it.
     """
     def go(pg, p):
         _draw(pg)
@@ -195,7 +195,7 @@ def test_there_is_no_sound_effect_tool_anywhere():
 
 
 def test_a_plain_drag_still_makes_an_ordinary_box():
-    """Removing the tool must not take the drag with it — it is how the box you
+    """Removing the tool must not take the drag with it - it is how the box you
     then press 3 on gets there in the first place."""
     def go(pg, p):
         _draw(pg)

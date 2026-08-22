@@ -1,7 +1,7 @@
 """The proofreader's note belongs to one page, and shows on that page only.
 
-lee sent a screenshot of a note card — *"Region 8/5 seem to be a background
-aside (someone getting drunk) unrelated to Rofan's main speech…"* — with
+lee sent a screenshot of a note card - *"Region 8/5 seem to be a background
+aside (someone getting drunk) unrelated to Rofan's main speech…"* - with
 *"these messages shoud only be on teh relevenat page not on every page"*.
 
 The server was right all along: `do_proofread` writes `page_notes` to
@@ -16,8 +16,8 @@ own early return:
     ...
     noteEl.style.display = pageNote?'':'none'; // <- never reached
 
-So in the Cleaned and Translated views — the two you are in while reviewing the
-typesetting, which is exactly when a proofreader's remark gets read — the card was
+So in the Cleaned and Translated views - the two you are in while reviewing the
+typesetting, which is exactly when a proofreader's remark gets read - the card was
 never updated and never hidden. The list vanished, the note stayed, and it kept
 the note of whichever page had last been seen in the Edit view: one page's
 remark, floating over all 39.
@@ -207,7 +207,7 @@ def test_the_note_says_which_boxes_it_is_about():
     shoud tell which region is the chnage done to"*.
 
     The remark is the model's prose and may name nothing at all. The list of
-    boxes is not asked for — it is worked out: every region whose wording the
+    boxes is not asked for - it is worked out: every region whose wording the
     proofread actually changed, plus any it flagged. The chips show the numbers
     the page shows (`order + 1`), not the ids the model works in, and clicking
     one selects that box.
@@ -285,7 +285,7 @@ def test_the_box_list_is_worked_out_not_asked_for():
 
 def test_selecting_typesetting_on_the_page_keeps_it_readable():
     """lee: *"this is what happens when i select the text with the outine it
-    shoud look normal"* — with a picture of a line of typesetting turned into a
+    shoud look normal"* - with a picture of a line of typesetting turned into a
     solid blue block.
 
     The on-page editor is a contenteditable carrying the typesetting's own colour

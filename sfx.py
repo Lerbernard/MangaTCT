@@ -307,7 +307,7 @@ def fit_sfx(frame: SfxFrame, text: str, measure, lo: int = 8, hi: int = 160,
     The word is one line whichever way the Japanese ran, so `length` and
     `width` are read as "along the writing" and "across it" rather than as
     height and breadth. A column that was tall and narrow therefore lets the
-    English run as far as it was tall and stand as high as it was narrow —
+    English run as far as it was tall and stand as high as it was narrow -
     same ink, same weight on the page, turned to read the way English reads.
     """
     lines = [(text or "").strip()]

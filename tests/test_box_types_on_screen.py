@@ -51,7 +51,7 @@ def _project(root):
                      [cx + 60, cy + 30], [cx - 60, cy + 30]],
          "confidence": 0.9, "src_text": "テスト",
          # Only the first one is long. The rows are cards, and four tall ones
-         # do not fit on screen at once — a press at coordinates outside the
+         # do not fit on screen at once - a press at coordinates outside the
          # window is not a press, so a drag test could never reach the last.
          "dst_text": (f"LINE {i + 1} WITH RATHER A LOT MORE WORDS IN IT THAN "
                       f"WOULD EVER FIT ON TWO SHORT LINES OF A LITTLE BOX"
@@ -106,7 +106,7 @@ def test_the_main_type_is_called_bubble_text():
 
 def test_a_whisper_is_one_of_the_ones_you_start_with():
     """Yell, Angry and Flashback were preloads too until lee said which nine
-    he actually wanted — *"only these should be default"*. A shout, a yell and
+    he actually wanted - *"only these should be default"*. A shout, a yell and
     an angry line are one kind of typesetting asked for three times."""
     labels = {s["label"] for s in K.migrate([], seed=True)}
     assert "Whisper" in labels
@@ -123,15 +123,16 @@ def test_the_key_names_the_types_this_project_actually_has(ed):
     _original(pg)
     said = pg.evaluate(
         "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
-    # The three main types and nothing under them — lee, later: *"this shoud
+    # The three main types and nothing under them - lee, later: *"this shoud
     # only show the 3 main type"*. A chip for every sub-type made a paragraph
     # of colour above the page longer than anything it explained.
-    # The three main types are BUTTONS now — clicking one sets what a box
+    # The three main types are BUTTONS now - clicking one sets what a box
     # you draw comes out as. See
     # `tests/ui/the_legend_draws_the_box.test.js`. The key still reads
-    # the same, which is what this pins.
-    assert said == ["1 Bubble text", "2 Outside text", "3 Sound effect",
-                    "unsure"], said
+    # the same, which is what this pins. The select-boxes tool sits on the end
+    # of the row - lee asked for it there, next to the things it selects.
+    assert said == ["1 Bubble text", "2 Freefloat text", "3 Sound effect",
+                    "unsure", "Select boxes"], said
     # nothing from the old flat list survives
     for gone in ("1 speech", "2 open", "4 caption", "5 thought", "6 burst"):
         assert gone not in said, gone
@@ -154,7 +155,7 @@ def test_a_row_says_the_sub_types_name_not_its_key(ed):
 def test_recolouring_a_sub_type_updates_what_is_already_drawn(ed):
     """lee: *"if i chnage the colr of a subtype while i alread have some
     created it shoud update"*. The outlines were being redrawn and nothing
-    else was — not the rows, not the key, not the menus."""
+    else was - not the rows, not the key, not the menus."""
     pg, p, errs = ed
     _original(pg)
     pg.evaluate("setTab('settings')")
@@ -173,7 +174,7 @@ def test_recolouring_a_sub_type_updates_what_is_already_drawn(ed):
 
     # The key beside the page carries the three MAIN colours only now, so the
     # place a sub-type's new shade has to show up is the row for the box that
-    # uses it — and the menus, below.
+    # uses it - and the menus, below.
     _original(pg)
     rows = [to_hex(c) for c in pg.evaluate(
         "[...document.querySelectorAll('#list .lrow .kd')].map(i=>i.style.background)")]
@@ -210,7 +211,7 @@ def test_the_font_section_no_longer_asks_the_same_thing_again():
             / "editor.html").read_text(encoding="utf8")
     for gone in ("Font — balloons", "Font — outside text", "Font — sound effects"):
         assert gone not in html, gone
-    # the selects themselves stay, hidden — saveSettings reads them
+    # the selects themselves stay, hidden - saveSettings reads them
     for keep in ('id="font"', 'id="font_freefloat"', 'id="font_sfx"'):
         assert keep in html, keep
 
@@ -290,7 +291,7 @@ def test_the_text_block_starts_folded_and_its_rows_have_no_numbers(ed):
 
 def _drag_row(pg, frm, to, grab=".chip.num"):
     # The rows on this page carry long lines, so the one being dragged can be
-    # below the fold — a press at coordinates outside the window is not a
+    # below the fold - a press at coordinates outside the window is not a
     # press at all.
     pg.evaluate(f"""document.querySelectorAll('#list .lrow')[{to}]
         .scrollIntoView({{block:'center'}})""")
@@ -313,7 +314,7 @@ def _order(pg):
 
 
 def test_a_row_can_be_dragged_by_its_number(ed):
-    """The handle used to be the three-dot grip and nothing else — nine pixels
+    """The handle used to be the three-dot grip and nothing else - nine pixels
     of a card the size of a paragraph. lee: *"on teh original tab i lost teh
     ability to drag the tab to chnge tehre numbering"*."""
     pg, _p, errs = ed
@@ -325,7 +326,7 @@ def test_a_row_can_be_dragged_by_its_number(ed):
 
 
 def test_it_can_still_be_dragged_by_the_type_chip(ed):
-    """Any part of the head, not just the number — the three-dot grip that
+    """Any part of the head, not just the number - the three-dot grip that
     used to be the only handle is gone."""
     pg, _p, errs = ed
     _original(pg)

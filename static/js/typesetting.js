@@ -1,4 +1,4 @@
-/* typesetting.js — Per-bubble @font-face loading, drawText() canvas render, on-canvas text editing.
+/* typesetting.js - Per-bubble @font-face loading, drawText() canvas render, on-canvas text editing.
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
@@ -6,14 +6,14 @@
 let fontFams={};
 /* One colour, read the way the panel reads it.
 
-   This was `ov.x || st.x` — the SAVED override first, the live style second —
+   This was `ov.x || st.x` - the SAVED override first, the live style second -
    so a colour the person had just turned off went on being drawn: `st.fg2`
    was `''`, which `||` skips straight past, and `ov.fg2` still held the old
    value until a round trip that would never carry an empty one.
    lee: *"ehen i turn off teh gradient it donts accualy turn off"*.
 
    `??` and the live style first, which is what `styleNow` in panels.js does.
-   An empty string is an answer — it means off — and only "not set at all"
+   An empty string is an answer - it means off - and only "not set at all"
    falls through to the override. */
 function pick(st, ov, key){
   const v = (st||{})[key] ?? (ov||{})[key] ?? '';
@@ -30,7 +30,7 @@ function fontFam(path, kind){
     // font DROPDOWNS use server-rendered images, so they need no refresh)
     const done=()=>{ if(typeof drawOverlay==='function') drawOverlay(); };
     // The CSS Font Loading API is the reliable way to load a font by URL and
-    // KNOW when it's ready — the browser sniffs the format from the bytes, so
+    // KNOW when it's ready - the browser sniffs the format from the bytes, so
     // no format() hint is needed and .ttf/.otf both work. Injecting a
     // @font-face <style> rule (the old path) can silently never apply on some
     // setups; this doesn't.
@@ -50,7 +50,7 @@ function fontFam(path, kind){
   return `'${fontFams[path]}'`;
 }
 
-/* Where each letter of a curved line goes — the browser's copy of
+/* Where each letter of a curved line goes - the browser's copy of
    `render.arc_places`. `curve` is the whole angle the line subtends in degrees,
    positive arching up like a rainbow. The radius comes from the arc length, and
    half the sagitta is taken back off so the bend keeps the line where the
@@ -88,8 +88,8 @@ function drawText(){
     if(!L||!L.lines) return;
     if(r._hideText) return;              // its layer-eye is switched off
     if(!L.lines.length){
-      // A block with nothing in it. Nothing is drawn on the exported page —
-      // it is empty — but on screen it gets a dashed outline where it stands,
+      // A block with nothing in it. Nothing is drawn on the exported page -
+      // it is empty - but on screen it gets a dashed outline where it stands,
       // the way an empty text layer does in any editor, so it can be found,
       // clicked, typed into again or deleted.
       const [ex,ey,ew,eh]=frameOf(r);
@@ -115,13 +115,13 @@ function drawText(){
     const shD=(+(ov.sh_dist??st.sh_dist??2))*scale*0.707;
     const shB=(+(ov.sh_blur??st.sh_blur??3))*scale;
     // Outer glow. CSS blur is much weaker than a Gaussian of the same radius,
-    // so the halo is stacked at three rising radii — which is also how the
+    // so the halo is stacked at three rising radii - which is also how the
     // exporter builds it (spread, blur, then composite the halo twice).
     const glc=pick(st,ov,'glow');
     const glOn=/^#[0-9a-f]{6}$/i.test(glc);
     const glS=(+(ov.glow_size??st.glow_size??6))*scale;
     // Inner glow. There is no CSS for light inside a letter, so the preview
-    // shows it as a soft rim ON the edge — half of it falls where the export
+    // shows it as a soft rim ON the edge - half of it falls where the export
     // puts all of it. It reads as the same effect at the same strength; the
     // exported page is the exact one. The only place the two deliberately part.
     const igc=pick(st,ov,'iglow');
@@ -146,7 +146,7 @@ function drawText(){
     const eang=+(ov.edge_angle??st.edge_angle??0)||0;
     // One group per block, sized to the text's frame (plus slack so
     // overhanging lines keep their paint) and rotated as a whole about its
-    // centre — the same thing the exporter does.
+    // centre - the same thing the exporter does.
     const P=48;
     const gx=fr[0]*scale-P, gy=fr[1]*scale-P;
     const g=document.createElement('div');
@@ -164,7 +164,7 @@ function drawText(){
       // A curved line is not one text node: every letter has its own place on
       // the arc and its own turn, so it gets its own span. The line div stops
       // being the thing that is positioned and becomes the container the
-      // letters are positioned inside — same arithmetic as `render.arc_places`.
+      // letters are positioned inside - same arithmetic as `render.arc_places`.
       d.style.cssText=(crv?`left:0;top:0;transform:none;`
                           :`left:${org[k][0]*scale-gx}px;top:${org[k][1]*scale-gy}px;`)+
         `font-family:${fam},sans-serif;font-size:${size}px;`+
@@ -179,7 +179,7 @@ function drawText(){
             `transform:translate(calc(-50% + ${ls/2}px),-50%);`:'')+
         // The gradient is painted on the FILL span, not on the line.
         //
-        // It used to be a background on the line div, clipped to its text —
+        // It used to be a background on the line div, clipped to its text -
         // and the outline span is a CHILD of that div, so it was painted over
         // the background and swallowed the whole gradient at any width above
         // a hairline. lee: *"the outline obsucures the gradient"*. Painting
@@ -197,9 +197,9 @@ function drawText(){
           // With an outline GRADIENT there are EDGE_BANDS of these instead of
           // one, each a solid stroke in its own step of the ramp and each
           // clipped to its own slab across the block. CSS has no gradient for
-          // a text stroke — `background-clip:text` paints the fill area and
+          // a text stroke - `background-clip:text` paints the fill area and
           // leaves the stroke the colour it was given, which is measurable and
-          // was measured — so a stepped ramp is the honest approximation. The
+          // was measured - so a stepped ramp is the honest approximation. The
           // exported page draws it as a true gradient through the ring's own
           // mask; this is the preview, and at sixteen steps the join between
           // one step and the next is under two grey levels on a full-length
@@ -236,7 +236,7 @@ function drawText(){
         inked(d, line);
       }
       if(igOn){
-        // a soft rim on the letter's edge — see the note where igc is read
+        // a soft rim on the letter's edge - see the note where igc is read
         const rim=(host,txt)=>{
           const e=document.createElement('span');
           e.className='tg';
@@ -296,7 +296,7 @@ function drawText(){
 /* ---------------- editing text on the page ---------------- */
 let editing=null, editBox=null;
 // The wording the editor opened on. Closing only writes anything back when
-// the person actually changed it — see closeCanvasEdit.
+// the person actually changed it - see closeCanvasEdit.
 let editWas=null;
 
 function frameOf(r){
@@ -306,7 +306,7 @@ function frameOf(r){
 }
 
 /* A chapter typeset before blocks carried a box of their own has origins and
-   no box. Draw the box round the WORDS — where the fitter actually put them —
+   no box. Draw the box round the WORDS - where the fitter actually put them -
    rather than round the bubble or the Japanese text box: those are different
    rectangles, and adopting one of them is what threw the typesetting across the
    bubble the moment it was clicked.
@@ -354,11 +354,11 @@ function frameAt(x, y){
 
 $('stage').addEventListener('mousedown',e=>{
   if(!inText()||handMode) return;
-  // ANY armed tool owns the click — while a tool is in hand, text is just
+  // ANY armed tool owns the click - while a tool is in hand, text is just
   // part of the picture and must never open its editor.
   if(paintArmed()) return;                         // painting owns the click
   if(typeof zoomTool!=='undefined' && zoomTool) return;
-  // Selection / transform tools own the click too — this capture-phase
+  // Selection / transform tools own the click too - this capture-phase
   // handler used to eat every mousedown that landed on a text frame, which
   // killed the marquee, lasso, wand and fill anywhere near typesetting.
   if(typeof selTool!=='undefined' && (selTool||xf)) return;
@@ -412,7 +412,7 @@ window.addEventListener('mouseup',()=>{
 
 $('stage').addEventListener('dblclick',e=>{
   if(!inText()||handMode) return;
-  // same rule as mousedown: an armed tool means text is not clickable —
+  // same rule as mousedown: an armed tool means text is not clickable -
   // a double-click mid-brushstroke used to drop you into the text editor
   if(paintArmed()) return;
   if(typeof zoomTool!=='undefined' && zoomTool) return;
@@ -431,7 +431,7 @@ function editOnCanvas(id){
   const r=regions.find(x=>x.id===id);
   if(!r||!r.layout) return;
   // A locked block is not typed into. lee: *"the lock shoud prevent teh layer
-  // form getting edited or moved"* — a lock that only stopped restacking was
+  // form getting edited or moved"* - a lock that only stopped restacking was
   // a lock against the one thing nobody does by accident.
   if(r.locked){ toast('That text box is locked.'); return; }
   closeCanvasEdit(true);
@@ -446,7 +446,7 @@ function editOnCanvas(id){
   const st=r.style||{};
 
   // A contenteditable rather than a textarea, because a textarea pins its
-  // text to the top while the page centres it — so the words visibly jumped
+  // text to the top while the page centres it - so the words visibly jumped
   // upward as soon as the editor opened.
   const ta=document.createElement('div');
   ta.id='canvasEdit';
@@ -485,7 +485,7 @@ function editOnCanvas(id){
   ta.addEventListener('blur',()=>closeCanvasEdit(true));
 }
 
-/* Keeps the editor sitting exactly on the frame — at creation, and again on
+/* Keeps the editor sitting exactly on the frame - at creation, and again on
    every frame change while it is open. */
 function placeEditor(ta, r){
   if(!ta||!r||!r.layout) return;
@@ -503,7 +503,7 @@ function placeEditor(ta, r){
   ta.style.lineHeight=((L.leading||1.12)*size)+'px';
   const ls=(+(ov.lspace??st.lspace)||0)*scale;
   ta.style.letterSpacing=ls?ls+'px':'';
-  // centre the glyphs, not the glyphs+trailing gap — matches the render
+  // centre the glyphs, not the glyphs+trailing gap - matches the render
   ta.style.paddingLeft=ls?ls+'px':'';
   ta.style.color=st.fg||L.fg||'#000';
   ta.style.caretColor=st.fg||L.fg||'#000';
@@ -518,7 +518,7 @@ function placeEditor(ta, r){
 
 function editShadow(r,L,sizePx){
   // the same outline AND drop shadow the page is typeset with, so typing
-  // looks like the result — the shadow used to be left out here, which made
+  // looks like the result - the shadow used to be left out here, which made
   // it vanish the moment the text box opened and pop back on click-out
   const st=r.style||{}, ov=r.layout_override||{};
   const edge=ov.edge||st.edge||L.edge||'#fff';
@@ -546,7 +546,7 @@ function editShadow(r,L,sizePx){
 /* What is in the on-page editor right now, line for line.
 
    It used to trim every line and drop the empty ones, which threw away a
-   blank line typed between two paragraphs and an indent typed at the front —
+   blank line typed between two paragraphs and an indent typed at the front -
    the same rule the panel's line box abandoned rounds ago. Trailing blanks go,
    because those are only where the cursor was left. */
 function editLines(el){
@@ -563,8 +563,8 @@ function closeCanvasEdit(commit){
   ta.remove();
   const r=regions.find(x=>x.id===id);
   // Clicking a block and clicking away is not an edit. It used to save
-  // anyway, and saving locks the block onto the hand-edit path — which
-  // places lines by a different rule than the fitter does — so the typesetting
+  // anyway, and saving locks the block onto the hand-edit path - which
+  // places lines by a different rule than the fitter does - so the typesetting
   // visibly moved on a click that changed nothing. Only a real change to the
   // wording is a change.
   if(was!==null && lines.join('\n')===was) commit=false;
@@ -576,7 +576,7 @@ function closeCanvasEdit(commit){
   if(r&&commit){
     // What to put back, captured BEFORE the edit is written into the region.
     // `saveTypesetting` snapshots `r.layout_override` for its undo, and by the
-    // time it reads it the next two lines have already replaced it — so the
+    // time it reads it the next two lines have already replaced it - so the
     // undo restored the edit and pressing it did nothing.
     // lee: *"the text is deleting and teh empty box stay but its not in the
     // history so i cant undo the delete"*.
@@ -586,7 +586,7 @@ function closeCanvasEdit(commit){
     r.layout_override=Object.assign({},r.layout_override,{lines,locked:true});
     const f=$('lyLines'); if(f) f.value=lines.join('\n');
     // Send the lines explicitly. currentPatch reads the side panel, which
-    // still held the old wording — that is why typed changes sometimes
+    // still held the old wording - that is why typed changes sometimes
     // vanished the moment you clicked away.
     // And no panel rebuild: closing often happens because a panel control
     // was just clicked, and rebuilding it mid-click swallowed that click.
@@ -603,7 +603,7 @@ function closeCanvasEdit(commit){
    given (measured in Chromium, not assumed). So the ring is drawn as a stack
    of solid-coloured copies, each clipped to one slab across the block, and the
    steps read as a ramp. The exported page draws the real thing through the
-   ring's own mask — see `edge2` in render.py.
+   ring's own mask - see `edge2` in render.py.
 
    The slabs run across the WHOLE block, not per line, so a two-line shout
    fades once from top to bottom rather than twice. */
@@ -620,7 +620,7 @@ function paintEdgeGradient(g, from, to, angle, strokePx){
   const rad=angle*Math.PI/180;
   const tx=Math.sin(rad), ty=Math.cos(rad);
   // Every ring's own box, in the group's coordinates. `.ts` sits at the top
-  // left of its host, and the host is what is centred — so the host is what
+  // left of its host, and the host is what is centred - so the host is what
   // carries the position.
   const boxOf=el=>{
     const h=el.parentElement;

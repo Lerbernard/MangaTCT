@@ -59,8 +59,8 @@ def test_a_series_that_costs_more_than_the_shape_says_raises_the_quote():
 
 
 def test_the_two_corrections_are_separate():
-    """Input and output are priced differently — five times differently on
-    Gemini — and they drift for different reasons. One number for both would
+    """Input and output are priced differently - five times differently on
+    Gemini - and they drift for different reasons. One number for both would
     correct a thinking overrun by charging for context nobody sent."""
     _ran(ratio_out=1.5)
     din, dout = coins.drift("translate", "gemini-3.6-flash")
@@ -80,7 +80,7 @@ def test_it_is_per_step_and_per_model():
 def test_cached_tokens_are_counted_on_both_sides_of_the_ratio():
     """They are input the provider charged less for, not input that did not
     happen. Counted as real input but left out of the prediction, every Claude
-    run reads as having used about two and a half times what was expected — for
+    run reads as having used about two and a half times what was expected - for
     ever, and pinned to the clamp."""
     for _ in range(3):
         _ran(model="claude-sonnet-5", backend="anthropic")
@@ -113,7 +113,7 @@ def test_a_run_too_small_to_mean_anything_does_not_vote():
 
 
 def test_a_big_run_outweighs_a_small_one():
-    """Summed across runs, not averaged over them — the forty-page run is
+    """Summed across runs, not averaged over them - the forty-page run is
     forty times as much evidence, and an average of ratios pretends the two
     are worth the same."""
     _ran(boxes=400, pages=40, ratio_in=1.5)
@@ -151,7 +151,7 @@ def test_a_charge_and_its_refund_are_priced_the_same_way(tmp_path):
     """The property the freeze exists for, asked of the editor rather than of
     the freeze: what was taken and what was given back have to agree."""
     from mangatl import editor
-    from tests.test_what_it_costs_in_coins import _project
+    from test_what_it_costs_in_coins import _project
     for _ in range(3):
         _ran(model="claude-sonnet-5", backend="anthropic", ratio_in=1.7)
     p = _project(tmp_path, [9] * 10)
@@ -176,7 +176,7 @@ def test_a_run_writes_down_the_size_of_what_it_did(tmp_path):
     """"It used 44,870 tokens" cannot be compared with what was predicted
     unless the size of the thing that used them is beside it."""
     from mangatl import editor
-    from tests.test_what_it_costs_in_coins import _project
+    from test_what_it_costs_in_coins import _project
     p = _project(tmp_path, [9] * 6)
     editor._run_one(p, {"label": "Translating", "indices": list(range(6)),
                         "fn": lambda i: coins.record(1200, 300, cached=2158),
@@ -191,7 +191,7 @@ def test_the_size_written_down_is_the_pages_that_actually_ran(tmp_path):
     """A cancelled run metered four pages. Charging the evidence with ten
     would teach the estimate that the series is cheap."""
     from mangatl import editor
-    from tests.test_what_it_costs_in_coins import _project
+    from test_what_it_costs_in_coins import _project
     p = _project(tmp_path, [9] * 10)
 
     def fn(i):
@@ -221,8 +221,8 @@ def test_the_accuracy_report_runs(capsys):
 def test_the_output_correction_lands_on_the_output():
     """Two corrections, and each has to reach its own side of the bill.
 
-    Input and output are priced differently — five times differently on
-    Gemini — so applying the output correction to the input is not a small
+    Input and output are priced differently - five times differently on
+    Gemini - so applying the output correction to the input is not a small
     error, it is a different price. Measured against the shape directly rather
     than against "it went up", which one number for both would also satisfy.
     """

@@ -6,7 +6,7 @@
    Two dozen places in the client do `if(j.regions) setRegions(j.regions)` the
    moment an answer lands. One of them checked the page ticket first and the
    rest did not, so on a page slow enough to leave before it answered, another
-   page's boxes were drawn over this one — and then the next drag or keystroke
+   page's boxes were drawn over this one - and then the next drag or keystroke
    posted THOSE ids to the page now on screen, which writes the mix-up to disk.
 
    The check lives in `api()` now, which is the one place all of them pass
@@ -67,7 +67,7 @@ setTimeout(async ()=>{
     if('regions' in j){ console.log('FAIL another page\'s boxes came through'); bad++; }
     if(!j.stale){ console.log('FAIL it was not marked stale'); bad++; }
 
-    // 4. a POST answer is refused the same way — this is the one that reaches
+    // 4. a POST answer is refused the same way - this is the one that reaches
     //    disk, because the ids in it get posted back to the page now on screen
     at(1);
     const p=await API('/api/page/0/region/7','POST',{dst_text:'x'});
