@@ -45,6 +45,38 @@ def _p(**settings):
     return p
 
 
+@pytest.fixture
+def wheels(monkeypatch):
+    """Say the two wheels the route needs are installed, whatever this machine
+    has.
+
+    `onomatopoeia.why_not` answers two different questions in one string: is the
+    checkpoint on disk, and are torch, pyclipper and shapely importable. The
+    tests below are about the FIRST - a written file and a project setting - and
+    they were asserting the second by accident. On a machine with the wheels
+    they passed; in CI, which installs numpy, opencv, pillow, pytest and
+    fonttools and stops there, `two_specialists()` correctly answered False
+    because there is no torch, and two tests reported that as a defect.
+
+    Only the wheels half is stubbed. A missing FILE still says so, which is what
+    `test_when_one_download_is_missing_the_row_says_which` is for.
+    """
+    from mangatl.detect import onomatopoeia
+    real = onomatopoeia.why_not
+    import os
+
+    def only_the_file(path: str) -> str:
+        if not path:
+            return "no sound-effect weights are set"
+        if not os.path.isfile(path):
+            return "sound-effect weights are not at %s" % path
+        return ""
+
+    monkeypatch.setattr(onomatopoeia, "why_not", only_the_file)
+    assert real is not onomatopoeia.why_not
+    return only_the_file
+
+
 # ------------------------------------------------- off unless somebody said so
 
 def test_a_project_that_has_never_heard_of_it_has_it_off():
@@ -62,7 +94,7 @@ def test_off_by_default_means_off_even_with_both_checkpoints(tmp_path):
     assert p.two_specialists() is False
 
 
-def test_the_setting_is_the_only_thing_that_decides(tmp_path):
+def test_the_setting_is_the_only_thing_that_decides(tmp_path, wheels):
     """Find text used to carry a tick and does not any more -- one answer,
     read in one place, so a chapter is detected the same way every time."""
     import inspect
@@ -78,7 +110,7 @@ def test_the_setting_is_the_only_thing_that_decides(tmp_path):
 
 # ------------------------------------------------- and only on manga
 
-def test_it_is_offered_on_manga_and_nowhere_else(tmp_path):
+def test_it_is_offered_on_manga_and_nowhere_else(tmp_path, wheels):
     """lee: *"this htuff shoud only be for manga"*.
 
     Every number in the route came off 23 pages of Japanese. DBNet's training

@@ -507,6 +507,14 @@ Translation rules:
 - Sound effects: render as a comic SFX in {target} ("CRASH", "THUD"), not a
   sentence. Typeset it as a typesetter would DRAW it — bare. Never wrap a sound
   in asterisks: *TURN* is chat, not typesetting. Write TURN.
+- THE WORDS OUTRANK THE LABEL. A region marked "sfx" that holds an actual
+  sentence — a subject, a verb, particles, a name — is SPEECH that was boxed
+  wrong, and you translate it as speech: a line of dialogue, punctuated,
+  sentence case. Painted, hand-drawn and unboxed writing is labelled "sfx"
+  because it is DRAWN, and a drawn shout is still something a person said.
+  Never squeeze a sentence into "CRASH" to satisfy its label. The rule does not
+  run the other way: a region marked "bubble" holding a bare sound is still a
+  sound, which is the rule further down this list.
 - NEVER censor. If a line swears, typeset the swear in full. Softening it to a
   milder word, or masking letters with *, #, @ or $, is a mistranslation: the
   author chose how hard that line lands and it is not yours to move. The only

@@ -2737,6 +2737,32 @@ def _read_here(p: Project, page, say) -> None:
     Not acted on: that is improvement from a hopeless baseline, and sizing
     crops by box family for a reader that should not be reading paint at all
     is a rule to maintain in exchange for nothing.)
+
+    AND THE CROP IS NOT PADDED. That is a separate question from its size -
+    room AROUND the box rather than more pixels of it - and lee asked for it
+    after one sound effect was fixed by a tenth: *"add the 10% for ecerything
+    not just sfx aand test it"*. Tested, on all 32 transcribed boxes, every box
+    found again on its own page and re-cut at six margins:
+
+        margin   all boxes         dialogue          sound effects
+          0%     0.078  25/32      0.049  22/27      0.233  3/5
+          5%     0.087  21/32      0.060  18/27      0.233  3/5
+         10%     0.076  24/32      0.046  21/27      0.233  3/5
+         15%     0.151  18/32      0.069  17/27      0.595  1/5
+         20%     0.155  16/32      0.080  15/27      0.557  1/5
+         30%     0.213  14/32      0.094  14/27      0.857  0/5
+
+    Ten per cent is not an improvement, it is the same number twice: one box
+    gained (チラッ, misread as イラッ with no margin) and one lost, and every
+    sound effect is untouched at any margin under fifteen. Past that it falls
+    off a cliff, and the reason is in the readings - the neighbouring balloon
+    arrives inside the crop and is read as part of the line: at 30% one box
+    came back with the balloon above it appended whole.
+
+    So: no padding, because a change that costs a constant should buy something
+    measurable, and this one buys a coin toss. What the sweep DOES establish is
+    that the drop past 15% is real and steep, which is worth knowing for
+    anything that ever grows a reading crop for another reason.
     """
     from .ocr import get_engine, ocr_page
     lang = str(p.settings.get("source") or "ja")

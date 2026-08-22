@@ -248,5 +248,52 @@ def test_the_choice_is_still_saved_with_the_project():
         "carried through the sheet even though nothing on that screen edits it"
 
 
+# ------------------------------------------- and the crop is not padded either
+
+def _read_here_doc() -> str:
+    return E._read_here.__doc__ or ""
+
+
+def test_the_margin_sweep_is_written_down_where_the_crop_is_decided():
+    """lee: *"add the 10% for ecerything not just sfx aand test it"*, after one
+    sound effect was fixed by a tenth of a box's width.
+
+    It was tested and it is not an improvement, which is a result that has to
+    be RECORDED or it gets re-proposed the next time somebody notices that same
+    one box. So the table lives on the function that decides the crop, beside
+    the size measurement it belongs with."""
+    doc = _read_here_doc()
+    assert "NOT PADDED" in doc
+    for margin in ("0%", "5%", "10%", "15%", "20%", "30%"):
+        assert margin in doc, margin
+
+
+def test_it_says_why_the_big_margins_are_worse_and_not_only_that_they_are():
+    """A number with no mechanism is a number somebody explains away. The
+    mechanism is in the readings: past fifteen per cent the neighbouring
+    balloon is inside the crop and gets read as part of the line."""
+    doc = _read_here_doc()
+    assert "neighbouring balloon" in doc
+    assert "read as part of the line" in doc
+
+
+def test_the_ten_per_cent_result_is_stated_as_a_wash_not_as_a_win():
+    """0.076 against 0.078 over 32 lines is one box each way. Writing that up
+    as an improvement is how a constant nobody can justify gets into the
+    code."""
+    doc = _read_here_doc()
+    assert "not an improvement" in doc
+    assert "one box\n    gained" in doc and "one lost" in doc
+
+
+def test_and_nothing_in_the_reading_path_actually_pads():
+    """The docstring is the argument; this is the code agreeing with it."""
+    src = (PKG / "ocr.py").read_text(encoding="utf-8")
+    body = src[src.index("def prepare_crop("):]
+    body = body[:body.index("\ndef ")]
+    for word in ("margin", "PAD_SHARE", "pad_share"):
+        assert word not in body, word
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

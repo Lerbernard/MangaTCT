@@ -88,16 +88,50 @@ def test_paint_reversed_out_of_a_black_plate_is_still_paint():
     assert CT._ink_chroma(im, (0, 0, 300, 200)) > 4 * CT.INK_CHROMA
 
 
+def _soft_strokes(wide=100, thin=4, thins=16, ramp=28, h=420, w=1200,
+                  ground=(40, 20, 220), ink=(10, 10, 10)):
+    """One fat stroke and sixteen hairlines on magenta, every edge blended into
+    the ground over `ramp` pixels. Built with arithmetic, and that is the point.
+
+    This fixture used to be `putText` + `GaussianBlur`, and it stopped meaning
+    what it says the day OpenCV 5 shipped: both calls render differently from
+    4.11 - the same 504,000 black pixels come out of `putText` with a different
+    hash, and the blur then lands at mean 83.9 against 76.4 - so the picture was
+    simply softer, most of the ink was washed away, and `_ink_chroma` returned
+    27.3 to a question nobody had asked it. `threshold`, `distanceTransform` and
+    `cvtColor` agree exactly across the two versions; it was only the two calls
+    that DREW the fixture that moved. CI installs opencv unpinned, so it drew a
+    different picture from the one this was written against and reported it as
+    a defect in the app.
+
+    The mixture of widths is the substance, not decoration. The hairlines are
+    mostly blend, so the whole ink region votes coloured; the fat stroke is what
+    lifts the ninetieth percentile of the distance transform, so the core
+    selection lands inside black and nowhere else. That is the property being
+    tested - a threshold picked from the strokes rather than a fixed erosion.
+    """
+    a = np.zeros((h, w), np.float32)
+    x = 30
+    for core in [wide] + [thin] * thins:
+        span = int(round(core / 2.0 + ramp))
+        cx = x + span
+        xs = np.arange(max(0, cx - span), min(w, cx + span + 1))
+        al = np.clip((core / 2.0 + ramp - np.abs(xs - cx)) / ramp, 0, 1)
+        a[50:h - 50, xs] = np.maximum(a[50:h - 50, xs], al[None, :])
+        x = cx + span + 8
+    g = np.asarray(ground, np.float32)[None, None, :]
+    k = np.asarray(ink, np.float32)[None, None, :]
+    return np.clip(g * (1 - a[..., None]) + k * a[..., None], 0, 255
+                   ).astype(np.uint8)
+
+
 def test_a_soft_edge_wider_than_one_pixel_is_still_not_the_letter():
     """A page printed soft, or scaled down from a bigger one, blends ink into
     ground over many pixels. Take the whole glyph and the blend outvotes the
     letter; erode by a fixed pixel and it still does. The distance transform
     takes the middle of the stroke at whatever width the stroke happens to be,
     and only that reads the letter as black."""
-    im = np.full((420, 1200, 3), (40, 20, 220), np.uint8)
-    cv2.putText(im, "HELLO", (30, 320), cv2.FONT_HERSHEY_SIMPLEX, 8,
-                (10, 10, 10), 50)
-    im = cv2.GaussianBlur(im, (0, 0), 14)
+    im = _soft_strokes()
     g = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     _t, dark = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY_INV +
                              cv2.THRESH_OTSU)

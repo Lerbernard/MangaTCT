@@ -87,8 +87,17 @@ class _Reader:
 
 
 def test_the_weights_are_laid_out_for_the_cpu():
-    """channels_last, and nothing else."""
-    import torch
+    """channels_last, and nothing else.
+
+    The one test in this file that needs torch ITSELF, because the thing it
+    checks is a torch constant - every other test here fakes the reader and
+    needs nothing. Skipped rather than failed where there is no torch: CI
+    installs numpy, opencv, pillow, pytest and fonttools and stops there, and a
+    machine with no torch has no weights to lay out. It failed the workflow
+    instead, on a bare `import torch`, which is a test reporting the absence of
+    a dependency as a defect in the code.
+    """
+    torch = pytest.importorskip("torch")
     r = _Reader()
     CR.lay_out_for_the_cpu(r)
     assert r.detector.asked == [{"memory_format": torch.channels_last}]

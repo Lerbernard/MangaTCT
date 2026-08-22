@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from . import kinds as _kinds
 from . import stopping as _stopping
 from .models import Page, TextRegion
 
@@ -788,6 +789,38 @@ def ocr_page(page: Page, engine=None, lang: str = "ja",
         if bad:
             r.ocr_ok = False
             r.flagged = bad
+        elif _kinds.family_of(getattr(r, "kind", "")) == "sfx" \
+                and r.src_text.strip():
+            # A PAINTED SOUND READ HERE IS WORTH LOOKING AT. This is the one
+            # place in the app where a wrong answer arrives wearing a right
+            # one's face.
+            #
+            # Measured over every box the detector filed as a sound effect
+            # across the 23 pages of chapter 3 - 54 of them, transcribed off
+            # the page by eye:
+            #
+            #     typeset writing filed as sfx   CER 0.000   11/11 exact
+            #     actually painted sounds        CER 0.376   24/43 exact
+            #
+            # The split is the whole story. manga-ocr was trained on typeset
+            # dialogue and it is flawless on typeset dialogue even when the box
+            # round it says otherwise. On paint it is a coin toss - and NINE of
+            # the nineteen misses are not misreadings at all, they are ordinary
+            # dialogue words invented over a brush stroke: アア came back as
+            # そして, バチャ as じゃあ and as ダメっ, ガチャッ as やっぱり, ドホ
+            # as いや. That is the decoder's language model filling a silence,
+            # and it produces a plausible Japanese line with full confidence.
+            #
+            # `looks_like_garbage` cannot see these: they are not garbage, they
+            # are good Japanese in the wrong place. So the box says so itself.
+            # A NOTE and not a verdict - the reading stays, `ocr_ok` stays
+            # true, nothing is removed - because it is right more often than
+            # not and throwing the answer away would cost more than it saves.
+            #
+            # Only on this path. The AI reads the same paint without inventing
+            # dialogue over it, so a page read that way carries no such note.
+            r.flagged = ((r.flagged or "") + " read here: painted sounds are "
+                         "this reader's weak spot — worth a look").strip()
 
     # ...AND NOW EVERY BOX HAS BEEN READ, SO EVERY BOX CAN BE NAMED.
     #
