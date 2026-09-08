@@ -36,7 +36,10 @@ const ok = (name, cond) => {
   console.log((cond ? 'ok   ' : 'FAIL ') + name);
   if (!cond) bad++;
 };
-const keys = () => Array.from(d.querySelectorAll('#legend .lgmain'));
+// The KIND buttons only. "Select boxes" joined this row later as a TOOL
+// (lee: "make teh slector tool be seprated form the other") - it wears
+// .lgmain for the styling and .lgsel for what it is, and it is not a kind.
+const keys = () => Array.from(d.querySelectorAll('#legend .lgmain:not(.lgsel)'));
 const lit = () => keys().filter(b => b.classList.contains('on'))
                         .map(b => b.dataset.fam);
 
@@ -50,7 +53,7 @@ setTimeout(async () => {
        ks.map(b => b.dataset.fam).join(',') === 'bubble,freefloat,sfx');
     ok('...each still saying its number and its name',
        /1 Bubble text/.test(ks[0].textContent)
-       && /2 Outside text/.test(ks[1].textContent)
+       && /2 Freefloat text/.test(ks[1].textContent)
        && /3 Sound effect/.test(ks[2].textContent));
 
     ok('bubble text is lit to start with', lit().join() === 'bubble');
@@ -60,7 +63,7 @@ setTimeout(async () => {
     // Clicking the green one. The key is re-rendered, so the buttons are
     // looked up again rather than held onto.
     keys()[1].onclick();
-    ok('clicking Outside text lights it', lit().join() === 'freefloat');
+    ok('clicking Freefloat text lights it', lit().join() === 'freefloat');
     ok('...and puts the red one out',
        !keys()[0].classList.contains('on'));
     ok('...and that is what a new box will be',

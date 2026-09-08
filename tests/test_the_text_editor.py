@@ -315,7 +315,10 @@ def test_all_caps_is_a_thing_one_block_can_ask_for():
 
 def test_the_panel_offers_both_and_nothing_that_does_nothing(ed):
     pg, _p, errs = ed
-    assert pg.evaluate("document.querySelectorAll('.alignb').length") == 3
+    # `.alignb` is also the styling of the curve-kind chips now, so the
+    # alignment row is counted by its own name.
+    assert pg.evaluate(
+        "document.querySelectorAll('.alignrow .alignb').length") == 3
     assert pg.evaluate("!!document.getElementById('lyCaps')")
     assert pg.evaluate("!!document.getElementById('lyLead')")
     assert pg.evaluate("!!document.getElementById('lyLspace')")

@@ -18,6 +18,19 @@ rectangular edge rather than fading out.
 Handed the original page, the retry answers the same question it was asked the
 first time, with more room. Only the part under the FIRST mask goes back -
 everything else in the context window may be a neighbour's finished cleaning.
+
+## Why these tests do not count the calls any more
+
+They used to say `len(seen) == 2`: one first pass, one sweep. A hard box now
+takes as many as four goes at the model - the first pass, the sweep, and the
+two later routes (`second_pass` and `redraw`) that were added afterwards, each
+of which asks again with a better mask. That number is a fact about the ROUTES
+and it will keep changing; the fix is not about how many times the model is
+asked but about WHAT IT IS SHOWN each time. So the invariant is stated
+directly, at every call and not just the second one: **wherever a call is going
+to have the model's answer written back, it is shown the page as it arrived,
+never an earlier answer.** Counting stops at "the sweep came back at all",
+which is the premise the rest needs.
 """
 import numpy as np
 import pytest
@@ -70,41 +83,92 @@ def _half_hearted(seen, seed=1):
 
 
 def _run(seed=1):
+    """Clean the fixture, recording every trip to the model.
+
+    Each entry pairs the picture the model was SHOWN with the job that decided
+    what would be written back from it, because the two together are what the
+    invariant is about. `_run_neural` is patched rather than counted from the
+    outside: the routes that reach it are allowed to change, the contract it
+    keeps is not.
+    """
     page, tm, r = _black_balloon()
-    seen = []
+    seen, calls = [], []
+    real = I._run_neural
+
+    def spy(out, job, neural, extra=0, again=None):
+        mark = len(seen)
+        try:
+            return real(out, job, neural, extra=extra, again=again)
+        finally:
+            if len(seen) > mark:              # an empty mask asks nobody
+                calls.append({"win": job["win"], "mask": job["mask"].copy(),
+                              "extra": extra, "again": again,
+                              "sub": seen[mark]})
+
     bgr = cv2.cvtColor(page, cv2.COLOR_GRAY2BGR)
     pg = Page(image=bgr.copy())
     pg.original = bgr.copy()
     pg.regions = [r]
-    I.inpaint_page(pg, neural=_half_hearted(seen, seed))
-    return page, tm, r, seen
+    I._run_neural = spy
+    try:
+        I.inpaint_page(pg, neural=_half_hearted(seen, seed))
+    finally:
+        I._run_neural = real
+    return page, tm, r, seen, calls
+
+
+def _restored(call, shape):
+    """The window handed to the model, and the part of it `_run_neural` puts
+    back from the original page - worked out the same way it works it out."""
+    win = call["win"]
+    ctx = I._grow(win, shape, I.NEURAL_CTX)
+    back = np.zeros((ctx[0].stop - ctx[0].start,
+                     ctx[1].stop - ctx[1].start), bool)
+    back[win[0].start - ctx[0].start: win[0].stop - ctx[0].start,
+         win[1].start - ctx[1].start: win[1].stop - ctx[1].start] = \
+        call["mask"] > 0
+    return ctx, back
 
 
 def test_the_sweep_really_does_come_back():
     """The premise. If a ghost stopped triggering a retry, everything below
-    would pass by never running."""
-    _page, _tm, _r, seen = _run()
-    assert len(seen) == 2, len(seen)
+    would pass by never running. The sweep is the pass that widens the mask,
+    so `extra` is what names it - not its position in the queue."""
+    _page, _tm, _r, seen, calls = _run()
+    assert len(seen) >= 2, len(seen)
+    assert any(c["extra"] > 0 and c["again"] is not None for c in calls), \
+        [(c["extra"], c["again"] is not None) for c in calls]
 
 
 def test_the_retry_is_shown_the_page_and_not_the_first_answer():
-    """The fix, stated as what the model receives. The two calls see exactly
-    the same pixels - the second is a fresh attempt at the original problem,
-    not a pass over a reconstruction."""
-    _page, _tm, _r, seen = _run()
-    assert len(seen) == 2
-    assert np.array_equal(seen[0], seen[1]), \
-        "the retry was shown the model's own output"
+    """The fix, stated as what the model receives, at EVERY call that gets one
+    - a second attempt at the original problem, never a pass over a
+    reconstruction. Only where the answer will land: outside that the model is
+    shown the plate on purpose, which is the test below this one."""
+    page, _tm, _r, _seen, calls = _run()
+    orig = cv2.cvtColor(page, cv2.COLOR_GRAY2BGR)
+    asked = 0
+    for k, c in enumerate(calls):
+        if c["again"] is None:
+            continue                       # the first pass: nothing to undo
+        ctx, back = _restored(c, orig.shape)
+        assert back.any()
+        assert np.array_equal(c["sub"][back], orig[ctx][back]), \
+            f"call {k} was shown an earlier answer where its own goes back"
+        asked += 1
+    assert asked, "no call restored the page at all"
 
 
 def test_the_typesetting_is_back_under_the_mask_for_the_retry():
     """Not just "the same" - the same as the PAGE. A retry shown a blank where
-    the words were has nothing to work from and no reason to do better."""
-    page, tm, _r, seen = _run()
-    assert len(seen) == 2
-    grey = cv2.cvtColor(seen[1], cv2.COLOR_BGR2GRAY).astype(np.int16)
-    # the second call's window still contains bright typesetting on black
-    assert int((grey >= 200).sum()) > 200, int((grey >= 200).sum())
+    the words were has nothing to work from and no reason to do better. Asked
+    of every retry, so no route can quietly start handing over an erased one."""
+    _page, _tm, _r, _seen, calls = _run()
+    retries = [c for c in calls if c["again"] is not None]
+    assert retries
+    for k, c in enumerate(retries):
+        grey = cv2.cvtColor(c["sub"], cv2.COLOR_BGR2GRAY)
+        assert int((grey >= 200).sum()) > 200, (k, int((grey >= 200).sum()))
 
 
 def test_only_this_regions_own_mask_goes_back_to_the_page():

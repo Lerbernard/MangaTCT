@@ -13,10 +13,12 @@ Two ideas do most of the work:
 """
 from __future__ import annotations
 
+import copy
 import math
 import os
 import re
 import unicodedata
+from collections import OrderedDict
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from typing import Callable, Optional
@@ -27,6 +29,7 @@ from PIL import ImageFont
 
 from .models import TextLayout, TextRegion
 from . import kinds as _kinds
+from . import marks as _marks
 
 
 # ---------------------------------------------------------------- glyph safety
@@ -152,7 +155,14 @@ def sanitize_for_font(t: str, font_path: str,
         # The em-dash is KEPT even when the font lacks the glyph - the
         # renderer draws it by hand (see em_dash_glyph). This is what lets a
         # comic font that ships only a hyphen still show a real long dash.
-        if ch == "\n" or ch == "—" or ord(ch) in cov:
+        # And so is every mark on the list (♥ ★ ♪ ⁉ …), for the same reason:
+        # `mark_glyph` stamps them from the bundled mark faces, so they are
+        # not tofu and are not this function's to drop. Dropping them here is
+        # exactly how a ♥ picked from the special-characters dialog reached
+        # the output text and then quietly vanished from the line the moment
+        # the preview ran - lee: *"it dont add to either teh box or teh text
+        # box"*.
+        if ch == "\n" or ch == "—" or ch in MARK_CHARS or ord(ch) in cov:
             out.append(ch)
             continue
         rep = _NORMALIZE.get(ch)
@@ -174,14 +184,88 @@ _GOOD_BREAK_AFTER = {",", ".", "!", "?", ";", ":", "—", "…"}
 _BAD_BREAK_BEFORE = {"a", "an", "the", "of", "to", "in", "on", "at", "is", "it"}
 
 
-MIN_LEADING = 1.20
-"""The tightest line gap the FITTER may choose for itself.
+MAX_LEADING = 1.20
+"""The LOOSEST line gap the fitter may choose for itself.
 
-A multiple of the type size. It bounds the automatic answer - the sweep of
-leadings and the emergency wrap - and nothing else. A number typed into the
-panel is a person deciding, and it stands however tight: lee, having asked for
-the floor in the first place, then asked for exactly that. The browser has the
-same number in panels.js and a test holds the two together."""
+It was a floor of the same number, and lee looked at his pages beside the
+published English chapter and said it the other way round: *"the real line gap
+number is somewhere between 1 - 1.10 and 1.20 tyhe max youu shoud use is
+1.20"*.
+
+MEASURED, with one ruler over both. 293 line gaps off the published chapter 22
+pages, and the same measurement run over the app's own output - line pitch
+divided by the height of the tall letters, which is a thing you can see rather
+than a number in a font file:
+
+    published chapter 22      1.31   (quartiles 1.08 and 1.44)
+    the app at 1.34 em        2.00
+    the app at 1.20 em        1.80   <- the old FLOOR was here
+    the app at 1.00 em        1.50
+    the app at 0.90 em        1.35
+
+The app's tightest automatic answer was 38% looser than the published median.
+He was not describing a preference; the pages really were spaced apart."""
+
+MIN_LEADING = 1.00
+"""...and the tightest, which is where lee's range starts.
+
+The old argument for a floor still holds and is why there is one at all: set
+solid, ascenders and descenders interleave and a block stops looking like
+lines of speech. The floor simply belongs at 1.00 rather than at 1.20, which
+is where he put it.
+
+Neither bound holds over a number typed into the panel. That is a person
+deciding, and it stands however tight. The browser has both numbers in
+panels.js and a test holds the two files together."""
+
+
+# The gap that ACTUALLY MATTERS is the one you can see, and it is not the em
+# multiple. A multiple of the type size means a different visible gap in every
+# face, because faces put different amounts of their em into the letters:
+#
+#     Anton          tall letters are 0.87 of the em
+#     ComicNeue      0.68
+#     Gaegu          0.60
+#
+# The same 1.20 is airy on Gaegu and cramped on Anton - a 46% spread across
+# the sixteen faces that ship. lee: *"also make sure your mesurement is good
+# fro all fonts"*.
+#
+# So the sweep is written in TALL-LETTER HEIGHTS and converted per face. The
+# numbers below are lee's range read on the default face, which is the face
+# the range was named while looking at.
+LEADING_REF = 0.68       # tall letters over the em, ComicNeue-Bold
+
+
+def leading_for(path: str, want: float, size: int = 100) -> float:
+    """`want` em on the default face -> the em multiple for THIS face.
+
+    Same visible gap, whatever the letters are made of.
+
+    The gap you SEE is the pitch less the letters: at leading L on a face
+    whose tall letters are `asc` of the em, the white between two lines is
+    `L - asc`. Holding that constant gives `L = want - REF + asc`, which is
+    the same thing as scaling the whole pitch by `asc / REF` to within a
+    rounding - a face with MORE of its em in the letters needs MORE em to
+    leave the same white, not less. (I had this the wrong way up first, and
+    the test that caught it is the one that asks whether the VISIBLE gap comes
+    out the same on every face.)
+
+    Clamped into lee's range at the end, so a very tall face cannot talk its
+    way past the ceiling he set. On Anton the clamp binds: 0.87 of its em is
+    letters, matching the reference white would want about 1.5, and it gets
+    1.20. That is the ceiling doing its job rather than a rounding error.
+    """
+    try:
+        f = _font(path or default_font_path(), size)
+        box = f.getbbox("bdhklHT")
+        asc = float(box[3] - box[1]) / float(size)
+    except Exception:
+        return float(want)
+    if asc <= 0.01:
+        return float(want)
+    return max(MIN_LEADING, min(MAX_LEADING,
+                                float(want) - LEADING_REF + asc))
 
 
 @dataclass
@@ -193,12 +277,25 @@ class TypesetConfig:
     max_font: int = 34
     min_font: int = 12          # hard floor; below this we flag for a human
     font_step: int = 1
-    # Line gap, as a multiple of the type size. The floor is MIN_LEADING and
-    # nothing - fitted, typed or loaded - goes under it. It used to be 1.00,
-    # and set that tight the ascenders on one line touch the descenders on the
-    # one above and the block reads as a grey mass. lee, looking at his own
-    # pages: *"make teh minimun line gap be 1.20"*.
-    leadings: tuple[float, ...] = (1.34, 1.26, 1.20)
+    # Line gap, as a multiple of the type size, LOOSEST FIRST - the fitter
+    # takes the first that fits. The ceiling is MAX_LEADING and the floor is
+    # MIN_LEADING, and the whole band moved down when it was measured against
+    # the published pages rather than guessed at: see MAX_LEADING for the
+    # numbers and lee's *"the max youu shoud use is 1.20"*.
+    #
+    # These are read on the DEFAULT FACE. `leading_for` converts them for
+    # whatever face a box is actually set in, so the gap you SEE is the same
+    # one on all sixteen.
+    #
+    # The band is 1.00-1.10 and NOT 1.00-1.20, and the difference is the whole
+    # of what lee said: *"the real line gap number is somewhere between 1 -
+    # 1.10 and 1.20 tyhe max youu shoud use is 1.20"*. 1.20 is the most
+    # anything may ever be, which is `MAX_LEADING` and what the panel will
+    # take; the number the fitter actually reaches for is the first half of
+    # that sentence. Put 1.20 in the sweep and it wins on every bubble with
+    # room to spare, which is most of them - measured over four of his pages,
+    # that landed the chapter at 1.75 against the published 1.31.
+    leadings: tuple[float, ...] = (1.10, 1.06, 1.03, 1.00)
     max_lines: int = 9
     # Clearance between the typesetting and the bubble outline. A percentage of
     # the chord alone is not enough on its own: it gives a wide bubble plenty
@@ -379,6 +476,137 @@ def shows_text(lay) -> bool:
                 and any(s.strip() for s in lay.lines))
 
 
+# What each kind is typeset in when nobody has said otherwise.
+#
+# Every one of these ships with the app, and every one is under the SIL Open
+# Font License, which permits redistribution inside software. That is the whole
+# reason the list looks like this rather than like a professional's: Comicraft's
+# Wild Words and Blambot's Anime Ace are the faces this job actually wants, and
+# neither may be bundled in a downloadable program at any price we can pay. See
+# `fonts/LICENSES.md`.
+#
+# The choices follow professional practice where an open face can reach it:
+#
+#   speech      a comic face with a true italic and bold, so thoughts and
+#               whispers are the SAME face rather than a different one
+#   thought     the italic - what the professional pages use
+#   whisper     the regular, lighter than the speech bold
+#   aside       a handwriting face, as a mutter in the margin is hand-written
+#   effects     a heavy display face; small ones a lighter hand
+#
+# EVERY kind has an entry, including the ones whose answer is the same as their
+# family's. lee, looking at the Box Types panel with a row per kind: *"add a
+# font for all of these, these are the default ones"*, and *"they dont all have
+# to be difrent"*.
+#
+# Three of them were left to inherit at first, which was defensible in the code
+# and wrong on the screen: a person reading a list of twelve rows wants twelve
+# answers, and "this one is whatever the one above it is" is a thing the panel
+# would have to explain. Repetition costs nothing and reads as a decision;
+# blanks read as an oversight.
+#
+# `sfx_big` says Bangers, the same as `sfx`, for that reason. `sign` is the one
+# real compromise: it wants a plain narrow sans, there is no plain narrow sans
+# in this folder, and Comic Neue Regular is the most neutral face that is.
+#
+# `shout` said Comic Neue Bold at first, on the argument that a shout is the
+# speech face set larger. lee, looking at it: *"use a more agressive forny for
+# shouting"*, and set beside the alternatives he is right - the bold of a light
+# comic face is the speech face a little darker, and nothing about it is loud.
+# Luckiest Guy carries 1.8x the ink of it at the same size: thick strokes,
+# tight counters, and effectively all-caps, which is how shouts are set anyway.
+#
+# Deliberately not Bangers: that is the SOUND EFFECT face, and a shout drawn in
+# it stops reading as somebody speaking. Not Anton either - it measures denser
+# still, but only because it is CONDENSED, less white in the box rather than
+# more ink in the stroke, and a condensed grotesque reads as a headline dropped
+# into a balloon rather than as a voice. Chewy is heavy and round, which comes
+# out playful instead of angry. Both refusals are pinned by tests, the Anton one
+# as advance width against cap height - see `test_only_what_we_may_ship.py`.
+DEFAULT_FONTS = {
+    # speech, and the sub-types that are the same voice at another volume
+    "bubble":         "ComicNeue-Bold.ttf",
+    "narration":      "ComicNeue-Regular.ttf",
+    "thought":        "ComicNeue-Italic.ttf",
+    # A FLASH balloon - speech drawn ornately, not an unvoiced thought.
+    #
+    # It took the thought face when the type was split off - lee: *"make it
+    # have teh same fonts"* - and it takes the SPEECH face now, which is his
+    # second answer and the one that follows from the first: he sent a picture
+    # of the panel and said *"make thses teh defualts"*, and the Fancy bubble
+    # row on it reads Comic Neue Regular.
+    #
+    # It is also the better answer. The italic was inherited from a type this
+    # one had been wrongly filed under, and italic in a balloon means "not said
+    # aloud" - which is the exact thing a fancy balloon is not. What makes it
+    # fancy is drawn round the balloon by the artist, and the typesetting does
+    # not need to say it a second time.
+    "fancy":          "ComicNeue-Regular.ttf",
+    # Luckiest Guy until 2026-08-28. lee: *"the shoudt we have bnow is too
+    # agressive can yu find something in getween those too"* - between it and
+    # Comic Neue Bold, which he named as the quiet end.
+    #
+    # Bangers, at his word: *"acculy use bangers tregulat for shout boxes"*,
+    # after Jua and after seeing the whole folder set side by side. It sits in
+    # the interval he asked for - 1.68 times the speech face's ink against
+    # Luckiest Guy's 1.81 - and it is drawn rather than merely heavy.
+    #
+    # IT IS ALSO THE SOUND EFFECT FACE, and that is the cost, said out loud
+    # here because it is the one thing this choice gives up: a shouted line
+    # and a drawn sound are now typeset identically, so the only thing telling
+    # a reader which is which is the burst drawn round the one of them. It was
+    # his call with the cost in front of him, and a preference is not a defect.
+    # `test_the_shout_face_is_the_sound_effect_face_on_purpose` holds the
+    # record so nobody 'fixes' it later.
+    "shout":          "Bangers-Regular.ttf",
+    "whisper":        "ComicNeue-Regular.ttf",
+    # ...text out on the artwork...
+    "freefloat":      "ComicNeue-Regular.ttf",
+    "narration_free": "ComicNeue-Regular.ttf",
+    # Patrick Hand until 2026-08-28, on the reasoning that a mutter is a note
+    # in the margin and wants a hand. lee, with the panel in front of him:
+    # *"make thses teh defualts"*, and the Aside row on it reads Comic Neue
+    # Regular - which is what an aside gets when nothing is chosen for it, and
+    # what he has been looking at while judging the pages.
+    #
+    # Patrick Hand is still the first recommendation for this type on the
+    # Fonts page; it is a face somebody chooses now rather than one that
+    # arrives.
+    "aside":          "ComicNeue-Regular.ttf",
+    "sign":           "ComicNeue-Regular.ttf",
+    # ...and the effects, which are display type
+    "sfx":            "Bangers-Regular.ttf",
+    "sfx_big":        "Bangers-Regular.ttf",
+    "sfx_small":      "Kalam-Regular.ttf",
+}
+
+
+# Which family each sub-type BELONGS to, for the purpose of the defaults above.
+#
+# `kinds.family_of` answers this from the project's own sub-type settings, and
+# a project that has never configured any - a new one, or lee's - has none to
+# answer from, so every sub-type comes back "bubble". That is the right answer
+# there (an unknown kind is a balloon, where being wrong costs least) and the
+# wrong one here: it sent `sfx_big` to the speech face and `sign` with it.
+#
+# `kinds.PRELOADED` already declares the family of every sub-type the app ships
+# with, so the defaults read that instead. Anything a person has added
+# themselves is not in it and falls back to `family_of`, which is where their
+# own configuration lives.
+_PRELOAD_FAMILY = {key: fam
+                   for fam, subs in (_kinds.PRELOADED or {}).items()
+                   for key, _label in subs}
+
+
+def _bundled(name: str) -> str:
+    """A shipped face by file name, or "" if this install has not got it."""
+    for d in _font_dirs():
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return p
+    return ""
+
+
 def font_for(cfg: "TypesetConfig", kind: str, override: str = "") -> str:
     """This box's own font, then its sub-type's, then its FAMILY's, then the
     default.
@@ -388,15 +616,28 @@ def font_for(cfg: "TypesetConfig", kind: str, override: str = "") -> str:
     in the balloon face rather than dropping all the way through to the
     project default - which on a page of sound effects is a different face
     again.
+
+    `DEFAULT_FONTS` sits AFTER the project's own font and not before it: a
+    person who chose one face for their whole project chose it for the sound
+    effects too, and having the app quietly overrule that would be worse than
+    a plain default. It is reached when a project names nothing - a new one -
+    and when what it names has gone, which is what happens to a setting
+    pointing at a font this app used to ship and no longer may.
     """
     fam = _kinds.family_of(kind or "")
     fonts = cfg.fonts or {}
     for want in (override, fonts.get(kind),
                  fonts.get(fam) if fam != kind else None,
-                 cfg.font_path):
+                 cfg.font_path,
+                 _bundled(DEFAULT_FONTS.get(kind, "")),
+                 _bundled(DEFAULT_FONTS.get(
+                     _PRELOAD_FAMILY.get(kind, fam), ""))):
         if want and usable_font(want):
             return want
-    return cfg.font_path
+    # Never a path that cannot be opened: a dead string here is a block that
+    # renders as nothing at all, which is the one outcome worse than the wrong
+    # face.
+    return cfg.font_path if usable_font(cfg.font_path) else default_font_path()
 
 
 @lru_cache(maxsize=1)
@@ -434,6 +675,18 @@ def default_font_path() -> str:
         # hands round absolute paths; this was the one that did not.
         return os.path.abspath(env)
     # a typesetting font by preference...
+    #
+    # This list used to start with `CCWildWords.ttf` and `AnimeAce.ttf`, which
+    # are the two faces this job actually wants and the two that may not be
+    # shipped: Comicraft's desktop licence forbids app integration outright,
+    # and Blambot's free licence forbids redistribution, with a paid tier that
+    # explicitly does not cover Pro faces at all. Both files are gone from
+    # `fonts/`; see `fonts/LICENSES.md`.
+    #
+    # They are still named here, and first, on purpose. `_font_dirs()` looks in
+    # the user's OWN uploaded-fonts folder before the bundled one, so anybody
+    # who has licensed either face gets it back simply by adding it - which is
+    # the arrangement that costs nothing and takes nothing away.
     for d in _font_dirs():
         for name in ("CCWildWords.ttf", "AnimeAce.ttf", "ComicNeue-Bold.ttf"):
             p = os.path.join(d, name)
@@ -473,19 +726,89 @@ def spare_font() -> str:
 PAD_PX = 4          # breathing room inside a text box
 
 
+# A POINT IS NOT A SIZE, AND THIS IS THE NUMBER THAT MAKES IT ONE.
+#
+# lee: *"can you make rhe tyesetting addap to teh fonsts some font have smaller
+# text and some have bigger text and teh typesetter shoud make both visulay the
+# sam size not teh sma efont number"*.
+#
+# He is right, and the spread across this app's own eleven faces is not
+# marginal. Cap height as a fraction of the point size - which is what the eye
+# measures a line of capitals by:
+#
+#     Anton      0.86      Comic Neue Bold  0.69      Gochi Hand   0.58
+#     Bangers    0.75      Patrick Hand     0.66      Nanum Pen    0.56
+#     Chewy      0.75      Gaegu            0.61
+#     Jua        0.74
+#
+# So "30pt" in Nanum Pen Script draws capitals a third shorter than "30pt" in
+# Anton. Every number in this app - the size box, the minimum and the maximum,
+# the 1.15 a shout is scaled by, the size the fitter settles on - meant a
+# different thing for every face, and the place it shows is two boxes set to
+# the same number that plainly do not match.
+#
+# The reference is Comic Neue Bold's, the speech face: a size goes on meaning
+# what it has always meant on the face most pages are set in, so existing
+# chapters move least and the blocks that move are the ones that were wrong.
+CAP_REF = 0.69
+
+
+@lru_cache(maxsize=512)
+def cap_ratio(path: str) -> float:
+    """How tall this face's capitals are, as a fraction of its point size.
+
+    `CAP_REF` when the file cannot be read or answers something absurd, and
+    that means "do not scale this one" - the safe direction, because a face
+    nobody could measure is left rendering exactly as it does today.
+    """
+    try:
+        f = ImageFont.truetype(path, 100)
+        box = f.getbbox("H")
+        r = (box[3] - box[1]) / 100.0
+    except Exception:
+        return CAP_REF
+    return r if 0.30 <= r <= 1.20 else CAP_REF
+
+
+def px_for(path: str, size) -> int:
+    """The number to ASK PIL for, so that `size` means a visual size.
+
+    One multiplication, in the one place every face in this app is loaded. The
+    fitter, the renderer, the width cache, the mark stamper and the sample
+    images all go through `_font`, so they all speak the same unit without
+    having to know about it - and `lay.font_size` goes on meaning the number
+    the panel shows.
+    """
+    try:
+        size = float(size)
+    except (TypeError, ValueError):
+        return 1
+    # `float("nan")` and `float("inf")` both survive the line above and both
+    # raise on the way into `int()` - a size box is a text field and a saved
+    # chapter is a JSON file, so neither is hypothetical.
+    if not math.isfinite(size):
+        return 1
+    return max(1, min(4000, int(round(size * CAP_REF / cap_ratio(path)))))
+
+
 @lru_cache(maxsize=256)
 def _font(path: str, size: int):
     """Load a face, falling back to the default rather than failing.
+
+    CACHED ON THE NOMINAL SIZE, which is the size everything else in this app
+    talks in - `px_for` turns it into the number PIL is asked for, and two
+    faces asked for the same visual size are two different cache entries
+    because their paths differ.
 
     A font the user picked may have moved or be unreadable. Losing the whole
     page render over that is not acceptable - typeset it in the default face and
     let the flag surface the problem."""
     try:
-        return ImageFont.truetype(path, size)
+        return ImageFont.truetype(path, px_for(path, size))
     except (OSError, ValueError):
         fallback = spare_font()
         if fallback and fallback != path:
-            return ImageFont.truetype(fallback, size)
+            return ImageFont.truetype(fallback, px_for(fallback, size))
         raise
 
 
@@ -497,6 +820,12 @@ def _text_w(path: str, size: int, s: str) -> float:
         bar = em_dash_glyph(path, size)
         if bar:                       # synthesized dash: reserve its real width
             w += (bar[0] - f.getlength("—")) * s.count("—")
+    # ...and the same for a mark the face cannot draw. The fitter measures
+    # every candidate line through here, so a stamped mark that is not counted
+    # is a line the fitter thinks is narrower than it is - and the first thing
+    # anybody sees is a heart sitting on the balloon edge.
+    for ch, got in marks_in(s, path, size).items():
+        w += (got[0] - f.getlength(ch)) * s.count(ch)
     return w
 
 
@@ -601,9 +930,13 @@ def _glyph_ink(path: str, size: int, ch: str):
         f = _font(path, size)
     except Exception:
         return None
-    pad = max(16, size * 2)
+    # In DRAWN pixels, not in the size that was asked for. A face whose
+    # capitals are small for its em is opened larger than the number says
+    # (`px_for`), and a sheet padded from the number would crop it.
+    px = px_for(path, size)
+    pad = max(16, px * 2)
     img = Image.new("L", (pad * 4, pad * 3), 0)
-    ImageDraw.Draw(img).text((pad, pad + size), ch, font=f, anchor="lm",
+    ImageDraw.Draw(img).text((pad, pad + px), ch, font=f, anchor="lm",
                              fill=255)
     a = np.asarray(img) > 96
     ys, xs = np.nonzero(a.any(axis=1))[0], np.nonzero(a.any(axis=0))[0]
@@ -612,7 +945,7 @@ def _glyph_ink(path: str, size: int, ch: str):
     cols = a[:, xs].sum(axis=0)
     stroke = float(np.median(cols[cols > 0])) if (cols > 0).any() else 1.0
     box = (int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1)
-    return (img.crop(box), float(ys[0] - (pad + size)), stroke)
+    return (img.crop(box), float(ys[0] - (pad + px)), stroke)
 
 
 @lru_cache(maxsize=256)
@@ -633,16 +966,25 @@ def em_dash_glyph(path: str, size: int):
         return None
     from PIL import Image
 
+    # EVERY NUMBER BELOW IS IN DRAWN PIXELS.
+    #
+    # The em fractions here - three quarters of an em long, a fifth of an em
+    # thick at most, side bearings of a seventh - describe the dash next to the
+    # LETTERS, and the letters are drawn at `px_for(path, size)` rather than at
+    # the size asked for. Measured against the size instead, a face opened
+    # larger than its number (Gaegu, whose capitals are 0.62 of its em) got a
+    # hyphen a fifth wider than the em-dash meant to be half again longer.
+    px = px_for(path, size)
     hy = _glyph_ink(path, size, "-")
     if hy:
         hmask, htop, hstroke = hy
         hw, hmid = hmask.width, htop + hmask.height / 2.0
     else:                       # no hyphen either: invent a plausible stroke
-        hw, hstroke, hmid = size * 0.42, size * 0.08, 0.0
-    thick = max(1, min(int(round(hstroke)), int(round(size * 0.20))))
+        hw, hstroke, hmid = px * 0.42, px * 0.08, 0.0
+    thick = max(1, min(int(round(hstroke)), int(round(px * 0.20))))
     # A real em-dash runs about three quarters of an em, and in every comic
     # face measured it is comfortably past 1.5x the hyphen. Take the longer.
-    width = max(thick * 3, int(round(max(size * 0.72, hw * 1.55))))
+    width = max(thick * 3, int(round(max(px * 0.72, hw * 1.55))))
 
     mask = None
     donor = em_dash_donor()
@@ -660,8 +1002,224 @@ def em_dash_glyph(path: str, size: int):
     if mask.width != width:
         mask = mask.resize((width, mask.height), Image.LANCZOS)
     top = hmid - mask.height / 2.0
-    advance = width + max(2.0, size * 0.14)     # side bearings
+    advance = width + max(2.0, px * 0.14)       # side bearings
     return (float(advance), int(round(top)), mask)
+
+
+# ------------------------------------------------------- marks in a line ----
+#
+# lee, with a crop of 「これから本番♥」: *"i want teh read text to be able to read
+# stuff like haearts and other thiungs that text can usualy have ... i wan a
+# big librey of icons that can be put there"*.
+#
+# A mark IN A LINE, and nothing else - lee: *"the app shou only worry about
+# symobys in the text not any other symobs"*. A sound painted on the artwork is
+# a sound effect and has its own box; a mark typeset among the words is part of
+# what the balloon says.
+#
+# The em-dash below is the same idea and came first: a comic face that ships
+# only a hyphen still gets a real long dash, drawn by hand and stamped. This
+# generalises it, and the reason it has to exist at all is measured - of the
+# sixteen faces this app ships, ComicNeue (the speech face) has NOT ONE of the
+# eighteen marks manga uses. `♥` in a line of Comic Neue is an empty box.
+#
+# TWO SOURCES, IN ORDER. lee chose both: *"A with B behind it as a fallback"*.
+#
+#   1. `marks.py` - the shape drawn here. Round, short-pointed, the heart manga
+#      draws. Every mark that matters has one.
+#   2. A font on this machine that HAS the character. Nothing new is shipped
+#      for this: `_font_dirs()` and the system folders already hold faces with
+#      wide symbol coverage, and asking them costs a lookup rather than a
+#      licence. It catches a mark nobody has drawn yet.
+#
+# ...and if neither can, the character is left exactly as it is and the font
+# draws whatever it draws. Dropping it would lose what the balloon says without
+# saying so, which is worse than a mark that looks wrong.
+MARK_CAP = 0.86       # of the host's cap height, so it sits with the capitals
+# Side bearing either side, as a fraction of the size. 0.10 was the first
+# guess and `♪♪` came out with a fifth of an em between the two notes, which
+# reads as a gap rather than a pair - two marks in a row is the case that shows
+# a bearing up, because theirs add.
+MARK_BEARING = 0.055
+
+# EVERY character this is willing to substitute, and no others.
+#
+# lee: *"the app shou only worry about symobys in the text not any other
+# symobs"*. So this is a LIST and not a rule like "anything outside Latin-1":
+# a rule would sweep up source-language punctuation, the long-vowel mark, and
+# every kanji on a page the reader failed to translate, and start stamping
+# pictures over them.
+#
+# The drawn set, plus the few the donor supplies. Nothing here is a shape
+# somebody draws ON the artwork - a sound effect is a box of its own.
+#
+# `marks.PICKER` is the one list, because it is also what the picker shows: a
+# character somebody can insert and the app then refuses to draw would be a
+# button that does nothing.
+MARK_CHARS = frozenset(_marks.CHARS) | frozenset(_marks.GLYPHS)
+_MARK_CHARS = MARK_CHARS        # the old private name, still used below
+
+
+@lru_cache(maxsize=64)
+def mark_donor(ch: str) -> str:
+    """A face on this machine that can draw `ch`. '' when there is none.
+
+    Searched over the app's own font folders and the usual system ones. This
+    is the B half of lee's answer and it ships nothing: a machine with any
+    general-purpose font on it has most of these characters already.
+    """
+    seen = []
+    for d in list(_font_dirs()) + [
+            "/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/truetype",
+            "/usr/share/fonts", "C:/Windows/Fonts",
+            "/System/Library/Fonts/Supplemental", "/Library/Fonts"]:
+        try:
+            if not os.path.isdir(d):
+                continue
+            for name in sorted(os.listdir(d)):
+                if name.lower().endswith((".ttf", ".otf")):
+                    seen.append(os.path.join(d, name))
+        except OSError:
+            continue
+    for p in seen:
+        try:
+            if font_supports(p, ch) and usable_font(p):
+                return p
+        except Exception:
+            continue
+    return ""
+
+
+@lru_cache(maxsize=4096)
+def mark_glyph(path: str, size: int, ch: str):
+    """(advance, top, mask) for a mark the host face cannot draw itself.
+
+    None when the font has its own glyph - which is the case that matters most
+    for the faces that DO carry one. Jua has a heart and Patrick Hand has a
+    heart, and a drawn substitute in either would be a stranger dropped into a
+    line that already had the letter.
+
+    `top` is the y of the mask's first row relative to the "lm"/"mm" anchor the
+    renderer draws at, the same convention `em_dash_glyph` uses, so the two go
+    down the same path in `render.draw_line`.
+    """
+    if not path or size < 4 or not ch:
+        return None
+    # ON THE LIST OR NOT AT ALL, and the guard belongs HERE rather than only in
+    # `marks_in`, which is what used to hold it. This is the function that
+    # decides whether to substitute, and without the check it would draw ANY
+    # character a font on this machine happens to have - so a page whose read
+    # failed, with Japanese still sitting in `dst_text`, would get every
+    # hiragana stamped out of the system gothic face at cap height.
+    #
+    # lee: *"the app shou only worry about symobys in the text not any other
+    # symobs"*. A test asks it of あ, 漢, ー and ！.
+    if ch not in MARK_CHARS:
+        return None
+    try:
+        if font_supports(path, ch):
+            return None
+    except Exception:
+        return None
+    # Where the capitals sit, so the mark sits with them rather than on the
+    # baseline or in the middle of the em.
+    # In DRAWN pixels throughout: the mark sits beside the letters, and the
+    # letters are drawn at `px_for(path, size)`. The measured branch already
+    # is - `_glyph_ink` opens the face the same way the renderer does - and the
+    # fallback has to be, or a face opened larger than its number gets a mark
+    # sized for the number.
+    px = px_for(path, size)
+    cap = _glyph_ink(path, size, "H")
+    if cap:
+        ctop, chh = float(cap[1]), float(cap[0].height)
+    else:
+        chh = px * CAP_REF
+        ctop = -chh
+    h = max(2, int(round(chh * MARK_CAP)))
+
+    # FROM A REAL FACE FIRST. lee, over the hand-drawn set: *"instad of
+    # making your own glyphs find some charter only and use those"*. The three
+    # faces in fonts/marks/ are tiny OFL subsets (Noto Emoji, Noto Sans
+    # Symbols 2, Noto Music - renamed, as the licence requires of a modified
+    # copy) that between them carry every character the picker offers, so the
+    # picture is a type designer's and the same on every machine. The drawn
+    # shapes in `marks.py` stay behind them for a build these files have been
+    # stripped from, and the system-font donor behind that.
+    mask = None
+    for face in _mark_faces():
+        if font_supports(face, ch):
+            mask = _font_mask(face, ch, h)
+            if mask is not None:
+                break
+    if mask is None:
+        got = _marks.for_char(ch)
+        if got:
+            try:
+                mask = _marks.mask(got[0], h, hollow=got[1] * h)
+            except Exception:
+                mask = None
+    if mask is None:
+        mask = _donor_mask(ch, h)
+    if mask is None:
+        return None                 # let the font draw whatever it draws
+    top = ctop + (chh - mask.height) / 2.0
+    return (float(mask.width + px * MARK_BEARING * 2.0),
+            int(round(top)), mask)
+
+
+@lru_cache(maxsize=1)
+def _mark_faces() -> tuple:
+    """The bundled mark faces that exist on this install, in preference
+    order. Emoji first: where two carry one character (♥, ⚡, ☠) the emoji
+    forms sit better among the others from the same face."""
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "fonts", "marks")
+    out = []
+    for name in ("marks-emoji.ttf", "marks-symbols.ttf", "marks-music.ttf"):
+        p = os.path.join(d, name)
+        if os.path.isfile(p):
+            out.append(p)
+    return tuple(out)
+
+
+def _donor_mask(ch: str, h: int):
+    """`ch` rendered from a system font that has it - the last net."""
+    donor = mark_donor(ch)
+    if not donor:
+        return None
+    return _font_mask(donor, ch, h)
+
+
+def _font_mask(path: str, ch: str, h: int):
+    """`ch` rendered from `path`, cropped to its ink, `h` tall."""
+    from PIL import Image, ImageDraw
+    for px in (h * 2, int(h * 1.4), h, max(4, h // 2)):
+        try:
+            f = _font(path, max(4, int(px)))
+            l, t, r, b = f.getbbox(ch)
+        except Exception:
+            continue
+        if r <= l or b <= t:
+            continue
+        im = Image.new("L", (r - l, b - t), 0)
+        ImageDraw.Draw(im).text((-l, -t), ch, font=f, fill=255)
+        if im.height != h:
+            w = max(1, int(round(im.width * h / float(im.height))))
+            im = im.resize((w, h), Image.LANCZOS)
+        return im
+    return None
+
+
+def marks_in(line: str, path: str, size: int) -> dict:
+    """{character: (advance, top, mask)} for every mark in `line` this face
+    cannot draw. Empty when there are none, which is nearly every line."""
+    out = {}
+    for ch in set(line):
+        if ch in _MARK_CHARS:
+            got = mark_glyph(path, size, ch)
+            if got:
+                out[ch] = got
+    return out
 
 
 def gutters(size: int, bubble_h: float, cfg: "TypesetConfig") -> tuple[float, float]:
@@ -682,17 +1240,38 @@ def gutters(size: int, bubble_h: float, cfg: "TypesetConfig") -> tuple[float, fl
 # ---------------------------------------------------------------- chord widths
 
 def _row_chords(mask: np.ndarray):
-    """(has_ink, first_x, last_x) for every row of the mask.
+    """(has_ink, first_x, last_x) of the LONGEST UNBROKEN RUN in every row.
 
-    `argmax` on a boolean row stops at the first True, and the same call on the
-    reversed rows finds the last, so both ends of every chord come out of two
-    array passes instead of a `flatnonzero` per row.
+    Not the span from the first set pixel to the last. That was the same
+    answer for every mask this was written against - a balloon interior is one
+    piece, so each of its rows is one run - and a wrong answer for the masks it
+    was not written against: a region whose mask has a HOLE in it reported the
+    hole as room.
 
-    The passes are made over the mask's bounding box, not the mask. These masks
+    lee's page 008 is the case. The words sit on the flat back of a panel with
+    a character in it, so the segmenter's mask is that flat area with her hair
+    punched out of the middle. Every row of it runs from x=89 to x=295 with a
+    bite taken out around x=183..250, and first-to-last called that a 206px
+    chord. The fitter set three lines across it at 19pt, and then
+    `render_page` - which composites each region through this very mask -
+    deleted every letter standing over the hair. "...I MEAN, / THIS IS ONLY /
+    NATURAL!" came out with a fifth of its ink gone, ONLY hollowed straight
+    through the middle.
+
+    A line of type is one unbroken thing, so the room it has is one unbroken
+    run, and the widest one is the one to offer it. On a mask with no holes
+    that is the old answer to the pixel; on a mask with a hole it is the only
+    answer that does not promise room the renderer will take back.
+
+    Vectorised over the whole mask at once: pad each row with a dead column at
+    either end and difference along the row, so every rise is a run's start and
+    every fall its end. All the runs of all the rows come out as two flat
+    arrays, and the longest per row is a lexsort plus one pass for the last of
+    each group.
+
+    The work is done over the mask's bounding box, not the mask. These masks
     are page-sized whatever the balloon is - a 90x200 bubble arrives inside a
-    960x1365 field of zeros - and reversing a page to read it backwards copies
-    the whole thing. Cropping first is what makes the vectorised version
-    actually faster than the loop it replaced rather than merely tidier.
+    960x1365 field of zeros - so cropping first is what keeps this cheap.
     """
     m = mask.astype(bool)
     h = m.shape[0]
@@ -700,17 +1279,39 @@ def _row_chords(mask: np.ndarray):
     first = np.zeros(h, dtype=np.int64)
     last = np.full(h, -1, dtype=np.int64)
     ys = np.flatnonzero(rows)
-    if ys.size:
-        y0, y1 = int(ys[0]), int(ys[-1])
-        band = m[y0:y1 + 1]
-        xs = np.flatnonzero(band.any(axis=0))
-        x0, x1 = int(xs[0]), int(xs[-1])
-        sub = np.ascontiguousarray(band[:, x0:x1 + 1])
-        f = sub.argmax(axis=1)
-        l = sub.shape[1] - 1 - sub[:, ::-1].argmax(axis=1)
-        live = rows[y0:y1 + 1]
-        first[y0:y1 + 1] = np.where(live, f + x0, 0)
-        last[y0:y1 + 1] = np.where(live, l + x0, -1)
+    if not ys.size:
+        return rows, first, last
+    y0, y1 = int(ys[0]), int(ys[-1])
+    band = m[y0:y1 + 1]
+    xs = np.flatnonzero(band.any(axis=0))
+    x0, x1 = int(xs[0]), int(xs[-1])
+    sub = np.ascontiguousarray(band[:, x0:x1 + 1])
+    # WHAT WAS TRIED AND DROPPED: forgiving the specks. These masks are cut and
+    # closed by us, so they carry pin-prick holes - the share for lee's page 014
+    # has seven, six of them a single pixel - and one pixel is enough to split a
+    # row, more so once the gutter erosion has widened it. Two answers were
+    # measured over his 23 pages: bridging gaps of two pixels or fewer here, and
+    # filling enclosed holes under 24px before the distance transform. The first
+    # changed not one block of 163 and cost 13px more deleted ink; the second
+    # changed three - one better, one worse, one only broken differently - and
+    # cost 4px. Neither paid for itself, and a rule you cannot tell from its own
+    # absence is not a rule.
+    pad = np.zeros((sub.shape[0], sub.shape[1] + 2), np.int8)
+    pad[:, 1:-1] = sub
+    d = np.diff(pad, axis=1)
+    sr, sc = np.nonzero(d == 1)          # run starts, in `sub` columns
+    _er, ec = np.nonzero(d == -1)        # run ends, exclusive
+    if sr.size:
+        # Within a row the runs come out left to right and pair up in order, so
+        # `sc` and `ec` line up entry for entry. Sorting by (row, length) puts
+        # each row's longest run last in its group, and the group ends are the
+        # entries where the row number is about to change.
+        order = np.lexsort((ec - sc, sr))
+        rs, cs, ce = sr[order], sc[order], ec[order]
+        keep = np.flatnonzero(np.append(np.diff(rs) != 0, True))
+        yy = rs[keep] + y0
+        first[yy] = cs[keep] + x0
+        last[yy] = ce[keep] - 1 + x0
     return rows, first, last
 
 
@@ -735,16 +1336,6 @@ def band_width(widths: np.ndarray, ya: int, yb: int) -> float:
     yb = min(len(widths), max(ya + 1, yb))
     seg = widths[ya:yb]
     return float(seg.min()) if seg.size else 0.0
-
-
-def band_center(mask: np.ndarray, ya: int, yb: int) -> float:
-    """Horizontal centre of the mask across a band, for centring the line."""
-    ya, yb = max(0, ya), min(mask.shape[0], yb)
-    if yb <= ya:
-        return mask.shape[1] / 2
-    sub = mask[ya:yb]
-    xs = np.flatnonzero(sub.any(axis=0))
-    return float((xs[0] + xs[-1]) / 2) if xs.size else mask.shape[1] / 2
 
 
 def chord_edges(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -1234,6 +1825,22 @@ def _placements(rng: "_RowRanges", band_top: float, slack: float, n: int,
     return [mid] if best is None else [mid, pack(best)]
 
 
+def _sweep(cfg) -> tuple:
+    """`cfg.leadings` converted for the face this fit is measuring in.
+
+    One place, so the sweep and the score always agree about what a gap is.
+    De-duplicated because the clamp collapses the band on an extreme face -
+    Anton comes back as (1.00, 1.00, 1.00, 1.00) - and trying the same number
+    four times is four times the work for one answer.
+    """
+    out = []
+    for want in cfg.leadings:
+        got = round(leading_for(cfg.font_path, want), 3)
+        if got not in out:
+            out.append(got)
+    return tuple(out) or tuple(cfg.leadings)
+
+
 def _candidates(
     text: str, mask: np.ndarray, size: int, leading: float, cfg: TypesetConfig,
     geom: "Optional[BubbleGeom]" = None, want_features: bool = False,
@@ -1562,8 +2169,9 @@ def _feasible_top(text, mask, cfg: TypesetConfig, geom) -> int:
     `small` is measured on: how small a layout is only means something next to
     how big this balloon would ever have let it be.
     """
+    sweep = _sweep(cfg)
     for size in range(cfg.max_font, cfg.min_font - 1, -cfg.font_step):
-        for leading in cfg.leadings:
+        for leading in sweep:
             for _ in _candidates(text, mask, size, leading, cfg, geom):
                 return size
     return cfg.min_font
@@ -1589,12 +2197,13 @@ def _best(text: str, mask: np.ndarray, cfg: TypesetConfig) -> Optional[TextLayou
     best_score, best = INF, None
     geom = BubbleGeom(mask)          # the distance transform, once for all sizes
     top = _feasible_top(text, mask, cfg, geom)
+    sweep = _sweep(cfg)
     span = max(1.0, float(top) - cfg.min_font)
     for size in range(top, cfg.min_font - 1, -cfg.font_step):
         floor = cfg.w_small * min(1.0, max(0.0, 1 - (size - cfg.min_font) / span))
         if floor >= best_score:
             break
-        for leading in cfg.leadings:
+        for leading in sweep:
             for score, lay in _candidates(text, mask, size, leading, cfg, geom,
                                           size_top=top):
                 if score < best_score:
@@ -2004,15 +2613,36 @@ def pull_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     f = _font(lay.font_path or cfg.font_path, lay.font_size)
     halves = [f.getlength(t) / 2.0 for t in lay.lines]
     hh = lay.font_size * 0.5
+    # Every row's chord, once, so "does this line still stand in the shape"
+    # is two comparisons per row instead of a walk along the line.
+    _rows, _first, _last = _row_chords(m)
 
     def fits(t: float) -> bool:
+        """Is the WHOLE of every line inside the mask at this fraction?
+
+        It used to be nine samples per line - the two ends and the middle, at
+        three heights - and nine samples is not a line. A block can pass all
+        nine and still have its first letter standing in a notch the samples
+        step over, which is what happened to lee's page 001: the fitter had
+        set the balloon dead straight, `pull_to_box` slid it seven pixels left
+        towards the box, and REGION lost its R to a mask edge no sample was
+        taken at. The line came out as 'EGION and nothing in the pipeline knew
+        a letter was missing.
+
+        A line occupies every row of its band and every column between its
+        ends, so that is what gets asked: across the rows it covers, the
+        mask's own chord has to reach past both ends of it.
+        """
         for (ox, oy), hw in zip(lay.line_origins, halves):
             nx, ny = ox + dx * t, oy + dy * t
-            for px in (nx - hw, nx, nx + hw):
-                for py in (ny - hh, ny, ny + hh):
-                    ix, iy = int(round(px)), int(round(py))
-                    if not (0 <= ix < W and 0 <= iy < H) or not m[iy, ix]:
-                        return False
+            ya = int(round(ny - hh))
+            yb = int(round(ny + hh)) + 1
+            if ya < 0 or yb > H:
+                return False
+            if not _rows[ya:yb].all():
+                return False
+            if _first[ya:yb].max() > nx - hw or _last[ya:yb].min() < nx + hw:
+                return False
         return True
 
     if fits(1.0):
@@ -2230,6 +2860,30 @@ def _chord_at(m: np.ndarray, ya: float, yb: float) -> tuple[int, int]:
     return (lo, hi)
 
 
+def _one_character(region) -> bool:
+    """Is the Japanese in this box a single character?
+
+    lee: *"also if the jappennese sfx chareter is just one charater in the box
+    it shoud just be flat with no angle"*.
+
+    He is right about the geometry, not only the look. `sfx.sfx_frame` fits an
+    axis through the ink, and an axis through ONE glyph is not a direction of
+    writing at all - it is the long way through that glyph's own shape. ン
+    slopes down-left and ク slopes down-right, so two single-character effects
+    set side by side come out leaning opposite ways for no reason anybody
+    reading the page could see. It takes two characters before there is a line
+    between them to measure.
+
+    Whitespace out, and composed first: ド is one character, and a reader that
+    hands it back as ト plus a combining ゙ is describing the same one glyph in
+    two codepoints. `NFC` puts it back together, so the count is of characters
+    rather than of the way they happened to be encoded.
+    """
+    import unicodedata
+    s = "".join((getattr(region, "src_text", "") or "").split())
+    return len(unicodedata.normalize("NFC", s)) == 1
+
+
 def fit_sfx_region(region: TextRegion, text: str,
                    cfg: TypesetConfig) -> Optional[TextLayout]:
     """Lay a sound effect out along the axis the Japanese one was drawn on.
@@ -2256,15 +2910,36 @@ def fit_sfx_region(region: TextRegion, text: str,
     wf = float(getattr(region, "sfx_wid", 0.0) or 0.0)
     if lf > 0 and wf > 0:
         vertical = bool(getattr(region, "sfx_vertical", h >= w))
-        angle = float(getattr(region, "angle", 0.0) or 0.0)
+        angle = 0.0 if _one_character(region) \
+            else float(getattr(region, "angle", 0.0) or 0.0)
     else:
         # Never measured: detected before the axis reader existed, or drawn by
         # hand since. Typesetting it straight, filling the box, is what the
         # fitter did for it before and is still the honest answer.
         lf = wf = 1.0
         vertical, angle = h >= w, 0.0
+    if SFX_FILLS_BOX:
+        # lee: *"make it so that teh sfx is teh size of teh box, like make it
+        # fie exacly the size of the box"*. The footprint of the JAPANESE ink
+        # is a smaller rectangle than the box round it - measured over his 23
+        # pages, `sfx_len` averages 0.82 and `sfx_wid` 0.66 - so an effect
+        # fitted to the ink filled about five sixths of the space it was given.
+        # The ANGLE and the axis are still read from the ink: which way the
+        # effect leans is a fact about the drawing, and only the size budget
+        # comes from the box.
+        lf = wf = 1.0
 
-    path = cfg.font_path
+    # THIS region's face, not the project's default one.
+    #
+    # It read `cfg.font_path` directly, which quietly ignored the sound-effect
+    # font. On a project that set both - lee's set `font` to Anime Ace and
+    # `fonts["sfx"]` to Wild Words - the effect was MEASURED and recorded in
+    # Anime Ace while the panel said Wild Words, because the layout carries
+    # `font_path` and `typeset_page` only fills that in when it is empty.
+    # Every other kind goes through `font_for`; this one had been left out of
+    # it, and nothing noticed until `font_for` stopped returning `cfg.font_path`
+    # for everything and the two answers came apart.
+    path = font_for(cfg, getattr(region, "kind", "") or "") or cfg.font_path
 
     def measure(size: int, s: str) -> tuple:
         top, bot = ink_extents(path, int(size), _has_descenders(s))
@@ -2279,7 +2954,9 @@ def fit_sfx_region(region: TextRegion, text: str,
     # artwork, and running past the box beats being too small to read.
     # lee: *"outside text and sfx shoud be able to got outside teh box if the
     # text size is bellow the miimum"*.
-    lay = fit_sfx(frame, text, measure, lo=cfg.min_font, hi=160)
+    lay = fit_sfx(frame, text, measure, lo=cfg.min_font, hi=160,
+                  over_long=1.0 if SFX_FILLS_BOX else None,
+                  over_wide=1.0 if SFX_FILLS_BOX else None)
 
     # The line sits on its own ink, not on a line box: anchored on the line box
     # a word of capitals hangs off the descender line and sits low in the space
@@ -2318,6 +2995,173 @@ def fit_sfx_region(region: TextRegion, text: str,
         frame=(int(round(lay.cx - across / 2.0)), int(round(lay.cy - run / 2.0)),
                max(8, int(round(across))), max(8, int(round(run)))),
     )
+
+
+# How much bigger the broken layout has to be before the break is worth making.
+# The two ends of the range say what it is for: lee's "Double...?!" goes 11 to
+# 18 in the balloon it was starved in, and in a balloon with room to spare the
+# same break goes 39 to 40 - a word cut in half to tidy the arithmetic by a
+# point, which is a break for its own sake and one nobody asked for.
+#
+# A ratio and not a number of points, because a step of size is a large thing
+# at 11pt and a small one at 39. The chapter is nearly flat between a tenth and
+# a quarter - mean point size 17.39, 17.34, 17.19 at 1.10, 1.15 and 1.25, with
+# the same 39 blocks under a third of their balloon either way - so this is a
+# choice about the ONE-POINT case and not about the numbers, and a sixth is far
+# enough above it to be sure.
+AUTHOR_BREAK_GAIN = 1.15
+
+
+# ------------------------------------------------ and breaking a word itself
+
+# lee: *"i dont wanta buch of hypers everywhere"*. That is a rate, and the
+# published English chapter 22 has one: read off the pages with tesseract,
+# **7 of 302 lines end in a broken word - 2.3 per 100**. Everything below is
+# in service of landing on that number rather than on whether each break looks
+# defensible on its own.
+#
+# Four separate brakes, because one threshold doing all the work is one number
+# nobody can reason about:
+HYPHEN_MIN_WORD = 8    # short words are never broken, whatever the patterns say
+HYPHEN_MIN_HEAD = 3    # letters kept before the hyphen. The pattern file allows
+HYPHEN_MIN_TAIL = 3    # 2; two letters and a dash is a stub, not a syllable.
+HYPHEN_MAX = 1         # broken words per block. A professional does one.
+
+# How much bigger the broken layout must be to be worth a hyphen.
+#
+# lee: *"i dont wanta buch of hypers everywhere"*. So the question is a RATE,
+# and four published English chapters were read with tesseract to find it
+# (`his/hyph.py`) - deliberately not one, because one chapter is the work of
+# one person and would only measure that person's habit:
+#
+#     Jujutsu Kaisen 22        7 of 302     2.3 per 100
+#     chapter 141             12 of 486     2.5
+#     My Hero Academia 425     6 of 448     1.3
+#     My Hero Academia 420     3 of 360     0.8
+#     ----------------------------------------------
+#     pooled                  28 of 1596    1.8
+#
+# They disagree, which is worth more than agreement would have been: a house
+# that hyphenates twice as often as another means there is no single right
+# answer, only a range, and the honest place to sit is the middle of it.
+#
+# Swept over lee's 23 pages (`his/rate.py`), counted the same way on both
+# sides - two letters and a hyphen ending a line that is not the last of its
+# block, em-dashes excluded:
+#
+#     gain    lines   broken   per 100   mean pt
+#     1.00      789      29      3.7      16.69
+#     1.10      784      18      2.3      16.65
+#     1.25      781      16      2.0      16.60
+#     1.30      779      14      1.8      16.55   <-
+#     1.35      778      13      1.7      16.53
+#     1.40      776      12      1.5      16.46
+#     1.60      773      10      1.3      16.36
+#
+# On the pooled figure exactly. Both numbers include the dashes the AUTHOR
+# wrote: with hyphenation off entirely lee's chapter still has 4 such lines
+# (0.5 per 100 - "Glow-", "Villainess-"), so of the 14 at this setting, ten
+# are ours.
+#
+# One caveat, recorded because it points the other way: the reading
+# UNDERCOUNTS. `COORDI-/NATES` appears twice on page 5 of chapter 420 and
+# neither was counted - a whole-page read finds them, the per-balloon read
+# does not. So the true professional rate is somewhat above 1.8, and if this
+# number is ever revisited, revisit it upward and not down.
+HYPHEN_GAIN = 1.30
+
+
+def hyphen_points(word: str) -> list:
+    """Where `word` may be broken - at most one place, nearest the middle.
+
+    One place and not all of them. The fitter is freer with three, and freedom
+    here is exactly what produces a page of hyphens: every extra offer is
+    another line that CAN end in one. A professional breaks a long word about
+    once, near the middle, so that is what is offered.
+    """
+    core = word.strip(_DASHES + _DOTS + ",!?;:\"'()")
+    if len(core) < HYPHEN_MIN_WORD or not core.isalpha():
+        return []
+    from . import hyphen as _hy
+    at = word.find(core)
+    got = [p for p in _hy.points(core)
+           if p >= HYPHEN_MIN_HEAD and len(core) - p >= HYPHEN_MIN_TAIL]
+    if not got:
+        return []
+    mid = len(core) / 2.0
+    return [at + min(got, key=lambda p: (abs(p - mid), p))]
+
+
+def hyphen_tokens(text: str) -> "tuple[list[str], list[bool]]":
+    """`text` as tokens the fitter may break between, and which rejoin.
+
+    The piece before a break carries its hyphen ALREADY - `trans-`, `figured` -
+    so the fitter measures the wider thing. Two pieces that end up on one line
+    are rejoined with the hyphen taken back out, which makes the drawn line
+    narrower than the one that was measured and never wider. That is the same
+    argument `_fit_on_author_breaks` makes, and it is the whole reason a fit
+    that fitted still fits.
+    """
+    toks: list[str] = []
+    glue: list[bool] = []
+    for w in text.split():
+        pts = hyphen_points(w)
+        if not pts:
+            toks.append(w)
+            glue.append(False)
+            continue
+        p = pts[0]
+        toks.append(w[:p] + "-")
+        glue.append(False)
+        toks.append(w[p:])
+        glue.append(True)
+    return toks, glue
+
+
+def rejoin_hyphens(lines: list, toks: list, glue: list) -> list:
+    """The fitter's lines, with every word it did NOT break made whole again -
+    and the hyphen that was measured taken back off."""
+    out, at = [], 0
+    for ln in lines:
+        n = len(ln.split())
+        built = ""
+        for k in range(at, at + n):
+            if k >= len(toks):
+                return list(lines)
+            if k > at and glue[k]:
+                built = built[:-1] + toks[k]      # drop the measured hyphen
+            elif k == at:
+                built = toks[k]
+            else:
+                built += " " + toks[k]
+        at += n
+        out.append(built)
+    if at != len(toks):
+        return list(lines)
+    return out
+
+
+def _fit_on_hyphens(text: str, mask: np.ndarray, cfg: TypesetConfig
+                    ) -> Optional[TextLayout]:
+    """Fit again, allowed to break long words where English allows it.
+
+    Returns None when there is nothing long enough to break, when the fitter
+    took no break it was offered, or when it took more than `HYPHEN_MAX` of
+    them - a balloon with three hyphens in it is the thing lee asked not to
+    have, and refusing the whole layout is how that is guaranteed rather than
+    hoped for.
+    """
+    toks, glue = hyphen_tokens(text)
+    if not any(glue):
+        return None
+    lay = _best(" ".join(toks), mask, cfg)
+    if lay is None:
+        return None
+    lines = rejoin_hyphens(list(lay.lines), toks, glue)
+    took = sum(1 for l in lines[:-1] if l.endswith("-"))
+    if not took or took > HYPHEN_MAX:
+        return None
+    return replace(lay, lines=lines)
 
 
 def _fit_on_author_breaks(text: str, mask: np.ndarray, cfg: TypesetConfig
@@ -2426,6 +3270,24 @@ def fit_region(region: TextRegion, cfg: TypesetConfig,
         if lay is not None:
             lay.rotate = turn
         return lay
+    # OUTSIDE TEXT IS SET STRAIGHT, and that is a decision rather than an
+    # omission.
+    #
+    # It leaned for one afternoon. The reading gives loose writing an angle
+    # now - lee: *"is posible while looking at the box type with reas text ask
+    # it to give the angle of the text for the typesetter"* - and this is
+    # where a freefloat block was turned by it. He looked at the result and
+    # said: *"also make all teh freefloast text be start no more angle"*.
+    #
+    # So the block goes down level. A sound effect still leans, because it
+    # reaches its angle by another road entirely - laid letter by letter along
+    # an axis of its own, which is the branch above this one - and because a
+    # leaning effect is drawn that way on purpose. Outside text is a caption
+    # on the artwork, and a caption that leans is just harder to read.
+    #
+    # `region.angle` is still measured and still stored. It is not thrown
+    # away, because the box panel shows it and a person can still turn a box
+    # with the handle; it is simply not something the typesetter acts on.
     return _fit_region(region, cfg, mask)
 
 
@@ -2442,6 +3304,20 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
     """
     if mask is None:
         mask = region.place_mask()
+    if mask is None or not mask.any():
+        # NO SHAPE TO FIT INTO IS NOT A REASON TO TYPESET NOTHING.
+        #
+        # `place_mask()` is None for every region in a REOPENED chapter -
+        # `to_dict` drops the masks, so nothing on disk remembers one - and it
+        # is empty for a sound effect whose ink the detector never found.
+        # Either way the block came back with no lines in it, which on the
+        # page is a balloon that lost its dialogue.
+        #
+        # The box is what the fitter already falls back to when there is no
+        # balloon, and it is the one shape every region always has.
+        # lee: *"if the typesetter can't find a box it hsoud fall back to
+        # using the box"*.
+        mask = region.box_mask(None if mask is None else mask.shape[:2])
     if mask is None or region.dst_text is None:
         return TextLayout(lines=[], font_size=cfg.min_font, leading=1.1, fit_ok=False)
 
@@ -2510,16 +3386,53 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
     two = _two_lobe_fit(region, text, m, cfg, lay)
     if two is not None:
         return two
-    if lay is not None:
-        return lay
 
-    # Nothing fit above the legibility floor with the spaces alone. Before
-    # dropping under it, break where the author already put a dash or a row of
-    # dots - see `author_breaks`. It costs nothing and it is what a typesetter
-    # does.
-    lay = _fit_on_author_breaks(text, m, cfg)
+    # ...and the dashes and dot runs the author already wrote are tried the
+    # same way, and kept on the same condition: only if they typeset BIGGER.
+    #
+    # They used to be a last resort, reached only when nothing fitted at the
+    # minimum at all. That is one of the two cases they are for and it is not
+    # the common one. The other is a single long word in a tall narrow balloon,
+    # where the width of that one word is the whole ceiling: "Double...?!" is
+    # 77px at 11pt against a widest usable chord of 84, so eleven - the floor -
+    # was the largest size that fitted, in a balloon 102 wide and 214 tall with
+    # nothing else in it. Broken where the author put the dots it sets at 18
+    # on two lines. Nothing was wrong with the fitter's arithmetic; it was
+    # never allowed to consider the layout.
+    #
+    # BIGGER and not better-scoring, deliberately. The two fits are scored
+    # against different `_feasible_top`s - `small` is normalised by what THAT
+    # arrangement can reach - so their scores are not on one scale, while their
+    # point sizes are. It is also the thing lee is asking about: *"try to make
+    # teh typesetting more constsant and better fit the boxes"*.
+    alt = _fit_on_author_breaks(text, m, cfg)
+    if alt is not None and (lay is None
+                            or alt.font_size >= AUTHOR_BREAK_GAIN * lay.font_size):
+        return alt
+    # ...and only then a hyphen of our own. AFTER the author's dashes, because
+    # a break the text already carries is free and one we invent is a mark that
+    # was not there - so if both would do, the author's wins.
+    #
+    # Measured against the best of BOTH, not against the plain fit. Against the
+    # plain fit alone there is a hole: an author break that just missed its own
+    # gain gets discarded, and the hyphen is then compared with a layout nobody
+    # was going to use - so it wins on a margin it never had. That sets
+    # `YOU'RE / BLEED- / ING...` over lee's own `YOU'RE / BLEEDING / ...`, and
+    # his four hand-set examples are in the suite exactly so that this cannot
+    # happen quietly.
+    floor = lay
+    if alt is not None and (floor is None or alt.font_size > floor.font_size):
+        floor = alt
+    cut = _fit_on_hyphens(text, m, cfg)
+    if cut is not None and (floor is None
+                            or cut.font_size >= HYPHEN_GAIN * floor.font_size):
+        return cut
     if lay is not None:
         return lay
+    if alt is not None:
+        return alt
+    if cut is not None:
+        return cut
 
     # Outside text has no balloon to stay inside - the only thing under it is
     # the drawing. Rather than dropping under the minimum size to stay in a
@@ -2583,11 +3496,70 @@ def _fit_region(region: TextRegion, cfg: TypesetConfig,
 OUTLINE_ON_ART = 2
 OUTLINE_IN_BUBBLE = 1
 
+# WHERE A RIM STOPS GROWING WITH THE TYPE IT GOES ROUND.
+#
+# lee: *"the outlint to text ratio is too nig make it so that taxt over a
+# certain size get a samller ratio"* - and then, on which blocks: *"that shoud
+# only apply for the other sfx"*, *"ot the big ones"*.
+#
+# `font_size // 7` is not merely too thick, it is the wrong SHAPE, and his own
+# chapter says so. Every keyline `inkstyle` measured off the writing the
+# artist drew by hand, by point size:
+#
+#     144 -> 4    57 -> 4    36 -> 3    19 -> 3    14 -> 4
+#     134 -> 4    55 -> 4    20 -> 3    18 -> 4    13 -> 3
+#                 48 -> 4               17 -> 4    12 -> 3
+#                 46 -> 4
+#
+# Three or four pixels from 12pt to 144pt. A twelvefold range of type and one
+# nib, which is the rule `_measured_width` already states - *a pen has a
+# width* - and which had never reached the automatic path. At 144pt the old
+# rule asks for twenty where the artist drew four.
+#
+# So: the drawing rate up to the knee, and a crawl past it. The knee is where
+# `size // 7` and the measurement agree, which is why it is 28 rather than a
+# round number.
+#
+#     28 -> 4    46 -> 4    55 -> 5    72 -> 5    144 -> 7
+#
+# It stays a ratio rather than becoming the flat 4 the numbers alone would
+# suggest, because a rim is in PAGE pixels: lee's scans are 960 wide, and the
+# same page at 2000 would want a proportionally thicker line. A constant would
+# come out as a hairline there.
+#
+# EVERY sound effect, the big ones included. It was every one EXCEPT the big
+# ones - lee: *"ot the big ones"* - and he asked for that exemption back after
+# looking at the result: *"the big sfx shoud also use rim now"*.
+#
+# He is right, and the reasoning it replaces was thinner than it sounded. A big
+# sound is where `size // 7` is at its very worst, precisely because it is a
+# ratio: the block with the largest type gets the heaviest keyline, and 144pt
+# asks for twenty pixels where the artist of this chapter drew four. "An impact
+# effect is the one place a heavy rim is the drama rather than a mistake" was a
+# defence of the single case the measurement most flatly contradicts.
+#
+# A block that WAS measured keeps its measured rim regardless of any of this:
+# `_measured_width` runs after, and these constants are the answer for pages
+# nobody has read.
+RIM_KNEE = 28
+RIM_SLOW = 40
+
 
 # How far past its own box a sound effect may reach, per side, as a fraction of
-# that side. lee: *"outide text and sfx should try to fit inside the box or
-# slightly bigger"*. The same margin outside text gets (detect.balloon).
-SFX_MARGIN = 0.25
+# that side.
+#
+# It was 0.25 - lee, in July: *"outide text and sfx should try to fit inside
+# the box or slightly bigger"*. "Slightly bigger" is now nothing: *"make it so
+# that teh sfx is teh size of teh box, like make it fie exacly the size of the
+# box, it shou only ever outside teh box if tehsfx would break teh minimun size
+# for teh text"*. The second half of that sentence is the escape hatch below,
+# which was already here and is what keeps this from being a wall: an effect
+# that cannot fit at `min_font` stays too big and sets `spills`.
+SFX_MARGIN = 0.0
+
+# ...and the size is grown against the BOX rather than against the footprint of
+# the Japanese ink inside it. See `fit_sfx_region`.
+SFX_FILLS_BOX = True
 
 
 def clamp_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
@@ -2610,10 +3582,29 @@ def clamp_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
     if w < 4 or h < 4:
         return lay
     path = lay.font_path or cfg.font_path
-    f = _font(path, lay.font_size)
-    asc, desc = f.getmetrics()
-    th = float(asc + desc) * max(1, len(lay.lines)) * float(lay.leading or 1.0)
-    tw = max(_text_w(path, lay.font_size, l) for l in lay.lines)
+    # Measured on the INK, the way `fit_sfx_region` measures it - not on the
+    # font's ascent-plus-descent.
+    #
+    # The two disagreed, and `SFX_MARGIN` used to hide it: the fit asked
+    # whether the letters fit and the clamp asked whether the LINE BOX did,
+    # which on a word of capitals includes room for a descender that is not
+    # there. At a quarter of slack per side nobody noticed. At nothing - lee's
+    # *"exacly the size of the box"* - the clamp shaved a few points off every
+    # effect the fit had just declared a fit, and `KA` in a 60x60 box came out
+    # of the fitter at 63pt and out of the clamp at 58.
+    #
+    # Ink is also the honest measure of the question being asked. What has to
+    # sit inside the box is what a reader can see, and an effect held back to
+    # leave room for the descender of a word that has none is an effect
+    # smaller than the box it was asked to fill.
+    heights, widths = [], []
+    for line in lay.lines:
+        top, bot = ink_extents(path, lay.font_size, _has_descenders(line))
+        heights.append(bot - top)
+        widths.append(_text_w(path, lay.font_size, line))
+    gap = max(0.0, (float(lay.leading or 1.0) - 1.0) * lay.font_size)
+    th = sum(heights) + gap * max(0, len(lay.lines) - 1)
+    tw = max(widths)
     # A leaning effect covers the box of its own rotated rectangle.
     a = math.radians(float(lay.rotate or 0.0))
     ca, sa = abs(math.cos(a)), abs(math.sin(a))
@@ -2650,6 +3641,28 @@ def clamp_to_box(region: TextRegion, lay: TextLayout, cfg: TypesetConfig,
                          int(round(cy + (py - cy) * k)))
                         for px, py in lay.line_origins]
     lay.font_size = size
+    # ...and the frame with them. This was missing, and a frame is not
+    # decoration: it is what the editor draws the selection with, what a drag
+    # moves, what `frameOf` hands the browser to place lines from, and what a
+    # save writes into `layout_override`. Left at the pre-shrink size it says
+    # the block is as big as it was BEFORE the clamp - `Um...` on lee's page 5
+    # measured 41x20 on the paper and carried a frame claiming 94x40.
+    #
+    # The SAME similarity transform the origins just went through, rather than
+    # a fresh measurement. Re-measuring was tried and it drifts: `cx, cy` above
+    # is the mean of the ORIGINS, which sit on each line's ink top and are not
+    # the block's visual centre, so a frame rebuilt around that point lands a
+    # few pixels off the one `fit_sfx_region` built - 3.5px on the leaning
+    # effect in `test_a_sound_effect_is_typeset_along_the_axis_it_was_drawn_on`,
+    # which is a test about an effect staying centred on its box and was right
+    # to complain. Scaling the frame the way the letters were scaled keeps it
+    # in exactly the relationship to them it had before the clamp, which is the
+    # only thing this function is entitled to change.
+    if lay.frame and len(lay.frame) == 4:
+        fx, fy, fw, fh = lay.frame
+        lay.frame = (int(round(cx + (fx - cx) * k)),
+                     int(round(cy + (fy - cy) * k)),
+                     max(8, int(round(fw * k))), max(8, int(round(fh * k))))
     return lay
 
 
@@ -3564,18 +4577,44 @@ def _lobe_cut(regions: list, masks: list, cfg: TypesetConfig) -> dict:
     """
     if len(regions) != 2:
         return {}
-    u = np.zeros(masks[0].shape[:2], dtype=np.uint8)
+    real = np.zeros(masks[0].shape[:2], dtype=np.uint8)
     for m in masks:
-        u = np.maximum(u, (m > 0).astype(np.uint8))
+        real = np.maximum(real, (m > 0).astype(np.uint8))
     # The detector's hairline between the shares would read as a dent all by
     # itself, and a deeper one than the neck.
-    u = cv2.morphologyEx(u, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    k = np.ones((9, 9), np.uint8)
+    u = cv2.morphologyEx(real, cv2.MORPH_CLOSE, k)
+    # The bridging is allowed to JOIN the shares and not to GROW the balloon.
+    # A close does both, and the second half is what deleted lee's R: it fills
+    # every dent in the outline as readily as the gap between the parts - 330px
+    # of page 001's balloon, 313 of them handed to the lower lobe along its
+    # outer flank, where the fitter then typeset and `render_page`, compositing
+    # through the region's own mask, printed nothing. The two are easy to tell
+    # apart: a pixel of the seam has BOTH shares within reach, and a pixel of a
+    # dent has only the one whose flank it is bitten out of.
+    #
+    # It is not exact, and the inexactness is worth naming. Where the seam opens
+    # onto the balloon's rim, both lobes are within reach of a few pixels just
+    # outside the outline and those come in with it: 13 on the fixture that has
+    # both a seam and a dent, against the 313 the dent used to bring. They are
+    # at the NECK, which is the one part of a balloon no line of type ends at.
+    # A smaller kernel closes that gap and opens a worse one - at 5x5 the
+    # detector's own hairline stops being bridged, the neck is read in the
+    # wrong place, and lee's two-lobed page loses a point of size.
+    reach = [cv2.dilate((m > 0).astype(np.uint8), k) for m in masks]
+    seam = np.ones(real.shape, bool)
+    for d in reach:
+        seam &= d > 0
+    allowed = (real > 0) | seam
     for lab, n in neck_cuts(u):
         if n - 1 < len(regions):
             continue
         out = _ink_sides(regions, lab)
         if out is None:
             continue                       # a tail, or a chord through a lobe
+        # ...back inside the balloon, keeping the seam and dropping the dents.
+        out = {i: np.where(allowed, v, 0).astype(v.dtype)
+               for i, v in out.items()}
         if all(_lobe_holds(r, out[r.id], cfg) for r in regions):
             return out
     return {}
@@ -3812,7 +4851,389 @@ def share_masks(regions: list, cfg: "Optional[TypesetConfig]" = None) -> dict:
     for rs in _linked_groups(regions):
         if not any(r.id in done for r in rs):
             out.update(_stacked_share(rs))
+    # THE BALLOON CHECK'S BETTER SHAPE, last and lowest. When the saved
+    # outline runs off its balloon, `balloonck` writes the model's balloon as
+    # `fit_poly` - for the TYPESETTER only, at lee's word: *"it should only
+    # help the typesetter on bubble text"*. It lands here because this dict is
+    # the one thing every fitting path reads (the page fit, `_level_caps`'
+    # probe, and the editor's per-box preview at `editor.layout_preview`), so
+    # preferring it anywhere else would fit the page one way and preview it
+    # another. A block whose balloon is genuinely shared is already in `out`
+    # and keeps its cut - the check never writes `fit_poly` onto a balloon
+    # holding more than one box, and this line could not override a share
+    # anyway.
+    for r in regions:
+        if r.id not in out and getattr(r, "fit_poly", None)                 and _kinds.family_of(r.kind) == "bubble":
+            m = _mask_from_poly(r.fit_poly, regions)
+            if m is not None:
+                out[r.id] = m
     return out
+
+
+def _mask_from_poly(poly, regions):
+    """`fit_poly` as a page-sized mask, sized from any mask on the page."""
+    import cv2 as _cv2
+    shape = None
+    for r in regions:
+        for m in (r.bubble_mask, r.text_mask, r.share_mask):
+            if m is not None:
+                shape = m.shape[:2]
+                break
+        if shape:
+            break
+    if not shape or not poly or len(poly) < 3:
+        return None
+    out = np.zeros(shape, np.uint8)
+    _cv2.fillPoly(out, [np.asarray(poly, np.int32).reshape(-1, 1, 2)], 255)
+    return out
+
+
+SFX_ROOM = 0.55        # ...but not at the price of more than this much size
+
+
+def _keep_off_the_sound_effects(page, shares: dict) -> None:
+    """Take the sound effects out of the room the dialogue is offered.
+
+    lee, with a crop of COUGH printed straight through "...THIS MUCH IS ONLY
+    NATURAL!": *"make the typesetter use a the image that i see to typeset"*.
+
+    Every block is fitted against its own area and told nothing about any
+    other, so a page where two of them want the same paper prints one through
+    the other. Between two speech balloons that cannot happen - a balloon is
+    drawn round its own words - but a sound effect has no balloon, is drawn
+    over the artwork wherever the original mark was, and is not clipped to
+    anything. It cannot move. The dialogue can, so the dialogue is the one
+    told.
+
+    The BOX and not the fitted ink, because the fitting has not happened yet
+    and the box is where `fit_sfx_region` centres the effect anyway. And only
+    when it is cheap: a big effect across the middle of a balloon leaves a
+    shape nothing sets well in, and dialogue at half the size to avoid a
+    collision is a worse page than dialogue with a collision. `SFX_ROOM` is
+    the share of its room a block may lose to this.
+    """
+    sfx = [r for r in page.regions
+           if _kinds.family_of(r.kind) == "sfx" and (r.dst_text or "").strip()]
+    if not sfx:
+        return
+    shape = None
+    for r in page.regions:
+        m = shares.get(r.id)
+        if m is None:
+            m = r.place_mask()
+        if m is not None:
+            shape = m.shape[:2]
+            break
+    if shape is None:
+        return
+    keep_off = np.zeros(shape, np.uint8)
+    for s in sfx:
+        x, y, w, h = (int(v) for v in (s.bbox or (0, 0, 0, 0)))
+        if w < 2 or h < 2:
+            continue
+        keep_off[max(0, y):y + h, max(0, x):x + w] = 1
+    if not keep_off.any():
+        return
+    off = keep_off > 0
+    for r in page.regions:
+        if _kinds.family_of(r.kind) == "sfx":
+            continue
+        m = shares.get(r.id)
+        if m is None:
+            m = r.place_mask()
+        if m is None:
+            continue
+        was = m > 0
+        n = int(was.sum())
+        if not n:
+            continue
+        left = was & ~off
+        if int(left.sum()) == n:
+            continue                       # nothing of this one is wanted
+        if int(left.sum()) < SFX_ROOM * n:
+            continue                       # too much of the balloon to give up
+        shares[r.id] = np.where(left, 255, 0).astype(np.uint8)
+
+
+# ------------------------------------------------- one size across one page
+
+# How far above the page's own size a block of dialogue may sit.
+#
+# Swept rather than picked (`his/band.py`): every candidate typesets lee's
+# whole chapter, renders it, and scores it through the same detector and the
+# same arithmetic as the professional chapter, against the two numbers measured
+# there - fill 0.382, spread 1.33x, middle half +/-15%.
+#
+#     band     fill   spread   middle half
+#     off     0.549     1.91      0.21
+#     1.05    0.485     1.42      0.11
+#     1.10    0.502     1.46      0.15     <-
+#     1.15    0.505     1.54      0.16
+#     1.30    0.526     1.67      0.19
+#     1.50    0.538     1.74      0.20
+#     1.75    0.547     1.79      0.21
+#
+# 1.10 puts the middle half exactly where the professional's is. Tighter is
+# not better: 1.05 comes out at 0.11, which is MORE even than the people who
+# do this for a living, and a page whose every balloon is the same size to
+# within a twentieth reads as set by a machine, because it was.
+#
+# The spread is still 1.46 against their 1.33, and no band closes that: a band
+# is a ceiling, and what is left is the FLOOR - blocks that are small because
+# one long word is their whole ceiling. That is hyphenation's half of the job,
+# not this one's.
+LEVEL_BAND = 1.10
+
+# Fewer blocks than this and there is no such thing as "the size on this page":
+# three balloons of which one is a shout has a median that means nothing.
+LEVEL_MIN = 4
+
+
+def _level_caps(page, cfg: TypesetConfig, shares: dict):
+    """The size this page is set at, and a ceiling for whatever overshoots it.
+
+    lee, twice: *"try to make teh typesetting more constsant and better fit the
+    boxes"*. I did the second half and argued the first half away - levelling
+    two adjacent boxes means pulling one DOWN, which is less well filled, so
+    the two halves looked like opposites and I would not choose between them on
+    a hunch.
+
+    Then he sent the published English chapter 22 beside the Japanese it was
+    made from. Measured with one instrument - our detector over both, our
+    arithmetic over both - the halves are not opposites at all:
+
+                            professional      ours
+        block / balloon          0.38         0.55
+        biggest / smallest       1.33x        1.91x
+        middle half             +/-15%       +/-21%
+
+    We were already filling balloons HALF AGAIN as full as the people who do
+    this for a living, and the thing we were not doing was keeping the letters
+    the same size. A professional takes 0.38 to get 1.33x. That is not a
+    conflict between the two things lee asked for; it is the answer to them.
+
+    So: the page's median dialogue size is what the page is set at, and a block
+    fitted more than `LEVEL_BAND` above it is fitted again with that ceiling.
+    Only downward - a block is small because its balloon is small, and forcing
+    one up is how a line ends up outside the shape it was clipped to.
+
+    Sound effects are not dialogue and are not levelled: their size is drawn
+    from the mark they replace, and the professional's 1.33x is measured with
+    them excluded too. Neither is anything set by hand - a size somebody typed
+    is not an accident to be tidied.
+
+    Returns `(probe, caps)`: the fit each block came to on its own, so the
+    blocks that are already inside the band are not fitted a second time, and
+    the ceiling for the ones that are not.
+    """
+    probe, sizes = {}, []
+    for r in page.regions:
+        if not r.dst_text or _kinds.family_of(r.kind) == "sfx":
+            continue
+        if (r.layout_override or {}).get("locked"):
+            continue
+        was = r.dst_text
+        if (r.layout_override or {}).get("caps"):
+            r.dst_text = r.dst_text.upper()
+        try:
+            lay = fit_region(r, cfg, shares.get(r.id))
+        finally:
+            r.dst_text = was
+        if lay is None or not lay.lines or not lay.font_size:
+            continue
+        probe[r.id] = lay
+        sizes.append(float(lay.font_size))
+    if len(sizes) < LEVEL_MIN:
+        return probe, {}
+    # Never below the floor: a ceiling under `min_font` is a ceiling nothing
+    # can be fitted beneath, and the block would come back empty.
+    cap = max(int(cfg.min_font),
+              int(round(LEVEL_BAND * float(np.median(sizes)))))
+    return probe, {rid: cap for rid, l in probe.items() if l.font_size > cap}
+
+
+# The override keys that decide WHERE THE LINES LAND, as opposed to what
+# colour they are. Everything `layout_from_override` and the fitter read, and
+# nothing else - so changing a colour or a glow does not throw a page's fitting
+# away and make it again. Kept as one list because `page_fit_key` and anybody
+# reasoning about it need to be looking at the same one.
+FIT_KEYS = ("caps", "dx", "dy", "fit", "fixed", "font", "font_size", "frame",
+            "leading", "lines", "locked", "lspace", "origins", "rotate",
+            "snug", "stroke", "wrap")
+
+
+# The last few pages' fitting, by the key it was fitted under.
+#
+# The stamp on the record is the durable half of this and it is written when a
+# page is COMMITTED - by the Typeset button, by a save. Plenty of renders never
+# commit: the exact view asks read-only on purpose, and a render served from
+# the disk cache never lays anything out at all, so it never stamps either. On
+# those pages the stamp is missing and every rebuild fitted from scratch -
+# which is most of them while somebody is editing, because changing a COLOUR
+# rebuilds the picture without changing anything about the fit.
+#
+# So the fitting is also remembered here, for the length of the run. Small -
+# the layouts of a couple of dozen pages - and keyed by exactly the thing that
+# decides them, so a hit is the answer the fitter would have given.
+_FITS: "OrderedDict[str, dict]" = OrderedDict()
+FIT_CACHE_MAX = 24
+
+# The SHARE CUTS, remembered under the same key. `share_masks` is not the
+# 40ms of geometry its name suggests: deciding how to divide a shared balloon
+# TYPESETS THE CANDIDATES AND MEASURES ("typeset it every way and measure" -
+# its own words), which on a page with linked balloons is the fitter run ten
+# times over. It sat ABOVE the fit-cache early return, so every render of an
+# unchanged page paid it - three seconds here, ten on lee's machine, and it
+# was the whole of *"its taking a good 10s secor or more to rebuild"*.
+# Masks are page-sized, so they are kept PNG-encoded (~10-30KB each) and
+# decoded on recall, which is milliseconds.
+_SHARES: "OrderedDict[str, list]" = OrderedDict()
+SHARE_CACHE_MAX = 12
+
+
+def _remember_shares(key: str, shares: dict) -> None:
+    import cv2 as _cv2
+    packed = []
+    for rid, m in shares.items():
+        if m is None:
+            continue
+        ok, buf = _cv2.imencode(".png", m)
+        if ok:
+            packed.append((rid, buf.tobytes()))
+    _SHARES[key] = packed
+    _SHARES.move_to_end(key)
+    while len(_SHARES) > SHARE_CACHE_MAX:
+        _SHARES.popitem(last=False)
+
+
+def _recall_shares(key: str):
+    import cv2 as _cv2
+    got = _SHARES.get(key)
+    if got is None:
+        return None
+    _SHARES.move_to_end(key)
+    out = {}
+    for rid, raw in got:
+        m = _cv2.imdecode(np.frombuffer(raw, np.uint8), _cv2.IMREAD_GRAYSCALE)
+        if m is None:
+            return None                 # a torn entry is no entry
+        out[rid] = m
+    return out
+
+
+def _remember_fit(key: str, page) -> None:
+    if not key:
+        return
+    _FITS[key] = {int(r.id): copy.deepcopy(r.layout)
+                  for r in page.regions if getattr(r, "layout", None)}
+    _FITS.move_to_end(key)
+    while len(_FITS) > FIT_CACHE_MAX:
+        _FITS.popitem(last=False)
+
+
+def _recall_fit(key: str, page) -> bool:
+    """Put a remembered fitting back on this page. All of it or none."""
+    got = _FITS.get(key)
+    if not got:
+        return False
+    want = [r for r in page.regions if r.dst_text]
+    if not want or any(int(r.id) not in got for r in want):
+        return False
+    for r in page.regions:
+        lay = got.get(int(r.id))
+        if lay is not None:
+            r.layout = copy.deepcopy(lay)
+    _FITS.move_to_end(key)
+    return True
+
+
+def _all_fitted(page, key: str) -> bool:
+    """Does every block that has words already carry a layout fitted under
+    `key`? All of them or none: they are fitted against each other."""
+    got = False
+    for r in page.regions:
+        if not r.dst_text:
+            continue
+        lay = getattr(r, "layout", None)
+        if lay is None or getattr(lay, "fit", "") != key:
+            return False
+        if not (lay.lines or lay.frame):
+            return False        # nothing to draw: fit it and find out why
+        got = True
+    return got
+
+
+def page_fit_key(page, cfg: "TypesetConfig") -> str:
+    """A fingerprint of everything on this page that decides a fit.
+
+    Typesetting a page is 2.6 of the 3 seconds it takes to build one, and it
+    was being paid on every render, every export and every restart - because
+    `region_from_record` deliberately dropped the stored layout and every
+    stage laid the page out again from scratch. That is the right default and
+    the wrong price: laying out again is only necessary when something that
+    decides the layout has moved.
+
+    So each layout carries the key it was fitted under, and a page whose key
+    still matches uses the layouts it already has. What is in it:
+
+    * the whole PAGE, not one block. Blocks are fitted against each other -
+      `share_masks` cuts a shared balloon between two of them and `_level_caps`
+      sets one size across the page - so one box moving can change where every
+      other block's lines land. One key for the page, and it is coarse on
+      purpose.
+    * the settings that steer the fitter, and not the ones that only steer the
+      paint. `FIT_KEYS`, and see the note on it.
+    * nothing that is itself an OUTPUT of fitting. The key would then change
+      every time it was used.
+
+    A mismatch, or no key at all, means fit as before. It can only ever be as
+    wrong as a stale fingerprint, and the fingerprint is over the inputs.
+    """
+    import hashlib
+    import json
+    bits = [
+        cfg.font_path, sorted((cfg.fonts or {}).items()),
+        int(cfg.min_font), int(cfg.max_font), bool(cfg.uppercase),
+        bool(cfg.substitutes), bool(getattr(cfg, "strict_containment", False)),
+        round(float(getattr(cfg, "compact_margin", 0) or 0), 4),
+    ]
+    for r in sorted(page.regions, key=lambda r: int(r.id)):
+        ov = r.layout_override or {}
+        bits.append((
+            int(r.id), str(r.kind),
+            tuple(int(v) for v in (r.bbox or ())),
+            tuple(int(v) for v in (r.bubble_bbox or ())),
+            # the SHAPE, not the mask: a mask is page-sized and the polygon is
+            # what it is drawn from.
+            tuple(tuple(int(a) for a in pt) for pt in (r.polygon or ())),
+            # ...and the balloon check's better shape, which moves lines as
+            # surely as the outline does.
+            tuple(tuple(int(a) for a in pt)
+                  for pt in (getattr(r, "fit_poly", None) or ())),
+            r.dst_text or "", r.dst_compact or "",
+            int(getattr(r, "link", 0) or 0),
+            int(getattr(r, "box_group", 0) or 0),
+            round(float(getattr(r, "angle", 0.0) or 0.0), 2),
+            bool(getattr(r, "sfx_vertical", False)),
+            round(float(getattr(r, "sfx_len", 0.0) or 0.0), 3),
+            round(float(getattr(r, "sfx_wid", 0.0) or 0.0), 3),
+            round(float(getattr(r, "turn", 0.0) or 0.0), 2),
+            # A HAND-PLACED BOX IS ONE WORD IN THE KEY, not its whole
+            # override. A locked override with its lines carried is rebuilt
+            # from the override on every path (`layout_from_override`) and
+            # never enters the fitter - and `_level_caps` skips locked
+            # regions, so nothing about it can move anyone else's lines.
+            # Folding its frame and dx/dy into the key meant every DRAG threw
+            # the whole page's fitting away and lee watched "building the
+            # exported page..." for seconds per nudge: *"is there a way to
+            # make building teh exprted page be faster when i move
+            # something"*. Now a move re-places one box and re-uses the rest.
+            (("locked",) if (ov.get("locked")
+                             and ov.get("lines") is not None) else
+             tuple((k, json.dumps(ov[k], sort_keys=True, default=str))
+                   for k in FIT_KEYS if k in ov)),
+        ))
+    return hashlib.sha1(repr(bits).encode("utf-8")).hexdigest()[:16]
 
 
 def typeset_page(page, cfg: TypesetConfig | None = None,
@@ -3832,7 +5253,80 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
         # the rest of the balloon rather than around its own old frame.
         for r in page.regions:
             clear_fitting(r)
-    shares = share_masks(page.regions, cfg)
+    # The key FIRST, because the share cuts are remembered under it. It is
+    # built from the regions and the config alone, so nothing below feeds it.
+    key = page_fit_key(page, cfg)
+    shares = _recall_shares(key)
+    if shares is None:
+        shares = share_masks(page.regions, cfg)
+        _keep_off_the_sound_effects(page, shares)
+        # AFTER the sound effects took their bite, so what is remembered is
+        # what the fits actually used.
+        _remember_shares(key, shares)
+    # Told to the region, so that whatever renders this page next clips the
+    # words with the shape they were fitted into. Everything that draws
+    # typesetting typesets first, so this is always the current answer.
+    for r in page.regions:
+        r.share_mask = shares.get(r.id)
+
+    # ...AND IF NOTHING THAT DECIDES A FIT HAS MOVED, THE FIT ALREADY EXISTS.
+    #
+    # Everything below this line is the fitter: `_level_caps` alone probes
+    # every block on the page and is 2 of the 2.6 seconds a page costs. It was
+    # being run on every render, every export and every restart, to arrive at
+    # the layouts already sitting on the record.
+    #
+    # lee: *"make it so that teh typesettng is setting every time i swtitch
+    # pages - it shoud do it one and when i switch it shou ld already be
+    # teher"*.
+    #
+    # The shares above are still worked out, because the renderer clips with
+    # them and they are 40ms, not 2600. Only the fitting is skipped, and only
+    # when every block that has words carries a layout stamped with this
+    # page's current key. One missing or stale stamp and the whole page is
+    # fitted, because blocks are fitted against each other.
+    if not redo and (_all_fitted(page, key) or _recall_fit(key, page)):
+        # HAND-PLACED BOXES ARE RE-PLACED, not reused: their overrides are
+        # one word in the key (above), so the stored layout may be the box
+        # where it stood BEFORE the drag. `layout_from_override` is
+        # milliseconds - it is the fitter this path skips, not the placing.
+        placed = True
+        for r in page.regions:
+            ov = r.layout_override or {}
+            if not (ov.get("locked") and ov.get("lines") is not None
+                    and r.dst_text):
+                continue
+            _was = r.dst_text
+            if ov.get("caps"):
+                r.dst_text = r.dst_text.upper()
+            manual = layout_from_override(r, cfg, shares.get(r.id))
+            r.dst_text = _was
+            if manual is None:
+                placed = False           # not answerable here: fit for real
+                break
+            _shape = getattr(getattr(page, "image", None), "shape", None)
+            if _shape is not None:
+                manual = keep_on_page(manual, cfg, _shape)
+            manual = apply_align(manual, cfg,
+                                 str(ov.get("align") or "center"))
+            manual.fit = key
+            r.layout = manual
+        if placed:
+            # THE COLOURS ARE NOT PART OF THE FIT and must still be worked
+            # out. They are read off the PAGE, which is why they are not in
+            # `page_fit_key` and why a change of colour does not throw a
+            # fitting away. The first version of this returned here and
+            # skipped `assign_colours`, so a reused layout kept whatever
+            # colours it was carrying: a plain white balloon came back with
+            # white letters on it.
+            # `test_an_ordinary_white_balloon_stays_black_on_white` said so.
+            from . import render as _render
+            _render.assign_colours(page, cfg)
+            return
+    # What size this page is set at, worked out across all of its dialogue
+    # before any single block is committed to. `probe` is each block's own fit,
+    # kept so that the ones already inside the band are not fitted twice.
+    probe, caps = _level_caps(page, cfg, shares)
     for r in page.regions:
         if r.dst_text:
             # ALL CAPS for THIS block. Capitals are wider, so they go on
@@ -3847,7 +5341,17 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
             manual = None
             if (r.layout_override or {}).get("locked"):
                 manual = layout_from_override(r, cfg, share)
-            fresh = manual if manual is not None else fit_region(r, cfg, share)
+            if manual is not None:
+                fresh = manual
+            elif r.id in caps:
+                # Over the page's size: fitted again under the ceiling.
+                fresh = fit_region(r, replace(cfg, max_font=caps[r.id]), share)
+                if fresh is None or not fresh.lines:
+                    fresh = probe.get(r.id)     # nothing fits under it: leave be
+            else:
+                fresh = probe.get(r.id)
+                if fresh is None:
+                    fresh = fit_region(r, cfg, share)
             # Typesetting already on the page is never traded for typesetting that
             # shows nothing. Whatever the reason - a font that cannot draw the
             # words, a mask that came back empty - the run before this one put
@@ -3946,3 +5450,11 @@ def typeset_page(page, cfg: TypesetConfig | None = None,
     # module; by the time anyone lays a page out, both are loaded.
     from . import render as _render
     _render.assign_colours(page, cfg)
+
+    # ...and last, the key every one of these layouts was fitted under, so the
+    # next render of an unchanged page can use them instead of doing all of
+    # this again. See `page_fit_key` and the early return above.
+    for r in page.regions:
+        if getattr(r, "layout", None) is not None:
+            r.layout.fit = key
+    _remember_fit(key, page)

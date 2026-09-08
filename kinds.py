@@ -289,9 +289,27 @@ def detected_kind(kind: str) -> str:
 # catalogue: every one of them is a row somebody has to read past before they
 # reach their own, and a shout, a yell and an angry line are one kind of
 # typesetting asked for three times.
+#
+# THE FIFTH ONE IS A CORRECTION lee made to himself. A FLASH balloon - a
+# smooth core ringed with fine radial spikes, a starburst or a glow - used to
+# be filed under Thought, on his own instruction: *"flash bubbles shub be
+# considered thoughts bubbles"*. He sent a picture of one holding
+# `おおあなたのためならなんにでも答えましょう` - a character speaking, out loud,
+# to somebody in front of her - and said: *"this is calsiified as a thught
+# bubble, its not , make a new clasificicaton and name it fancy bubble"*.
+#
+# He is right, and the first ruling was reasonable and wrong: a flash balloon
+# is not an unvoiced thought, it is speech drawn ornately - delight, flattery,
+# a flourish. Filing it under Thought did not merely mislabel it, it aimed the
+# TYPESETTING at the wrong thing, because a thought bubble is set in italic to
+# say "not said aloud" and this is said aloud.
+#
+# It keeps the italic anyway - *"make it have teh same fonts"* - so nothing he
+# has already typeset moves. The label is what was wrong.
 PRELOADED = {
     "bubble": (("narration", "Caption box"),
                ("thought", "Thought bubble"),
+               ("fancy", "Fancy bubble"),
                ("shout", "Burst / shout"),
                ("whisper", "Whisper")),
     "freefloat": (("narration_free", "Narration on the art"),
@@ -302,6 +320,48 @@ PRELOADED = {
 }
 
 PRELOAD_KEYS = tuple(k for items in PRELOADED.values() for k, _ in items)
+
+
+def labelling_vocabulary(subs=None) -> dict[str, list[tuple[str, str]]]:
+    """Which box types a MODEL may put on a box, as {family: [(key, label)]}.
+
+    lee, asking for the reader to label the boxes: *"give it all the sub tyoes
+    and if a user creat a sub tyoe it shoud not try to lable a bubble it and if
+    a user deleet one of teh originals one then teh proofreder shodu not use
+    it"*. Three rules, and each is a different question:
+
+    **Only a sub-type this app shipped.** A person who invents "Radio" knows
+    what they mean by it; a model does not, and the label it would be given -
+    the word "Radio" - is the whole of what it would have to go on. Guessing at
+    somebody's private vocabulary produces labels that look considered and are
+    not, and they land on boxes that were previously right. So eligibility is
+    `PRELOAD_KEYS`: the ones with a settled meaning that the prompt can
+    actually describe.
+
+    **...that this project still has.** Deleting "Thought bubble" from the
+    settings is an answer, and a model putting it back on twelve boxes is that
+    answer being overruled by a machine. A preload the person removed is not in
+    their list any more, so it is not in this.
+
+    **The family and the label come from the PROJECT, not from the table
+    above.** Only the eligibility is ours. Somebody who renamed "Whisper" to
+    "Muttering" should see the reader agreeing with their word for it, and
+    somebody who moved a sub-type to another family meant that too. Reading the
+    label from `PRELOADED` would quietly discard both.
+
+    The family's own default is always in its list - a box has to be able to
+    stay plain speech, and "none of these" has to be sayable as a real answer
+    rather than as silence.
+    """
+    live = {}
+    for s in (_subs(subs) or ()):
+        if not isinstance(s, dict) or s.get("key") not in PRELOAD_KEYS:
+            continue                      # invented here, or not a sub-type
+        key = str(s["key"])
+        fam = s.get("family") if s.get("family") in FAMILIES else "bubble"
+        live.setdefault(fam, []).append((key, str(s.get("label") or key)))
+    return {fam: [(fam, DEFAULT_LABELS[fam])] + live.get(fam, [])
+            for fam in FAMILIES}
 
 
 def migrate(subs, seed: bool = False, offered=None) -> list[dict]:

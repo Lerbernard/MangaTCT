@@ -292,7 +292,20 @@ def test_selecting_typesetting_on_the_page_keeps_it_readable():
     and its outline as a text-shadow. A browser's default selection paints an
     opaque slab behind every glyph and overrides the text colour with its own,
     so white-on-black typesetting becomes unreadable the moment it is selected.
-    A see-through tint, and the letters keep their colour, outline and shadow.
+    The letters must keep their colour, outline and shadow.
+
+    THE TINT ITSELF MOVED. It used to be painted here, as a see-through
+    amber; the mirror under the box draws the selection now - an amber band
+    cut on the same glyph boundaries as the ink, so it survives the panel
+    taking the browser's own selection away. Two of them showed as two
+    overlapping highlights - lee: *"teher a bouble heilightes going on it
+    shoud be one"* - and the ANSWER FLIPPED since this test was written:
+    the mirror's hand-drawn band is gone (it was an amber slab across the
+    middle of a sound effect - lee sent a picture: *"i want it GONE"*),
+    and the browser's own ::selection is the one highlight, because the
+    browser puts it exactly on the glyphs for nothing. What this test
+    guards is that it stays ONE highlight, amber, and that it may not
+    repaint the typesetting.
     """
     css = (PKG / "static" / "css"
            / "editor.css").read_text(encoding="utf8")
@@ -303,4 +316,9 @@ def test_selecting_typesetting_on_the_page_keeps_it_readable():
     block = block[:block.index("}", block.index("-moz-selection"))]
     assert "color:inherit" in block, \
         "the selection is still allowed to repaint the typesetting's colour"
-    assert "rgba(255,196,0,.32)" in block, "the tint is not see-through"
+    assert "background:rgba(255,196,0" in block, \
+        "the one highlight is not the amber the app draws everywhere else"
+    js = (PKG / "static" / "js"
+          / "typesetting.js").read_text(encoding="utf8")
+    assert "[data-hl]" not in js, \
+        "the hand-drawn band is back - two highlights again"

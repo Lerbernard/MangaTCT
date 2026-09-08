@@ -68,15 +68,29 @@ def test_a_picture_that_is_missing_leaves_a_labelled_hole():
 
 
 def test_the_holes_are_on_the_page_and_named(html):
-    """Not a list in a document somewhere — the page itself says what it is
-    waiting for, which is why it cannot go stale."""
+    """Not a list in a document somewhere - the page itself says what it is
+    waiting for, which is why it cannot go stale.
+
+    This used to name `ba-before.jpg` as one of the holes. It is not a hole
+    any more: the before/after is shot, and so is every other slot the page
+    asks for except the manhua one, which needs a Chinese chapter nobody
+    here has. So what is asserted is the MECHANISM - every hole the build
+    reports carries a filename and a sentence saying what to photograph -
+    and the count is left to say whatever is true on the day.
+    """
     b = _build()
     b.WANTED.clear()
-    b.build()
-    assert b.WANTED, "there should still be shots to take"
+    page = b.build()
     for name, want in b.WANTED:
         assert want.strip(), name
-    assert "ba-before.jpg" in " ".join(n for n, _w in b.WANTED)
+        assert name.strip(), want
+        # ...and the hole is drawn where the picture will go, carrying its
+        # own name, so nobody has to come here to find out what is missing.
+        assert name.split(" / ")[0] in page, name
+    # A slot whose picture EXISTS is the picture and nothing else.
+    assert "ba-before.jpg" not in [n for n, _w in b.WANTED], \
+        "the before/after is shot - the most important picture on the page"
+    assert 'src="assets/ba-before.jpg"' in page
 
 
 # --------------------------------------------------- what the page claims
@@ -106,7 +120,7 @@ def test_the_page_says_the_app_cuts_webtoon_strips_up(html):
     faq = dict(b.FAQ)["What about long webtoon strips?"]
     assert "re-cut into pages near 2,400px" in faq
     assert "cut it up first" in faq, "and it should still say where the limit is"
-    manhwa = [f for f in b.FORMATS if f["id"] == "manhwa"][0]
+    manhwa = [f for f in b.FORMATS if "manhwa" in f["media"]][0]
     assert any("three and a half times as tall as they are wide" in d
                for _t, d in manhwa["good"]), \
         "the height is said as a shape now, the way the app says it"
@@ -123,14 +137,34 @@ def test_the_page_names_the_languages_it_can_translate_into(html):
 
 # -------------------------------------------------------- the three formats
 
-def test_there_is_a_section_for_each_format(html):
+def test_every_format_the_app_supports_is_on_the_page(html):
     """lee: *"add a section for manga mnahwa manhua and esplain how we deal
-    with each"*."""
+    with each"*, and later *"so for the mnahua just skip it or jys lump in
+    mnhwa and manhua as one"*.
+
+    Lumped - because the APP lumps them. `STRIP_MEDIA` is the set
+    `{manhwa, manhua}`, `MEDIA` gives both `rtl: False`, `LANG_ENGINE` sends
+    both to easyocr, and `BIG_SFX_BY_MEDIUM` overrides manga alone. Three
+    panels claimed a distinction the code does not make.
+
+    So a panel now covers one or more media, and what is checked is that
+    every medium the app supports is covered by EXACTLY ONE of them - which
+    is a stronger guarantee than the old per-id one: a format added to
+    `MEDIA` and forgotten on the page fails here.
+    """
     from mangatl.translate import MEDIA
+    b = _build()
     assert 'id="formats"' in html
-    for medium in MEDIA:
-        assert f'id="f-{medium}"' in html, medium
-        assert f'id="t-{medium}"' in html, medium
+    covered = [m for f in b.FORMATS for m in f["media"]]
+    assert sorted(covered) == sorted(MEDIA), (covered, list(MEDIA))
+    assert len(covered) == len(set(covered)), "a medium in two panels"
+    for f in b.FORMATS:
+        assert f'id="f-{f["id"]}"' in html, f["id"]
+        assert f'id="t-{f["id"]}"' in html, f["id"]
+        # ...and every medium it covers is NAMED, so somebody looking for
+        # the word "manhua" finds it.
+        for m in f["media"]:
+            assert m in html.lower(), m
 
 
 def test_each_format_says_its_language_and_its_direction(html):
@@ -141,14 +175,53 @@ def test_each_format_says_its_language_and_its_direction(html):
     from mangatl.translate import MEDIA
     b = _build()
     for f in b.FORMATS:
-        m = MEDIA[f["id"]]
-        assert f["lang"] == m["source"], f["id"]
-        want = "Right to left" if m["rtl"] else "Left to right"
-        assert f["dir"] == want, f["id"]
+        for medium in f["media"]:
+            m = MEDIA[medium]
+            assert m["source"] in f["lang"], (f["id"], medium)
+            want = "Right to left" if m["rtl"] else "Left to right"
+            assert f["dir"] == want, (f["id"], medium)
         assert f'<span class="chip">{f["lang"]}</span>' in html
-    # ...and all three really are in the panel markup, not just the tab.
-    assert html.count('class="chip">Left to right</span>') == 2
-    assert html.count('class="chip">Right to left</span>') == 1
+    # ...and the directions really are in the panel markup, not just the tab.
+    lr = sum(1 for f in b.FORMATS if f["dir"] == "Left to right")
+    rl = sum(1 for f in b.FORMATS if f["dir"] == "Right to left")
+    assert html.count('class="chip">Left to right</span>') == lr
+    assert html.count('class="chip">Right to left</span>') == rl
+    assert rl == 1, "manga, and only manga"
+
+
+def test_a_panel_shows_a_picture_of_every_language_it_claims(html):
+    """lee: *"i added the manhua folder"* - and the panel that says "one
+    route, two languages" now shows both, because a claim like that is the
+    kind a reader checks by looking rather than by believing.
+
+    Held as a rule, not as a count: a panel covering two media carries at
+    least two pictures, each with its own caption saying which is which.
+    """
+    b = _build()
+    for f in b.FORMATS:
+        assert len(f["imgs"]) >= len(f["media"]), f["id"]
+        for pic in f["imgs"]:
+            assert pic["file"].endswith((".jpg", ".png", ".gif")), pic
+            assert pic["want"].strip() and pic["cap"].strip(), pic["file"]
+            assert f'<figcaption>{pic["cap"]}</figcaption>' in html, pic["file"]
+    # ...and each panel's pictures are distinct files, so a merged panel
+    # cannot quietly show the same screenshot twice.
+    for f in b.FORMATS:
+        files = [pic["file"] for pic in f["imgs"]]
+        assert len(files) == len(set(files)), f["id"]
+
+
+def test_the_chinese_side_says_how_much_it_has_actually_been_run(html):
+    """It used to say the Chinese path had never been run on a real page.
+    A 41-page manhua later that is false, and the panel says what was
+    measured instead - including that one chapter is not a body of
+    evidence."""
+    b = _build()
+    web = [f for f in b.FORMATS if "manhua" in f["media"]][0]
+    rough = " ".join(t + " " + d for t, d in web["rough"])
+    assert "41-page manhua" in rough
+    assert "not a body of evidence" in rough
+    assert "has not been run" not in rough, "that stopped being true"
 
 
 def test_every_format_admits_what_is_rough_about_it():
@@ -193,8 +266,11 @@ def test_the_page_works_with_no_javascript(html):
 def test_the_tabs_are_reachable_from_a_keyboard(html):
     """A tab strip built out of divs is a tab strip a screen reader cannot
     describe and a keyboard cannot move through."""
+    b = _build()
     assert 'role="tablist"' in html
-    assert html.count('role="tab"') >= 7            # 3 formats + 4 screens
+    # Counted off the tables rather than typed, so merging two format panels
+    # into one (manhwa + manhua) moves this on its own.
+    assert html.count('role="tab"') == len(b.FORMATS) + len(b.TABS)
     assert 'aria-controls=' in html and 'aria-selected=' in html
     assert "ArrowRight" in html and "ArrowLeft" in html
 
@@ -594,3 +670,107 @@ def test_every_page_carries_both_themes_and_the_control():
     assert "prefers-color-scheme:light" in built
     assert 'html[data-theme="light"]' in built
     assert "tct-theme" in built
+
+
+# ------------------------------------------- the gaps the guide used to have
+
+def test_the_guide_names_every_settings_screen_the_app_actually_has():
+    """#160. The guide covered four Settings screens out of ten, and three of
+    the rail's own headings - Language & direction, Translation, Page cleaning
+    - were never written down anywhere a person could read them.
+
+    The rail is read OUT OF THE APP rather than typed here, so adding a screen
+    to Settings and not to the guide is a failing test rather than a thing
+    somebody notices six months later.
+    """
+    import html
+    import re
+    from where import PKG
+    app = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    # The Settings rail and not the File screen's, which wears the same class:
+    # a Settings screen is one `setSettingsTab` opens.
+    rail = re.findall(r"onclick=\"setSettingsTab\('[^']+'\)\"[^>]*>([^<]+)<", app)
+    rail = [html.unescape(x).strip() for x in rail]
+    assert len(rail) >= 10, rail
+
+    def flat(s):
+        # Entities, and the non-breaking spaces that keep a heading off two
+        # lines, are typography rather than words.
+        return re.sub(r"\s+", " ", html.unescape(s).replace("\xa0", " "))
+
+    page = flat(_rendered(_tutorial()))
+    missing = [name for name in rail if flat(name) not in page]
+    assert not missing, "Settings screens the guide never names: %s" % missing
+
+
+def test_the_guide_says_which_of_the_two_translation_screens_is_which():
+    """`wording` is labelled "Translation" and `translation` is labelled "AI
+    models" - two neighbours in the rail, one about words and one about the
+    machine. A guide that lists both and distinguishes neither is worse than
+    one that lists neither."""
+    page = _rendered(_tutorial())
+    assert "AI models" in page and "Translation" in page
+    low = page.lower()
+    assert "about the words, not the machine" in low or \
+        "is about the words" in low, "the difference is stated"
+    assert "keep honorifics" in low, "the switch that screen is really for"
+
+
+def test_the_guide_covers_the_beta_pill_and_how_an_update_arrives():
+    """Somebody on a self-updating beta needs to know what the pill says, that
+    an update never lands mid-chapter, and that the old version is kept."""
+    page = _rendered(_tutorial())
+    low = page.lower()
+    for phrase in ("beta 1.0.0", "next start", "previous version"):
+        assert phrase in low, phrase
+    assert "checks when it starts" in low or "checks for a new version" in low
+
+
+def test_the_guide_tells_somebody_how_to_report_a_problem():
+    """And tells them the truth about what is in the box: no key ever, and
+    nothing is sent by the app - the person copies it themselves."""
+    page = _rendered(_tutorial())
+    low = page.lower()
+    assert "report a problem" in low
+    assert "never the key" in low or "anything key-shaped" in low
+    assert "copy to clipboard" in low, "the app transmits nothing by itself"
+    assert "read it before you send it" in low
+
+
+def test_the_guide_covers_the_tools_that_had_no_words_anywhere():
+    """Cut / join, Special characters, the curve picker and inner glow all
+    shipped without a sentence about them on any page."""
+    page = _rendered(_tutorial())
+    low = page.lower()
+    assert "cut / join" in low
+    for kind in ("arch", "sag", "wave", "rise"):
+        assert kind in low, "curve kind %s" % kind
+    assert "inner glow" in low and "outer glow" in low
+    assert "special characters" in low
+
+
+def test_the_curve_and_glow_the_guide_describes_are_the_ones_in_the_app():
+    """Four curve kinds and two glows, named out of the panel that draws
+    them. A fifth curve added to the app fails here."""
+    import re
+    from where import PKG
+    js = (PKG / "static" / "js" / "panels.js").read_text(encoding="utf-8")
+    kinds = re.search(r"\[([^\]]*)\]\.map\(k=>\{", js)
+    assert kinds, "the curve-kind list moved"
+    kinds = re.findall(r"'(\w+)'", kinds.group(1))
+    assert set(kinds) == {"arch", "sag", "wave", "rise"}, kinds
+    low = _rendered(_tutorial()).lower()
+    for k in kinds:
+        assert k in low, k
+    assert "lyIGlow" in js and "iglow" in js, "there is an inner glow to document"
+
+
+def test_the_guide_says_manhua_now_that_there_is_one():
+    """It said "Manhwa too" and nothing about Chinese at all, while the app
+    has had a manhua route and the landing page now shows a Chinese chapter.
+    It also has to keep saying how little that has been run."""
+    page = _rendered(_tutorial())
+    low = page.lower()
+    assert "manhua" in low
+    assert "41 pages" in low, "the honest size of the Chinese evidence"
+    assert "korean has had many" in low

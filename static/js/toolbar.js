@@ -11,11 +11,19 @@
    changing section first, and nothing anywhere showed what was armed unless
    you happened to be looking at the right tab.
 
-   A toolbox fixes both by being one place that is always there. Tools that do
-   the same KIND of job share a slot - marquee, lasso and wand are all "choose
-   part of the page" - and the slot shows whichever of them you used last, with
-   a corner mark saying there are others. Right-click it (or press and hold) to
-   pick another.
+   A toolbox fixes both by being one place that is always there.
+
+   EVERY TOOL IS ON IT. They used to share slots the way Photoshop and GIMP do
+   - marquee, lasso and wand behind one button, the slot showing whichever you
+   used last, right-click or press-and-hold for the rest - and that is one
+   hidden gesture away from every tool you did not use last. lee, having lived
+   with it: *"for the tools i want you to remove tye subfolder thing and make
+   them all visivle and seperated bya small bar and kind make each their own
+   sectiosn ianted of the subfolder"*.
+
+   So the slots are still there and they are SECTIONS now, one under the other,
+   with a hairline between them. Same grouping, no lid on it: what used to be
+   the thing you had to discover is the thing you can see.
 
    What stays out of it: the zoom stepper in the top bar, which is a readout
    with two buttons rather than a tool, and every numeric field. Those are
@@ -43,14 +51,19 @@ const TOOLBOX = [
      on:()=>window.xfToggle && xfToggle(),
      lit:()=>typeof xf!=='undefined' && !!xf && !xf.quad},
   ]},
-  // Picking BOXES, which is not the same slot as picking pixels below it.
-  // lee: *"add annew seclet tool that alloww me to dran a scquer on the boxs
-  // and all the boxesin that square sihoud be slected"*.
-  {slot:'boxsel', tools:[
-    {k:'boxsel', name:'Select boxes (S)', icon:'marquee',
-     on:()=>toggleBoxSelect(),
-     lit:()=>typeof boxSel!=='undefined' && boxSel},
-  ]},
+  // SELECT BOXES IS NOT HERE ANY MORE, and nothing was lost by that.
+  //
+  // It picks BOXES - lee: *"add annew seclet tool that alloww me to dran a
+  // scquer on the boxs and all the boxesin that square sihoud be slected"* -
+  // and boxes are managed on the Translation view, where this strip is not
+  // even up. So the one tool on it that belonged to the other view sat there
+  // being armable from the wrong screen. lee: *"i wasnt you tpo make teh
+  // select tool only be usable on the translation tab"*.
+  //
+  // Where it lives now is where it always also lived: the legend row above the
+  // page on the Translation view carries the same button, off the same
+  // `boxSel` state, so the S key and the button and the mode cannot disagree.
+  // See `renderLegend` in panels.js.
   {slot:'select', tools:[
     {k:'rect',   name:'Rectangular select (M)', icon:'marquee',
      on:()=>toggleSelTool('rect'), lit:()=>selTool==='rect'},
@@ -89,6 +102,14 @@ const TOOLBOX = [
     {k:'heal',   name:'Healing brush', icon:'healai',
      on:()=>toggleHeal(),
      lit:()=>typeof heal!=='undefined' && heal},
+    // The region eraser, and it sits with the retouch tools because that is
+    // what it is for: the cleaner got a spot wrong and you want the page back.
+    // lee: *"make a region erreser tool that allow the user to use an erraser
+    // on the regions taht weere clened to revelal the original page undernea
+    // it"*.
+    {k:'unclean', name:'Reveal the original (R)', icon:'reveal',
+     on:()=>toggleUnclean(),
+     lit:()=>typeof unclean!=='undefined' && unclean},
   ]},
   {slot:'shape', tools:[
     {k:'shrect', name:'Rectangle', icon:'square',
@@ -173,6 +194,11 @@ const TB_ICON = {
   hand:'M8.6 12.4V5.9a1.4 1.4 0 0 1 2.8 0v5.1m0-1.4V4.4a1.4 1.4 0 0 1 2.8 0v5.2m0-.7'
       +'a1.4 1.4 0 0 1 2.8 0v2.9m0-1.3a1.4 1.4 0 0 1 2.8 0v5.1c0 3.4-2.4 6.4-6.2 6.4'
       +'-2.8 0-4.3-1.2-5.6-3l-3-4.4a1.4 1.4 0 0 1 2.1-1.8z',
+  // A corner of the page peeled back, with what is under it showing through:
+  // an eraser rubbing a layer away rather than adding one.
+  reveal:'M4 4h9.5L20 10.5V20H4Z M13.5 4v6.5H20'
+        +'M7.6 16.8l4.4-4.4a1.6 1.6 0 0 1 2.3 0l1.8 1.8a1.6 1.6 0 0 1 0 2.3'
+        +'L13.9 19H9.4l-1.8-1.8a.3.3 0 0 1 0-.4z',
   zoomin:'M10.6 4.6a6 6 0 1 1 0 12 6 6 0 0 1 0-12zM15 15l4.6 4.6M7.9 10.6h5.4M10.6 7.9v5.4',
   zoomout:'M10.6 4.6a6 6 0 1 1 0 12 6 6 0 0 1 0-12zM15 15l4.6 4.6M7.9 10.6h5.4',
 };
@@ -185,22 +211,10 @@ function tbSvg(name){
 
 /* Which tool each slot is showing - the last one used out of that slot. */
 const tbChosen = {};
-function tbTool(slot){
-  const g = TOOLBOX.find(s=>s.slot===slot);
-  if(!g) return null;
-  return g.tools.find(t=>t.k===tbChosen[slot]) || g.tools[0];
-}
-/* ...unless one of the slot's OTHER tools is armed, in which case the slot
-   shows that one: what is lit and what is on the button are the same thing. */
-function tbShown(g){
-  const armed = g.tools.find(t=>{ try{ return !!t.lit(); }catch(e){ return false; } });
-  return armed || tbTool(g.slot);
-}
 function tbArm(slot, key){
   const g = TOOLBOX.find(s=>s.slot===slot); if(!g) return;
   const t = g.tools.find(x=>x.k===key) || g.tools[0];
   tbChosen[slot] = t.k;
-  tbClose();
   try{ t.on(); }catch(e){}
   renderToolbar();
 }
@@ -233,74 +247,27 @@ function renderToolbar(){
             && (typeof view==='undefined' || view==='typeset');
   el.style.display = show ? '' : 'none';
   if(!show) return;
-  el.innerHTML = TOOLBOX.map(g=>{
-    const t = tbShown(g);
+  // Every tool, in its section, with a rule between the sections. The
+  // sections ARE the old slots: the grouping was right, the lid on it was not.
+  el.innerHTML = TOOLBOX.map(g=>g.tools.map(t=>{
     let lit=false; try{ lit=!!t.lit(); }catch(e){}
-    // ONE tool is lit, and it is the one that is armed.
-    //
-    // A slot used to also mark which of its tools it was set to, so that
-    // picking one out of a flyout looked like it had done something even when
-    // that tool could not arm yet. Every slot you had ever touched then kept
-    // its mark, so three or four buttons sat outlined at once and none of
-    // them was the tool you were using. lee: *"only one tool sjou dbeselected
-    // at once and i dont now what this haft selection thing is but remove
-    // it"*. The icon still changes to the tool the slot is set to; that is
-    // what says which one it is.
+    // ONE tool is lit, and it is the one that is armed. lee: *"only one tool
+    // sjou dbeselected at once and i dont now what this haft selection thing
+    // is but remove it"*. With every tool on the strip there is nothing else
+    // a mark could mean, which is the other half of why the slots opened up.
     return `<button class="tbtn${lit?' on':''}"
         data-slot="${g.slot}"
         data-tool="${t.k}" title="${t.name}"
         onclick="tbArm('${g.slot}','${t.k}')"
-        ondblclick="tbDbl('${g.slot}','${t.k}')"
-        oncontextmenu="tbFlyout(event,'${g.slot}');return false">
-        ${tbSvg(t.icon)}${g.tools.length>1?'<i class="tbmore"></i>':''}
-      </button>`;
-  }).join('');
-  // Press and hold opens the flyout too - the same gesture as a right-click
-  // for anybody who does not have one, and the one a trackpad makes easy.
-  el.querySelectorAll('.tbtn').forEach(b=>{
-    b.addEventListener('mousedown', e=>{
-      if(e.button!==0) return;
-      const slot=b.getAttribute('data-slot');
-      const g=TOOLBOX.find(s=>s.slot===slot);
-      if(!g || g.tools.length<2) return;
-      b._hold=setTimeout(()=>{ b._held=true; tbFlyout(e, slot); }, 420);
-    });
-    const drop=()=>{ clearTimeout(b._hold); setTimeout(()=>{b._held=false;},0); };
-    b.addEventListener('mouseup', drop);
-    b.addEventListener('mouseleave', drop);
-    b.addEventListener('click', e=>{ if(b._held){ e.stopPropagation(); } }, true);
-  });
+        ondblclick="tbDbl('${g.slot}','${t.k}')">${tbSvg(t.icon)}</button>`;
+  }).join('')).join('<div class="tbsep" role="separator"></div>');
 }
 
-function tbClose(){
-  const f=document.getElementById('tbflyout');
-  if(f) f.remove();
-}
-function tbFlyout(ev, slot){
-  ev.preventDefault(); ev.stopPropagation();
-  tbClose();
-  const g=TOOLBOX.find(s=>s.slot===slot); if(!g || g.tools.length<2) return;
-  const btn=(ev.currentTarget && ev.currentTarget.closest)
-    ? ev.currentTarget.closest('.tbtn')
-    : document.querySelector(`.tbtn[data-slot="${slot}"]`);
-  const b=btn.getBoundingClientRect();
-  const f=document.createElement('div');
-  f.id='tbflyout'; f.className='tbflyout';
-  f.innerHTML=g.tools.map(t=>{
-    let lit=false; try{ lit=!!t.lit(); }catch(e){}
-    return `<button class="tbrow${lit?' on':''}"
-        onclick="tbArm('${slot}','${t.k}')">${tbSvg(t.icon)}
-        <span>${t.name}</span></button>`;
-  }).join('');
-  document.body.appendChild(f);
-  // Fixed to the viewport, beside the button, and never off the bottom.
-  const h=f.getBoundingClientRect().height;
-  f.style.left=Math.round(b.right+6)+'px';
-  f.style.top=Math.round(Math.max(8,
-    Math.min(b.top, window.innerHeight-h-8)))+'px';
-}
-document.addEventListener('click', e=>{
-  if(!e.target.closest || !e.target.closest('#tbflyout')) tbClose();
-});
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') tbClose(); });
-window.addEventListener('resize', tbClose);
+
+/* THE FLYOUT IS GONE, and with it `tbClose`, `tbFlyout`, the press-and-hold
+   timer and the right-click handler. There is nothing left to open: every tool
+   the toolbox has is on the toolbox. The `.tbflyout` and `.tbrow` rules stay in
+   the stylesheet because the page menu and the box menu are dressed with
+   them. */
+
+

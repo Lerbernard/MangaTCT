@@ -45,8 +45,11 @@ from mangatl import bundle, editor
 from mangatl.project import Project
 from where import PKG
 
+# Any face this build ships. It was `AnimeAce.ttf` until 2026-08-26, when
+# that file left the repo - Blambot permits use but not redistribution,
+# and this app is downloaded. See `fonts/LICENSES.md`.
 FONT = os.path.join(str(PKG), "fonts",
-                    "AnimeAce.ttf")
+                    "ComicNeue-Regular.ttf")
 
 
 @pytest.fixture
@@ -142,7 +145,12 @@ def test_the_slices_a_webtoon_arrived_as_travel_too(tmp_path, home):
 
 
 def test_what_the_app_can_make_again_is_left_out(tmp_path, home):
-    """The two caches are bigger than the chapter and are not the chapter."""
+    """The two caches are bigger than the chapter and are not the chapter.
+
+    The FOLDERS, that is. The cleaned plates inside `plate_cache` do travel
+    now - under `plates/`, one per page, re-keyed on the way in - because
+    "can make again" turned out to mean "will spend coins and minutes making
+    again". See `test_the_cleaners_own_work_travels_too`."""
     p = _project(tmp_path, home)
     for sub in ("plate_cache", "ai_clean_cache"):
         d = os.path.join(p.output_dir, sub)
@@ -529,10 +537,19 @@ def test_a_settings_file_exported_before_the_rename_still_opens():
 
 
 def test_the_person_is_told_the_file_carries_their_keys():
-    """It holds the settings, and the settings hold whatever key is saved in
-    this project. Somebody handing the chapter to a typesetter should know
-    that before they do it, not after."""
-    assert "API keys" in _ui()
+    """It holds the settings, and an OLD project's settings hold whatever key
+    was saved in it. Somebody handing the chapter to a typesetter should know
+    that before they do it, not after.
+
+    The warning got NARROWER rather than going away. Keys live in the `.env`
+    now - lee: *"they key shoud be in the .env file and all teh project shoud
+    use them"* - so a chapter set up since then has none inside it, and
+    saying otherwise would teach people to distrust a file that is fine. A
+    chapter set up before still does, and that is what the sentence is for.
+    """
+    src = _ui()
+    assert ".env" in src, "the file keys actually live in is not named"
+    assert "may still have old keys" in src
 
 
 # --------------------------------------------------------- and it has a name
@@ -592,3 +609,182 @@ def test_a_title_that_is_not_a_filename_is_made_into_one(tmp_path, home):
         assert name.endswith(".tctp") and name.startswith("Re-Zero")
     finally:
         _stop(srv, was)
+
+
+# ------------------------------- what "everything" turned out not to include
+#
+# lee, going into the beta: *"also update teh .tctp project file to inlcude
+# all teh new stuff since we made it"*. Three things had been added to the app
+# since the bundle was written, and each one travelled badly or not at all.
+
+def test_pages_that_live_outside_the_project_folder_travel(tmp_path, home):
+    """A folder USED IN PLACE still bundles its pages.
+
+    `use_folder` points a project at pages where they already are and copies
+    nothing - that is the whole point of it - so `input/` is empty, and the
+    bundle used to come out holding a manifest, a project.json and NOT ONE
+    PAGE. The same hole swallowed a re-cut webtoon whose stitched pages land
+    in `<project>/strip/`, which is not a carried folder either: manhwa and
+    manhua are the formats that arrive that way.
+
+    Silent, both times: the file wrote, the zip opened, and the chapter came
+    back with every box and every translation over blank artwork.
+    """
+    theirs = tmp_path / "theirs"
+    theirs.mkdir()
+    for i in range(3):
+        cv2.imwrite(str(theirs / ("p%03d.png" % i)),
+                    np.full((40, 30, 3), 200 + i, np.uint8))
+    p = Project(None, str(tmp_path / "proj"))
+    p.use_folder(str(theirs))
+    p.save()
+    data = bundle.write(p._state(), p.output_dir)
+    assert [n for n in _names(data) if n.startswith("input/")] == \
+        ["input/p000.png", "input/p001.png", "input/p002.png"]
+    back = tmp_path / "opened"
+    back.mkdir()
+    state = bundle.read(data, str(back))
+    for pg in state["pages"]:
+        assert os.path.isfile(pg["path"]), pg["path"]
+
+
+def test_two_pages_of_the_same_name_both_travel(tmp_path, home):
+    """...and re-cutting a chapter over another one leaves exactly that."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    for d, tone in ((a, 40), (b, 220)):
+        cv2.imwrite(str(d / "001.png"), np.full((30, 20, 3), tone, np.uint8))
+    p = Project(None, str(tmp_path / "proj"))
+    p.use_folder(str(a))
+    p.pages.append(type(p.pages[0])(**{**vars(p.pages[0]),
+                                       "path": str(b / "001.png"),
+                                       "name": "001.png"}))
+    p.save()
+    got = [n for n in _names(bundle.write(p._state(), p.output_dir))
+           if n.startswith("input/")]
+    assert len(got) == 2, got
+    back = tmp_path / "opened"
+    back.mkdir()
+    state = bundle.read(bundle.write(p._state(), p.output_dir), str(back))
+    tones = [int(cv2.imread(pg["path"])[0, 0, 0]) for pg in state["pages"]]
+    assert sorted(tones) == [40, 220], tones
+
+
+def test_a_face_set_on_part_of_the_text_travels(tmp_path, home):
+    """Part of a box can be set in a face of its own now
+    (`layout_override.spans`), which is one more place a font file is named -
+    and the newest one. A chapter with a word in an uploaded face travelled
+    with the face left behind and opened with that word in the default."""
+    face = _face(str(tmp_path / "grabbed"), name="RangeFace.ttf")
+    p = Project(None, str(tmp_path / "proj"))
+    p.add_uploaded("001.png", cv2.imencode(
+        ".png", np.full((60, 40, 3), 210, np.uint8))[1].tobytes())
+    p.pages[0].regions = [{
+        "id": 1, "bbox": [1, 1, 10, 10], "bubble_bbox": None, "polygon": [],
+        "kind": "bubble", "order": 0, "src_text": "x", "dst_text": "HELLO",
+        "layout_override": {"lines": ["HELLO"], "spans": [
+            {"s": 0, "e": 3, "st": {"font": face, "fg": "#ff0000"}}]}}]
+    p.save()
+    data = bundle.write(p._state(), p.output_dir)
+    assert "fonts/RangeFace.ttf" in _names(data)
+    inside = json.loads(zipfile.ZipFile(io.BytesIO(data)).read("project.json"))
+    st = inside["pages"][0]["regions"][0]["layout_override"]["spans"][0]["st"]
+    assert st["font"] == "fonts/RangeFace.ttf", st
+    back = tmp_path / "opened"
+    back.mkdir()
+    state = bundle.read(data, str(back))
+    got = (state["pages"][0]["regions"][0]["layout_override"]
+           ["spans"][0]["st"]["font"])
+    assert os.path.isfile(got), got
+    # ...and the range keeps everything else it was carrying
+    assert (state["pages"][0]["regions"][0]["layout_override"]
+            ["spans"][0]["st"]["fg"]) == "#ff0000"
+
+
+def test_nobody_elses_keys_are_in_the_file_you_hand_over(tmp_path, home):
+    """A `.tctp` is the file you GIVE somebody - and the settings in it hold
+    the Claude, Gemini, OpenRouter and cleaner credentials. They went in the
+    clear, so sharing a chapter shared whatever those keys can spend.
+
+    Costs the person nothing: keys live in `~/.mangatl/.env`, which beats
+    whatever a chapter has saved in it, so your own bundle opens on your own
+    machine with your own keys."""
+    from mangatl.project import secret_keys
+    p = _project(tmp_path, home)
+    for k in secret_keys():
+        p.settings[k] = "SECRET-" + k
+    p.settings["min_font"] = 9
+    p.save()
+    data = bundle.write(p._state(), p.output_dir)
+    raw = zipfile.ZipFile(io.BytesIO(data)).read("project.json").decode()
+    for k in secret_keys():
+        assert ("SECRET-" + k) not in raw, k
+    # the settings that are NOT secrets are untouched...
+    assert '"min_font": 9' in raw
+    # ...and the project it was written from still has its keys
+    assert p.settings["clean_token"] == "SECRET-clean_token"
+
+
+def test_the_cleaners_own_work_travels_too(tmp_path, home):
+    """lee, opening a chapter he had cleaned: *"teh clened pages didnt survive
+    teh closinga and opeing a tctp file"*, then the half that names it
+    exactly: *"the manual fixes survide butr teh automated one didnt"*.
+
+    His hand-cleaned plates and his paint were carried - they are files the
+    project names. The CLEANER's plates live in a cache keyed by a hash, the
+    cache was left out on the rule that a bundle holds what you cannot
+    rebuild, and rebuilding one costs coins and minutes a page.
+
+    Opened into a DIFFERENT folder on purpose: the cache's name is a hash of
+    things that are not the same on the machine that opens the file, so a
+    plate copied in under its old name would sit there unread and the page
+    would be cleaned again. It has to be re-keyed, and this is the test that
+    it is.
+    """
+    from mangatl import editor
+    p = Project(None, str(tmp_path / "proj"))
+    for i in range(2):
+        p.add_uploaded("%03d.png" % i, cv2.imencode(
+            ".png", np.full((60, 40, 3), 200 + i, np.uint8))[1].tobytes())
+    p.pages[0].regions = [{
+        "id": 1, "bbox": [5, 5, 20, 20], "bubble_bbox": [5, 5, 20, 20],
+        "polygon": [[5, 5], [25, 5], [25, 25], [5, 25]], "kind": "bubble",
+        "order": 0, "src_text": "x", "dst_text": "HI", "confidence": .9}]
+    p.save()
+    # a cleaned plate, exactly where the cache keeps one
+    was = editor._plate_disk_path(p, 0)
+    cv2.imwrite(was, np.full((60, 40, 3), 111, np.uint8))
+    p.pages[0].cleaned = True
+    p.save()
+
+    data = bundle.write(p._state(), p.output_dir,
+                        plates=editor._plates_to_carry(p))
+    assert "plates/0.png" in _names(data), _names(data)
+
+    q = Project(None, str(tmp_path / "elsewhere"))
+    state = bundle.read(data, q.output_dir)
+    editor._adopt(q, state)
+    want = editor._plate_disk_path(q, 0)
+    assert os.path.isfile(want), "the cleaned page did not survive"
+    assert int(cv2.imread(want)[0, 0, 0]) == 111, "a different plate came back"
+    assert q.pages[0].cleaned, "and the page still says it was cleaned"
+    # the staging folder is not left lying in the project
+    assert not os.path.isdir(os.path.join(q.output_dir, bundle.PLATES))
+
+
+def test_a_plate_for_a_page_that_is_not_here_is_ignored(tmp_path, home):
+    """A bundle can arrive from anyone, and `plates/` names pages by index."""
+    from mangatl import editor
+    q = Project(None, str(tmp_path / "proj"))
+    q.add_uploaded("001.png", cv2.imencode(
+        ".png", np.full((30, 20, 3), 200, np.uint8))[1].tobytes())
+    q.save()
+    d = os.path.join(q.output_dir, bundle.PLATES)
+    os.makedirs(d, exist_ok=True)
+    for name in ("7.png", "notanumber.png", "0.txt"):
+        with open(os.path.join(d, name), "wb") as fh:
+            fh.write(b"x")
+    cv2.imwrite(os.path.join(d, "0.png"), np.full((30, 20, 3), 99, np.uint8))
+    assert editor._take_in_carried_plates(q) == 1
+    assert int(cv2.imread(editor._plate_disk_path(q, 0))[0, 0, 0]) == 99

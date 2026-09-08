@@ -127,8 +127,19 @@ def test_a_nicked_wall_makes_the_balloon_twice_the_size(tmp_path):
 
 
 def test_the_shape_freezes_into_the_record(tmp_path):
-    """…and once it is written down, mending the page cannot reach it. This is
-    the half that made lee's repair look like it did nothing."""
+    """…and once it is written down, mending the page cannot reach the RECORD.
+    This is the half that made lee's repair look like it did nothing, and it is
+    still true of the outline on disk: nothing rewrites a polygon except a
+    fresh detect, which is what `_unfreeze_repaired_balloons` below asks for.
+
+    What the record no longer freezes is the shape the FITTER is handed. Since
+    2026-08-29 a saved outline is read against the page it is loaded with
+    (`project._one_ground`): the leaked half of this balloon is on the far side
+    of a wall that is whole again, so the walk over one ground never reaches
+    it, and the placement area comes back as the one balloon. The words stop
+    being typeset into next door the moment the wall is painted back, and the
+    outline is put right afterwards.
+    """
     from mangatl.project import region_from_record, find_balloons
 
     p = _project(str(tmp_path / "c"), nick=True)
@@ -136,11 +147,16 @@ def test_the_shape_freezes_into_the_record(tmp_path):
     rec = p.pages[0].regions[0]
     assert len(rec.get("polygon") or []) > 3, rec.get("polygon")
     leaked = _area(p)
+    assert leaked > 1.5 * 25000, leaked
     # the same record, rebuilt against a page whose wall is whole again
     good = _art(False)
     r = region_from_record(rec, good)
     find_balloons(good, [r])
-    assert int((r.bubble_mask > 0).sum()) > 1.5 * 25000, "the leak did not survive"
+    assert 20000 < int((r.bubble_mask > 0).sum()) < 30000, \
+        "the leak survived the wall being whole again"
+    # ...and the record itself is untouched, which is the freeze.
+    assert len(rec.get("polygon") or []) > 3
+    assert _area(p) == leaked, "the stored outline changed by itself"
 
 
 # ------------------------------------------------------------- the fix

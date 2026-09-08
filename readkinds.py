@@ -77,10 +77,6 @@ import re
 #: Kanji. A sound effect essentially never carries one; a sentence usually
 #: does, and one is enough to settle it.
 KANJI = re.compile(r"[一-鿿㐀-䶿]")
-#: Hiragana.
-HIRAGANA = re.compile(r"[ぁ-ゟ]")
-#: Katakana, including the half-width block, and the長音 mark.
-KATAKANA = re.compile(r"[゠-ヿｦ-ﾟ]")
 #: THE GLUE OF A SENTENCE.
 #:
 #: Particles and copula endings. These are what a painted sound does not have

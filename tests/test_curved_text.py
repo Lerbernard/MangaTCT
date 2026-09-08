@@ -211,20 +211,24 @@ def test_no_curve_means_no_places():
     assert render.arc_places("", f, 0.0, 90.0, 0.0, 0.0) is None
 
 
-def test_the_two_arcs_agree():
-    """The editor and the exporter each walk the arc themselves. They have to
-    land in the same places, or the preview is a guess."""
+@pytest.mark.parametrize("kind,amount", [
+    ("arch", 85.0), ("arch", -60.0), ("wave", 30.0), ("wave", -30.0),
+    ("rise", 20.0), ("rise", -20.0)])
+def test_the_two_arcs_agree(kind, amount):
+    """The editor and the exporter each walk the curve themselves - every
+    KIND of it. They have to land in the same places, or the preview is a
+    guess."""
     if not shutil.which("node"):
         pytest.skip("node not available")
     root = str(PKG)
     if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
         pytest.skip("jsdom not installed")
     f = ImageFont.truetype(default_font_path(), 36)
-    spec = {"line": LINE, "size": 36, "lspace": 1.5, "curve": 85.0,
-            "x": 310.0, "y": 160.0,
+    spec = {"line": LINE, "size": 36, "lspace": 1.5, "curve": amount,
+            "kind": kind, "x": 310.0, "y": 160.0,
             "widths": {ch: f.getlength(ch) for ch in set(LINE)}}
     want = render.arc_places(LINE, f, spec["lspace"], spec["curve"],
-                             spec["x"], spec["y"])
+                             spec["x"], spec["y"], kind=kind)
     fd, path = tempfile.mkstemp(suffix=".json")
     with os.fdopen(fd, "w") as fh:
         json.dump(spec, fh)
@@ -260,3 +264,82 @@ def test_the_panel_the_patch_and_the_preview_all_carry_the_curve():
     assert '"curve": max(-180.0, min(180.0, float(' in src
     prev = __import__("inspect").getsource(editor.layout_preview)
     assert '"curve": float(o.get("curve") or 0)' in prev
+
+
+# ------------------------------------------------- the other kinds of bend
+
+def test_a_wave_goes_up_and_then_down():
+    """One S along the line: for a positive amount the first half rides UP
+    and the second half rides DOWN, and the middle crosses the baseline."""
+    wave, _ = _draw(dict(BASE, curve=30, curve_kind="wave"))
+    ys, xs = _rows(wave)
+    assert ys.size
+    q1 = (xs > np.percentile(xs, 15)) & (xs < np.percentile(xs, 35))
+    q3 = (xs > np.percentile(xs, 65)) & (xs < np.percentile(xs, 85))
+    # centre of ink mass: the first quarter sits higher than the third
+    assert ys[q1].mean() < ys[q3].mean() - 8, \
+        "the wave's first half does not ride above its second"
+    # ...and it is not just a slant: the ENDS come back to the middle band
+    ends = (xs < np.percentile(xs, 8)) | (xs > np.percentile(xs, 92))
+    midy = ys.mean()
+    assert abs(ys[ends].mean() - midy) < (ys[q1].mean() - midy) * -1 + 40, \
+        "the ends never return - that is a slant, not a wave"
+
+
+def test_a_rise_climbs_and_keeps_the_letters_upright():
+    rise, _ = _draw(dict(BASE, curve=20, curve_kind="rise"))
+    ys, xs = _rows(rise)
+    assert ys.size
+    left = xs < np.percentile(xs, 25)
+    right = xs > np.percentile(xs, 75)
+    assert ys[left].mean() > ys[right].mean() + 12, \
+        "a positive rise should climb to the right"
+    # upright letters: `arc_places` says every degree is zero for a rise
+    f = ImageFont.truetype(default_font_path(), 36)
+    places = render.arc_places(LINE, f, 0.0, 20.0, 300.0, 150.0, kind="rise")
+    assert places and all(abs(p[2]) < 1e-9 for p in places), \
+        "a rise turned its letters - that is a rotate, not a rise"
+
+
+def test_the_kinds_are_really_different_pictures():
+    """Arch, wave and rise at the same amount must not collapse into one
+    drawing - the picker would be three names for one thing."""
+    kinds = {}
+    for k in ("arch", "wave", "rise"):
+        im, _ = _draw(dict(BASE, curve=30, curve_kind=k))
+        kinds[k] = _ink(im)
+    for a, b in (("arch", "wave"), ("arch", "rise"), ("wave", "rise")):
+        diff = (kinds[a] ^ kinds[b]).sum()
+        assert diff > 2000, f"{a} and {b} draw the same picture ({diff})"
+
+
+def test_an_unknown_kind_is_read_as_the_arch():
+    """A stale record or a bad client must not crash the export - and must
+    not silently straighten the line either."""
+    weird, _ = _draw(dict(BASE, curve=90, curve_kind="zigzag"))
+    arch, _ = _draw(dict(BASE, curve=90, curve_kind="arch"))
+    assert (_ink(weird) ^ _ink(arch)).sum() < 200, \
+        "an unknown kind does not fall back to the arch"
+
+
+def test_the_picker_the_patch_and_the_server_all_carry_the_kind():
+    panels = (JS / "panels.js").read_text(encoding="utf8")
+    assert 'id="lyCurveKind"' in panels, "no hidden field for the kind"
+    # the four chips are stamped out of one list - the list and the call
+    # are what the source shows
+    assert "['arch','sag','wave','rise']" in panels, "the chip list is gone"
+    assert "setCurveKind(${r.id},'${k}')" in panels, \
+        "the chips do not call the picker"
+    edit = (JS / "typesetting-edit.js").read_text(encoding="utf8")
+    assert "function setCurveKind(" in edit
+    # Sag is not a stored kind - it is the arch with its sign flipped
+    body = edit.split("function setCurveKind(")[1].split("\nfunction ")[0]
+    assert "sag:'arch'" in body.replace(" ", ""), \
+        "sag is stored as its own kind - two spellings of one shape"
+    assert "curve_kind:el('lyCurveKind')" in edit.replace(" ", "").replace(
+        "\n", ""), "currentPatch does not carry the kind"
+    from mangatl import editor as editor_mod
+    src = __import__("inspect").getsource(editor_mod.Handler.do_POST)
+    assert '"curve_kind"' in src, "the server drops the kind on save"
+    lt = (JS / "typesetting.js").read_text(encoding="utf8")
+    assert "curve_kind" in lt, "the overlay never reads the kind"

@@ -109,9 +109,12 @@ def test_a_project_starts_with_some_already_made():
     labels = {s["label"] for s in K.known()}
     assert "Thought bubble" in labels
     assert "Whisper" in labels
-    # ...and only the nine lee asked for: *"only these should be default"*.
+    # ...and only the ones lee asked for: *"only these should be default"*.
+    # Ten now, not nine - `Fancy bubble` joined them on 2026-08-28, when a
+    # FLASH balloon stopped being filed under Thought.
     assert "Angry" not in labels
-    assert len(K.PRELOAD_KEYS) == 9
+    assert "Fancy bubble" in labels
+    assert len(K.PRELOAD_KEYS) == 10
 
 
 def test_narration_is_in_two_families_and_they_are_two_things():

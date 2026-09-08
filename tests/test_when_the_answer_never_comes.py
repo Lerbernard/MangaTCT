@@ -17,6 +17,7 @@ time, so six of them is half an hour of somebody watching a bar that is not
 moving.
 """
 import http.client
+import ssl
 import urllib.error
 
 import pytest
@@ -190,17 +191,87 @@ def test_something_that_is_neither_comes_back_unchanged(monkeypatch):
     assert len(fake.calls) == 1
 
 
+# ------------------------------------------------- and a connection that broke
+#
+# lee's Read text on a 58-page manhwa, at page 22:
+#
+#     SSLError: [SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac
+#     (_ssl.c:2711) (translate.py:2252 in complete_vision)
+#
+# One TLS record arrived with the wrong integrity tag. Nothing was refused,
+# nothing was wrong with the request, and the link worked perfectly well for
+# the next thing that used it - but `ssl.SSLError` is not a `ConnectionError`,
+# so it fell straight past the branch that exists for exactly this, and 36
+# pages of a paid run stopped on a corrupted packet.
+
+
+def test_a_mangled_reply_is_tried_again(monkeypatch):
+    fake = replies(ssl.SSLError(1, "[SSL: SSLV3_ALERT_BAD_RECORD_MAC] "
+                                   "sslv3 alert bad record mac"), OK)
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert client().complete_vision("sys", "user", "aGk=") == "the answer"
+    assert len(fake.calls) == 2
+
+
+def test_the_page_upload_is_the_one_that_breaks(monkeypatch):
+    """It reached `complete_vision` first for a reason - a page image is a
+    megabyte-plus POST - but the translate loop is a second copy of the same
+    code and gets the same fix or it is fixed once and broken once."""
+    fake = replies(ssl.SSLError(1, "bad record mac"), OK)
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert client().complete("sys", "user") == "the answer"
+    assert len(fake.calls) == 2
+
+
+def test_a_link_that_keeps_breaking_says_what_to_change(monkeypatch):
+    """And says it about the LINK. "did not answer within 300 seconds" is the
+    other failure's sentence and it sends somebody to look for a faster
+    model, which would not have helped at all."""
+    fake = replies(ssl.SSLError(1, "bad record mac"))
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    with pytest.raises(RuntimeError) as bad:
+        client(timeout=300).complete_vision("sys", "user", "aGk=")
+    assert len(fake.calls) == t.SLOW_TRIES
+
+    says = str(bad.value)
+    assert "did not answer within" not in says
+    assert "300 seconds" not in says
+    # the three things that actually do it, so there is something to try
+    for cure in ("VPN", "proxy", "antivirus"):
+        assert cure in says, says
+    # ...and the two worries, same as the other message
+    assert "saved" in says and "refunded" in says
+    for jargon in ("Traceback", "SSLV3", "_ssl.c", "MAC"):
+        assert jargon not in says, says
+
+
+def test_a_certificate_that_does_not_verify_is_not_retried(monkeypatch):
+    """The one SSL failure that is an answer. It will not verify on the third
+    try either, and three goes at it buries the one thing to fix."""
+    boom = ssl.SSLCertVerificationError(1, "certificate verify failed")
+    boom.reason = "CERTIFICATE_VERIFY_FAILED"
+    fake = replies(boom)
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    with pytest.raises(ssl.SSLCertVerificationError):
+        client().complete("sys", "user")
+    assert len(fake.calls) == 1
+
+
 # ---------------------------------------------------------------- the test
 
 def test_what_counts_as_going_quiet():
     quiet = [TimeoutError(), ConnectionResetError(), ConnectionAbortedError(),
              http.client.RemoteDisconnected(), http.client.BadStatusLine("x"),
+             ssl.SSLError(1, "bad record mac"),
+             ssl.SSLEOFError(8, "unexpected eof while reading"),
              urllib.error.URLError(TimeoutError()),
+             urllib.error.URLError(ssl.SSLError(1, "bad record mac")),
              urllib.error.URLError(ConnectionResetError())]
     for e in quiet:
         assert t._went_quiet(e), e
 
     loud = [urllib.error.URLError("name not known"),
+            ssl.SSLCertVerificationError(1, "certificate verify failed"),
             urllib.error.HTTPError("u", 404, "no", {}, None),
             urllib.error.HTTPError("u", 429, "no", {}, None),
             ValueError("bad json"), RuntimeError("refused")]

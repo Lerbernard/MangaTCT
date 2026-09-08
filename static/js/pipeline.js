@@ -250,11 +250,37 @@ function sayHowBig(){
    width barely moved recall. It is that the box list and the LABELS go: past
    six, a page loses about a quarter of its boxes and a third of what survives
    comes back a different kind. */
+/* ONE PAGE, asked on its own - because the warning is not the only place this
+   has to be said.
+
+   lee: *"can you amke it so that teh pages that are tooo long have a red
+   heighlight on te side bar"*. The sheet named nine files and the rail beside
+   it looked like every other page, so finding them meant reading nine names
+   off one list and hunting each down another - and past six the sheet stops
+   naming them at all and says "+3 more".
+
+   The rail marks them itself now (`.pg.tall`), and it marks them by asking
+   THIS rather than by a second copy of the arithmetic, which is how a mark
+   and a message come to disagree about which pages they mean. */
+function isTallPage(p){
+  const lim = (typeof proj !== 'undefined' && proj && proj.tall_aspect) || 0;
+  return !!(lim && p && p.width && p.height
+            && Math.max(p.width, p.height) / Math.min(p.width, p.height) > lim);
+}
+
 function tallPages(){
-  const lim = (proj && proj.tall_aspect) || 0;
-  if(!lim || !proj || !proj.pages) return [];
-  return proj.pages.filter(p=>p.width && p.height
-    && Math.max(p.width,p.height)/Math.min(p.width,p.height) > lim);
+  if(typeof proj === 'undefined' || !proj || !proj.pages) return [];
+  return proj.pages.filter(isTallPage);
+}
+
+/* ...and why, for the rail's tooltip. A red bar with nothing behind it is a
+   thing to worry about rather than a thing to act on, and the sheet that
+   explains it is on another view. */
+function tallWhy(p){
+  if(!isTallPage(p)) return '';
+  return 'more than ' + Math.round(proj.tall_aspect)
+       + ' times taller than wide - Find text gets the box types wrong on '
+       + 'these. Cut / join splits a strip up.';
 }
 
 function syncTallWarning(){
@@ -309,9 +335,6 @@ async function runDetect(thisPageOnly){
   poll();
 }
 
-async function detectAll(){await api('/api/detect_all','POST',{force:true});poll();}
-async function runAll(ep){const j=await api('/api/'+ep,'POST',{});
-  toast('started on '+(j.started||0)+' pages');poll();}
 const STEPS=[
   {n:1, label:'Find text',    act:()=>openDetect(),               job:'Detecting'},
   {n:2, label:'Read text',    act:()=>stepScope('ocr_all','Read the Japanese'),
@@ -326,13 +349,6 @@ const STEPS=[
                                                                   job:'Laying out text'},
   {n:7, label:'Export',       act:()=>exportDialog(),             job:'Exporting'},
 ];
-
-async function typesetAll(){
-  await api('/api/typeset_all','POST',{});
-  setView('typeset');              // reviewing typesetting means seeing it
-  toast('Laying out the typesetting - check it before exporting.');
-  poll();
-}
 
 /* Has THIS page finished step `i`?
 
@@ -438,8 +454,11 @@ function manualOff(i){ return manualMode() && MANUAL_GREY.indexOf(i)>=0; }
 /* Show the template row only when it is the way you are working, and redraw
    the bar so the three change state the moment the switch does. */
 function syncManualMode(){
-  const on=($('manual_translate') && $('manual_translate').checked)
-           || manualMode();
+  const on=(($('manual_translate') && $('manual_translate').checked)
+           || manualMode())
+           // ...and only on the translation tab - the Image tab hides the
+           // whole manual-translation block (see syncViewChrome)
+           && (typeof view==='undefined' || view==='original');
   const r=$('manrow'); if(r) r.style.display = on ? '' : 'none';
   if(typeof renderSteps==='function' && $('steps'))
     renderSteps((proj&&proj.job&&proj.job.running)?proj.job.label:null);
@@ -527,21 +546,42 @@ function _resetCancelBtn(){
    after opening a chapter look like nothing was happening - say so instead,
    in the same place the steps report themselves. Only runs while nothing else
    is going on, and stops the moment the pages are all made. */
+/* ONE PLACE THAT DECIDES WHEN TO ASK AGAIN.
+
+   This used to book the next look from a single line at the bottom and return
+   early from three places above it - a failed fetch, the guard against
+   painting over a warning, and the finish. Two of those three are states the
+   bar RECOVERS from, and returning without booking another look ended the
+   loop for the rest of the session.
+
+   What lee saw: an amber "Preparing pages 23 of 23 100%" that never went
+   away. The warm-up had finished; the poll that would have noticed never
+   happened, because a moment earlier a step had gone busy and the guard
+   returned. The bar was not stuck - it was dead, still showing its last word.
+
+   So asking again is the default rather than a step in the happy path, and
+   the only exit that stops for good is the editor going away. */
 async function pollWarm(){
   clearTimeout(pollWarm._t);
+  const again=ms=>{ pollWarm._t=setTimeout(pollWarm, ms); };
   let w;
   try{
     const r=await fetch(apiUrl('/api/warm'));
     w=await r.json();
-  }catch(e){ return; }
+  }catch(e){ again(2000); return; }      // a blip is not the end of the loop
   const job=$('job');
-  if(!job || job.className==='busy' || job.className==='err'
-     || job.className==='warn') return;   // don't paint over the warning
+  if(!job) return;                       // the editor is gone; so is the bar
+  if(job.className==='busy' || job.className==='err'
+     || job.className==='warn'){ again(1000); return; }  // don't paint over it
   if(!w || !w.running || !w.total){
     if(pollWarm._said){ pollWarm._said=false; $('jobtxt').textContent='Ready';
                         if($('jobpct')) $('jobpct').textContent='';
                         job.classList.remove('warm');
                         $('fill').style.width='100%'; }
+    // Idle, and still looking: a warm-up can START later - a project loaded,
+    // pages reordered, a chapter re-cleaned - and a loop that stopped at the
+    // first quiet moment would never say so again.
+    again(4000);
     return;
   }
   pollWarm._said=true;
@@ -554,7 +594,7 @@ async function pollWarm(){
   $('jobtxt').textContent=`Preparing pages ${w.done} of ${w.total}`;
   if($('jobpct')) $('jobpct').textContent=pct+'%';
   $('fill').style.width=pct+'%';
-  pollWarm._t=setTimeout(pollWarm,1000);
+  again(1000);
 }
 
 /* THE STEP'S OWN NAME, out of whatever the run is currently saying.
@@ -640,6 +680,18 @@ let lastJob=null;
 async function poll(){
   const j=await api('/api/job');
   lastJob=j;
+  // A NEW SERVER DESERVES A NEW PAGE. This tab's JavaScript was loaded from
+  // whichever build was running when the tab opened, and a server restart
+  // does not reach into an open tab - so after every ship, the "fixed" code
+  // sat on disk while the old code went on running in front of lee. When
+  // the server's run id moves, the page reloads itself and picks up
+  // whatever is now being served. Strokes save themselves and edits are
+  // debounced through the server, so the moment after a restart is as safe
+  // a moment to reload as there is.
+  if(j.boot){
+    if(poll._boot===undefined) poll._boot=j.boot;
+    else if(poll._boot!==j.boot){ location.reload(); return; }
+  }
   // The queue rides down with the job, so the button is current without a
   // request of its own.
   if(j.queue) paintQueue(j.queue);

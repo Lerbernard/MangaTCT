@@ -18,6 +18,7 @@ import mimetypes
 import os
 import posixpath
 import re
+import shutil
 import threading
 import time
 import traceback
@@ -37,12 +38,12 @@ from .detect import classical
 from .interactive import region_from_box
 from .order import assign_order
 from . import kinds as _kinds
+from . import marks as _marks
 from . import project as project_mod
 from . import imgio
 from .project import (KIND_GROUPS, Project, group_of, is_turned,
                       read_sfx_axis, region_from_record, region_record,
                       token_state, turned_box)
-from .score import text_likeness
 from .models import Page
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
@@ -93,8 +94,35 @@ RENDER_CACHE_MAX = 96
 # in exchange nothing the browser kept from last time can ever be shown.
 _render_epoch = int(time.time())
 
+# This RUN of the server, for the browser to notice a restart by. Not the
+# epoch above: that moves on every invalidation, and a page that reloaded on
+# each of those would be unusable.
+_BOOT = f"{os.getpid()}-{int(time.time())}"
+
 
 def _invalidate_renders() -> None:
+    """The browser must ask again, and memory must rebuild. NOT the disk.
+
+    For one morning (2026-08-30-a to -c) this also deleted every .jpg in the
+    render_cache directory, on the reasoning that a picture declared wrong
+    everywhere had to go from everywhere. The reasoning had the wrong
+    culprit: the stale pictures lee kept seeing were drawn by OLDER BUILDS,
+    which `RENDER_ALGO` retires precisely, and every one of this function's
+    fifteen call sites changes something `_render_stamp` already reads - the
+    words, the records, the active roster, the page's name and index and
+    file, the overlay files' mtimes, the plate's mark. A change like that
+    moves the KEY, so the old file on disk is not a wrong answer waiting to
+    be served: it is unreachable garbage the pruner will get to.
+
+    What the purge actually did was turn every small bump into a chapter
+    rebuild. Hiding one heal stroke saves the overlay, bumps the epoch - and
+    deleted 45 finished pages, which the warm-up then remade in front of him
+    at seconds each. lee: *"this disnt happen before and its not fast it
+    redoing it again"*. He was right on both counts.
+
+    So: epoch (the browser's copies), memory (this run's copies), and the
+    disk keeps what it has. A picture nothing can ask for hurts nobody.
+    """
     global _render_epoch
     _render_epoch += 1
     _render_cache.clear()
@@ -120,6 +148,77 @@ def _mtime(path: str) -> float:
         return 0.0
 
 
+def _plate_mark(path: str) -> float:
+    """A number that moves when a plate is REBUILT, and at no other time.
+
+    `_render_stamp` needs the plate's identity, and the file's modification
+    time is it - but only because nothing touches the file except writing it.
+    That was not true: `clean_page` used to touch a plate on every reuse, so
+    the cache pruner could tell one still in use from an abandoned one. Reading
+    the cache therefore changed the key of what was in it. The picture was
+    rebuilt on the next visit, the browser's `v=` moved with it, and a page
+    nobody had edited was re-rendered and re-downloaded every time it came
+    round - and the copy kept on disk could never be read back at all, because
+    by then the plate's time had moved on.
+
+    lee: *"when i swithc only some section of teh page show up and i take sa
+    while to get teh rest to show up"*. It was my own fix for
+    `the-picture-and-the-plate-2026-08-29` that bought it.
+
+    **A CACHE KEY MUST NOT BE CHANGED BY READING THE CACHE.** So the touch is
+    gone, and the pruner keeps the most recently BUILT plates rather than the
+    most recently read - which is the same set in practice: it keeps three per
+    page and a chapter has one each.
+    """
+    return _mtime(path)
+
+
+# Fields of a region record that CANNOT change the picture, and so have no
+# business in the key of a cached picture.
+#
+# `layout` is computed output that rendering writes back - it was always
+# excluded, and the other three are the same thing arriving later.
+# `clean_route`, `clean_core` and `flagged` are the cleaner's REPORT: how each
+# box was erased and what it wanted to say about it. They are read on the
+# boxes panel and never drawn on the page.
+#
+# Leaving them in cost a page switch. A view of a cleaned page takes its plate
+# off the disk without running the inpainter, so the report came back empty
+# and the commit wrote the empty one down; the next view had the report again.
+# The key flipped between two values on alternate renders and never matched
+# twice, so every other look at every page rebuilt a picture that had not
+# changed. lee: *"figure out a way to have the cleaned pages switch fataer for
+# one page to another"*.
+#
+# The other half of that fix is in `_commit_keep_proofread`, which stops the
+# report being thrown away at all. Both, because they answer different
+# questions: one is what a page KEEPS, this one is what a PICTURE is.
+_NOT_A_PICTURE = frozenset((
+    "layout", "clean_route", "clean_core", "flagged", "proofread",
+))
+
+# WHICH BUILD DREW IT.
+#
+# The stamp below covers the words, the boxes, the plate and the settings -
+# every INPUT to the picture. It does not cover the code that turns those
+# inputs into pixels, and until the pictures lived only in memory it did not
+# have to: a restart threw them all away, so a new build always drew its own.
+#
+# Keeping them on disk (2026-08-29, `_render_disk_path`) removed that. A
+# picture drawn by Friday's typesetter now survives into Saturday's build and
+# is served in preference to drawing it again, because every input still
+# matches. lee got an export preview with the captions clipped and no SPLAAASH
+# on it, beside a real export that was correct - the same page, one of them
+# drawn months of fixes ago: *"so teh export preview is wrong in some places"*.
+#
+# So the build is part of the picture's identity, exactly as `inpaint.ALGO` is
+# part of a plate's. BUMP THIS whenever a change would draw an existing page
+# differently - the typesetter, the renderer, the compositor, the fitter.
+# It costs one rebuild per page and it is the only thing standing between a
+# fix and a cache that never heard about it.
+RENDER_ALGO = "2026-08-31-a"   # gradient letters drawn in ramp colours
+
+
 def _render_stamp(p: Project, i: int, mode: str) -> tuple:
     """Everything that can change what a rendered page looks like.
 
@@ -133,12 +232,13 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
     # The ACTIVE boxes: a hidden group is not drawn on any of the three
     # views, so putting one away has to change the key or the old picture
     # stays on screen.
-    inputs = [{k: v for k, v in (r or {}).items() if k != "layout"}
+    inputs = [{k: v for k, v in (r or {}).items() if k not in _NOT_A_PICTURE}
               for r in st.active]
     cc = getattr(st, "custom_clean", "") or ""
     ov = getattr(st, "paint_overlay", "") or ""
     ovr = getattr(st, "paint_over", "") or ""
-    base = (i, mode, st.name, st.width, st.height,
+    base = (RENDER_ALGO,
+            i, mode, st.name, st.width, st.height,
             _page_fingerprint(p, i), cc, _mtime(cc),
             ov, _mtime(ov), ovr, _mtime(ovr),
             json.dumps(inputs, sort_keys=True, default=str),
@@ -147,7 +247,32 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
             # difference between two different pictures rather than between a
             # picture and the same picture built more slowly. Without it, the
             # view you had open before pressing Clean is the view you keep.
-            bool(st.cleaned))
+            bool(st.cleaned),
+            # ...and WHICH PLATE, which is not the same question and is the one
+            # that was missing. `cleaned` is a flag that goes false to true
+            # ONCE. Clean a page a second time and it is already true, so
+            # nothing above changes, so this key does not change - and the
+            # picture the cache and the browser both answer with is the one
+            # built from the plate that has just been replaced.
+            #
+            # lee, on page 009 after a re-clean: *"the clenner is working but
+            # teh page is not showing it, i even tried to re clean"*. He was
+            # right twice over - the plate on disk was clean and the picture
+            # was the old one. That page had been cleaned by a build whose
+            # cleaner read a black balloon inside out; this build retires that
+            # plate (`inpaint.ALGO`) and makes a good one, and the picture went
+            # on being the bad one because the only thing the key knew about
+            # cleaning was a boolean that had been true for a week.
+            #
+            # THE PICTURE IS MADE FROM THE PLATE, so the plate's identity
+            # belongs in the picture's. Its file time answers for its contents:
+            # it moves when a plate is written for any reason at all - a
+            # re-clean, a bumped `ALGO`, a moved box, a different eraser - and
+            # a plate nothing rebuilt keeps its time and its key, so this costs
+            # nothing on a page that has not changed. Narrower than bumping the
+            # render epoch, which would throw away every OTHER page in the
+            # chapter every time one was cleaned.
+            _plate_mark(_plate_disk_path(p, i)))
     if mode != "typeset":
         # The scan and the cleaned plate carry no text, so the typesetting
         # settings cannot change what they look like. Including them meant a
@@ -164,7 +289,7 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
         s.get("substitutes"))
 
 
-def _render_key(p: Project, i: int) -> str:
+def _render_key(p: Project, i: int, mode: str = "") -> str:
     """A short token the browser can hang on the image URL.
 
     The URL used to end in the current clock, which meant every single page
@@ -172,7 +297,7 @@ def _render_key(p: Project, i: int) -> str:
     changes exactly when the page's appearance can have changed, so going back
     to a page you have already seen costs nothing at all.
     """
-    h = hashlib.sha1(repr(_render_stamp(p, i, "")).encode("utf-8"))
+    h = hashlib.sha1(repr(_render_stamp(p, i, mode)).encode("utf-8"))
     return f"{_render_epoch}-{h.hexdigest()[:16]}"
 
 
@@ -244,14 +369,35 @@ _plate_cache: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
 
 def _plate_stamp(p: Project, i: int) -> tuple:
     """Identity of the fully-cleaned plate - geometry, not eye toggles."""
-    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"))
+    # THE FAMILY, NOT THE KIND, and this one cost lee a chapter of cleaned
+    # pages: *"can you check on the clenned text disapearing? cleaned pages i
+    # mean"*.
+    #
+    # A plate is cached on disk against this stamp, so anything in here that
+    # changes throws the plate away and the page comes back looking uncleaned.
+    # That is right when the change could have altered the plate and wrong
+    # otherwise - and the sub-type never can. Every place the cleaner looks at
+    # a kind it asks `family_of` first: three in `inpaint.py` and
+    # `project._no_balloon`. Not one of them branches on the sub-type.
+    #
+    # It went unnoticed for as long as a box's kind WAS its family. Read text
+    # labels sub-types now, so a chapter cleaned and then re-read had every
+    # `sfx` become `sfx_big` and every plate on disk orphaned by a relabel that
+    # could not have changed a pixel of it.
+    #
+    # Asked with the project's OWN sub-type list rather than the module global,
+    # so the stamp cannot depend on whether `kinds.use()` has run yet - a stamp
+    # that answers differently before and after a load is the same bug again.
+    subs = p.settings.get("custom_kinds") or []
+    geo = tuple((r.get("id"), tuple(r.get("bbox") or ()),
+                 _kinds.family_of(r.get("kind") or "", subs))
                 for r in p.pages[i].regions)
     # The cleaning method is part of the plate's identity - switching between
     # local and AI must rebuild it. So is the TOKEN, by its fingerprint: a
     # wrong token and a right one produce completely different pages, and
     # without this, pasting the real token in left every plate built during the
     # 401s sitting in the cache, so nothing changed and nothing was re-sent.
-    tok = p.settings.get("clean_token") or ""
+    tok = clean_token_for(p)
     ai = (p.settings.get("ai_clean") or "off", p.settings.get("clean_url") or "",
           hashlib.sha1(tok.encode("utf-8")).hexdigest()[:12] if tok else "",
           # ...and the CLEANER'S OWN VERSION. A plate is cached on disk and
@@ -259,7 +405,15 @@ def _plate_stamp(p: Project, i: int) -> tuple:
           # code does - so every improvement shipped invisible, the old plate
           # answering for the new build. lee: *"nothing vhanged"*. Bump
           # inpaint.ALGO and every plate made by the old code retires itself.
-          getattr(inpaint_mod, "ALGO", ""))
+          getattr(inpaint_mod, "ALGO", ""),
+          # ...and WHICH ERASER. Same argument again: switching the model with
+          # the plates still on disk is the "nothing vhanged" bug wearing a new
+          # hat - every page would answer with the old model's work.
+          clean_model(p),
+          # ...and whether the plate was READ afterwards. Turning the check off
+          # is a different cleaner, and a page that kept its old plate would go
+          # on showing the text the check had already taken off.
+          bool(p.settings.get("clean_reread", True)))
     return (i, p.pages[i].name, _page_fingerprint(p, i),
             getattr(p.pages[i], "custom_clean", "") or "", geo, ai)
 
@@ -274,10 +428,88 @@ def _page_file_stem(p: Project, i: int) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", base) or f"{i:03d}"
 
 
+# The two erasers one deploy of `lama_clean_modal.py` serves. `lama` is the
+# standard big-lama; `anime-lama` is the same architecture fine-tuned on
+# anime and manga artwork.
+#
+# Measured on nine hard boxes off lee's own chapter 3 - sound effects and
+# outside text over hatching and screentone, the app's own crops and masks -
+# against five other erasers: anime-lama landed nearer the surrounding artwork
+# on 6 of 9 at the same speed, and it and lama were the only two of seven that
+# never drew something that had never been on the page. (`fcf` put a human
+# face in a blank panel; `migan` a black blob; `manga` and `zits` mottle and
+# streaks.) lee: *"anime lama is the shout, add it in the list"*.
+CLEAN_MODELS = ("anime-lama", "lama")
+
+
+def clean_model(p: Project) -> str:
+    """Which eraser this project asks the endpoint for.
+
+    Anything the settings do not recognise becomes the default rather than
+    being sent on: a typo in a settings box should clean the page, not fail it.
+    """
+    # The measured one, always. There used to be a choice and there used to be
+    # cards to make it with; lee: *"...ad only ai and the card make this the
+    # deaflau clenner"*. A project.json carrying the other name from when there
+    # was a choice gets the measured one anyway.
+    return CLEAN_MODELS[0]
+
+
 def _ai_clean_cache_dir(p: Project) -> str:
     d = os.path.join(p.output_dir, "ai_clean_cache")
     os.makedirs(d, exist_ok=True)
     return d
+
+
+def _render_disk_path(p: Project, key: tuple) -> str:
+    """Where a finished picture is kept between runs.
+
+    Beside the plates, and for the same reason: a rendered page is expensive to
+    make and cheap to read, and until now the only copy lived in memory. A
+    restart threw away the whole chapter and it was all built again, one
+    three-second page at a time, in front of whoever turned to it.
+
+    Keyed on `_render_stamp`, which already answers "is this the same picture" -
+    the geometry, the words, the plate, the typesetting settings, the cleaner's
+    version. So a file here can only be read by a request that would have built
+    exactly it.
+    """
+    h = hashlib.sha1(repr(key).encode("utf-8")).hexdigest()
+    return os.path.join(p.output_dir, "render_cache", h + ".jpg")
+
+
+def _render_from_disk(p: Project, i: int, key: tuple):
+    fp = _render_disk_path(p, key)
+    try:
+        if not os.path.exists(fp):
+            return None
+        with open(fp, "rb") as fh:
+            got = fh.read()
+        # Touching it is safe here in a way it is not for a plate: nothing
+        # keys on this file's time, only the pruner reads it. See
+        # `_plate_mark` for the version of this that went wrong.
+        os.utime(fp, None)
+        return got or None
+    except OSError:
+        return None
+
+
+def _render_to_disk(p: Project, i: int, key: tuple, data: bytes) -> None:
+    fp = _render_disk_path(p, key)
+    try:
+        os.makedirs(os.path.dirname(fp), exist_ok=True)
+        tmp = fp + ".part"
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, fp)          # whole or not at all
+        # Two views of every page, plus a version or two of whichever page is
+        # being worked on. Three per page covers that with room to spare, and
+        # the oldest go first. A page is around 300KB, so a 200-page project
+        # sits near 180MB - large, and much smaller than the plates beside it,
+        # which are PNG.
+        _prune_cache_dir(os.path.dirname(fp), max(60, 3 * len(p.pages)))
+    except OSError:
+        pass                         # a cache that cannot write is still fine
 
 
 def _plate_disk_path(p: Project, i: int) -> str:
@@ -293,7 +525,106 @@ def _plate_disk_path(p: Project, i: int) -> str:
     d = os.path.join(p.output_dir, "plate_cache")
     os.makedirs(d, exist_ok=True)
     key = hashlib.sha1(repr(_plate_stamp(p, i)).encode("utf-8")).hexdigest()
-    return os.path.join(d, key + ".png")
+    path = os.path.join(d, key + ".png")
+    if not os.path.exists(path):
+        _adopt_pre_family_plate(p, i, d, path)
+    return path
+
+
+def _plates_to_carry(p: Project) -> dict:
+    """`{page index: its cleaned plate}` for every page that has one.
+
+    What the bundle needs to stop throwing the cleaner's work away. Asked of
+    the CACHE, not of the `cleaned` flag: the flag says a plate was made, the
+    file says one is still there to carry.
+
+    `_plate_disk_path` is the one authority on where a plate lives, so this
+    goes through it rather than listing the folder - a plate found by
+    listing might belong to a page as it was three edits ago.
+    """
+    out = {}
+    for i in range(len(p.pages)):
+        try:
+            at = _plate_disk_path(p, i)
+        except Exception:
+            continue
+        if at and os.path.isfile(at):
+            out[i] = at
+    return out
+
+
+def _take_in_carried_plates(p: Project) -> int:
+    """Move a bundle's plates into this machine's cache, re-keyed.
+
+    The name a plate is cached under is a hash of everything that identifies
+    it, and two of those things are not the same on the machine that opens
+    the file: the hand-cleaned plate's absolute path, and the cleaning
+    token's fingerprint when it comes from a different `.env`. A plate copied
+    in under its old name would sit in the folder unread and the page would
+    be cleaned again - which is the bug this whole path is here to fix, one
+    step further along.
+
+    So the plate arrives under its page's index and is written out under
+    whatever `_plate_disk_path` asks for HERE, after the project has loaded
+    and the stamp can be computed. Returns how many were taken in.
+    """
+    from . import bundle
+    got = bundle.carried_plates(p.output_dir)
+    n = 0
+    for i, src in sorted(got.items()):
+        if i >= len(p.pages):
+            continue                      # a plate for a page that is not here
+        try:
+            shutil.copyfile(src, _plate_disk_path(p, i))
+            n += 1
+        except OSError:
+            continue
+    bundle.forget_plates(p.output_dir)
+    return n
+
+
+def _adopt_pre_family_plate(p: Project, i: int, d: str, path: str) -> None:
+    """Give back a plate cleaned while the stamp still carried the sub-type.
+
+    Fixing `_plate_stamp` to key on the FAMILY brought nearly every orphaned
+    plate back on its own - a page whose boxes were all `bubble`, `freefloat`
+    and `sfx` has the same stamp either way, because a family is its own
+    family. Measured against lee's own chapter, 19 pages of 23.
+
+    The other four are the pages he cleaned AFTER the reading had relabelled
+    them. Those plates went to disk under `sfx_small` and `whisper`, and the
+    corrected stamp asks for `sfx` and `bubble` - so the very change that
+    rescued the nineteen orphans the four. Shipping that would have been a fix
+    that took something away from the person it was for.
+
+    So a miss looks once for the name the old stamp would have given, and if
+    that plate is there, copies it under the new name. It is safe for exactly
+    the reason the fix is right: every other thing in the stamp - the scan,
+    the boxes, the eraser, the token - is identical, and the sub-type could
+    never have changed a pixel of the plate. Copied, not moved: an old build
+    reading the same folder still finds what it put there.
+
+    It costs one `os.path.exists` on a miss, which is a miss that was about to
+    re-run an inpainter.
+    """
+    try:
+        subs = p.settings.get("custom_kinds") or []
+        regions = p.pages[i].regions
+        if not any(_kinds.family_of(r.get("kind") or "", subs)
+                   != (r.get("kind") or "") for r in regions):
+            return                      # nothing to translate back
+        was = _plate_stamp(p, i)
+        geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind") or "")
+                    for r in regions)
+        old = was[:4] + (geo,) + was[5:]
+        src = os.path.join(d, hashlib.sha1(
+            repr(old).encode("utf-8")).hexdigest() + ".png")
+        if os.path.exists(src):
+            shutil.copyfile(src, path)
+    except Exception:
+        # A plate that cannot be adopted is a plate that gets rebuilt. Nothing
+        # in here is allowed to be the reason a page fails to open.
+        pass
 
 
 def _prune_cache_dir(d: str, keep: int) -> None:
@@ -394,7 +725,7 @@ def clean_warning(p: Project) -> str:
     msg = (f"AI cleaning did not run — {f['msg']}. {where} "
            f"{'was' if n == 1 else 'were'} filled in with the plain local "
            f"method instead.")
-    tok = p.settings.get("clean_token") or ""
+    tok = clean_token_for(p)
     if not tok:
         msg += " No cleaner token is saved (Settings ▸ Page cleaning)."
     elif _token_is_placeholder(tok):
@@ -473,6 +804,17 @@ def _token_is_placeholder(tok: str) -> bool:
 def clear_clean_warning() -> None:
     _AI_CLEAN_FAIL.update(n=0, msg="", url="", used=0, cached=0, refused="")
     _CLEAN_TALLY.clear()
+    _CLEAN_GIVEUP["on"] = False
+
+
+# ONE PAGE PAYS FOR THE RETRIES, and the rest of the run believes it. Going
+# back at a page the cleaner refused is worth a wait; going back at every page
+# of a chapter when the endpoint is simply down is that wait times twenty-three,
+# for an answer the first page already gave. A fatal refusal - a 401 or a 403 -
+# has `_AI_CLEAN_FAIL["refused"]` for this; everything else, a dead host or a
+# timeout, has this, set when a page runs out of goes and cleared with the rest
+# of the run's news.
+_CLEAN_GIVEUP = {"on": False}
 
 
 # How the boxes cleaned in this run were cleaned. Same reason as the warning
@@ -604,6 +946,93 @@ def clean_note(p: Project) -> str:
             "nothing left to clean.")
 
 
+def _update_state() -> dict:
+    """What the launcher knows about a newer version, if a launcher started
+    this process at all.
+
+    The launcher and the editor are two programs and talk through one small
+    file rather than a socket: the launcher writes `update.json` beside its
+    own state - `{"available": "1.0.1", "state": "ready"}` - and names it in
+    `MANGATL_UPDATE_FILE`. The editor reads it when the header asks and
+    shows a line; the switch itself happens on the next start, in the
+    launcher, where nothing of the person's is open. A checkout run by hand
+    has no such file and says nothing.
+
+    Read on demand and never cached, because the launcher rewrites it while
+    the download runs and "downloading" should become "ready" on screen
+    without a restart.
+    """
+    fp = (os.environ.get("MANGATL_UPDATE_FILE") or "").strip()
+    if not fp or not os.path.isfile(fp):
+        return {}
+    try:
+        with open(fp, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return {}
+    if not isinstance(d, dict) or not d.get("available"):
+        return {}
+    return {"update": {"available": str(d.get("available")),
+                       "state": str(d.get("state") or "ready"),
+                       "notes": str(d.get("notes") or "")}}
+
+
+#: What a key looks like in a log line. Scrubbed before a log tail is put in
+#: front of a person about to paste it into a chat.
+_KEYISH = re.compile(r"(sk-ant-[0-9A-Za-z_\-]{8,}|sk-(?:or-)?[A-Za-z0-9]{16,}|"
+                     r"AIza[0-9A-Za-z_\-]{20,}|Bearer\s+[A-Za-z0-9._\-]{12,})")
+
+
+def _log_tail(n: int = 80) -> list[str]:
+    """The last lines of the editor's own console, when a launcher is
+    keeping one (`MANGATL_LOG_FILE`). A checkout run by hand has the
+    console itself and gets nothing here."""
+    fp = (os.environ.get("MANGATL_LOG_FILE") or "").strip()
+    if not fp or not os.path.isfile(fp):
+        return []
+    try:
+        with open(fp, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 64_000))
+            lines = f.read().decode("utf-8", "replace").splitlines()[-n:]
+    except OSError:
+        return []
+    return [_KEYISH.sub("<key>", ln) for ln in lines]
+
+
+def _diagnostics(p) -> dict:
+    """Everything a support message should start with, and nothing it must
+    not carry: the version, the machine, the chapter's shape, which keys are
+    PRESENT (never their value), and the tail of the log with anything
+    key-shaped taken out. Shown to the person before they send it."""
+    import platform
+    from . import version as _v
+    from .project import _machine_line
+    try:
+        from . import userdata as _ud
+        keys = {k: bool(v) for k, v in (_ud.env_state() or {}).items()}
+    except Exception:
+        keys = {}
+    routes = [k for k, _n in getattr(p, "ROUTE_NAMES", []) if p.settings.get(k)]
+    return {
+        "version": _v.__version__,
+        "channel": _v.CHANNEL,
+        "launcher": os.environ.get("MANGATL_LAUNCHER") or "",
+        "python": platform.python_version(),
+        "os": "%s %s (%s)" % (platform.system(), platform.release(), platform.machine()),
+        "machine": _machine_line(),
+        "chapter": {"pages": len(p.pages), "medium": p.settings.get("medium"),
+                    "source": p.settings.get("source"), "routes": routes,
+                    "ocr": p.settings.get("ocr_reader"),
+                    "models": {k: p.settings.get(k) for k in
+                               ("ocr_model", "translate_model", "proofread_model")
+                               if p.settings.get(k)}},
+        "keys_present": keys,
+        "log": _log_tail(),
+        "support": _v.SUPPORT,
+    }
+
+
 def _deploy_dirs() -> list[str]:
     """Where the `*_clean_modal.py` scripts are looked for: beside the code, one
     level up, and wherever the editor was started. Its own function so a test can
@@ -667,7 +1096,7 @@ def clean_selftest(p: Project) -> dict:
     import tempfile
     s = p.settings
     url = (s.get("clean_url") or "").strip()
-    tok = (s.get("clean_token") or "").strip()
+    tok = clean_token_for(p)
     files = _deploy_files()
     mine = hashlib.sha1(tok.encode("utf-8")).hexdigest() if tok else ""
     for f in files:
@@ -699,7 +1128,10 @@ def clean_selftest(p: Project) -> dict:
     before = _AI_CLEAN_FAIL["n"]
     with tempfile.TemporaryDirectory() as tmp:      # never the real cache
         try:
-            _ai_clean_call(url, tok, tmp, img, mask, strict=True)
+            # ...with the eraser the project actually uses, so a Test
+            # cleaner that passes is a test of the thing that will run.
+            _ai_clean_call(url, tok, tmp, img, mask, strict=True,
+                           model=clean_model(p))
             res["ok"] = True
         except Exception as e:
             res["error"] = _clean_error_text(e)
@@ -734,7 +1166,14 @@ def clean_selftest(p: Project) -> dict:
 
 def _ai_clean_call(url: str, token: str, cache_dir: str,
                    img: np.ndarray, mask: np.ndarray,
-                   strict: bool = False) -> np.ndarray:
+                   strict: bool = False, *,
+                   # WHICH ERASER, keyword-only and defaulted to the same one
+                   # the endpoint falls back to. Keyword-only because the four
+                   # positional arguments in front of it are the question
+                   # being asked, and a fifth one that is easy to slot into
+                   # the wrong place is how a mask ends up being read as a
+                   # model name.
+                   model: str = CLEAN_MODELS[0]) -> np.ndarray:
     """POST the page + text mask to the hosted manga cleaner, return the
     cleaned image. The result is CACHED on disk by the exact (image, mask)
     content, so revisiting or re-rendering a page never calls the API again -
@@ -746,7 +1185,12 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
     # accepted than when it is refused.
     key = hashlib.sha1(img.tobytes() + mask.tobytes()
                        + url.encode("utf-8")
-                       + token.encode("utf-8")).hexdigest()
+                       + token.encode("utf-8")
+                       # ...and the MODEL, for the third time in this file and
+                       # for the same reason: two erasers give two answers to
+                       # one question, and a cache that cannot tell them apart
+                       # hands back the one nobody asked for.
+                       + model.encode("utf-8")).hexdigest()
     fp = os.path.join(cache_dir, key + ".png")
     if os.path.exists(fp):
         cached = imgio.imread(fp)
@@ -754,6 +1198,19 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
             _AI_CLEAN_FAIL["used"] += 1     # the model's answer, from the cache
             _AI_CLEAN_FAIL["cached"] += 1
             return cached
+
+    # NO TOKEN AT ALL is the same shape of question, and it became a common
+    # one the moment the address shipped built in (`project.CLEAN_URL`): a new
+    # project has a cleaner to talk to and nothing to prove it with. The answer
+    # is knowable here, so it is answered here - a 401 is what the endpoint
+    # would say, and waiting three minutes a box to be told so is the only
+    # thing a round trip would add. `clean_warning` names the missing token.
+    if not token:
+        _AI_CLEAN_FAIL["n"] += 1
+        _AI_CLEAN_FAIL["msg"] = "no cleaner token is saved"
+        if strict:
+            raise RuntimeError(_AI_CLEAN_FAIL["msg"])
+        return cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
 
     # Already refused this exact token at this exact address? Then the answer
     # is known and the round trip is waste. Straight to the local fill --
@@ -772,6 +1229,16 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
         import urllib.request
         body = _json.dumps({
             "token": token,
+            # WHICH ERASER. One deploy serves both now, so this is a setting
+            # and not a redeploy. lee, after seven of them were measured on his
+            # own chapter: *"anime lama is the shout, add it in the list"* -
+            # anime-lama landed nearer the surrounding artwork on 6 of 9 hard
+            # boxes at the same speed, and was one of only two that never drew
+            # something that had never been on the page.
+            #
+            # An endpoint that has never heard of the field ignores it and
+            # serves what it was deployed with, so an old deploy keeps working.
+            "model": model,
             "image": base64.b64encode(cv2.imencode(".png", img)[1]).decode(),
             "mask": base64.b64encode(cv2.imencode(".png", mask)[1]).decode(),
         }).encode("utf-8")
@@ -829,18 +1296,63 @@ def _make_cleaner(p: Project, strict: bool = False):
     s = p.settings
     mode = (s.get("ai_clean") or "off").strip()
     url = (s.get("clean_url") or "").strip()
-    # Stripped here as well as on save: a project.json written before the save
-    # started stripping still has the pasted whitespace in it, and a 401 caused
-    # by a trailing newline is indistinguishable from a wrong token.
-    token = (s.get("clean_token") or "").strip()
+    token = clean_token_for(p)
     if mode not in ("hard", "all") or not url:
         return None, False
     cache_dir = _ai_clean_cache_dir(p)
 
+    model = clean_model(p)
+
     def neural(img, mask):
-        return _ai_clean_call(url, token, cache_dir, img, mask, strict)
+        return _ai_clean_call(url, token, cache_dir, img, mask, strict,
+                              model=model)
 
     return neural, (mode == "all")
+
+
+def _make_reader(p: Project):
+    """The thing that says where writing is - comic-text-detector's
+    segmentation head, the one thing in the app that answers that question.
+
+    The cleaner asks it twice, and they are two different questions:
+
+      * of the SCAN, before anything is erased - what IS the writing here.
+        A saved region carries no bitmap, so without this the mask is "the dark
+        pixels in the box", and on a sound effect over screentone that is the
+        screentone. See `inpaint._reader_ink`. lee, with the crop: *"see how i
+        can see the lines of teh clenner that shoud not happen it should clenly
+        fit with teh art"*.
+      * of the FINISHED PLATE - what is still legible that no mask covered.
+        lee: *"i also want to create a systhem that looks for thet text ain the
+        boxes and tells teh clenner where they are"*. See `inpaint._reread`.
+
+    The same weights the page was detected with, so there is nothing to set up
+    and nothing to download: a project that can find its text can clean it with
+    what found it. With no weights there is no reader and the cleaner behaves
+    exactly as it did before. Two forward passes a page - about four seconds -
+    and only on a page actually being cleaned, never on one answered from the
+    cache.
+    """
+    if not p.settings.get("clean_reread", True):
+        return None
+    w = p.detector_weights()
+    if not w:
+        return None
+    from .detect import comictext
+    keep = comictext.tuning_for(getattr(p, "medium", "")).get("mask_thresh") \
+        or comictext.SEG_KEEP
+
+    def look(img):
+        try:
+            return comictext.page_text_mask(img, w, keep)
+        except Exception:
+            # A missing or unreadable weights file is a reason to skip the
+            # check, not a reason to fail the clean: the page is still cleaned,
+            # it is only the second opinion that is missing.
+            traceback.print_exc()
+            return None
+
+    return look
 
 
 def own_plate_path(p: Project, i: int) -> str:
@@ -900,8 +1412,27 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
             got = imgio.imread(fp)
             if got is not None and got.shape[:2] == page.image.shape[:2]:
                 full = got
-                os.utime(fp, None)          # touch: it is still in use
+                # NOT TOUCHED. The plate's file time is part of the key of
+                # every picture built from it, so marking it as recently used
+                # would throw those pictures away. See `_plate_mark`.
                 _tally_clean({"reused": 1})
+        if full is None and not _may_spend_the_cleaner(p):
+            # THE BUTTON IS THE ONLY THING THAT GOES TO THE MODEL. lee: *"it
+            # shoudnt rebuild everytime, it shoud ony go to the ai when i clcik
+            # the button"*.
+            #
+            # `render_index` has said "looking at a page is not cleaning it"
+            # for a long time, and it holds - but Typeset and Export call in
+            # here directly, and so does anything else that wants a plate. On
+            # a page whose last clean was refused there is no plate to find,
+            # so every one of them rebuilt it and went back to the endpoint.
+            # With the hosted cleaner on, a page nobody has successfully
+            # cleaned is simply not cleaned: what everything downstream gets
+            # is the scan, which is the honest picture of a page nothing was
+            # erased from.
+            page.clean_plate = page.image.copy()
+            _composite_paint(p, i, page, include_paint)
+            return
         if full is None:
             saved = [(r, bool(getattr(r, "skip_clean", False)))
                      for r in page.regions]
@@ -920,7 +1451,8 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
                 # `inpaint.second_pass`. There is nothing to configure - a box
                 # the first step cleaned is never touched by the second.
                 inpaint_mod.inpaint_page(page, neural=neural,
-                                         neural_all=neural_all)
+                                         neural_all=neural_all,
+                                         look=_make_reader(p))
             finally:
                 for r, v in saved:
                     r.skip_clean = v
@@ -940,6 +1472,42 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
             # as Typeset and Export are - charging a fee for it would be
             # charging for nothing, and it would be charged silently, because
             # the page-builder cleans pages nobody asked it to.
+            #
+            # ...and it is charged for a plate that is KEPT.
+            #
+            # A plate built while the cleaner was refusing is NOT this page's
+            # plate - it is the local fallback wearing its name. Caching it is
+            # how "click Clean again" came to do nothing at all: the second
+            # press found the smeared plate on disk, reused it in a few
+            # milliseconds, and never called the endpoint, so fixing the token
+            # changed nothing and Modal showed no activity. So it is thrown
+            # away, and the page reads as not cleaned - the view shows the
+            # scan rather than a half-model page dressed up as finished.
+            #
+            # Thrown away means BUILT AGAIN, and built again used to mean paid
+            # for again: lee's page 001 changed picture while he looked at it
+            # and was billed for every version, three visits, three fees. The
+            # fee is for a page you got. A build nobody kept is not one, so it
+            # costs nothing however many times it is attempted. lee: *"ill just
+            # eat the extra cost , can you fx this thought ... 1 more every
+            # time you open that page"*.
+            #
+            # The endpoint is not paid twice either: every answer it DID give
+            # is cached inside `_ai_clean_call` by its own (image, mask), so a
+            # rebuild only asks about the boxes that failed.
+            full = page.clean_plate
+            if _AI_CLEAN_FAIL["n"] > before:
+                # ...but held on to while `do_clean` is still going back at it,
+                # so that when none of the goes comes out whole the page shows
+                # the BEST of them rather than the bare scan. lee: *"if teh
+                # build failes after 4 trues still show teh nbest version fo teh
+                # failes so we show shoeming"*. Best is fewest boxes refused -
+                # the go the model did most of.
+                if _KEEP_BEST["on"]:
+                    n = _AI_CLEAN_FAIL["n"] - before
+                    if _KEEP_BEST["fails"] is None or n < _KEEP_BEST["fails"]:
+                        _KEEP_BEST.update(fails=n, plate=full.copy())
+                return _finish_plate(p, i, page, full, include_paint)
             try:
                 from . import coins
                 if int((getattr(page, "clean_stats", None) or {}).get(
@@ -948,16 +1516,6 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
                                getattr(p.pages[i], "name", ""))
             except Exception:
                 traceback.print_exc()
-            full = page.clean_plate
-            # A plate built while the cleaner was refusing is NOT this page's
-            # plate - it is the local fallback wearing its name. Caching it is
-            # how "click Clean again" came to do nothing at all: the second
-            # press found the smeared plate on disk, reused it in a few
-            # milliseconds, and never called the endpoint, so fixing the token
-            # changed nothing and Modal showed no activity. Leave it uncached
-            # and the next press actually retries.
-            if _AI_CLEAN_FAIL["n"] > before:
-                return _finish_plate(p, i, page, full, include_paint)
             try:
                 # Level 1: the plate is written once and read many times, and
                 # squeezing it harder costs more than it ever saves back.
@@ -1087,16 +1645,43 @@ def _page_lock(i: int) -> "threading.RLock":
 
 
 def render_index(p: Project, i: int, mode: str = "original",
-                 paint: bool = True) -> bytes:
+                 paint: bool = True, commit: bool = True) -> bytes:
     """Three views of a page.
 
     original  the scan as it came in
     clean     source text erased, nothing added - shows what the inpainter did
     typeset   the finished page
+
+    `commit=False` DRAWS WITHOUT WRITING ANYTHING DOWN.
+
+    Building the typeset view lays the page out again and commits the result,
+    which is right for the view somebody is working in - the layout it just
+    computed is the layout that belongs on the record. It is wrong for a view
+    that appears BY ITSELF: the editor now settles into this picture a moment
+    after every edit (`static/js/exactview.js`), and laying the page out again
+    behind the person's back overwrites the thing they were doing.
+
+    It cost four tests to find that out, all of them about an emptied box: an
+    empty block is a decision, `typeset_page` fills it back in from the words,
+    and a commit made that stick. lee's *"if i dlete all teh text from a text
+    box its shoud accesp the edit"* has a test each in three files and every
+    one of them caught this.
+
+    The picture is identical either way. Only the write-back differs - as it
+    already does on a cache hit, which returns before any of this.
     """
     key = _render_stamp(p, i, mode) + (bool(paint),)
     hit = _render_cache.get(key)
     if hit is not None:
+        _touch(_render_cache, key)
+        return hit
+    # ...and then off the disk, which is the difference between a restart
+    # costing nothing and costing the whole chapter again. A finished page is
+    # three seconds to build and five milliseconds to read; it has no business
+    # being built twice. See `_render_disk_path`.
+    hit = _render_from_disk(p, i, key)
+    if hit is not None:
+        _render_cache[key] = hit
         _touch(_render_cache, key)
         return hit
 
@@ -1147,9 +1732,12 @@ def render_index(p: Project, i: int, mode: str = "original",
                 cfg = _typeset_cfg(p)
                 typeset_mod.typeset_page(page, cfg)
                 img = _composite_over(p, i, render_mod.render_page(page, cfg))
-                p.commit(i, page)
+                if commit:
+                    p.commit(i, page)
         ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 88])
         out = buf.tobytes() if ok else b""
+        if out:
+            _render_to_disk(p, i, key, out)
         _render_cache[key] = out
         _touch(_render_cache, key)
         while len(_render_cache) > RENDER_CACHE_MAX:
@@ -1164,7 +1752,17 @@ def cached_page(p: Project, i: int):
     """Materialising rebuilds every mask, which is wasted work when the same
     page is being edited repeatedly. Cache it and drop the entry whenever the
     regions change."""
-    key = (i, len(p.pages[i].regions),
+    # WHICH PROJECT, as well as which page. The key used to be the page number
+    # and how many boxes are on it, which is a description of a page in the
+    # abstract - so page 0 of one chapter with one box on it was a cache HIT
+    # for page 0 of a different chapter with one box on it, and the second
+    # chapter got handed the first one's artwork and the first one's words.
+    #
+    # It cannot happen while one project is open, which is why it went unseen.
+    # It happens the moment two exist in one process, and what made it visible
+    # was a test opening a second project to preview one region: the answer
+    # came back laid out in the other project's sentence.
+    key = (p.output_dir, i, len(p.pages[i].regions),
            tuple(getattr(p.pages[i], "hidden_kinds", ()) or ()))
     hit = _page_cache.get(i)
     if hit and hit[0] == key:
@@ -1287,6 +1885,91 @@ def _hidden_rows(pg) -> list:
     return out
 
 
+def _css_rgba(c) -> str:
+    """An (r, g, b, a) colour as CSS the browser can use directly.
+
+    Always `rgba`, never `rgb`, because the alpha is the point: writing drawn
+    as a hollow outline has NO fill, and the preview draws these strings into
+    `color` and `-webkit-text-stroke`. There is no flag to carry "no fill"
+    across - a colour with a zero alpha carries it, and every other colour
+    goes through the same line unharmed.
+    """
+    r, g, b = (int(v) for v in c[:3])
+    a = (int(c[3]) if len(c) > 3 else 255) / 255.0
+    return "rgba(%d,%d,%d,%s)" % (r, g, b, ("%.3f" % a).rstrip("0").rstrip("."))
+
+
+
+def _clean_spans(v):
+    """Character-range styles, sanitized: offsets as ints, styles cut to
+    the paint-only keys `render.SPAN_KEYS` allows, junk dropped. Offsets
+    index the flat text of the block's lines joined with newlines."""
+    if not isinstance(v, list):
+        return []
+    numeric = {"grad_angle", "edge_angle", "glow_size", "iglow_size",
+               "sh_dist", "sh_blur", "opacity", "font_size"}
+    out = []
+    for sp in v[:200]:
+        if not isinstance(sp, dict):
+            continue
+        try:
+            s0, e0 = int(sp.get("s")), int(sp.get("e"))
+        except (TypeError, ValueError):
+            continue
+        st = sp.get("st") or {}
+        if not isinstance(st, dict) or s0 < 0 or e0 <= s0:
+            continue
+        keep = {}
+        for k in render_mod.SPAN_KEYS:
+            val = st.get(k)
+            if val in (None, ""):
+                continue
+            try:
+                if k in numeric:
+                    keep[k] = float(val)
+                elif k == "stroke":
+                    keep[k] = int(val)
+                else:
+                    keep[k] = str(val)
+            except (TypeError, ValueError):
+                continue
+        # A SIZE and a FACE are not paint, and neither is free to be
+        # anything: a size outside what the panel's stepper can reach is a
+        # typo or a bad client, and a face has to be one this app offers -
+        # the same list `/fontfile` will serve the preview from, so the two
+        # renderers cannot be pointed at different files.
+        if "font_size" in keep and not 1.0 <= keep["font_size"] <= 400.0:
+            keep.pop("font_size")
+        if "opacity" in keep:
+            keep["opacity"] = max(0.0, min(100.0, keep["opacity"]))
+        if "font" in keep and not _font_is_offered(keep["font"]):
+            keep.pop("font")
+        if keep:
+            out.append({"s": s0, "e": e0, "st": keep})
+    return out
+
+
+def _font_is_offered(fp: str) -> bool:
+    """Is this one of the faces the app itself offers? The span's face
+    arrives from the browser, so it is checked against the list rather than
+    opened on trust."""
+    if not fp:
+        return False
+    try:
+        ok = {f["path"] for f in find_fonts()}
+    except Exception:
+        return False
+    p = PROJECT
+    if p is not None:
+        try:
+            cfg = _typeset_cfg(p)
+            ok |= {v for v in ([cfg.font_path]
+                               + list((cfg.fonts or {}).values())) if v}
+        except Exception:
+            pass
+    return fp in ok
+
+
 def layout_preview(p: Project, i: int, rid: int, override: dict) -> dict:
     """Where the lines would land, without rendering or saving anything.
 
@@ -1352,8 +2035,28 @@ def layout_preview(p: Project, i: int, rid: int, override: dict) -> dict:
         base, region, lay, typeset_mod.on_art(region),
         orig=page.image)
     o = override or {}
-    fg = render_mod.hex_rgb(o.get("fg")) or fg
-    edge = render_mod.hex_rgb(o.get("edge")) or edge
+    # THE SAME THREE CALLS THE EXPORTER MAKES, and the override this preview
+    # is about handed to each of them.
+    #
+    # It used to be `hex_rgb(o.get("fg")) or fg`, worked out here - which knew
+    # about a hand edit and nothing about `layout_measured`. So the measured
+    # style was on the page and gone the moment a box was selected, because
+    # selecting one asks this endpoint and the answer it gives becomes
+    # `r.style`, which the preview prefers over everything.
+    # lee: *"the changes ate only appkied when i select a box"*.
+    #
+    # The override goes in as an ARGUMENT rather than onto the region, because
+    # the region's own was put back a few lines above (the lock, and the
+    # `finally`) - and it has to be, this is a shared object on a threaded
+    # server.
+    fg, edge = render_mod.colours_for(region, fg, edge, o)
+    stroke = render_mod.stroke_for(region, stroke, o)
+    fg, edge = render_mod._hollow_colours(region, fg, edge, o)
+    # The light a letterform with nothing inside it gets on both sides of its
+    # line, worked out here so the browser previews the page it is going to get
+    # rather than a barer one. Same call, same arguments as `render_page`.
+    _glow = render_mod.auto_glow(region, lay, fg, edge, o)
+    _iglow = render_mod.auto_glow(region, lay, fg, edge, o, key="iglow")
     return {"lines": lay.lines, "font_size": int(lay.font_size),
             "leading": round(float(lay.leading), 3),
             "lspace": float(o.get("lspace") or 0),
@@ -1362,22 +2065,63 @@ def layout_preview(p: Project, i: int, rid: int, override: dict) -> dict:
             "sh_dist": float(o.get("sh_dist") or 2),
             "sh_blur": float(o.get("sh_blur") or 3),
             "curve": float(o.get("curve") or 0),
-            "glow": (o.get("glow")
-                     if render_mod.hex_rgb(o.get("glow")) else ""),
-            "glow_size": float(o.get("glow_size") or 6),
-            "iglow": (o.get("iglow")
-                      if render_mod.hex_rgb(o.get("iglow")) else ""),
-            "iglow_size": float(o.get("iglow_size") or 5),
+            # What the page is DRAWN with, automatic halo included...
+            "glow": (o.get("glow") if render_mod.hex_rgb(o.get("glow"))
+                     else (render_mod._css(_glow[0]) if _glow else "")),
+            "glow_size": (float(_glow[1]) if _glow
+                          else float(o.get("glow_size") or 6)),
+            # ...and what somebody chose, which is what a save may send back.
+            # The well shows the first and reports the second; see
+            # `panels.wellChosen` and the `fg_set` note below.
+            "glow_set": (o.get("glow")
+                         if render_mod.hex_rgb(o.get("glow")) else ""),
+            "iglow": (o.get("iglow") if render_mod.hex_rgb(o.get("iglow"))
+                      else (render_mod._css(_iglow[0]) if _iglow else "")),
+            "iglow_size": (float(_iglow[1]) if _iglow
+                           else float(o.get("iglow_size") or 5)),
+            "iglow_set": (o.get("iglow")
+                          if render_mod.hex_rgb(o.get("iglow")) else ""),
             "opacity": (100 if o.get("opacity") in (None, "")
                         else max(0, min(100, int(o["opacity"])))),
             "origins": [[int(a), int(b)] for a, b in lay.line_origins],
             "fit_ok": bool(lay.fit_ok),
             "kind": region.kind,
-            "fg": f"rgb({fg[0]},{fg[1]},{fg[2]})",
-            "edge": f"rgb({edge[0]},{edge[1]},{edge[2]})",
-            "stroke": (int(override["stroke"])
-                       if (override or {}).get("stroke") not in (None, "")
-                       else int(stroke)),
+            # `rgba`, because a hollow letterform has no fill and CSS needs to
+            # be told so in a colour rather than in a flag: the browser reads
+            # these straight through as `color` and `-webkit-text-stroke`.
+            "fg": _css_rgba(fg),
+            "edge": _css_rgba(edge),
+            # ...AND WHICH OF THE TWO SOMEBODY ACTUALLY CHOSE.
+            #
+            # The pair above is what the page is DRAWN in, and most of the time
+            # nobody chose it: `_ink_colours` reads the artwork and decides
+            # which way round the block goes. The browser needs those to draw
+            # its preview - but it also puts them in the side panel's colour
+            # wells, where a colour stops being a readout and becomes the
+            # control, because the next save sends whatever is standing in the
+            # well.
+            #
+            # So touching any field at all - the outer glow's size, say - wrote
+            # the automatic pair into the override as though it had been
+            # picked, and from that moment the page could not change its mind
+            # about the block: `colours_for`'s rule for an edge nobody set
+            # stops applying, and `_ink_colours` is not consulted again.
+            # lee: *"when changing the outerglow number, the outline color also
+            # switches"*.
+            #
+            # Every other colour on this answer already reports the OVERRIDE
+            # rather than the result. These two could not, because the preview
+            # needs the drawn colour to draw with - so they say both. `o` is
+            # the override alone, deliberately: a MEASURED ink is a finding,
+            # not a choice, and promoting one to a hand edit is the same bug
+            # `_hollow_colours` already refuses to commit.
+            "fg_set": (o.get("fg") if render_mod.hex_rgb(o.get("fg")) else ""),
+            "edge_set": (o.get("edge")
+                         if render_mod.hex_rgb(o.get("edge")) else ""),
+            # `stroke_for` above has already ranked the hand edit over the
+            # measurement over the automatic; doing it again here with only
+            # the first of the three was the same divergence one line lower.
+            "stroke": int(stroke),
             "rotate": float(getattr(lay, "rotate", 0.0)),
             "fg1": (o.get("fg1")
                     if render_mod.hex_rgb(o.get("fg1")) else ""),
@@ -1453,6 +2197,42 @@ def do_typeset(p: Project, i: int, reset: bool = True) -> None:
     # at a page with no text at all, so it returned and the typesetting stayed.
     if not any(r.dst_text for r in page.regions) and not emptied:
         return restore()
+    # WHAT THE ORIGINAL LETTERS WERE PAINTED WITH, measured again, here.
+    #
+    # `inkstyle.measure_page` writes its answer into `layout_override` - and
+    # `reset` above has just emptied every one of those, which is right for a
+    # hand correction and wrong for this. A measurement is a fact about the
+    # artwork, not something somebody typed, and it was being thrown away as
+    # if it were.
+    #
+    # It ran in exactly one place, at the end of the read. Typeset always
+    # comes after the read. So the FIRST press of Typeset deleted the answer,
+    # every time, and no chapter has ever been typeset in the measured style:
+    # what shipped was the fallback - white letters, a black rim, and a rim of
+    # about a seventh of the point size. On lee's chapter every sound effect
+    # bears it: 144→20, 134→19, 105→15, 92→13, 77→11, 36→5. A rim
+    # proportional to the size is the exact thing the measurement exists to
+    # stop; a pen has a width.
+    #
+    # lee, over his page 001: *"i feel like all the copy style chnages that we
+    # worked on is not live"*. It was not. His `ザァァ` is black with a 4px
+    # white keyline and came out white with a 20px black one - inverted, and
+    # five times the rim.
+    #
+    # HERE rather than at the read, because "the last moment before cleaning"
+    # was never true. Cleaning writes a PLATE; `input/001.jpg` keeps the
+    # Japanese for ever. Measured on his chapter months after it was read, all
+    # sixteen regions answer. And it costs nothing: no key, no coins, no call.
+    #
+    # Before `clean_page` so it is the original page being read, and it only
+    # ever fills blanks, so a colour somebody chose is still theirs.
+    try:
+        from .inkstyle import measure_page as _measure_ink
+        if getattr(p, "ink_seen", None) is None:
+            p.ink_seen = {}
+        _measure_ink(page, p.ink_seen)
+    except Exception:
+        pass                     # a colour is a nicety; the words are the job
     clean_page(p, i, page)
     # redo: pressing Typeset lays the page out again, hand corrections and
     # all. Anything else (a preview, an export) typesets the page as it stands.
@@ -1519,6 +2299,11 @@ def _adopt(p: Project, state: dict, src: str = "") -> dict:
     _page_cache.clear()
     _invalidate_renders()
     _kinds.use(p.settings.get("custom_kinds") or [])
+    # THE CLEANED PAGES, re-keyed into this machine's cache. Only now: the
+    # name a plate is cached under is computed from the loaded project, and
+    # `_kinds.use` above has to have run or the stamp asks about sub-types
+    # this build has not heard of yet.
+    _take_in_carried_plates(p)
     warm_pages(p, 0)
     return {"pages": len(p.pages), "path": src,
             "name": _project_name(p)}
@@ -1582,6 +2367,37 @@ def _kind_changed(rec: dict, was: str) -> None:
     rec["layout_override"] = left or None
 
 
+def _region_kind_changed(r, was: str) -> None:
+    """`_kind_changed`, for a REGION on a materialised page rather than a
+    record on disk.
+
+    Same rule and the same reason - a box called outside text still carrying a
+    balloon's polygon typesets into the balloon's shape, which is what lee saw:
+    *"i changed teh bubble to outside buuble an it still typeseete the same"*.
+    The two are separate functions because they work on separate things: the
+    endpoint edits a stored record and `label_page_kinds` edits a live page on
+    its way to being committed.
+
+    Reached only when a family actually moved, which for the labeller means the
+    sound-effect-against-outside-text correction and nothing else.
+    """
+    from .typeset import FITTING_KEYS as _FK
+    if _no_balloon(getattr(r, "kind", "")):
+        x, y, w, h = (int(v) for v in r.bbox)
+        r.polygon = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+        r.bubble_bbox = (x, y, w, h)
+        # ...and the mask built from the OLD polygon, which is still in memory
+        # and would otherwise be what this page is typeset against if anything
+        # reached for it before the commit and reload.
+        r.bubble_mask = None
+    ov = dict(getattr(r, "layout_override", None) or {})
+    for k in list(ov):
+        if k in _FK:
+            ov.pop(k, None)
+    r.layout_override = ov or None
+    r.layout = None
+
+
 def drop_plate(p: Project, i: int) -> None:
     """Throw away this page's finished plate so the next clean rebuilds it.
 
@@ -1605,12 +2421,34 @@ def drop_plate(p: Project, i: int) -> None:
         pass
 
 
+CLEAN_TRIES = 4        # goes at one page before the endpoint is given up on
+CLEAN_WAIT = 3.0       # seconds between them, so a busy endpoint can catch up
+
+
 def do_clean(p: Project, i: int, force: bool = False) -> None:
     """Produce (and cache) the cleaned plate for one page. Its own pipeline
     step so the expensive AI cleaning can be run and cached up front, before
     typesetting - the plate is reused from cache afterwards.
 
     `force` is the Clean button: redo the page rather than reuse it.
+
+    THE WHOLE PAGE, HERE, IN THE JOB. A flaky endpoint refuses a box or two
+    and the plate that comes back is part model and part local fallback -
+    which `clean_page` then declines to cache, correctly, so that pressing
+    Clean again really retries. What used to do the retrying was the
+    background page-builder, silently, at whatever moment the render cache
+    turned over: the page changed under lee while he looked at it, and each
+    attempt was charged again. lee: *"teh ai attemsp shoud happen in teh
+    timmer not in the background and it shoud deliver the proper clen page
+    even if it takes longer"*.
+
+    So the retries happen here, where the progress bar is, and they are cheap:
+    `_ai_clean_call` caches every answer the endpoint DID give by the content
+    of its own (image, mask), so a second go only asks about the boxes that
+    failed. What stops it is a refusal that waiting cannot mend - a 401 or a
+    403 sets `refused` and every later call turns back at the top of
+    `_ai_clean_call` - and the page is left NOT cleaned, so the view shows the
+    scan instead of a half-model page dressed up as finished.
     """
     if own_plate_path(p, i):
         # Excluded. Not "cleaned and then overwritten" - never cleaned: the
@@ -1623,10 +2461,86 @@ def do_clean(p: Project, i: int, force: bool = False) -> None:
         return
     if force:
         drop_plate(p, i)
-    page = p.materialize(i)
-    clean_page(p, i, page)
-    _keep_the_clean_report(p, i, page)
+    tries = CLEAN_TRIES if _hosted_cleaning(p) else 1
+    if _CLEAN_GIVEUP["on"]:
+        tries = 1                      # an earlier page already waited it out
+    was = _MAY_CLEAN["on"]
+    _MAY_CLEAN["on"] = True
+    _KEEP_BEST.update(on=True, fails=None, plate=None)
+    try:
+        _do_clean_tries(p, i, tries)
+    finally:
+        _MAY_CLEAN["on"] = was
+        _KEEP_BEST.update(on=False, fails=None, plate=None)
+
+
+def _do_clean_tries(p: Project, i: int, tries: int) -> None:
+    """The goes themselves. Split out so `do_clean` can put the permission to
+    spend the cleaner up and take it down again in one place."""
+    for go in range(tries):
+        before = _AI_CLEAN_FAIL["n"]
+        page = p.materialize(i)
+        clean_page(p, i, page)
+        _keep_the_clean_report(p, i, page)
+        if _AI_CLEAN_FAIL["n"] <= before:
+            p.pages[i].cleaned = True      # whole, and kept
+            return
+        if _AI_CLEAN_FAIL.get("refused") or p.job.get("cancel"):
+            break                          # the token, or the person: waiting
+        if go + 1 >= tries:                # will not mend either
+            if tries > 1:
+                _CLEAN_GIVEUP["on"] = True
+            break
+        _say_job(p, "Cleaning %s — the cleaner refused a box, going again (%d)"
+                 % (getattr(p.pages[i], "name", ""), go + 2))
+        drop_plate(p, i)
+        time.sleep(CLEAN_WAIT)
+    # Out of goes, and none of them whole. What the person gets is the best of
+    # them - the go the endpoint refused fewest boxes on - because a page with
+    # most of its Japanese off is worth more than a page with none of it off,
+    # and pressing Clean again is how they ask for another try. It is stored
+    # like any other plate so that nothing downstream rebuilds it, and it was
+    # not billed: see `clean_page`.
+    best = _KEEP_BEST.get("plate")
+    if best is None:
+        p.pages[i].cleaned = False
+        return
+    _store_plate(p, i, best)
     p.pages[i].cleaned = True
+    _say_job(p, "Cleaning %s — the cleaner refused %d box%s; keeping the best "
+             "of %d goes" % (getattr(p.pages[i], "name", ""),
+                             _KEEP_BEST["fails"],
+                             "" if _KEEP_BEST["fails"] == 1 else "es", tries))
+
+
+def _store_plate(p: Project, i: int, full) -> None:
+    """Put a finished plate in the caches, exactly where `clean_page` puts one.
+
+    Split out because the one caller that does not build it in `clean_page` is
+    `do_clean` keeping the best of several goes, and two ways of writing the
+    same cache is two ways of getting the key wrong.
+    """
+    key = _plate_stamp(p, i)
+    fp = _plate_disk_path(p, i)
+    try:
+        os.makedirs(os.path.dirname(fp), exist_ok=True)
+        imgio.imwrite(fp, full, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+        _prune_cache_dir(os.path.dirname(fp), max(80, 3 * len(p.pages)))
+    except Exception:
+        pass                        # a cache that cannot write is fine
+    _plate_cache[key] = full.copy()
+    _touch(_plate_cache, key)
+    while len(_plate_cache) > 6:
+        _plate_cache.popitem(last=False)
+
+
+def _say_job(p: Project, msg: str) -> None:
+    """Put a line in the running job's label, if there is one to put it in."""
+    try:
+        if p.job.get("running"):
+            p.job["label"] = msg
+    except Exception:
+        pass
 
 
 def _keep_the_clean_report(p: Project, i: int, page) -> None:
@@ -1665,12 +2579,43 @@ def _keep_the_clean_report(p: Project, i: int, page) -> None:
 def _commit_keep_proofread(p: Project, i: int, page) -> None:
     """commit() rebuilds records via region_record(), which drops the
     editor-only 'proofread' flag. Any stage that re-commits a page (typeset,
-    export) must go through here or it silently un-proofreads the page."""
-    proofed = {r["id"] for r in p.pages[i].regions if r.get("proofread")}
+    export) must go through here or it silently un-proofreads the page.
+
+    AND THE CLEAN REPORT, for the same reason and with a second cost on top.
+    `clean_route` says how each box was erased, and it is written by
+    `inpaint_page` - which only runs when a plate is actually built. Look at a
+    cleaned page again and the plate comes off the disk, the inpainter never
+    runs, and the freshly materialised regions carry nothing; committing them
+    wrote that nothing over the report a real clean had recorded.
+
+    So the report disappeared on the first re-view of every page - which is
+    exactly the failure `_keep_the_clean_report` was written to end, arriving
+    again by another door.
+
+    The second cost is speed, and it is the one that was noticed. `clean_route`
+    is part of the region record, the region records are part of the rendered
+    page's cache key, and a value that flips to empty and back on alternate
+    renders is a key that never matches twice. lee: *"figure out a way to have
+    the cleaned pages switch fataer for one page to another"* - and the answer
+    was not a bigger cache. It was that the cache was being missed on purpose
+    by a field that had no business changing.
+    """
+    keep = {r["id"]: (r.get("proofread"), r.get("clean_route"),
+                      r.get("clean_core"))
+            for r in p.pages[i].regions}
     p.commit(i, page)
     for r in p.pages[i].regions:
-        if r["id"] in proofed:
+        was = keep.get(r["id"])
+        if not was:
+            continue
+        if was[0]:
             r["proofread"] = True
+        # Only where the fresh page has nothing to say. A page that really was
+        # just cleaned has the new report on it and the new report wins.
+        if was[1] and not r.get("clean_route"):
+            r["clean_route"] = was[1]
+        if was[2] and not r.get("clean_core"):
+            r["clean_core"] = was[2]
 
 
 EXPORT_MODES = ("full", "clean", "boxes")
@@ -1793,6 +2738,26 @@ def _hosted_cleaning(p: Project) -> bool:
             and bool((p.settings.get("clean_url") or "").strip()))
 
 
+# Set while `do_clean` is running - the Clean button, and the Clean step of a
+# pipeline run. Everything else that wants a plate gets one that already
+# exists, or the scan. See `clean_page`.
+_MAY_CLEAN = {"on": False}
+# ...and the best of the goes it makes, kept in case none of them comes out
+# whole. `fails` is how many boxes the endpoint refused on that go.
+_KEEP_BEST = {"on": False, "fails": None, "plate": None}
+
+
+def _may_spend_the_cleaner(p: Project) -> bool:
+    """May THIS call build a plate that goes to the hosted cleaner?
+
+    Local cleaning is somebody's own CPU and always allowed - it is free, it is
+    fast, and refusing it would leave a page uncleaned for no reason at all.
+    The hosted cleaner costs money and time, so it is spent by the one action
+    that asks for it.
+    """
+    return _MAY_CLEAN["on"] or not _hosted_cleaning(p)
+
+
 def _worth_warming(p: Project, i: int, hosted: bool | None = None) -> bool:
     """Whether building this page ahead of time is free enough to just do.
 
@@ -1801,16 +2766,71 @@ def _worth_warming(p: Project, i: int, hosted: bool | None = None) -> bool:
     call out to the network - so a page nobody has run Clean over is left
     alone, and pressing Clean is still the thing that spends that. Everything
     already done, or cheap to redo, gets built.
+
+    THE FILE ON DISK, AND NOT THE `cleaned` FLAG. `cleaned` is a claim that
+    Clean has been pressed; the plate file is the fact that its answer was
+    worth keeping. They come apart on exactly the page that hurts: a plate
+    built while the hosted cleaner refused a box is deliberately not cached -
+    so that pressing Clean again really retries - and the flag is set all the
+    same. Warming then rebuilt that page from scratch every time the render
+    cache turned over, which on a 23-page chapter is constantly. Each rebuild
+    called the endpoint again, refused a different subset of boxes, and
+    produced a visibly different page; each one was charged the per-page fee.
+    lee, watching it happen: *"when i firt didi te clean it didi not look like
+    thsi after a while it turn into this what happened"*, and then: *"teh ai
+    attemsp shoud happen in teh timmer not in the background"*.
     """
     if not p.pages[i].regions:
         return True                     # nothing to clean: just the scan
     if own_plate_path(p, i):
         return True                     # your file, read off disk: costs nothing
-    if getattr(p.pages[i], "cleaned", False):
-        return True                     # already paid for, cached on disk
     if not (_hosted_cleaning(p) if hosted is None else hosted):
         return True                     # local cleaning: ours to spend
     return os.path.exists(_plate_disk_path(p, i))
+
+
+_looking = 0
+_looking_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def _someone_is_looking():
+    """A page view is in flight, so the warm-up is not the important thing.
+
+    The warm-up already yields to a real job, and takes the render lock one
+    page at a time so that a click never queues behind more than the page in
+    flight. One page in flight is still up to three seconds, and clicking
+    through a chapter meets a fresh one every time - lee: *"when i swtitch too
+    fast it not just lages and pauses for a while"*.
+
+    So it yields to a PERSON as well. Held across the render rather than only
+    while queued, because the warm-up's next page must not start while
+    somebody is waiting for this one either.
+    """
+    global _looking
+    with _looking_lock:
+        _looking += 1
+    try:
+        yield
+    finally:
+        with _looking_lock:
+            _looking -= 1
+
+
+def _wait_for_the_person(gen: int) -> bool:
+    """Stand aside while pages are being asked for. False if we were retired.
+
+    Capped, so that a request which never finishes - a browser that went away
+    mid-download - cannot stop the chapter being built for the rest of the
+    session.
+    """
+    for _ in range(200):                    # ten seconds, then carry on anyway
+        if _warm["gen"] != gen:
+            return False
+        if not _looking:
+            return True
+        time.sleep(0.05)
+    return _warm["gen"] == gen
 
 
 def warm_pages(p: Project, start: int = 0) -> None:
@@ -1829,31 +2849,126 @@ def warm_pages(p: Project, start: int = 0) -> None:
     """
     if not p.pages:
         return
-    _warm["gen"] += 1
-    mine = _warm["gen"]
     order = sorted(range(len(p.pages)),
                    key=lambda i: (abs(i - start), i < start))
     hosted = _hosted_cleaning(p)
     order = [i for i in order if _worth_warming(p, i, hosted)]
 
+    # ONLY THE PAGES THAT NEED BUILDING. The browser nudges this on every
+    # page change so the builder works outwards from where the person is -
+    # and once the chapter was fully built, that nudge STARTED A NEW WARM-UP,
+    # counted all 46 jobs again, and the bar flashed up over a walk that was
+    # pure cache hits. lee: *"when i swithc fast thsi show up for a few
+    # second and complets fast"*. A key lookup per page says whether there is
+    # any work at all; none means no worker, no counter, no bar.
+    def _built(i, mode, paint=True):
+        key = _render_stamp(p, i, mode) + (bool(paint),)
+        return (key in _render_cache
+                or os.path.exists(_render_disk_path(p, key)))
+
+    order = [i for i in order
+             if not (_built(i, "clean", paint=False) if p.pages[i].regions
+                     else _built(i, "original"))]
+
+    # BOTH SWEEPS ARE THE JOB, so both are counted.
+    #
+    # `total` used to be the plates alone. The bar reached "23 of 23" at the
+    # end of the first sweep and then sat there, full and still saying
+    # `running`, for the whole of the second - which is the expensive one, three
+    # seconds a page. lee photographed it: *"Preparing pages 23 of 23  100%"*,
+    # stuck. It was not stuck, it was counting the wrong job.
+    finish = [i for i in range(len(p.pages))
+              if p.pages[i].regions and p.pages[i].typeset
+              and _worth_warming(p, i, hosted)
+              and not _built(i, "typeset")]
+    finish.sort(key=lambda i: (abs(i - start), i < start))
+    # ...and the balloon check for pages that came in the door already boxed -
+    # a reopened chapter never passes through `Project.detect`, so its second
+    # opinion happens here. `wants` remembers per run, so the second opening
+    # of the same chapter in one session costs a hash, not a model.
+    from . import balloonck
+    lookat = ([i for i in range(len(p.pages)) if balloonck.wants(p, i)]
+              if balloonck.available(p) else [])
+    if not order and not finish and not lookat:
+        return                    # the chapter is built; the nudge was free
+    _warm["gen"] += 1
+    mine = _warm["gen"]
+
     def worker():
-        _warm.update(running=True, done=0, total=len(order), at=-1)
+        _warm.update(running=True, done=0,
+                     total=len(order) + len(finish) + len(lookat), at=-1)
+        done = 0
         try:
-            for n, i in enumerate(order, 1):
+            for i in order:
                 while p.job.get("running") and _warm["gen"] == mine:
                     time.sleep(0.4)         # a real job always goes first
-                if _warm["gen"] != mine:
+                if not _wait_for_the_person(mine):
                     return                  # a newer warm-up took over
                 _warm["at"] = i
                 try:
                     if p.pages[i].regions:
+                        # THE PLATE FIRST, for the whole chapter. It is what
+                        # the editor draws on - `frames.js:pageUrl` asks for
+                        # `mode=clean&paint=0` even when the view on screen is
+                        # the finished page - so it is what somebody clicking
+                        # Next is waiting for, and nothing else may get in
+                        # front of it.
                         render_index(p, i, "clean", paint=False)
                     else:
                         render_index(p, i, "original")
                 except Exception:
                     traceback.print_exc()   # one bad page stops nothing
-                _warm["done"] = n
+                done += 1
+                _warm["done"] = done
                 time.sleep(0.02)            # let waiting requests through
+            # ...and THEN the finished pages, in the same order, on whatever
+            # time is left.
+            #
+            # This used to say `clean` only, and gave the reason: nothing read
+            # the finished page, so warming it would double the work to fill a
+            # cache nobody looked in. That stopped being true when the Image
+            # view learnt to settle into the exported page
+            # (`static/js/exactview.js`) - which costs three seconds a page to
+            # build, and was building it in front of him.
+            #
+            # A second sweep rather than one pass doing both, so that a chapter
+            # of plates is never held up behind a chapter of typesetting: the
+            # thing you are waiting for finishes first.
+            for i in finish:
+                while p.job.get("running") and _warm["gen"] == mine:
+                    time.sleep(0.4)
+                if not _wait_for_the_person(mine):
+                    return
+                _warm["at"] = i
+                try:
+                    # `commit=False`: the warm-up is nobody's edit. See
+                    # `render_index`, and the four tests that found out what a
+                    # background re-typeset does to an emptied box.
+                    render_index(p, i, "typeset", commit=False)
+                except Exception:
+                    traceback.print_exc()
+                done += 1
+                _warm["done"] = done
+                time.sleep(0.02)
+            # LAST, because a flag is advisory and pictures are not: the
+            # balloon check, for every page that arrived already boxed.
+            # About a second a page, once per chapter per run.
+            flagged = 0
+            for i in lookat:
+                while p.job.get("running") and _warm["gen"] == mine:
+                    time.sleep(0.4)
+                if not _wait_for_the_person(mine):
+                    return
+                _warm["at"] = i
+                try:
+                    flagged += balloonck.check_page(p, i)
+                except Exception:
+                    traceback.print_exc()
+                done += 1
+                _warm["done"] = done
+                time.sleep(0.02)
+            if flagged:
+                p.save_soon()      # the flags are on the records; keep them
         finally:
             if _warm["gen"] == mine:
                 _warm.update(running=False, at=-1)
@@ -1929,6 +3044,37 @@ def queue_drop(qid: int) -> bool:
             return False
         _QUEUE.pop(at)
         return True
+
+
+def _quiet_the_queue(p: Project, wait: float = 8.0) -> bool:
+    """Empty the line and bring the running job to a stop, then wait for it.
+
+    For the one caller that is about to take the pages away underneath it -
+    `/api/reset`. Cancelling is not enough on its own: the flag is read
+    between pages, so the job is still inside one when the call returns, and
+    clearing the list at that moment is the crash this exists to prevent.
+
+    Bounded, and it returns whether the job actually stopped: a reset must not
+    hang because a page will not put itself down. A job that outlives the wait
+    is a job that will raise in its own thread, which is where it already was.
+    """
+    queue_clear()
+    if not p.job.get("running"):
+        return True
+    p.job["cancel"] = True
+    end = time.monotonic() + wait
+    while p.job.get("running") and time.monotonic() < end:
+        time.sleep(0.05)
+    stopped = not p.job.get("running")
+    # AND PUT THE FLAG BACK DOWN. The job's own `finally` clears it, but only
+    # for a job that was still running when we raised it: between the check
+    # above and the line after it, the run can finish on its own, and then
+    # nothing ever clears the True we just wrote. Every later job reads it
+    # between pages and stops on page one - a whole session of runs that do
+    # nothing, from one flag left standing.
+    if stopped:
+        p.job["cancel"] = False
+    return stopped
 
 
 def queue_clear() -> int:
@@ -2012,8 +3158,112 @@ def run_price(p: Project, step: str, indices) -> tuple:
     # no context at all, and charging it the whole chapter anyway was about a
     # hundred thousand imaginary input tokens on a twenty-three page quote.
     ctx = context_boxes(p, step, indices)
-    return (coins.quote(step, [page_boxes(p, i) for i in indices],
-                        model, backend, ctx), model, backend)
+    boxes = [page_boxes(p, i) for i in indices]
+    # The words on each page, and the four settings the system prompt is built
+    # from. Both are things the quote used to guess at and this function has
+    # in its hand: the reply's size follows the source text, and the prompt's
+    # size can be counted rather than remembered. See `coins.sys_tokens`.
+    srcs = [page_src_chars(p, i) for i in indices]
+    # ONE page, with its words in front of us: the exact strings the run
+    # will send can be built and COUNTED instead of predicted - task #117.
+    # The shape stays the answer for multi-page runs and the scope dialog,
+    # which price pages nobody has built payloads for; and any trouble in
+    # the building falls back to the shape rather than failing the price.
+    price = None
+    if len(list(indices)) == 1 and step in ("translate", "proofread")             and boxes and boxes[0] > 0:
+        price = _counted_page_price(p, step, list(indices)[0], boxes[0],
+                                    srcs[0], model, backend)
+    if price is None:
+        price = coins.quote(step, boxes, model, backend, ctx, srcs,
+                            prompt_key(p), reading_detail(p))
+    # ...plus the second turn Read text makes when it is also labelling the
+    # boxes. Its own shape and added here rather than folded into "ocr",
+    # because it is OFF unless somebody switched it on: quoting it always would
+    # put a request most chapters never make on every read.
+    #
+    # Quoted separately and not left to `drift` to sort out. Under-quoting is
+    # the one direction that hurts - this price is what a longer run is checked
+    # against before each page, and the alternative to erring high is a run
+    # that stops halfway because the purse cannot finish it.
+    if step == "ocr" and labels_boxes(p):
+        price += coins.quote("label", boxes, model, backend, 0, srcs,
+                             prompt_key(p))
+
+    return (price, model, backend)
+
+
+def reading_detail(p: Project) -> str:
+    """How finely the reader is set to cut a page up, resolved.
+
+    Asked of `ocr.detail_for` so the price and the reader can never disagree
+    about what an unset - or a misspelt - setting means.
+    """
+    try:
+        from .ocr import detail_for as _df
+        return _df(p.settings.get("medium"), p.settings.get("ocr_detail"))
+    except Exception:
+        return ""
+
+
+def prompt_key(p: Project) -> tuple:
+    """The four project settings a system prompt is built from.
+
+    Handed to `coins` so it can build the real prompt and count it instead of
+    reading a number somebody typed - which is how `translate.sys_in` came to
+    say 2,086 against a real 4,600 and put an 18% hole in every quote.
+    """
+    c = getattr(p, "ctx", None)
+    if c is None:
+        return ()
+    return (getattr(c, "medium", "manga") or "manga",
+            getattr(c, "target", "en") or "en",
+            getattr(c, "source", "") or "",
+            bool(getattr(c, "honorifics", False)))
+
+
+def labels_boxes(p: Project) -> bool:
+    """Is Read text also going to say what kind each box is?
+
+    One question, one answer, read from `do_ocr` and from the quote - so the
+    page that is charged for a labelling turn is the page that makes one.
+
+    OFF unless somebody switched it on. lee: *"also make it off by defualt"* -
+    and he is right that this is the way round it belongs. It costs a request
+    per page, and a setting that spends money without being asked for is one
+    people find out about from their bill.
+    """
+    return bool(p.settings.get("label_kinds")) and not reading_offline(p)
+
+
+def _counted_page_price(p: Project, step: str, i: int, boxes: int,
+                        src_chars: float, model: str, backend: str):
+    """One page's price from its REAL strings, or None to use the shape."""
+    from . import coins
+    try:
+        from . import translate as T
+        page = p.materialize(i)
+        if step == "translate":
+            chapter = run_context(p, [i])
+            req = T.build_payload(page, p.ctx, chapter)
+            if not req.get("regions"):
+                return None
+            user = (json.dumps(req, ensure_ascii=False, indent=1)
+                    + "\n\n" + T.SCHEMA_HINT)
+            system = T.build_system(p.ctx.medium, p.ctx.target,
+                                    getattr(p.ctx, "source", ""),
+                                    getattr(p.ctx, "honorifics", True))
+        else:
+            req = T.build_proofread_payload(page, p.ctx)
+            if not req.get("regions"):
+                return None
+            user = (json.dumps(req, ensure_ascii=False, indent=1)
+                    + "\n\n" + T.PROOFREAD_SCHEMA_HINT)
+            system = T.build_proofread_system(p.ctx.medium, p.ctx.target,
+                                              getattr(p.ctx, "source", ""))
+        return coins.quote_counted(step, system, user, boxes, src_chars,
+                                   model, backend, reading_detail(p))
+    except Exception:
+        return None
 
 
 @contextlib.contextmanager
@@ -2023,20 +3273,29 @@ def _charge(p: Project, step: str, indices):
 
     lee: *"make teh edit remove the coins when the person click teh button and
     if they cancel teh job it shoud refund them the amount for teh pages that
-    werent done"*.
+    werent done"* - and later: *"i want to get a very good extimate"*.
 
-    So the number on the button is the number that leaves the purse, at the
-    moment the button is pressed - not a total that assembles itself over the
-    next four minutes while the count drifts down and nobody knows where it
-    will land. A run that is cancelled, or that falls over, gives back the
-    price of the pages it never reached; a run that finishes gives back
-    nothing, because it did all of it.
+    HOW IT CHARGES NOW - a hold, then a settle:
 
-    The tokens are still METERED underneath, and what the run really came to
-    goes in the ledger beside what was charged. Nobody is billed on it - the
-    quote is the price and a promise kept is worth more than a few coins
-    either way - but a quote that is drifting away from the truth is a thing
-    to know about, and this is where it shows.
+    * When the button is pressed, the QUOTE times a measured headroom
+      (`coins.hold`, 1.25x) leaves the purse, under one run id. The headroom
+      is why a run can never outrun its own purse mid-chapter.
+    * While it runs, every call is METERED (`coins.charging`).
+    * When it ends - finished, cancelled, or fallen over - it SETTLES: the
+      metered cost of the calls that actually happened is kept, and the rest
+      of the hold comes back as one credit on the same run id. An estimate
+      can now be wrong in either direction without anyone being overcharged,
+      because the estimate stopped being the price - the meter is.
+    * The settle never takes a second helping: if the meter somehow runs past
+      the hold, the difference is written down (`over` on the meter line) and
+      absorbed. Taking more than was shown at the button is the one direction
+      this app does not round.
+    * A run whose provider reported no usage at all falls back to the old
+      arithmetic - the quote for the pages that ran - because a refund based
+      on a meter that saw nothing would be refunding tokens that were bought.
+
+    Cancelled pages need no special case any more: calls that never happened
+    were never metered, so the settle gives their share back by construction.
     """
     if step not in PAID_STEPS:
         yield None
@@ -2044,6 +3303,7 @@ def _charge(p: Project, step: str, indices):
     from . import coins
     where = _run_label(p, indices)
     boxes = [page_boxes(p, i) for i in indices]
+    srcs = [page_src_chars(p, i) for i in indices]
     ctx = context_boxes(p, step, indices)
     # The estimate learns from the meter, and this run is about to write a
     # meter line. Held still across the whole of it, or the refund would be
@@ -2051,40 +3311,50 @@ def _charge(p: Project, step: str, indices):
     # back up - see `coins.steady`.
     with coins.steady():
         _price, model, backend = run_price(p, step, indices)
-        # One id for the charge and for the refund that may follow it. On an
+        # One id for the hold and for the settle that follows it. On an
         # account the charge is a request that can time out after arriving,
         # and the id is what stops the retry paying twice; it is also what the
-        # refund is measured against, so nothing can be given back that was
+        # settle is measured against, so nothing can be given back that was
         # never taken.
         run = coins.new_run()
-        coins.spend(_price, step, where, model, run=run)
-        p.job["spent"] = _price
+        reserve = coins.hold(_price)
+        coins.spend(reserve, step, where, model, run=run)
+        p.job["spent"] = reserve
         with coins.charging(step, where, model, backend) as bill:
             try:
                 yield bill
             finally:
-                # The pages it never got to, priced the same way the whole run was
-                # priced. Rounded up like everything else, which means the refund
-                # can be a coin more than the share of the price those pages made
-                # up - rounding a refund the other way is rounding in the seller's
-                # favour, and this is the seller's own app.
                 done = int(p.job.get("done") or 0)
-                # Priced with the same context total the run was priced with, or
-                # the refund is worked out against a different sum than the charge
-                # and the two do not add back up. The context a run sends is fixed
-                # when the run starts - it is the same set on every page, which is
-                # what lets it sit in the cache - so this is the run's number and
-                # not the unfinished tail's.
-                back = coins.quote(step, boxes[done:], model, backend, ctx)
-                if back:
-                    coins.credit(back, "%s refund — %d page%s not done"
-                                 % (step, len(boxes) - done,
-                                    "" if len(boxes) - done == 1 else "s"),
+                metered = bill.coins
+                if bill.calls and (bill.usd > 0 or bill.flat_coins):
+                    # THE METER IS THE PRICE. Capped at the hold: the settle
+                    # never takes a second helping, so a meter that somehow
+                    # runs past the headroom is written down and absorbed
+                    # rather than charged - see the docstring.
+                    final = min(metered, reserve)
+                else:
+                    # Nothing verifiable was metered. The pages that ran were
+                    # still bought, so they are kept at their quoted price -
+                    # the old arithmetic - and only the unrun tail (and the
+                    # headroom) comes back.
+                    back_q = coins.quote(step, boxes[done:], model, backend,
+                                         ctx, srcs[done:], prompt_key(p),
+                                         reading_detail(p))
+                    final = max(0, min(reserve, _price - back_q))
+                give = reserve - final
+                if give > 0:
+                    undone = len(boxes) - done
+                    coins.credit(give, "%s settle — held %s, used %s%s"
+                                 % (step, coins.show(reserve),
+                                    coins.show(final),
+                                    (", %d page%s not run"
+                                     % (undone, "" if undone == 1 else "s"))
+                                    if undone > 0 else ""),
                                  run=run)
-                    p.job["spent"] = max(0, _price - back)
+                p.job["spent"] = final
                 # What it really cost, for the record and for tuning the estimate.
                 # A ledger line that moves no money: nobody is billed on it.
-                p.job["cost"] = bill.coins
+                p.job["cost"] = metered
                 if bill.calls:
                     # `boxes`, `pages`, `ctx`, `backend` and `step` are what turn
                     # this from a receipt into evidence. "It used 44,870 tokens"
@@ -2093,18 +3363,102 @@ def _charge(p: Project, step: str, indices):
                     # `coins.drift` is the reader.
                     coins.note("%s cost" % step, where, model, coins=bill.coins,
                                tin=bill.tin, tout=bill.tout, cached=bill.cached,
+                               # `think` ONLY where a reply said. Anthropic
+                               # bills reasoning as output and reports it
+                               # nowhere; writing its silence as `think: 0`
+                               # told `coins.drift` the reasoning had been
+                               # seen apart from the reply, and Opus 5's
+                               # sixteen thousand thinking tokens on one read
+                               # were filed under the visible reply, where the
+                               # tight band would not correct for them. The
+                               # run overshot its hold by 49 coins. A key that
+                               # is absent falls to the combined ratio, which
+                               # is the honest one for a provider that gives
+                               # one number - see `coins.usage_extras`.
+                               **({"think": bill.think} if bill.think_seen
+                                  else {}),
+                               # ...and how many of the calls the provider
+                               # priced itself. Task #119: a receipt that
+                               # cannot say whether it was settled on
+                               # OpenRouter's `usage.cost` or on our table is
+                               # a receipt nobody can check.
+                               priced_direct=bill.priced_direct,
+                               # ...and whether this read was sent with the
+                               # model's thinking turned OFF. Two regimes of
+                               # the same model on the same step are two
+                               # different outputs, and `coins.drift` reads
+                               # only the lines from the one it is quoting.
+                               think_off=(step == "ocr"
+                                          and coins.read_thinks_off(model)),
+                               held=reserve, quoted=_price,
+                               over=max(0, metered - reserve),
                                calls=bill.calls, charged=p.job["spent"],
                                step=step, backend=backend, ctx=ctx,
-                               boxes=sum(boxes[:done]), pages=done)
+                               boxes=sum(boxes[:done]), pages=done,
+                               # ...and the WORDS on those pages, because the
+                               # reply's size follows the source text and not
+                               # the box count. Without it `drift` compares a
+                               # real bill against a prediction made from a
+                               # different number than the quote used.
+                               src=sum(srcs[:done]),
+                               # WHICH MODE it read at. A read zoomed per box
+                               # sends ten times the pictures a whole-page
+                               # read does, so a drift correction that cannot
+                               # see the mode is averaging two different
+                               # prices - see `coins.pictures`.
+                               detail=reading_detail(p),
+                               # ...and whether this read also LABELLED, which
+                               # is a second request a page and is metered onto
+                               # the same bill as the read that made it.
+                               #
+                               # Without this the drift correction reads those
+                               # tokens as the reader costing half again what
+                               # its shape says, and `run_price` then adds the
+                               # labelling on top of a shape already inflated
+                               # by it - the same tokens charged twice, to
+                               # exactly the people who switched it on.
+                               # `coins.predicted` is the other half.
+                               labelled=(step == "ocr" and labels_boxes(p)))
+
+
+def clean_token_for(p: Project) -> str:
+    """The cleaner's token - `.env` first, then the chapter.
+
+    The fourth of the four lee named: *"all the key i need to put ius claude
+    gemini open router and clenner"*. It is not an API key, but it is the same
+    kind of secret with the same problem - copied into every chapter folder,
+    stale in all of them the day the deploy is replaced - so it is answered
+    from the same file, by the same rule.
+
+    Stripped here as well as on save. A project.json written before the save
+    started stripping still has the pasted whitespace in it, and a 401 caused
+    by a trailing newline is indistinguishable from a wrong token.
+    """
+    return (userdata.env_key("clean")
+            or str(p.settings.get("clean_token") or "").strip())
 
 
 def key_for(p: Project, backend: str, step: str = "") -> str:
     """The key a call to this service will be made with.
 
-    **The service box wins.** It is the answer; a per-step box is a leftover
-    from when there were three of them, and is only reached for when the
-    service box is empty - so a key that has been moved cannot be
-    countermanded by a stale copy nobody can see on screen.
+    **The `.env` wins.** lee: *"they key shoud be in the .env file and all teh
+    project shoud use them"*, and *"make evrything that needs ai read from teh
+    .env"*. One file, every chapter, and rolling a key is one edit instead of
+    one edit per chapter folder you still have on disk.
+
+    It has to WIN rather than merely fill a gap, because of what is already
+    sitting in those chapters. A project.json written before the guard existed
+    can hold the literal word `set` - the MASK, handed back by a `.tct` import
+    and saved over the key it was standing in for - and lee's own live chapter
+    holds five of them. A `.env` that only filled gaps would lose to that
+    string, and the call would go out with `set` as its key. Nothing that is
+    not a real key gets to beat the file the person just edited.
+
+    Below the `.env` the old order stands, so a chapter that was working
+    before any of this goes on working. **The service box wins** over a
+    per-step box, which is a leftover from when there were three of them - so
+    a key that has been moved cannot be countermanded by a stale copy nobody
+    can see on screen.
 
     And only on the SAME service. A per-step key is a key for whatever provider
     that step was pointed at when it was typed; handing it to a different one
@@ -2114,6 +3468,9 @@ def key_for(p: Project, backend: str, step: str = "") -> str:
     back = (backend or "").strip().lower()
     if not back:
         return ""
+    mine = userdata.env_key(back)
+    if mine:
+        return mine
     ours = str(p.settings.get(f"key_{back}") or "").strip()
     if ours:
         return ours
@@ -2144,8 +3501,15 @@ def openrouter_id(back: str, model: str) -> str:
 
 
 def fallback_key(p: Project) -> str:
-    """The OpenRouter key, which any step may fall back on."""
-    return str(p.settings.get("key_openrouter") or "").strip()
+    """The OpenRouter key, which any step may fall back on.
+
+    Through `key_for` rather than off `p.settings` directly, so the `.env`
+    reaches the fallback too. It did not, for one edit: every step read its
+    own key from the file and the one that catches a refusal went on reading
+    the chapter - which is the case that matters most, because it only runs
+    when something has already gone wrong.
+    """
+    return key_for(p, "openrouter")
 
 
 def _openrouter_ctx(p: Project) -> None:
@@ -2270,11 +3634,15 @@ def afford_run(p: Project, step: str, indices) -> str:
     """
     from . import coins
     price, _model, _backend = run_price(p, step, indices)
-    if price <= 0 or coins.can_afford(price):
+    # The HOLD is what actually leaves the purse when the button is pressed -
+    # the estimate plus its headroom, returned at settle - so the hold is
+    # what has to be affordable. Gating on the bare estimate would start a
+    # run whose own hold bounces.
+    if price <= 0 or coins.can_afford(coins.hold(price)):
         return ""
-    return ("not enough TCT Coins — this needs %s and there %s %s. "
-            "Run fewer pages, or buy more coins."
-            % (coins.show(price),
+    return ("not enough TCT Coins — this needs %s (held as %s until the run "
+            "settles) and there %s %s. Run fewer pages, or buy more coins."
+            % (coins.show(price), coins.show(coins.hold(price)),
                "is" if coins.balance() == 1 else "are",
                coins.show(max(0, coins.balance()))))
 
@@ -2300,6 +3668,26 @@ def page_boxes(p: Project, i: int) -> int:
     """
     try:
         return len(p.pages[i].regions or [])
+    except Exception:
+        return 0
+
+
+def page_src_chars(p: Project, i: int) -> int:
+    """How much writing is on this page - the characters, not the boxes.
+
+    What comes BACK from the translator is decided by this and not by the box
+    count: a bubble holding one word and a bubble holding a sentence do not
+    return the same size of reply. Measured over lee's chapter, adding this to
+    the estimate took the reply's error from 20.6% to 2.3%. See
+    `coins.Shape.per_src_char_out`.
+
+    Zero on a page nobody has read yet, which is right and is handled: the
+    quote falls back to `coins.SRC_CHARS_PER_BOX` for a page it cannot see
+    the words of, which is the same answer it gave before this existed.
+    """
+    try:
+        return sum(len((r.get("src_text") or ""))
+                   for r in (p.pages[i].regions or []))
     except Exception:
         return 0
 
@@ -2499,34 +3887,38 @@ def symbol_only_boxes(regs) -> list:
 
 
 # How much of the smaller box has to stand on the bigger one's ground before
-# the two are talking about the same writing. NOT containment: two boxes over
-# one vertical column sit offset - lee's page 017 pair overlap 45% of the
-# smaller box and are the same size - so containment is what left them both on
-# the page. 0.35 is under that 45% with room, and the reading is what really
-# decides: two boxes elsewhere on the page that happen to share words do not
-# overlap at all.
-READ_TWICE_IN = 0.35
+# the two are talking about the same writing. A fragment of the same writing is
+# drawn where the writing is; two boxes elsewhere on the page that happen to
+# share words are two answers to two moments.
+#
+# This was briefly lowered to 0.35, on a reading of lee's page 017 that turned
+# out to be wrong - see `read_twice_boxes` - and is back where it was.
+READ_TWICE_IN = 0.6
 
-# ...and how far the shorter reading may be from the piece of the longer one it
-# matches, as a share of its own length.
-#
-# EXACT containment was not enough, which is the whole reason this came back a
-# second time. 001's painted title is exact - 今 inside 今日 - but 017 is one
-# line read TWICE BY THE READER, and the reader did not say the same thing
-# both times: そんなので足りるかと against 足りるかよ, differing in the last
-# character. One character in five is 0.20.
-#
-# 0.25 is deliberately mean about short readings, because that is where a
-# false match would hurt: it lets one character go in a reading of four or
-# more and none at all in a reading of three, so ドン and ドッ stay two sounds.
-READ_TWICE_OFF = 0.25
+
+def _fold_kana(s: str) -> str:
+    """The comparison form of a reading: full width normalised.
+
+    ONLY for comparing one reading against another - nothing written down ever
+    goes through this, and no box's text is changed by it.
+
+    ﾄﾞﾝ and ドン are the same writing in two encodings, and which one comes
+    back is the reader's business rather than the page's.
+
+    It does NOT fold katakana into hiragana. That was tried, to make one box's
+    足リるかよ match another's 足りるかと - and those turned out to be two
+    different characters shouting, so the thing it was built to catch was never
+    a duplicate at all. キョロ and きょろ are two spellings a person may have
+    chosen on purpose, and this is a function that DELETES a box."""
+    import unicodedata
+    return unicodedata.normalize("NFKC", s or "")
 
 
 def _reading(r) -> str:
-    """A box's reading with its spacing taken out. The reader breaks a line
-    where the balloon breaks it, and where it breaks is not part of what is
-    written."""
-    return "".join((getattr(r, "src_text", "") or "").split())
+    """A box's reading with its spacing taken out, in comparison form. The
+    reader breaks a line where the balloon breaks it, and where it breaks is
+    not part of what is written."""
+    return _fold_kana("".join((getattr(r, "src_text", "") or "").split()))
 
 
 def _box_area(r) -> int:
@@ -2543,41 +3935,29 @@ def _sits_on(a, b) -> float:
     return (w * h) / float(aw * ah) if aw and ah else 0.0
 
 
-def _off_by(s: str, u: str) -> float:
-    """How far `s` is from the closest run of characters inside `u`, as a
-    share of its own length. 0.0 means `u` contains `s` exactly.
-
-    Ordinary edit distance with a FREE START and a free end - the classic
-    approximate-substring shape - because what is being asked is "is this
-    reading in there somewhere", not "are these two readings the same".
-    """
-    if not s:
-        return 1.0
-    if s in u:
-        return 0.0
-    prev = [0] * (len(u) + 1)          # a match may start anywhere in u...
-    for i, a in enumerate(s, 1):
-        cur = [i] + [0] * len(u)
-        for j, b in enumerate(u, 1):
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a != b))
-        prev = cur
-    return min(prev) / float(len(s))   # ...and end anywhere
-
-
 def read_twice_boxes(regs) -> list:
     """Boxes whose reading is PART of an overlapping box's reading.
 
     lee: *"do this Substring dedupe after read"*, and again after it was taken
     out for a day: *"can you gring teh fix we had before"*.
 
-    Two cases, one shape. 001's painted 今日 title survives detection as two
-    overlapping boxes, 今 inside 今日, because COO vouches for the small one
-    past the kids-union rule. 017's そんなので足りるかと and 足りるかよ are one
-    line of dialogue boxed twice at different extents. The pixels cannot
-    settle either - the 017 pair overlap 45% of the smaller box and are the
-    same size, so no containment rule reaches them - and the readings settle
-    both: a box whose reading is inside an overlapping box's reading is the
-    same writing answered twice.
+    001's painted 今日 title survives detection as two overlapping boxes, 今
+    inside 今日, because COO vouches for the small one past the kids-union
+    rule. The pixels cannot settle that; the readings can. A box whose reading
+    is inside an overlapping box's reading is the same writing answered twice.
+
+    EXACT, and the match has to be exact for a reason lee gave. His page 017
+    has そんなので足りるか in one box and 足りるかよ in the next, offset down
+    the same column - which looked exactly like one shout read twice, so this
+    was widened to let a character or two differ and the overlap it demanded
+    was dropped to 0.35. They are two different people shouting over each
+    other, Rofan and Glow, and the widened rule would have deleted Glow's
+    line: *"everrything is working as entened the 2 016 and 017 are not
+    mistakes"*. Both changes are out.
+
+    The asymmetry is the whole point of keeping it narrow. A duplicate left on
+    the page is one keypress from gone; a line deleted from under somebody is
+    gone before they know it was there.
 
     It only ever REMOVES a box, which is what earns it a place in a step that
     reads. lee: *"make it so that read text only read teh etxt and not modify
@@ -2612,7 +3992,7 @@ def read_twice_boxes(regs) -> list:
             u = _reading(q)
             if not u or len(u) < len(t):
                 continue
-            if _off_by(t, u) > READ_TWICE_OFF:
+            if t not in u:
                 continue
             # Same reading in both: the bigger box is the one that stays.
             if len(u) == len(t) and _box_area(q) <= _box_area(r):
@@ -2677,7 +4057,12 @@ def _read_with_ai(p: Project, i: int, page, say, detail_for, page_label_tiles,
     # A project saved with an older `ocr_detail` is not consulted: a chapter
     # half-read on tiles and half on crops would be two different runs under
     # one name, and the tiles are the worse half.
-    detail = detail_for(p.settings.get("medium"))
+    # ...at the detail somebody chose. It was hard-wired to a close-up per
+    # box, which is the most accurate mode and also the dearest by a long way
+    # - one picture a BOX rather than one a page. lee, on seeing what that
+    # does to a bill: *"can you bring back teh 1, 4 and 9 cut"*.
+    detail = detail_for(p.settings.get("medium"),
+                        p.settings.get("ocr_detail"))
     tiles = page_label_tiles(page, detail=detail)
     # A crop per box is a dozen small pictures that all want the same system
     # prompt, so they ride in ONE turn. See `ocr.page_box_crops` for what it
@@ -2708,6 +4093,136 @@ def _read_with_ai(p: Project, i: int, page, say, detail_for, page_label_tiles,
         else:
             r.ocr_ok = True
             r.flagged = looks_like_garbage(t, r)
+
+
+def label_page_kinds(p: Project, i: int, page, say) -> int:
+    """Say what kind of box each one on this page is. Returns how many moved.
+
+    lee: *"i want [it] to ... accura;y lables all the boxes with the sub types
+    ... it shoud not creade or dleet boxes just labbles them"*.
+
+    Everything this function is allowed to do is one assignment to `r.kind`, on
+    a region that is already on the page. There is no branch here that adds a
+    region, removes one, or touches anything else about it.
+
+    Four things can stop a label, and they are checked in the order that costs
+    least. `label_kinds` has already dropped an id that is not on the page, a
+    type outside the vocabulary, and a type from another family - see there for
+    why the code re-checks what the prompt already asks for. What is left here
+    is the two this end knows about: a box somebody typed by hand, and a label
+    that is the type the box already has.
+    """
+    from .kinds import labelling_vocabulary
+    from .ocr import page_label_png
+    from .translate import LABEL_SIDE, label_kinds
+    regs = [r for r in page.regions if not getattr(r, "own_text", False)]
+    if not regs:
+        return 0
+    # The vocabulary comes from the OPEN PROJECT's sub-types, which is what
+    # makes both of lee's rules true at once: a sub-type somebody invented is
+    # not offered because it is not one of ours, and a preload somebody deleted
+    # is not offered because it is not in their list any more.
+    vocab = labelling_vocabulary(p.settings.get("custom_kinds") or [])
+    if not any(len(v) > 1 for v in vocab.values()):
+        return 0            # every family down to its default: nothing to say
+    _ctx_from_settings(p, "ocr")
+    say("Reading text — labelling the boxes…")
+    # The angle rides along with the labels. It is asked for in the same turn
+    # and read out of the same reply, so a page that gets one gets the other -
+    # and a reply that is useless for kinds can still be right about which way
+    # a sound effect leans, which is why the two are counted apart.
+    angles: dict = {}
+    got = label_kinds(page, p.ctx, page_label_png(page, max_side=LABEL_SIDE),
+                      vocab, angles=angles)
+    turned = _apply_read_angles(page, angles)
+    if not got:
+        if turned:
+            invalidate_page(i)
+        return 0
+    moved = 0
+    for r in page.regions:
+        want = got.get(r.id)
+        if not want or want == getattr(r, "kind", ""):
+            continue
+        # A TYPE SOMEBODY CHOSE IS AN ANSWER, not a guess to be improved on.
+        # lee picked this: a type you fixed by hand coming back wrong on every
+        # re-read is worse than no labelling at all.
+        if getattr(r, "kind_by_hand", False):
+            continue
+        was = getattr(r, "kind", "") or ""
+        r.kind = want
+        moved += 1
+        # ...and if the FAMILY moved, this was the sound-effect-against-outside-
+        # text correction and not a sub-type. Two things follow from that and
+        # neither follows from a sub-type:
+        #
+        # The box says so in its notes, in the same words `translate._retype`
+        # uses - it is the same decision, made a step earlier, and a person
+        # reading the page should not have to know which pass made it.
+        #
+        # And the GEOMETRY goes with it. A region called outside text still
+        # carrying a balloon polygon typesets into the balloon's shape, which
+        # is `_kind_changed`'s whole reason for existing - lee: *"i changed teh
+        # bubble to outside buuble an it still typeseete the same"*.
+        if _kinds.family_of(want) != _kinds.family_of(was):
+            r.flagged = ((getattr(r, "flagged", "") or "")
+                         + " kind: read as %s rather than %s"
+                         % (_kinds.family_of(want), was)).strip()
+            _region_kind_changed(r, was)
+    if moved or turned:
+        # THE CACHE KEY CANNOT SEE THIS. `cached_page` keys on the page index,
+        # the NUMBER of regions and the hidden families - and a relabel changes
+        # none of the three while changing what the page looks like: a box's
+        # colour comes from its kind, and a kind that has been hidden takes its
+        # boxes off the page altogether. The region endpoint clears the cache
+        # by hand on a kind change for exactly this reason.
+        invalidate_page(i)
+    if moved:
+        say(f"Reading text — labelled {moved} box{'' if moved == 1 else 'es'}…")
+    return moved
+
+
+def _apply_read_angles(page, angles: dict) -> int:
+    """Put the angles the reading gave onto the boxes. Returns how many moved.
+
+    lee chose the rule when I put it to him: FILL THE GAPS ONLY.
+
+    SOUND EFFECTS ONLY. It was outside text as well for one afternoon, until
+    he saw a caption set on a slant: *"also make all teh freefloast text be
+    start no more angle"*. A freefloat block is typeset level now
+    (`typeset.fit_region`), so an angle on one would be a number nothing reads.
+
+    A sound effect usually already has an angle, measured off the Japanese ink
+    at Find text while the Japanese was still on the page. That is a better
+    number than a model reading a 768px thumbnail, and it is not overwritten.
+    The reading fills in the effects the measurement never reached: one drawn
+    by hand since, or one whose ink the axis reader could not make out.
+    `sfx_len`/`sfx_wid` are how that shows - `read_sfx_axis` sets all four
+    together or none of them.
+
+    And an angle set BY HAND is never touched, for the same reason a type set
+    by hand is not: it is an answer, not a guess to improve on.
+    """
+    if not angles:
+        return 0
+    turned = 0
+    for r in page.regions:
+        deg = angles.get(r.id)
+        if deg is None:
+            continue
+        fam = _kinds.family_of(getattr(r, "kind", "") or "")
+        if fam != "sfx":
+            continue                      # not this pass's business
+        if (float(getattr(r, "sfx_len", 0.0) or 0.0) > 0
+                and float(getattr(r, "sfx_wid", 0.0) or 0.0) > 0):
+            continue                      # measured off the ink: leave it
+        if getattr(r, "angle_by_hand", False):
+            continue
+        if abs(float(getattr(r, "angle", 0.0) or 0.0) - deg) < 0.05:
+            continue                      # already says this
+        r.angle = float(deg)
+        turned += 1
+    return turned
 
 
 def _read_here(p: Project, page, say) -> None:
@@ -2773,10 +4288,15 @@ def _read_here(p: Project, page, say) -> None:
     # Loaded BEFORE the say() below, because the first call downloads the
     # model and that is the slow part somebody is waiting through.
     engine = get_engine(lang, name)
+    # ...and the second reader, for the boxes manga-ocr is worst at. Absent is
+    # a normal state and not an error: with no checkpoint on the machine this
+    # is "" and the page reads exactly as it did before `paintread` existed.
+    paint = p.paint_weights() if lang == "ja" else ""
     n = sum(1 for r in page.regions if not getattr(r, "own_text", False))
     say(f"Reading text — reading {n} box{'' if n == 1 else 'es'} on this "
         f"computer…")
-    ocr_page(page, engine=engine, lang=lang, engine_name=name)
+    ocr_page(page, engine=engine, lang=lang, engine_name=name,
+             paint_weights=paint)
 
 
 def reading_offline(p: Project) -> bool:
@@ -2893,6 +4413,41 @@ def do_ocr(p: Project, i: int) -> None:
             n = len(twice)
             say(f"Reading text — removed {n} box{'' if n == 1 else 'es'} "
                 f"that read as part of another…")
+    # ...and now WHAT KIND of box each of the survivors is.
+    #
+    # lee: *"alos coun;t read text do the same thing after its done reading teh
+    # text?"* - having first asked the proofreader for it. See
+    # `translate.label_kinds` for why he was right about which step.
+    #
+    # AFTER the three drops, deliberately, and it is not only about spending
+    # less: the labeller is shown the page with the surviving boxes outlined on
+    # it, and a picture carrying boxes that are about to be deleted is a
+    # picture that disagrees with the listing beside it.
+    #
+    # THIS IS THE SLOT `readkinds` USED TO OCCUPY, and that pass was taken out
+    # at lee's request - *"make it so that read text only read teh etxt and not
+    # modify boxes exapt for removing boxes with no text or remoeving boxes
+    # with only symobos"*. Worth saying plainly rather than hoping nobody
+    # notices, because the reasons it went do not reach this:
+    #
+    #   * `readkinds` renamed a box from WHAT WAS READ IN IT, so a mis-read
+    #     changed a box's type. This reads the drawing and never the words.
+    #   * It moved boxes between FAMILIES, which is what decides how a box is
+    #     cleaned. This cannot: `label_kinds` drops any answer whose family
+    #     differs from the box's own, and the prompt says so as well.
+    #   * It had no idea whether a person had already chosen. This skips a box
+    #     carrying `kind_by_hand`.
+    #
+    # It also cannot create or delete one. `label_kinds` returns
+    # {existing id: type} and there is no other thing for it to say.
+    if labels_boxes(p):
+        try:
+            label_page_kinds(p, i, page, say)
+        except Exception as e:
+            # A label is a nicety and the reading is the job - the same rule
+            # `measure_page` below is under. A page whose types could not be
+            # improved on still has every type it arrived with.
+            say(f"Reading text — could not label the boxes ({e})")
     # Now that there are words, the one question the pixels could not answer:
     # are two sections of a balloon one sentence broken in two, or two things
     # said? The detector used to guess this and got lee's hot-spring balloon
@@ -2995,6 +4550,52 @@ def context_boxes(p: Project, step: str, indices) -> int:
     return sum(len(e.get("lines") or []) for e in (run_context(p, indices) or []))
 
 
+def seed_sounds(p: Project) -> int:
+    """Start a run knowing what this chapter has already called its sounds.
+
+    `SeriesContext.sounds_seen` grows as a run goes, which is what stops page
+    22 inventing a second word for page 21's sound. It lives in memory, like
+    `terms_seen` and `names_seen` beside it - and unlike those two it has
+    nowhere else to go. A term has the glossary and a name has the character
+    sheet; a sound effect has never been written down anywhere, which is the
+    whole reason it drifted.
+
+    So the chapter itself is the record. Every page already on disk carries
+    its Japanese and the English somebody settled on, and re-reading that
+    costs nothing and asks nobody. It means:
+
+    * re-translating ONE page sees the other twenty-two pages' sounds, rather
+      than starting from an empty list and answering fresh;
+    * closing the app and coming back loses nothing;
+    * a page corrected BY HAND teaches the rest of the chapter, because the
+      correction is in `dst_text` like any other answer.
+
+    Returns how many it knew before anything ran, which is a fair thing for
+    the run to be able to say.
+    """
+    from . import translate as translate_mod
+    ctx = getattr(p, "ctx", None)
+    if ctx is None:
+        return 0
+    have = getattr(ctx, "sounds_seen", None)
+    if have is None:
+        have = ctx.sounds_seen = {}
+    # With the PROJECT'S OWN sub-type list rather than the module global, so
+    # the answer cannot depend on whether `kinds.use()` has run yet - the same
+    # care `_plate_stamp` takes, for the same reason. `sfx_big` is one of
+    # lee's own, and an unregistered sub-type reads as a bubble.
+    subs = p.settings.get("custom_kinds") or []
+    for st in p.pages:
+        for r in st.regions:
+            if _kinds.family_of(r.get("kind") or "", subs) != "sfx":
+                continue
+            k = translate_mod.sound_key(r.get("src_text") or "")
+            v = " ".join((r.get("dst_text") or "").split())
+            if k and v and k not in have:
+                have[k] = v
+    return len(have)
+
+
 @_steps_aside("translate")
 def do_translate(p: Project, i: int, chapter: list | None = None) -> None:
     from .translate import translate_page
@@ -3028,12 +4629,6 @@ NEEDS_KEY = ("anthropic", "gemini", "openrouter")
 SERVICES = (("anthropic", "Claude API"),
             ("gemini", "Google AI Studio"),
             ("openrouter", "OpenRouter"))
-
-# Claude has no /models endpoint on the key the app uses, so the suggestion
-# list for that provider is written down. Everything else is asked.
-CLAUDE_MODELS = ("claude-sonnet-5", "claude-haiku-4-5-20251001",
-                 "claude-opus-4-8")
-
 
 # How long a provider's answer about what it can reach is worth reusing.
 # Long enough that opening Settings three times is one request, short enough
@@ -3259,6 +4854,16 @@ def _ctx_from_settings(p: Project, step: str = "") -> None:
     p.ctx.learn_characters = s.get("learn_characters", True) is not False
     p.ctx.learn_terms = s.get("learn_terms", True) is not False
     p.ctx.name_speakers = s.get("name_speakers", True) is not False
+    # The one that was half-wired. `keep_honorifics` has been going into the
+    # payload and into the PROOFREAD prompt since the day it was added, and the
+    # translate prompt was never told - so the proofreader was policing a
+    # decision the translator had never been asked to make, and lee's chapter
+    # came back "Mr. Glow" with a rule about "Glow-san" sitting under it. See
+    # `translate.HONORIFIC_NOTES`.
+    p.ctx.honorifics = s.get("keep_honorifics", True) is not False
+    # ...and OFF unless asked: it rewrites a label the person may have set by
+    # hand. See `translate.RETYPE_KINDS`.
+    p.ctx.retype_kinds = s.get("retype_kinds", False) is True
 
     back, model = STEP_DEFAULTS.get(step, STEP_DEFAULTS["translate"])
     if step not in AI_STEPS:
@@ -3349,6 +4954,19 @@ def do_proofread(p: Project, i: int) -> None:
             continue
         if tr.dst_text and tr.dst_text != rec["dst_text"]:
             changed.add(int(rec["id"]))
+            # WHAT IT SAID BEFORE. lee: *"shwo the proofreading changes too in
+            # the trnalation tab"*.
+            #
+            # The page note already says the proofreader had a remark and the
+            # chips already say which boxes it touched, and neither of those
+            # tells you what it DID. A copy editor's change is only reviewable
+            # beside the line it replaced - "Take a look" against "Take a good
+            # look" is the whole of the decision - and until now the old
+            # wording was overwritten here and gone.
+            #
+            # It is a record of ONE run, so it is set on the way past and
+            # cleared below when a later run leaves the line alone.
+            rec["proofread_was"] = rec["dst_text"]
             # the wording changed: stale typesetting must not outrank it
             rec["dst_text"] = tr.dst_text
             rec["layout"] = None
@@ -3356,9 +4974,21 @@ def do_proofread(p: Project, i: int) -> None:
             for k in ("lines", "fit", "wrap", "snug"):
                 ov.pop(k, None)
             rec["layout_override"] = ov or None
-        # a spelling the enforcement pass would not decide by itself
+        else:
+            # This run left the line alone, so any "was" on it belongs to an
+            # earlier one and is a change nobody made today. Same reason the
+            # page note is written unconditionally below.
+            rec.pop("proofread_was", None)
+        # What this run has to say about this box, and nothing older.
+        #
+        # Written UNCONDITIONALLY, the same reason the page note below is: a
+        # proofread that finds nothing wrong has to be able to CLEAR the last
+        # run's remark. It used to be set only when there was something to
+        # say, so a note stayed on the box after the thing it described had
+        # been fixed - and lee's chapter 3 report carried three sound effects
+        # flagged by `half_a_sound`, a check that no longer exists in the app.
+        rec["flagged"] = tr.flagged or None
         if tr.flagged:
-            rec["flagged"] = tr.flagged
             flagged.add(int(rec["id"]))
         rec["proofread"] = True
 
@@ -3466,20 +5096,46 @@ def _chapter_audit(p: Project, said: list) -> list:
                 for surf, where in bits))
         out.append("")
 
-    # A Japanese honorific left welded to a name in the English. Only worth
-    # raising when the chapter has clearly decided NOT to keep them - if every
-    # other line does the same thing, it is the house style, not a mistake.
+    # HONORIFICS, and WHICH WAY ROUND depends on what the project decided.
+    #
+    # This asked one question - "is an honorific left welded to a name?" - and
+    # raised it whenever the answer was rare. On a project that KEEPS
+    # honorifics that is exactly backwards, and lee's chapter 3 report is what
+    # showed it: `keep_honorifics` was on, eight lines said Glow-san, and the
+    # report called those eight the anomaly while saying nothing about the
+    # three lines that had quietly dropped one.
+    #
+    # So the rare thing is only the anomaly when it disagrees with the
+    # decision. Kept: a name whose Japanese carries an honorific and whose
+    # English has none is the drift. Dropped: the old question, unchanged.
     pat = _re.compile(r"\b([A-Z][A-Za-z]+)[-‐‑‒–]("
                       + "|".join(_HONORIFICS) + r")\b", _re.I)
-    leaks = [(pg, ln, m.group(0))
-             for pg, ln, _r, t in said for m in pat.finditer(t)]
-    if leaks and len(leaks) <= max(3, len(said) // 20):
-        out.append("**A Japanese honorific left on a name**, in a chapter that "
-                   "drops them everywhere else.")
-        out.append("")
-        for pg, ln, hit in leaks[:12]:
-            out.append(f"- p{pg} l{ln} — `{hit}`")
-        out.append("")
+    if getattr(getattr(p, "ctx", None), "honorifics", True):
+        # A KATAKANA name with an honorific on it, which is the case the sheet
+        # is about - not 店主さん or お姉様, where the English rendering is a
+        # word rather than a name and losing the suffix is not drift.
+        ja_name = _re.compile(r"[ァ-ヶ][ァ-ヶー]+(さん|様|ちゃん|くん|殿)")
+        lost = [(pg, ln, m.group(0), t)
+                for pg, ln, _r, t in said
+                for m in [ja_name.search(str(_r.get("src_text") or ""))]
+                if m and not pat.search(t)]
+        if lost:
+            out.append("**A name that lost its honorific**, in a chapter that "
+                       "keeps them.")
+            out.append("")
+            for pg, ln, hit, t in lost[:12]:
+                out.append(f"- p{pg} l{ln} — `{hit}` — {t[:60]}")
+            out.append("")
+    else:
+        leaks = [(pg, ln, m.group(0))
+                 for pg, ln, _r, t in said for m in pat.finditer(t)]
+        if leaks and len(leaks) <= max(3, len(said) // 20):
+            out.append("**A Japanese honorific left on a name**, in a chapter "
+                       "that drops them everywhere else.")
+            out.append("")
+            for pg, ln, hit in leaks[:12]:
+                out.append(f"- p{pg} l{ln} — `{hit}`")
+            out.append("")
 
     # A speaker label the sheet cannot account for. The pronoun check is keyed
     # by the sheet, so these lines were proofread without one.
@@ -3555,6 +5211,13 @@ def proofread_report(p: Project) -> dict:
                         + f" · region {r.get('id')}")
             body += _md_block("JP", r.get("src_text", "") or "")
             body += _md_block("EN", en)
+            # ...and what it said before the proofreader, on the lines the
+            # proofreader changed. The report is the other place this gets
+            # reviewed, and a copy edit read without the line it replaced is
+            # not a thing anybody can agree or disagree with.
+            was = str(r.get("proofread_was") or "").strip()
+            if was and was != en.strip():
+                body += _md_block("was", was)
             fl = str(r.get("flagged") or "").strip()
             if fl:
                 body.append(f"   - ⚠ {fl}")
@@ -3619,6 +5282,9 @@ def set_translation(rec: dict, text: str) -> None:
             typeset_mod.normalize_text(str(text or "").strip()), src),
         src)
     rec.pop("proofread", None)              # new text: nobody has read it yet
+    # ...and the proofreader's before-and-after went with it. "was X, now Y"
+    # under a line that now says Z is a comparison against nothing.
+    rec.pop("proofread_was", None)
     # A box lee drew himself has no detection to fall back on: its frame is
     # the only record of where it is, so dropping the layout outright would
     # lose the box. Keep the frame, drop the typesetting.
@@ -3804,6 +5470,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._static(path[len("/static/"):])
             if path == "/api/project":
                 return self._json(p.summary())
+            if path == "/api/version":
+                # What is running, for the header pill and for the launcher
+                # that started it. One source: `version.py`.
+                from . import version as _v
+                return self._json({"version": _v.__version__,
+                                   "channel": _v.CHANNEL,
+                                   "support": _v.SUPPORT,
+                                   **_update_state()})
+            if path == "/api/diagnostics":
+                return self._json(_diagnostics(p))
             if path == "/api/queue":
                 return self._json({"ok": True, **queue_state()})
 
@@ -3875,6 +5551,15 @@ class Handler(BaseHTTPRequestHandler):
                 # The queue rides along with the job so the button on the bar
                 # updates from the same poll the bar already makes.
                 j["queue"] = queue_state()
+                # ...and which RUN of the server this is. A browser tab opened
+                # before a restart keeps executing the JavaScript it loaded
+                # then - statics are no-store, but no header reaches into a
+                # tab that never asks again. Three of today's fixes "did not
+                # work" in exactly this way: the server was new, the tab was
+                # old, and lee toggled a heal layer to flush by hand what the
+                # new code would have flushed for him. The poll compares this
+                # and reloads the page when it moves - see `poll()`.
+                j["boot"] = _BOOT
                 return self._json(j)
             if path == "/api/warm":
                 # How far the background page-builder has got. The pages tab
@@ -3973,7 +5658,8 @@ class Handler(BaseHTTPRequestHandler):
                 # travel. See bundle.py.
                 from . import bundle
                 p.save()
-                data = bundle.write(p._state(), p.output_dir)
+                data = bundle.write(p._state(), p.output_dir,
+                                    plates=_plates_to_carry(p))
                 return self._send(200, data, "application/zip",
                                   filename=_project_name(p) + bundle.EXT)
 
@@ -4031,6 +5717,27 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(404, b"no sample", "text/plain")
                 return self._send(200, png, "image/png")
 
+            if path == "/marksample":
+                # One mark, drawn the way the page will draw it, as a PNG.
+                #
+                # The picker cannot draw these itself: they are shapes in
+                # `marks.py`, and a copy of them in JavaScript is the same
+                # mistake as a copy of `DEFAULT_FONTS` there - two sets of
+                # coordinates that agree until one is edited. So the picker
+                # shows what the typesetter would actually stamp, from the
+                # typesetter.
+                #
+                # Rendered against the CURRENT face, because that is what
+                # decides whether a mark is drawn at all: Jua and Patrick Hand
+                # have a heart of their own and keep it.
+                ch = (q.get("c") or [""])[0]
+                if not ch or ch not in typeset_mod.MARK_CHARS:
+                    return self._send(404, b"no mark", "text/plain")
+                png = _mark_sample_png(_typeset_cfg(p), ch)
+                if png is None:
+                    return self._send(404, b"no sample", "text/plain")
+                return self._send(200, png, "image/png")
+
             m = re.fullmatch(r"/font/([a-z]+)", path)
             if m:
                 cfg = _typeset_cfg(p)
@@ -4050,55 +5757,66 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, fh.read(), "font/ttf")
 
             if path == "/api/fonts":
-                # `recent` is sent with the list, not asked for separately: the
-                # picker needs both to draw one menu, and two round trips means
-                # the list can render before the recents and jump.
-                return self._json({"fonts": find_fonts(),
-                                   "recent": userdata.recent_fonts(),
-                                   "uploaded": userdata.uploaded_fonts()})
+                return self._json(fonts_answer())
 
             if path == "/api/translate_request":
-                # The exact request the translator would send, as a download -
+                # THE EXACT REQUEST THE TRANSLATOR WOULD SEND, as a download,
                 # so it can be run through any AI of the person's choosing.
-                from .translate import (build_system, SCHEMA_HINT,
-                                        MEDIA, TARGETS)
-                s = p.settings
-                p.ctx.medium = s.get("medium") or "manga"
-                p.ctx.source = s.get("source") or ""
-                p.ctx.target = s.get("target") or "en"
+                #
+                # "Exact" is the whole promise, and for a long time it was not
+                # true. This built its own region dicts out of the saved
+                # records, beside `translate.build_payload` and drifting from
+                # it, and lee's own 23-page export came back missing five
+                # things the live run sends:
+                #
+                #   fits_chars   how much English that balloon holds - so a
+                #                chapter translated this way was translated
+                #                with nothing telling the model how long a line
+                #                could be
+                #   link         so a pair somebody had linked by hand arrived
+                #                as two unrelated boxes
+                #   previous_page_tail   hardcoded to [], so every page was
+                #                translated with no memory of the one before it
+                #   chapter_context, already_said, do_not_return
+                #
+                # There is one payload now and this asks for it. `build_payload`
+                # is the only thing that decides what a request looks like, and
+                # a divergence like the above cannot happen again without
+                # changing the live run too.
+                #
+                # It costs a materialise per page - about three quarters of a
+                # second - because `fits_chars` measures the BALLOON, and the
+                # balloon's mask is not in the record. Reading it off
+                # `bubble_bbox` instead was measured over 50 boxes and is wrong
+                # by a median of five characters and by up to twenty on a
+                # bubble: it would tell the model a balloon holds 48 where it
+                # holds 28, which is worse than telling it nothing. This is a
+                # button somebody presses once a chapter.
+                from .translate import (build_payload, build_system,
+                                        SCHEMA_HINT)
+                # ...and the same settings the run itself reads. Setting three
+                # fields by hand here is how `keep_honorifics`, the story
+                # switches and the font sizes went missing from the file.
+                _ctx_from_settings(p, "translate")
                 ctx = p.ctx
-                from .translate import source_language
                 idxs = range(len(p.pages))
                 if q.get("pages"):
                     idxs = [int(v) for v in q["pages"][0].split(",")
                             if v.strip().isdigit() and int(v) < len(p.pages)]
+                idxs = list(idxs)
+                chapter = run_context(p, idxs)
                 pages = []
                 for i in idxs:
-                    st = p.pages[i]
-                    regs = [r for r in sorted(
-                                st.regions, key=lambda r: r.get("order", 0))
-                            if (r.get("src_text") or "").strip()]
-                    if not regs:
+                    # What was said on the page before, built the way
+                    # `do_translate` builds it. On an untranslated chapter this
+                    # is empty for every page, which is honest; on one being
+                    # picked up again it is the continuity the live run has.
+                    ctx.previous_page_tail = _page_tail(p, i - 1)
+                    req = build_payload(p.materialize(i), ctx, chapter)
+                    if not req["regions"]:
                         continue
-                    pages.append({"page_index": i, "page_name": st.name,
-                                  "request": {
-                        "medium": ctx.medium,
-                        "source_language": source_language(
-                            ctx.medium, s.get("source") or ""),
-                        "target_language": TARGETS.get(ctx.target, "English"),
-                        "series_context": ctx.synopsis,
-                        "glossary": ctx.glossary,
-                        "characters": dict(getattr(ctx, "characters", {}) or {}),
-                        "previous_page_tail": [],
-                        "keep_honorifics": ctx.honorifics,
-                        "regions": [{"id": r["id"],
-                                     "panel": r.get("panel"),
-                                     "kind": r["kind"],
-                                     "text": r["src_text"],
-                                     "src_char_count": len(r["src_text"])}
-                                    for r in regs],
-                    },
-                    "response": None})
+                    pages.append({"page_index": i, "page_name": p.pages[i].name,
+                                  "request": req, "response": None})
                 return self._json({
                     "how_to_use": (
                         "For each entry in pages: send 'system' as the system "
@@ -4151,6 +5869,16 @@ class Handler(BaseHTTPRequestHandler):
                     # what to hang on the image URL so the browser reuses its
                     # copy until the page genuinely changes
                     "vkey": _render_key(p, i),
+                    # ...and one for the FINISHED page, which is a different
+                    # picture and a different question. The key above is asked
+                    # with no mode, so it says nothing about the font, the
+                    # size or the colours - right for the clean plate, which
+                    # they cannot change, and wrong for the view that shows
+                    # the typesetting: hang that on `vkey` and a change of
+                    # font leaves the browser reusing the picture from before
+                    # it. See `_render_stamp`, which adds the typesetting
+                    # settings for this mode and no other.
+                    "tkey": _render_key(p, i, "typeset"),
                     # …and the same for the untouched scan, which cleaning and
                     # typesetting cannot change. Hanging the render key on it too
                     # threw the original out of the browser's cache every time
@@ -4159,6 +5887,22 @@ class Handler(BaseHTTPRequestHandler):
                     # back while it did.
                     "ikey": _scan_key(p, i),
                 })
+
+            # The page's CURRENT picture keys, and nothing else - cheap, no
+            # build. The export preview asks this before every settle, because
+            # the key it was handed at page load goes stale the moment
+            # anything is edited: the URL is served as immutable, so a stale
+            # key is not a wrong answer from the server, it is the browser
+            # re-showing its old copy WITHOUT ASKING. lee, after a paint fix
+            # and a nudge: *"wheni move something in the live view it dont
+            # update inteh exported view"* - and the "differences" he was
+            # comparing against the live view were all his own edits, frozen
+            # at the moment the page was opened.
+            m = re.fullmatch(r"/api/page/(\d+)/keys", path)
+            if m:
+                i = int(m.group(1))
+                return self._json({"vkey": _render_key(p, i),
+                                   "tkey": _render_key(p, i, "typeset")})
 
             # Where the artist drew nothing on this page. The splitter's line
             # snaps to these, because a row picked by eye off a preview a tenth
@@ -4202,8 +5946,16 @@ class Handler(BaseHTTPRequestHandler):
                     mode = "typeset"
                 paint = q.get("paint", ["1"])[0] != "0"
                 keyed = bool(q.get("v"))
-                return self._send(200, render_index(p, i, mode, paint=paint),
-                                  "image/jpeg",
+                # `ro=1`: draw it, do not write it down. The editor's exact
+                # view asks for the finished page on its own initiative and
+                # must not lay the page out again while somebody is editing
+                # it - see `render_index`.
+                ro = q.get("ro", ["0"])[0] == "1"
+                # ...and while this is in flight the warm-up stands aside. See
+                # `_someone_is_looking`.
+                with _someone_is_looking():
+                    out = render_index(p, i, mode, paint=paint, commit=not ro)
+                return self._send(200, out, "image/jpeg",
                                   self.IMMUTABLE if keyed else "no-store")
 
             return self._send(404, b"not found", "text/plain")
@@ -4470,6 +6222,19 @@ class Handler(BaseHTTPRequestHandler):
 
             if path == "/api/reset":
                 from .translate import SeriesContext
+                # NOTHING RUNNING WHEN THE PAGES GO. `clear()` empties the
+                # page list, and a job already walking it holds an index into
+                # the list it is emptying - so the next page it reaches raises
+                # `IndexError: list index out of range` out of a worker
+                # thread. The person sees a run that stops with no reason
+                # given, and the queue is left saying nothing finished.
+                #
+                # Found from a test that only fails when another test has run
+                # first: an export was still going when the reset landed. That
+                # is a real order too - Export, then New project without
+                # waiting - and it is the app's job to survive it, not the
+                # person's job to wait.
+                _quiet_the_queue(p)
                 keep = dict(p.settings) if body.get("keep_settings") else None
                 # The SERIES CONTENT always clears on a new project - the
                 # synopsis, character names, glossary and custom bubble types
@@ -4541,10 +6306,8 @@ class Handler(BaseHTTPRequestHandler):
                     # the bundled-folder list is cached for the life of the
                     # process, and a new folder full of faces has just appeared
                     typeset_mod._font_dirs.cache_clear()
-                return self._json({"ok": not err, "error": err,
-                                   "fonts": find_fonts(),
-                                   "recent": userdata.recent_fonts(),
-                                   "uploaded": userdata.uploaded_fonts()})
+                return self._json(dict(fonts_answer(),
+                                       ok=not err, error=err))
 
             if path == "/api/models":
                 # The names this key can actually use, asked of the provider.
@@ -4855,15 +6618,29 @@ class Handler(BaseHTTPRequestHandler):
                 _plate_cache.clear()
                 return self._json({"ok": True, "name": p.pages[i].name})
 
-            # Cutting a page in two, by hand, at a row the person picked.
+            # Cutting a page up, by hand, at the rows the person picked.
             # lee: *"add page splitter that allow the user to splite the pages
-            # manualy"*. The automatic re-cut is deliberately narrow - a
+            # manualy"*, then *"can you make it so that i can have multiple
+            # cut lines"*. The automatic re-cut is deliberately narrow - a
             # sliced strip, untouched, and sure - and this is the way through
             # for every long page that is none of those things.
             m = re.fullmatch(r"/api/page/(\d+)/split", path)
             if m:
                 i = int(m.group(1))
-                ok, why = p.split_page(i, int(body.get("at") or 0))
+                # ONE ROW OR MANY. `at` is still accepted on its own, because
+                # a caller from before this sends one number and there is no
+                # reason to break it; `ats` is the list.
+                at = body.get("ats")
+                if at is None:
+                    at = int(body.get("at") or 0)
+                else:
+                    try:
+                        at = [int(a) for a in at]
+                    except (TypeError, ValueError):
+                        return self._json(
+                            {"error": "the cut rows have to be whole "
+                                      "numbers"}, 400)
+                ok, why = p.split_page(i, at)
                 if not ok:
                     return self._json({"error": why}, 400)
                 # Everything here is filed by page index, and every index from
@@ -5067,6 +6844,7 @@ class Handler(BaseHTTPRequestHandler):
                 # and asked by `context_boxes` for what to charge. See
                 # `run_context`.
                 chap = run_context(p, idx)
+                seed_sounds(p)
                 # A step with no key cannot run at all, and a run that
                 # cannot be paid for never starts - the price is taken when
                 # the button is pressed, so there is no longer such a thing as
@@ -5149,7 +6927,8 @@ class Handler(BaseHTTPRequestHandler):
                     dest += bundle.EXT
                 p.save()
                 try:
-                    data = bundle.write(p._state(), p.output_dir)
+                    data = bundle.write(p._state(), p.output_dir,
+                                        plates=_plates_to_carry(p))
                     tmp = dest + ".part"
                     with open(tmp, "wb") as fh:
                         fh.write(data)
@@ -5441,6 +7220,113 @@ class Handler(BaseHTTPRequestHandler):
                 p.save_soon()
                 return self._json({"region": rec, "regions": p.pages[i].active})
 
+            # ONE BOX, ONE COIN. Re-read the writing in a single box from
+            # the image, or translate a single box's line - each sends that
+            # box and nothing else. lee: *"add a read text and traslate
+            # buuton to each box and it shoud jut send that box and text
+            # with no extra context to the ai and make it cost 1 coin"*.
+            #
+            # The read uses WHATEVER READER THE PROJECT USES for its main
+            # Read text step - the AI reader when the project reads with the
+            # AI, the offline reader only when that is the engine. lee: *"it
+            # should use teh ai if teh use had teh ai for the main read etxt
+            # and not teh ocr"*.
+            m = re.fullmatch(r"/api/page/(\d+)/region/(\d+)/(read|translate)",
+                             path)
+            if m:
+                i, rid = int(m.group(1)), int(m.group(2))
+                what = m.group(3)
+                from . import coins
+                # A read that happens on this computer is not bought from
+                # anybody - the same rule `run_price` applies to the chapter
+                # buttons, said here so one box costs what the same box
+                # would inside a run. The button shows no coin for it either.
+                paid = (what == "translate") or not reading_offline(p)
+                if paid and not coins.can_afford(1):
+                    return self._json(
+                        {"error": "Not enough coins — this costs 1."}, 402)
+                page = p.materialize(i)
+                region = next((q for q in page.regions if q.id == rid), None)
+                if region is None:
+                    return self._json({"error": "no such region"}, 404)
+                import copy as _copy
+                sub = _copy.copy(page)
+                sub.regions = [region]
+                try:
+                    if what == "read":
+                        # The button IS the hand correction, so the lock that
+                        # keeps a chapter-wide re-read off a fixed line does
+                        # not apply to the line whose button was pressed.
+                        was_locked = bool(getattr(region, "locked", False))
+                        region.locked = False
+                        try:
+                            if reading_offline(p):
+                                _read_here(p, sub, lambda _m: None)
+                            else:
+                                from .ocr import (detail_for,
+                                                  page_label_tiles,
+                                                  looks_like_garbage)
+                                from .translate import read_page_ocr
+                                _read_with_ai(p, i, sub, lambda _m: None,
+                                              detail_for, page_label_tiles,
+                                              looks_like_garbage,
+                                              read_page_ocr)
+                        finally:
+                            region.locked = was_locked
+                    else:
+                        from .translate import (translate_page,
+                                                SeriesContext)
+                        _ctx_from_settings(p, "translate")
+                        c0 = p.ctx
+                        # The box and its text, nothing else: the model
+                        # settings ride along, the story does not.
+                        bare = SeriesContext(
+                            medium=c0.medium, target=c0.target,
+                            source=getattr(c0, "source", "") or "",
+                            honorifics=getattr(c0, "honorifics", True),
+                            min_font=c0.min_font, max_font=c0.max_font,
+                            backend=c0.backend, base_url=c0.base_url,
+                            model=c0.model, api_key=c0.api_key,
+                            safety=getattr(c0, "safety", "") or "",
+                            step_name=getattr(c0, "step_name", "") or "",
+                            story=False, learn_characters=False,
+                            learn_terms=False, name_speakers=False)
+                        if not (region.src_text or "").strip():
+                            return self._json(
+                                {"error": "Nothing to translate — this box "
+                                          "has no text read in it."}, 400)
+                        translate_page(sub, ctx=bare)
+                except Exception as e:
+                    return self._json({"error": str(e)}, 502)
+                if paid:
+                    coins.spend(1, f"{what} one box", page=p.pages[i].name,
+                                run=coins.new_run())
+                p.commit(i, page)
+                rec = next((q for q in p.pages[i].regions
+                            if q["id"] == rid), None)
+                if what == "translate" and rec is not None:
+                    # New words: the old fitting was computed FOR the previous
+                    # wording - same drop the hand-typed edit makes.
+                    rec.pop("proofread", None)
+                    rec.pop("proofread_was", None)
+                    keep = None
+                    if rec.get("own_text"):
+                        keep = list((rec.get("layout") or {}).get("frame")
+                                    or []) or None
+                    rec["layout"] = ({"lines": [], "frame": keep,
+                                      "font_size": (rec.get("layout") or {})
+                                      .get("font_size"),
+                                      "leading": (rec.get("layout") or {})
+                                      .get("leading")} if keep else None)
+                    ov = dict(rec.get("layout_override") or {})
+                    for key in ("lines", "fit", "wrap", "snug"):
+                        ov.pop(key, None)
+                    rec["layout_override"] = ov or None
+                _page_cache.clear()
+                p.save_soon()
+                return self._json({"regions": p.pages[i].active,
+                                   "coins": coins.balance()})
+
             m = re.fullmatch(r"/api/page/(\d+)/region/(\d+)/split", path)
             if m:
                 i, rid = int(m.group(1)), int(m.group(2))
@@ -5536,6 +7422,20 @@ class Handler(BaseHTTPRequestHandler):
                 elif "layout" in body:
                     # A hand edit to the typesetting. Storing it locked means the
                     # automatic fitter will not quietly undo it later.
+                    #
+                    # A body carrying BOTH the words and the layout is a caller
+                    # that has already decided the fitting - the special-
+                    # characters picker appends ♥ to the text AND to the line
+                    # it sits on. Sent as two saves they raced: the text edit
+                    # drops the fitting (the `else` branch below), and when its
+                    # drop landed second it popped the very line the ♥ was on,
+                    # so the mark reached the output text and never the page.
+                    # Taken here, together, the fitting drop never runs and
+                    # the lines in this same body are the fitting.
+                    if "dst_text" in body:
+                        rec["dst_text"] = str(body["dst_text"] or "")
+                        rec.pop("proofread", None)
+                        rec.pop("proofread_was", None)
                     lay = body["layout"] or {}
                     # The frame it had BEFORE this edit. Emptying a box needs
                     # it, and by the time the new layout has been previewed
@@ -5555,6 +7455,16 @@ class Handler(BaseHTTPRequestHandler):
                             "sh_blur": float(lay.get("sh_blur") or 3),
                             "curve": max(-180.0, min(180.0, float(
                                 lay.get("curve") or 0))),
+                            # which SHAPE the line bends along - see
+                            # `render.arc_places`. Arch is the original
+                            # circle; Sag is the panel's word for a
+                            # negative arch, so it is not a stored kind.
+                            "curve_kind": (str(lay.get("curve_kind")
+                                               or "arch")
+                                           if str(lay.get("curve_kind")
+                                                  or "arch")
+                                           in ("arch", "wave", "rise")
+                                           else "arch"),
                             "glow": str(lay.get("glow") or ""),
                             "glow_size": float(lay.get("glow_size") or 6),
                             "iglow": str(lay.get("iglow") or ""),
@@ -5594,6 +7504,13 @@ class Handler(BaseHTTPRequestHandler):
                             "fit": bool(lay.get("fit")),
                             "stroke": (None if lay.get("stroke") in (None, "")
                                        else int(lay["stroke"])),
+                            # Part of the text, styled by itself - Photoshop
+                            # fashion. Character ranges with their own
+                            # paint-only style, drawn by `render._ink_layer`
+                            # per distinct style through per-run masks.
+                            # lee: *"allow teh user to modify spesifuica
+                            # part of a text box"*.
+                            "spans": _clean_spans(lay.get("spans")),
                             "locked": True,
                         }
                     # Only this region changed. Re-laying out the whole page
@@ -5641,6 +7558,7 @@ class Handler(BaseHTTPRequestHandler):
                         rec["dst_text"] = ""
                         rec["dst_compact"] = None
                         rec.pop("proofread", None)
+                        rec.pop("proofread_was", None)
                         # ...and the frame it was left at, which is what makes
                         # it the same box afterwards.
                         if len(was_frame) == 4 and not ov_now.get("frame"):
@@ -5691,6 +7609,14 @@ class Handler(BaseHTTPRequestHandler):
                         if k in body:
                             rec[k] = body[k]
                     if rec.get("kind") != was_kind:
+                        # SOMEBODY CHOSE THIS. The proofreader labels box types
+                        # now, and lee asked that it *"shoud not"* touch one a
+                        # person has set - a type you fixed by hand coming back
+                        # wrong on every re-run is worse than no labelling at
+                        # all. This endpoint is the only place a person can
+                        # change a kind, so it is the only place that has to
+                        # say so. See `translate.label_kinds`.
+                        rec["kind_by_hand"] = True
                         _kind_changed(rec, was_kind)
                         _page_cache.clear()
                     if "angle" in body:
@@ -5700,6 +7626,11 @@ class Handler(BaseHTTPRequestHandler):
                             89.0, float(body.get("angle") or 0.0)))
                         rec["sfx_len"] = rec.get("sfx_len") or 1.0
                         rec["sfx_wid"] = rec.get("sfx_wid") or 1.0
+                        # SOMEBODY CHOSE THIS TOO, and the reading must leave
+                        # it alone from here on - the same rule as the type
+                        # above, arrived at the same way. See
+                        # `editor._apply_read_angles`.
+                        rec["angle_by_hand"] = True
                     if "turn" in body:
                         # TURNING a box, which is a different thing from the
                         # angle above and has its own field for that reason:
@@ -5738,11 +7669,19 @@ class Handler(BaseHTTPRequestHandler):
                     # ...and not when an angle came WITH the change: that is a
                     # correction by hand, and reading the axis would undo it.
                     if "angle" not in body \
-                            and rec.get("kind") == "sfx" and was_kind != "sfx" \
+                            and _kinds.family_of(rec.get("kind") or "") == "sfx" \
+                            and _kinds.family_of(was_kind or "") != "sfx" \
                             and not rec.get("sfx_len"):
                         # Calling a box a sound effect is the moment to read
                         # its angle - and the page still has the Japanese on
                         # it, which by typeset time it will not.
+                        #
+                        # THE FAMILY. This compared the strings until Read text
+                        # began labelling sub-types: picking "Big / impact" off
+                        # the menu made a box a sound effect without ever
+                        # equalling "sfx", so its axis was never read and the
+                        # effect was typeset straight when the artist had drawn
+                        # it leaning.
                         page = p.materialize(i)
                         nr = next((q for q in page.regions if q.id == rid), None)
                         if nr is not None:
@@ -5760,6 +7699,10 @@ class Handler(BaseHTTPRequestHandler):
                         rec["link"] = int(body["link"] or 0)
                     if "dst_text" in body:
                         rec.pop("proofread", None)   # edited text: unread again
+                        # ...and the proofreader's before-and-after with it:
+                        # a "was" under a line somebody has since retyped is
+                        # a comparison against nothing.
+                        rec.pop("proofread_was", None)
                     if "order" in body:
                         # the human sets the number: pull the region out,
                         # slot it back in at the asked-for position, renumber
@@ -5956,10 +7899,53 @@ _COMIC_HINTS = (
 )
 
 
+def _squash(s: str) -> str:
+    """A name with everything but its letters and digits taken out.
+
+    `Dela Gothic One` and `DelaGothicOne-Regular` are the same family spelled
+    the two ways this app has to deal with: a family is what somebody
+    downloads and a file is what lands on the disk. Comparing them needs both
+    sides flattened, and the hint list below is matched with the separators
+    still in, so the two cannot share one normalisation.
+    """
+    return "".join(c for c in str(s or "").lower() if c.isalnum())
+
+
+@functools.lru_cache(maxsize=1)
+def _recommended_families() -> tuple:
+    """Every family the Recommended fonts page names, flattened.
+
+    THE PICKER MUST NOT HIDE WHAT THE APP JUST TOLD SOMEBODY TO DOWNLOAD.
+    That is what it was doing: `fontpicks` sends you to Google Fonts for Dela
+    Gothic One, Titan One, Caveat, Klee One, Bebas Neue and a dozen more, and
+    not one of those names is in `_COMIC_HINTS` - so a face downloaded on the
+    app's own advice, installed, and then looked for in the Box types picker
+    was not there. lee: *"no add teh otehr fonst in teh fonts picker list in
+    teh app"*.
+
+    Read off `fontpicks.PICKS` rather than copied into the list above,
+    because these are the same fact - "this app thinks this face is worth
+    typesetting with" - and a second copy is the next thing to fall out of
+    step. Adding a recommendation now adds it to the picker.
+    """
+    try:
+        from . import fontpicks
+    except Exception:
+        return ()
+    return tuple({_squash(p.family) for picks in fontpicks.PICKS.values()
+                  for p in picks if len(_squash(p.family)) >= 4})
+
+
 def _is_comic_font(name: str) -> bool:
     n = name.lower().replace("-", " ").replace("_", " ")
     # Comicraft's catalogue is all CC-prefixed (CC Wild Words, CC Astro City…)
-    return n.startswith("cc") or any(k in n for k in _COMIC_HINTS)
+    if n.startswith("cc") or any(k in n for k in _COMIC_HINTS):
+        return True
+    # ...and anything the app itself recommends. Matched on the flattened name
+    # so `DelaGothicOne-Regular` finds `Dela Gothic One`; four characters is
+    # the floor, so a three-letter family cannot sweep in half a font folder.
+    flat = _squash(name)
+    return any(fam in flat for fam in _recommended_families())
 
 
 _SAMPLE_CACHE: "OrderedDict[tuple, bytes]" = OrderedDict()
@@ -5979,7 +7965,14 @@ def _font_sample_png(fp: str, text: str = "sample") -> "bytes | None":
         return hit
     try:
         from PIL import Image, ImageDraw, ImageFont
-        font = ImageFont.truetype(fp, 30)
+        # 30 is the size ASKED FOR, not the pixels handed to the face. A point
+        # is not a size - Anton's capitals are 0.86 of its em and Nanum Pen
+        # Script's are 0.56 - so a picker that drew every specimen at a flat 30
+        # showed one face half the height of the next and made the list look
+        # like a list of sizes. `typeset.px_for` is the same conversion the
+        # typesetting itself goes through, so a specimen is now the size the
+        # word will actually come out.
+        font = ImageFont.truetype(fp, typeset_mod.px_for(fp, 30))
         l, t, r, b = font.getbbox(text)
         w, h = max(1, r - l) + 8, max(1, b - t) + 8
         img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -5995,6 +7988,135 @@ def _font_sample_png(fp: str, text: str = "sample") -> "bytes | None":
     if len(_SAMPLE_CACHE) > 600:
         _SAMPLE_CACHE.popitem(last=False)
     return data
+
+
+def _mark_sample_png(cfg, ch: str, size: int = 44) -> "bytes | None":
+    """One mark as a small transparent PNG, for the picker.
+
+    Drawn through `typeset.mark_glyph` - the same call the renderer makes - so
+    the picker shows the shape that will land on the page rather than a second
+    drawing of it. When the current face has its OWN glyph for the character
+    (Jua and Patrick Hand both have a heart) `mark_glyph` returns None and the
+    sample is the font's letter, which is again what the page will show.
+    """
+    try:
+        from PIL import Image, ImageDraw
+        path = typeset_mod.font_for(cfg, "bubble")
+        got = typeset_mod.mark_glyph(path, size, ch)
+        if got is not None:
+            mask = got[2]
+            img = Image.new("RGBA", (mask.width + 8, mask.height + 8),
+                            (0, 0, 0, 0))
+            img.paste((207, 213, 226, 255), (4, 4), mask)
+        else:
+            font = typeset_mod._font(path, size)
+            l, t, r, b = font.getbbox(ch)
+            if r <= l or b <= t:
+                return None
+            img = Image.new("RGBA", (r - l + 8, b - t + 8), (0, 0, 0, 0))
+            ImageDraw.Draw(img).text((4 - l, 4 - t), ch, font=font,
+                                     fill=(207, 213, 226, 255))
+        import io
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def shipped_kind_fonts() -> dict:
+    """The face each kind gets when NOTHING has been chosen for it, by path.
+
+    The last link in the chain `typeset.font_for` walks, and the only one the
+    browser cannot work out for itself: `DEFAULT_FONTS` is a table in the
+    server's head, and the file it names has to be found on this machine before
+    it is worth naming.
+
+    Sent with the font list so the Box types panel can show the face a row
+    would ACTUALLY typeset in. lee sent a screenshot of that panel listing
+    `AnimeAce.ttf` and `CCWildWords.ttf` on nine rows - two files this app is
+    no longer allowed to ship and that are not on his disk any more - and
+    `ComicNeue-Bold` on the three family rows, where the real answers are Comic
+    Neue Regular and Bangers. The panel was reading saved settings and its own
+    first list entry; neither is what the page comes out in.
+
+    Resolved against an EMPTY config on purpose. The project's own font is a
+    step the browser already has and can apply itself; what it is missing is
+    what lies past it, and asking with the project's font in hand would return
+    that font twelve times and answer nothing.
+    """
+    from .typeset import TypesetConfig, font_for
+    blank = TypesetConfig(font_path="")
+    keys = list(_kinds.FAMILIES) + list(_kinds.PRELOAD_KEYS)
+    out = {}
+    for key in keys:
+        try:
+            got = font_for(blank, key)
+        except Exception:
+            got = ""
+        if got:
+            out[key] = got
+    return out
+
+
+def fonts_answer() -> dict:
+    """EVERYTHING ABOUT FONTS, IN ONE REPLY, FROM EVERY FONT ENDPOINT.
+
+    `takeFonts` in the browser has said this in its own comment since it was
+    written - *"One answer, four lists. Every font endpoint returns all of them
+    so nothing can be redrawn from a half-updated picture"* - and `/api/font`
+    did not keep it. It answered with `fonts`, `recent` and `uploaded` and left
+    out `defaults` and `marks`, and `takeFonts` takes what it is handed:
+
+        KIND_DEFAULTS = f.defaults || {};
+        MARK_LIB      = f.marks    || [];
+        SERVER_STALE  = !('defaults' in f);
+
+    So **picking a font in any dropdown** - which posts `do:used` to that
+    endpoint - emptied the defaults table, emptied the marks picker, and raised
+    the flag that means *the app is older than this page*. From then on every
+    row of Box types fell through to the project's own font and read the same
+    name twelve times, under a banner telling you to restart an app that was
+    not out of date at all.
+
+    lee sent exactly that screenshot: twelve rows of `ComicNeue-Bold` with the
+    stale-server line above them.
+
+    One function, so a reply cannot be half a reply. The two callers differ
+    only in what they add to it - `/api/font` adds `ok` and `error` - and a
+    third endpoint added later gets the contract by using it.
+    """
+    return {"fonts": find_fonts(),
+            # `recent` travels with the list rather than being asked for
+            # separately: the picker needs both to draw one menu, and two round
+            # trips means the list can render before the recents and jump.
+            "recent": userdata.recent_fonts(),
+            "uploaded": userdata.uploaded_fonts(),
+            "defaults": shipped_kind_fonts(),
+            # HOW TALL EACH FACE'S CAPITALS ARE, so the browser can draw a
+            # size the same way the server does. `typeset.px_for` turns a
+            # point number into the number PIL is asked for; the preview has
+            # to make the same conversion or the page and the screen disagree
+            # about every block. See `typeset.CAP_REF`.
+            #
+            # Measured only for the faces the picker OFFERS - a face nobody
+            # can choose is a file nobody needs opened - and cached, so this
+            # costs once per process rather than once per reply.
+            "caps": {f["path"]: typeset_mod.cap_ratio(f["path"])
+                     for f in find_fonts()
+                     if f.get("bundled") or f.get("uploaded") or f.get("comic")},
+            "cap_ref": typeset_mod.CAP_REF,
+            # `picks` and `sources` used to travel here, for a Fonts tab in
+            # the editor. That page is on the website now
+            # (`site/fonts.html`), so the payload went with it - an answer
+            # nothing reads is a request nobody can see is wasted.
+            # `fontpicks` itself stays: `_is_comic_font` reads it, because a
+            # face this app recommends is a face the picker must offer.
+            # ...and the marks that can go IN a line. Characters only: the
+            # browser cannot draw the shapes and asks /marksample for a
+            # picture of each. See `marks.PICKER`.
+            "marks": [[g, [[c, n] for c, n in items]]
+                      for g, items in _marks.PICKER]}
 
 
 def find_fonts() -> list[dict]:
@@ -6014,13 +8136,28 @@ def find_fonts() -> list[dict]:
     # starting from anywhere but the repo root hid every bundled font.
     here = os.path.dirname(os.path.abspath(__file__))
     bundled_candidates = []
+    # NORMCASE IS FOR COMPARING, NOT FOR KEEPING, and the difference cost lee
+    # a whole panel. On Windows `os.path.normcase` LOWERCASES a path, and these
+    # candidates were both the thing compared and the thing walked - so
+    # `os.walk` yielded a lowercased `dirpath` and every font in the list was
+    # stored as `c:\users\...\comicneue-bold.ttf`.
+    #
+    # `typeset._bundled` returns the real-case path, so the two never matched.
+    # Box types compares them to name each row's face, found nothing, and
+    # printed "Project default" twelve times. Invisible on Linux and macOS,
+    # where `normcase` does nothing at all, which is why every test of it
+    # passed here.
+    #
+    # So the list is walked with the REAL path and only the membership test is
+    # normcased.
     for cand in (os.path.join(os.path.dirname(here), "fonts"),  # repo root/fonts
                  os.path.join(here, "fonts"),                   # package/fonts
                  os.path.join(os.getcwd(), "fonts")):           # launch dir/fonts
-        c = os.path.normcase(os.path.abspath(cand))
-        if c not in bundled_candidates:
+        c = os.path.abspath(cand)
+        if os.path.normcase(c) not in {os.path.normcase(x)
+                                       for x in bundled_candidates}:
             bundled_candidates.append(c)
-    bundled_set = set(bundled_candidates)
+    bundled_set = {os.path.normcase(c) for c in bundled_candidates}
     roots = bundled_candidates + ["/usr/share/fonts",
              os.path.expanduser("~/Library/Fonts"), "C:\\Windows\\Fonts"]
     for root in roots:

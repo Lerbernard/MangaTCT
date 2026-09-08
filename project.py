@@ -17,7 +17,6 @@ import threading
 import time
 import traceback
 from dataclasses import asdict, dataclass, field
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -37,7 +36,9 @@ from .detect import classical
 from .detect import comictext as _ctd
 from .order import assign_order
 from .pipeline import load_page
+from . import coins as _coins
 from . import imgio
+from . import userdata as _userdata
 from .score import score_regions
 from .translate import SeriesContext
 from .models import Page, TextRegion, turned_box
@@ -141,6 +142,18 @@ SERVICES = ("anthropic", "gemini", "openrouter")
 # a token reports itself as this, or as "" when there is nothing saved.
 MASK = "set"
 
+# ...and this when the answer is coming out of the `.env` rather than out of
+# this chapter. A separate word rather than `MASK` because the two mean
+# different things to whoever is looking at the screen: "set" means you typed
+# it here and it is safe to leave alone, "env" means typing here will not
+# change anything, because `editor.key_for` reads the file first.
+#
+# It is a REPORT, exactly like `MASK`, and `drop_masked_secrets` refuses it as
+# a value for the same reason: a `.tct` exported from a machine with a `.env`
+# carries the word `env` in every key field, and importing that must not save
+# three characters over a working key.
+ENV = "env"
+
 
 def secret_keys(settings: dict | None = None) -> list[str]:
     """Every settings key that holds a secret.
@@ -178,7 +191,7 @@ def drop_masked_secrets(incoming: dict) -> list[str]:
     dropped = []
     for k in secret_keys():
         v = incoming.get(k)
-        if isinstance(v, str) and v.strip() == MASK:
+        if isinstance(v, str) and v.strip() in (MASK, ENV):
             incoming.pop(k, None)
             dropped.append(k)
     return dropped
@@ -222,11 +235,73 @@ def migrate_keys(settings: dict, saved: dict) -> bool:
     return moved
 
 
+def _fill_auto_glow(recs) -> None:
+    """Write the automatic halo onto each record's LAYOUT, where the browser
+    reads its colours from.
+
+    lee, after the first ship: *"i exported the pages and the outer gow works
+    but it just dont show in the editor"*. Both halves were right. The exporter
+    works its colours out afresh every time it draws, so an exported page has
+    always had the halo; the browser has no page to look at, so it typesets
+    from `layout.fg`/`edge`/`stroke` - and nothing was writing `layout.glow`,
+    which did not exist.
+
+    Here rather than in `assign_colours`, which is the other candidate and runs
+    at TYPESET time. That would leave every page typeset by an earlier build
+    without a halo in the editor until it was laid out again, which is a
+    migration nobody asked for and would not know to run. This runs on the way
+    out of the door, so a chapter finished last week opens with it.
+
+    It costs nothing to do here because it needs nothing off the artwork:
+    `on_art` is unconditionally true for the sfx family, so the kind, the size
+    and the edge colour - all three already on the record - are the whole
+    input. `render.auto_glow_bits` is that one rule; this only calls it.
+
+    A glow somebody CHOSE is not touched, and neither is a glow they turned
+    off: `auto_glow_bits` reads the override first and answers None to both,
+    and this leaves the field exactly as the save echoed it.
+
+    Which is the one thing to be careful about here. `layout` is not only a
+    record of the fit - a save echoes the whole style back into it, so
+    `layout.glow` may already be there and may already be somebody's answer.
+    Clearing it whenever there is no automatic halo threw that echo away and
+    a chosen glow stopped surviving a reload. So the rule is stated as what it
+    means rather than as a blank: **the layout's glow is the chosen one, or the
+    automatic one, or nothing** - and `""` is how this app has always spelled
+    the third.
+    """
+    from . import render as _render          # imported late: render needs us
+    for rec in recs:
+        lay = rec.get("layout")
+        if not isinstance(lay, dict) or not lay.get("lines"):
+            continue
+        ov = rec.get("layout_override") or {}
+        for key in ("glow", "iglow"):
+            got = _render.auto_glow_bits(lay.get("fg") or "",
+                                         lay.get("edge") or "",
+                                         lay.get("font_size") or 0, ov, key)
+            if got:
+                lay[key] = _render._css(got[0])
+                lay[key + "_size"] = int(got[1])
+            elif _render.hex_rgb(ov.get(key)) is None:
+                # Nobody chose one and there is none to work out - which is
+                # also what a block that has stopped being hollow looks like,
+                # so the answer has to be WRITTEN rather than merely not
+                # written.
+                lay[key] = ""
+
+
 def region_record(r: TextRegion) -> dict:
     return {
         "id": int(r.id), "bbox": [int(v) for v in r.bbox],
         "bubble_bbox": [int(v) for v in r.bubble_bbox] if r.bubble_bbox else None,
         "polygon": [[int(a), int(b)] for a, b in (r.polygon or [])],
+        # The typesetter's balloon, when the balloon check wrote one. Kept
+        # apart from `polygon` on purpose: the cleaner reads `polygon` and
+        # must never see this. lee: *"it should only help the typesetter on
+        # bubble text"*.
+        "fit_poly": ([[int(a), int(b)] for a, b in r.fit_poly]
+                     if getattr(r, "fit_poly", None) else None),
         "kind": str(r.kind), "order": int(r.order),
         "link": int(getattr(r, "link", 0) or 0),
         "link_kind": str(getattr(r, "link_kind", "") or ""),
@@ -241,6 +316,15 @@ def region_record(r: TextRegion) -> dict:
         "speaker": r.speaker, "confidence": float(r.confidence),
         "flagged": r.flagged, "manual": bool(getattr(r, "manual", False)),
         "own_text": bool(getattr(r, "own_text", False)),
+        # ...and whether a PERSON chose this box's type. See the note in
+        # `region_from_record`: without this line the flag dies on the first
+        # commit and the reader relabels a box somebody had already fixed.
+        "kind_by_hand": bool(getattr(r, "kind_by_hand", False)),
+        # ...and the same question about the ANGLE, for the same reason. The
+        # reading now fills in the lean of loose writing - see
+        # `editor._apply_read_angles` - and it must not undo one somebody set
+        # with the rotate handle.
+        "angle_by_hand": bool(getattr(r, "angle_by_hand", False)),
         "skip_clean": bool(getattr(r, "skip_clean", False)),
         # How this box was cleaned, so the question can be asked of a BOX
         # rather than of a whole chapter. Not restored on the way in
@@ -250,6 +334,11 @@ def region_record(r: TextRegion) -> dict:
         "clean_core": bool(getattr(r, "clean_core", False)),
         "draw_box": getattr(r, "draw_box", None),
         "layout_override": r.layout_override,
+        # Saved as well as the hand corrections, and separately from them, so
+        # that opening a chapter does not have to read every page again to
+        # know what its letters were drawn with. See
+        # `models.TextRegion.layout_measured`.
+        "layout_measured": getattr(r, "layout_measured", None),
         "layout": ({"lines": r.layout.lines,
                     "font_size": int(r.layout.font_size),
                     "leading": round(float(r.layout.leading), 3),
@@ -264,6 +353,11 @@ def region_record(r: TextRegion) -> dict:
                     # origins above rather than spacing them down the frame.
                     "fixed": bool(getattr(r.layout, "fixed", False)),
                     "fit_ok": bool(r.layout.fit_ok),
+                    # What this layout was fitted FROM. Without it on the
+                    # record the page is fitted again on the way back in, and
+                    # fitting is 2.6 of the 3 seconds a page costs. See
+                    # `typeset.page_fit_key`.
+                    "fit": str(getattr(r.layout, "fit", "") or ""),
                     "used_compact": bool(r.layout.used_compact)}
                    # An EMPTY block is still a block. Storing it only when it
                    # had lines threw away the frame of a box whose words had
@@ -301,6 +395,26 @@ def _is_a_box(poly: np.ndarray) -> bool:
 def find_balloons(img: np.ndarray, regions: list[TextRegion]) -> int:
     """Give every speech region that came back without one its balloon.
 
+    **The BALLOON, and nothing else.** `attach_balloons` also renames a
+    free-floating block to a bubble when it turns out to be inside one, which
+    is right at detection and wrong here, because here is every reload. lee:
+    *"boxes chaning type after i reload the projet"*, and it was exactly this:
+
+        set a box to Outside text   ->  saved as freefloat
+        open the page again         ->  `materialize` calls this
+                                    ->  a balloon is found round it
+                                    ->  it is a bubble now, and the next save
+                                        writes that down
+
+    Silent, and permanent after one save. It hit precisely the boxes somebody
+    had corrected by hand, because those are the ones whose label disagrees
+    with the pixels - which is what a correction IS.
+
+    The rule is the one `region_from_record` already keeps for the outline
+    three functions down: **the label wins over the geometry.** A kind on disk
+    is a decision that has already been made, by a detector or by a person, and
+    only a fresh Find text may make it again.
+
     Masks are not saved - a chapter is held as geometry - so the balloon has
     to be found again on the way back in. It was only ever looked for at
     detection, which left two ways to end up typesetting into a rectangle: a
@@ -319,7 +433,14 @@ def find_balloons(img: np.ndarray, regions: list[TextRegion]) -> int:
     """
     from .detect.balloon import attach_balloons, give_room
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    got = attach_balloons(gray, regions)
+    got = attach_balloons(gray, regions, rename=False)
+    # ...and then hand back anything that is not this block's to have. The
+    # search above is allowed to give a free block a balloon - a caption alone
+    # in one needs it - but not a balloon another block is already typesetting
+    # into. See `drop_borrowed_balloons`. It runs AFTER the search because the
+    # search is where the borrowing happens, and before `give_room`, which is
+    # what puts the block back on the paper around its own writing.
+    drop_borrowed_balloons(regions)
     give_room(gray, regions)
     return got
 
@@ -337,6 +458,99 @@ def _no_balloon(kind: str) -> bool:
     return _kinds.family_of(kind or "") in NO_BALLOON_KINDS
 
 
+# How much of two shapes has to be the same before one of them is not a shape
+# of its own. Two blocks handed shares of one balloon are DISJOINT - the
+# detector takes a hairline off each - so anything approaching this number is
+# not two shares, it is one shape held twice.
+SAME_BALLOON = 0.9
+
+
+def drop_borrowed_balloons(regions: list) -> int:
+    """Take a balloon back off a block that cannot have one. Returns how many.
+
+    `NO_BALLOON_KINDS` is the rule and it is old: writing lying on the artwork
+    and a drawn sound have no balloon, and the ink's own footprint is where
+    they belong. What was missing was anything that ENFORCED it on a chapter
+    already saved, and one route wrote exactly that state to disk -
+    `attach_balloons(rename=False)` handing a freefloat a balloon it was only
+    ever offered so that it could be renamed a bubble. See the comment there.
+
+    lee's page 005, where it cost him a line of dialogue: `あの…` is free text
+    at the top right of the big balloon, and the saved polygon on it is the
+    balloon - all 88 points of it, the same 88 the dialogue has. Both blocks
+    typeset into the same paper and "Um..." is printed through the middle of
+    the word Zarudone.
+
+    **The test is that the shape is somebody ELSE'S, not that it is big.** A
+    freefloat is perfectly entitled to a shape larger than its box - that is
+    what `give_room` is for, and a caption on a blank panel needs it. What no
+    block is entitled to is the shape a balloon-carrying block is already
+    typesetting into. Two shares of one balloon are disjoint by construction,
+    so an overlap anywhere near `SAME_BALLOON` can only be one shape counted
+    twice.
+
+    What it is handed back to is its own box, which is where `give_room` picks
+    it up a moment later - and `give_room` will not grow it into paper another
+    block has already taken, so it stays where its writing is.
+
+    **Both halves of the state are repaired**, because they come apart.
+    `region_from_record` already refuses to rebuild a MASK from a balloon
+    polygon on a kind that cannot have one, so a chapter loads with the mask
+    gone and the POLYGON still borrowed - and the polygon is what the editor
+    draws as the box, so lee sees a piece of free text outlined as the whole
+    balloon and can drag the balloon by it. The polygons are compared exactly:
+    two of them are only ever identical because one `_apply` wrote both.
+    """
+    import numpy as np
+
+    def pts(r):
+        return [(int(round(a)), int(round(b)))
+                for a, b in (getattr(r, "polygon", None) or [])]
+
+    theirs = [r for r in regions if not _no_balloon(getattr(r, "kind", ""))
+              and (getattr(r, "bubble_mask", None) is not None or pts(r))]
+    if not theirs:
+        return 0
+    took = 0
+    for r in regions:
+        if not _no_balloon(getattr(r, "kind", "")):
+            continue
+        m = getattr(r, "bubble_mask", None)
+        mine = (np.asarray(m) > 0) if m is not None else None
+        shape = pts(r)
+        if mine is None and len(shape) < 3:
+            continue
+        for q in theirs:
+            if shape and shape == pts(q):
+                break
+            if mine is None or not mine.any():
+                continue
+            om = getattr(q, "bubble_mask", None)
+            if om is None:
+                continue
+            other = np.asarray(om) > 0
+            if other.shape != mine.shape:
+                continue
+            union = float((mine | other).sum())
+            if union and float((mine & other).sum()) / union >= SAME_BALLOON:
+                break
+        else:
+            continue
+        _own_box_again(r)
+        took += 1
+    return took
+
+
+def _own_box_again(r) -> None:
+    """Back to the block's own box - the state a region has before any balloon
+    is found for it, so everything downstream behaves as it would on a page
+    where none ever was."""
+    x, y, w, h = [int(v) for v in r.bbox]
+    r.bubble_mask = None
+    r.bubble_bbox = (x, y, w, h)
+    r.polygon = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+
+
 def is_turned(rec: dict) -> bool:
     """Is this a box somebody turned? Only those may be, and only they follow.
 
@@ -352,6 +566,194 @@ def is_turned(rec: dict) -> bool:
     as a turn would have leant every one of them.
     """
     return abs(float(rec.get("turn") or 0.0)) > 0.01
+
+
+# How black a balloon has to be before "the writing is the dark pixels" stops
+# being true of it, and how light a pixel has to be to count as writing when it
+# does. Read off lee's page 009: the balloon is 84% dark and its writing is
+# 7% light, which is not a close call in either direction. A white balloon on
+# the same page is 10% dark.
+DARK_GROUND = 0.60
+PAPER = 255 - INK
+
+
+def _writing_in(gray: np.ndarray, bubble: np.ndarray,
+                balloon: bool = False) -> np.ndarray:
+    """The WRITING inside a balloon, whichever way round it is drawn.
+
+    This used to be one line - `gray <= INK` - which says *ink is dark*. It is,
+    almost everywhere: a manga page is black on white and the exceptions are
+    rare enough to go unnoticed for a long time.
+
+    lee's page 009 is one of them. A solid black balloon with white Japanese in
+    it, and that line marked the BALLOON as writing and the LETTERS as clean:
+    24,164 pixels of "ink" in a balloon of 26,758. So the cleaner was asked to
+    erase ninety per cent of the balloon and to keep the letters, `_flat_from`
+    had not one pixel of background left to sample - the ink grown by twelve
+    covered everything - and the box fell through to Telea, which filled the
+    hole from the dotted screentone outside it. lee, on the result: *"why is
+    teh typeseeting so bad"*. It was not the typesetting.
+
+    THE WRITING IS THE MINORITY, and that is the whole rule. A balloon is
+    mostly ground with a little writing on it, so if the dark pixels are most
+    of the balloon then dark is the ground and the writing is what stands out
+    of it. Asked only of a genuinely black balloon - 60% and up, against 10%
+    for a white one on the same page - because the two populations are nowhere
+    near each other and a rule that fires in between would be guessing.
+
+    ASKED OF A BALLOON AND OF NOTHING ELSE, which is what `balloon` is for. A
+    balloon is a shape whose ground is one colour; the rectangle that stands in
+    where there is no balloon is a box round leaning writing, and a box round a
+    heavy sound effect really can be more ink than paper. Left to the fraction
+    alone this rule flipped one of those inside out - caught by its own test
+    before it went anywhere, which is the argument for writing the test that
+    states the boundary rather than the one that states the case.
+    """
+    inside = bubble > 0
+    n = int(inside.sum())
+    dark = (gray <= INK) & inside
+    if balloon and n and int(dark.sum()) > DARK_GROUND * n:
+        return ((gray >= PAPER) & inside).astype(np.uint8) * 255
+    return dark.astype(np.uint8) * 255
+
+
+# How much of a saved outline has to BE the field before the outline is taken
+# as the field and handed back untouched, and how little may be left before the
+# reading is not believed at all. Between the two the outline is read; outside
+# them it stands. See `_one_ground`.
+OUTLINE_IS_THE_FIELD = 0.90
+GROUND_KEEPS = 0.34
+
+
+def _one_ground(gray: np.ndarray, bubble: np.ndarray,
+                glyph: np.ndarray) -> np.ndarray:
+    """The part of a saved outline that is the ground the writing sits on.
+
+    A balloon is a field of ONE TONE with a rim drawn round it, and the words
+    go in the field. An outline that also covers the artwork outside the rim is
+    not saying "the words may go there" - it is wrong, and the fitter cannot
+    know that: it measures the room it is given and fills it, so the block
+    drifts into whichever part of the shape is roomiest.
+
+    lee, with page 009 - a black balloon with the English sitting low and
+    crowding the bottom-left curve: *"the position of teh text iide is too low
+    and too close to tehe edge at teh bottom left"*. The outline saved for that
+    box follows the balloon along the top and right and then runs out as a
+    straight-edged rectangle across the screentone at the bottom-left, down to
+    the corner. Page 019's is a rectangle a third bigger than its balloon in
+    every direction. Nothing rewrites a saved outline, so a chapter carries
+    whatever an older build wrote for ever.
+
+    So the outline is READ against the page rather than trusted: take the run
+    of ground the writing is standing in - the same walk out from the ink, over
+    one tone, stopped by drawn edges, that found the balloon in the first place
+    (`detect.balloon._free_labels`) - and keep the part of the outline that is
+    in it. Whichever way round the balloon is drawn: the polarity is chosen the
+    way `_writing_in` chooses it, and for the same reason.
+
+    THE WRITING IS ALWAYS ITS OWN GROUND. It is union'd back in and the holes
+    are filled, because the run stops at the ink and a placement area with the
+    letters punched out of it is the tall-narrow-column bug that `place_mask`
+    exists to avoid.
+
+    Measured over lee's 137 balloon outlines: 134 come back untouched and the
+    three that move are the three that are wrong - 003#6 loses the tree its
+    corner covered, 019#1 loses a third of a panel, 009#4 loses the screentone
+    lobe hanging off its bottom-left. Not one of the 137 loses a letter.
+
+    Nothing is written back. The outline on disk is what lee drew and what he
+    sees; this is only where the English is allowed to go, worked out from the
+    page in front of him on every load - the same arrangement, and the same
+    reason, as `balloon.room_around`.
+    """
+    inside = bubble > 0
+    n = int(inside.sum())
+    if not n or not (glyph > 0).any():
+        return bubble
+    ys, xs = np.nonzero(inside)
+    pad = 8
+    y0, y1 = max(0, int(ys.min()) - pad), min(gray.shape[0], int(ys.max()) + pad + 1)
+    x0, x1 = max(0, int(xs.min()) - pad), min(gray.shape[1], int(xs.max()) + pad + 1)
+    win = (slice(y0, y1), slice(x0, x1))
+    g = gray[win]
+    # ...on the negative when the writing is standing on a dark field, which is
+    # the same question `_writing_in` asks one line further down and has to be
+    # answered the same way. A rule that read one of them upright and the other
+    # inverted would cut the balloon in half.
+    if int(((gray <= INK) & inside).sum()) > DARK_GROUND * n:
+        g = 255 - g
+    from .detect.balloon import BalloonConfig, _free_labels, _surrounding_label
+    cnt, labels = _free_labels(g, BalloonConfig())
+    if cnt <= 1:
+        return bubble
+    lab = _surrounding_label(labels, glyph[win])
+    if lab <= 0:
+        return bubble                     # no run to read: leave the outline
+    run = ((labels == lab) & inside[win]).astype(np.uint8)
+    field = _no_holes(run) & inside[win]
+    if int(field.sum()) >= OUTLINE_IS_THE_FIELD * n:
+        # THE OUTLINE IS THE FIELD, which is what almost every outline is, and
+        # then it is returned untouched rather than nearly untouched. The walk
+        # stops a pixel or two short of a drawn rim and leaves a letter that
+        # runs off the edge of the outline standing outside it, so the answer
+        # here is a placement area a fraction smaller with a nick or two in
+        # it - a worse shape than the one it was given, arrived at by
+        # measuring something that was not wrong. 131 of lee's 137 come back
+        # through this line.
+        return bubble
+    keep = _no_holes((field | _standing_on(glyph[win] > 0, field)).astype(np.uint8))
+    keep = keep & inside[win]
+    if int(keep.sum()) < GROUND_KEEPS * n:
+        return bubble
+    out = np.zeros(gray.shape[:2], np.uint8)
+    out[win][keep] = 255
+    return out
+
+
+def _standing_on(ink: np.ndarray, field: np.ndarray) -> np.ndarray:
+    """The marks that are standing ON this field, and not the ones beside it.
+
+    The writing has to be union'd back into its own field - the walk stops at
+    ink, so the letters are holes in it - but "the writing" here is whatever
+    `_writing_in` read out of the WHOLE outline, and an outline that runs off
+    its balloon has marks in it that are not writing at all. Two kinds, and
+    they are different mistakes:
+
+    * artwork out in the lobe, which is nothing to do with this box;
+    * THE RIM, which on an outline that crosses it is read as writing every
+      time, because a rim is exactly the tone the writing is - a white rim
+      round a black balloon is white, like the words in it.
+
+    Union either one in and the lobe comes back a mark at a time, the rim
+    dragging in whatever it encloses. So a mark counts as this field's when it
+    is standing INSIDE the field's own outline rather than merely against it:
+    the writing is surrounded by its ground, the rim surrounds it. Asked mark
+    by mark, because a letter is the unit that is either on the balloon or not,
+    and by majority, because a letter that runs off the edge of the outline is
+    still that balloon's letter.
+    """
+    if not ink.any() or not field.any():
+        return np.zeros(field.shape[:2], bool)
+    home = _no_holes(cv2.dilate(field.astype(np.uint8),
+                                np.ones((3, 3), np.uint8), iterations=2))
+    n, lab = cv2.connectedComponents(ink.astype(np.uint8), 8)
+    if n <= 1:
+        return np.zeros(field.shape[:2], bool)
+    whole = np.bincount(lab.ravel(), minlength=n).astype(float)
+    at_home = np.bincount(lab[home].ravel(), minlength=n).astype(float)
+    keep = np.zeros(n, bool)
+    keep[1:] = at_home[1:] > 0.5 * np.maximum(1.0, whole[1:])
+    return keep[lab]
+
+
+def _no_holes(m: np.ndarray) -> np.ndarray:
+    """Everything the shape encloses, filled in."""
+    h, w = m.shape[:2]
+    pad = np.zeros((h + 2, w + 2), np.uint8)
+    pad[1:-1, 1:-1] = m
+    seed = np.zeros((h + 4, w + 4), np.uint8)
+    cv2.floodFill(pad, seed, (0, 0), 255)
+    return (m > 0) | (pad[1:-1, 1:-1] == 0)
 
 
 def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
@@ -413,7 +815,28 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
         bubble[max(0, y):y + h, max(0, x):x + w] = 255
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    glyph = ((gray <= INK) & (bubble > 0)).astype(np.uint8) * 255
+    glyph = _writing_in(gray, bubble, balloon=not boxy and bubble.any())
+    if not boxy and bubble.any() and len(poly.reshape(-1, 2)) > 4:
+        # ...and now READ the outline against the page. A saved outline that
+        # covers artwork outside the balloon is a shape the fitter will
+        # happily typeset into - see `_one_ground`. Asked of a real outline
+        # only: the rectangle that stands in where there is no balloon is not
+        # claiming to be a field of anything.
+        #
+        # FOUR CORNERS IS A RECTANGLE, leaning or not, which is why the count
+        # is asked here and not left to `_is_a_box` - that one answers about
+        # an UPRIGHT rectangle, and a box somebody turned comes through it as
+        # an outline. It is still a box: it says where the writing is, it was
+        # drawn by hand, and reading it against the page trimmed a fifth off
+        # one. lee: *"only teh ser shoud be able to rotate them"* - and what
+        # he rotated is his own box, not a balloon.
+        was = bubble
+        bubble = _one_ground(gray, bubble, glyph)
+        if bubble is not was:
+            # The writing is read out of the placement area, so a smaller one
+            # is a smaller thing to erase. Ink out in the artwork was never
+            # this box's to clean.
+            glyph = _writing_in(gray, bubble, balloon=True)
 
     r = TextRegion(
         id=rec["id"], bbox=tuple(rec["bbox"]),
@@ -425,6 +848,7 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
         text_mask=glyph, bubble_mask=None if boxy else bubble,
         bubble_bbox=tuple(rec["bubble_bbox"]) if rec.get("bubble_bbox") else None,
         polygon=rec.get("polygon"), kind=rec.get("kind", "bubble"),
+        fit_poly=rec.get("fit_poly") or None,
         skip_clean=bool(rec.get("skip_clean", False)),
         link=int(rec.get("link", 0) or 0),
         link_kind=str(rec.get("link_kind", "") or ""),
@@ -435,6 +859,10 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
         speaker=rec.get("speaker"), confidence=rec.get("confidence", 0.0),
         flagged=rec.get("flagged"),
         layout_override=rec.get("layout_override"),
+        # A chapter written before this field existed has none, and comes back
+        # as "never measured" - which is true, and which the next Typeset
+        # fixes without asking anybody for anything.
+        layout_measured=rec.get("layout_measured"),
         # A record written before the axis reader existed has none of these,
         # and loads as "never measured" rather than as "measured at zero".
         angle=float(rec.get("angle") or 0.0),
@@ -449,10 +877,32 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
     # in the artwork, so there is nothing to read, nothing to translate and
     # nothing under it to erase - see the region endpoint in editor.py.
     r.own_text = bool(rec.get("own_text", False))   # type: ignore[attr-defined]
-    # A block with typesetting is typeset again from scratch by whichever stage
-    # asked for it, so its stored layout is not carried in. A block with NO
-    # typesetting has nothing to derive one from, and its frame - the size the
-    # person left the box at after deleting the words - is only in the record.
+    # SOMEBODY CHOSE THIS BOX'S TYPE, so nothing that guesses at types may
+    # overrule it. lee, on the reader labelling boxes: a type you set by hand
+    # coming back wrong on every re-read is worse than no labelling at all.
+    #
+    # Carried on the MODEL rather than left as a key on the record, because
+    # `commit()` rebuilds every record through `region_record()` and an
+    # editor-only key does not survive that - which is exactly the trap
+    # `_commit_keep_proofread` exists to work around for the `proofread` flag.
+    r.kind_by_hand = bool(rec.get("kind_by_hand", False))  # type: ignore[attr-defined]
+    r.angle_by_hand = bool(rec.get("angle_by_hand", False))  # type: ignore[attr-defined]
+    # THE STORED LAYOUT IS CARRIED IN, and this used to say the opposite: *a
+    # block with typesetting is typeset again from scratch by whichever stage
+    # asked for it*. That was true and it was expensive - laying a page out is
+    # 2.6 of the 3 seconds it takes to build one, and it was paid on every
+    # render, every export and every restart to arrive at the layout already
+    # written down here.
+    #
+    # What makes carrying it in safe is that it is STAMPED: `typeset_page`
+    # keeps it only when the page's fit key still matches, and lays the whole
+    # page out again otherwise. See `typeset.page_fit_key`. A layout with no
+    # stamp - written by an older build - has no key and is refitted, which is
+    # the old behaviour exactly.
+    #
+    # A block with NO typesetting has nothing to derive a layout from, and its
+    # frame - the size the person left the box at after deleting the words -
+    # is only in the record; that case was always restored and still is.
     lay = rec.get("layout") or {}
     if lay and not lay.get("lines") and lay.get("frame"):
         from .typeset import TextLayout
@@ -461,7 +911,27 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
             leading=float(lay.get("leading") or 1.2),
             line_origins=[], score=0.0,
             font_path=str(lay.get("font") or ""),
-            fit_ok=True, frame=[int(v) for v in lay["frame"]])
+            fit_ok=True, frame=[int(v) for v in lay["frame"]],
+            fit=str(lay.get("fit") or ""))
+    elif lay and lay.get("lines") and lay.get("fit"):
+        from .typeset import TextLayout
+        r.layout = TextLayout(
+            lines=[str(x) for x in lay.get("lines") or []],
+            font_size=int(lay.get("font_size") or 12),
+            leading=float(lay.get("leading") or 1.2),
+            line_origins=[(int(a), int(b))
+                          for a, b in (lay.get("origins") or [])],
+            used_compact=bool(lay.get("used_compact", False)),
+            fit_ok=bool(lay.get("fit_ok", True)), score=0.0,
+            font_path=str(lay.get("font") or ""),
+            fg=str(lay.get("fg") or "#000000"),
+            edge=str(lay.get("edge") or "#ffffff"),
+            stroke=int(lay.get("stroke") or 1),
+            rotate=float(lay.get("rotate") or 0.0),
+            frame=([int(v) for v in lay["frame"]]
+                   if lay.get("frame") else None),
+            fixed=bool(lay.get("fixed", False)),
+            fit=str(lay.get("fit")))
     return r
 
 
@@ -634,7 +1104,9 @@ class PageState:
     @property
     def active(self) -> list[dict]:
         """The boxes that count - everything except a hidden group."""
-        return [r for r in self.regions if self.shown(r)]
+        out = [r for r in self.regions if self.shown(r)]
+        _fill_auto_glow(out)
+        return out
 
     @property
     def hidden(self) -> list[dict]:
@@ -884,15 +1356,33 @@ def _say_page_cost(proj, page, t0, n, load=0.0):
     """
     import sys
     took = time.time() - t0
-    if took + load < SAY_PAGE_OVER:
+    # THE FIRST PAGE OF A PROCESS ALWAYS SAYS SO, however fast it was.
+    #
+    # lee: *"koren detector is taking 13 second per page"*. Thirteen is under
+    # the bar, so a whole chapter ran and left nothing on record at all -
+    # not the route, not the page size, not the machine line. The bar exists
+    # so a run that behaves stays quiet, and one line at the top of a run is
+    # not noise: it is the baseline every later line is read against, and it
+    # is the only line there is when nothing is slow enough to complain.
+    if took + load < SAY_PAGE_OVER and _say_page_cost._machine_said:
         return
     route = proj.route_name()
     im = getattr(page, "image", None)
     size = "%dx%d" % (im.shape[1], im.shape[0]) if im is not None else "?"
+    # ...and WHERE IN THE ROUTE it went, when the route can say. "Thirteen
+    # seconds" cannot be acted on; "mask 11.4s, boxes 1.2s" names the model
+    # to go and look at. See `detect/webtoon.LAST_SPLIT`.
+    split = ""
+    try:
+        from .detect import webtoon as _wt
+        if proj.route_key() in ("webtoon_ko", "webtoon_zh") and _wt.LAST_SPLIT:
+            split = "  [" + _wt.LAST_SPLIT + "]"
+    except Exception:
+        pass
     line = ("find text  %-14s %-11s %-22s load %5.1fs  detect %6.1fs  "
-            "total %6.1fs  %d boxes"
+            "total %6.1fs  %d boxes%s"
             % (os.path.basename(getattr(page, "source_path", "") or "page"),
-               size, route, load, took, took + load, n))
+               size, route, load, took, took + load, n, split))
     if not _say_page_cost._machine_said:
         # To the CONSOLE as well as the file. lee pasted the console lines
         # back by hand, which means the console is what he actually reads -
@@ -900,6 +1390,14 @@ def _say_page_cost(proj, page, t0, n, load=0.0):
         # diagnosis nobody collects.
         print(_machine_line(), file=sys.stderr, flush=True)
     print(line, file=sys.stderr, flush=True)
+    # SAID, now that it has been said. The flag used to be set inside the
+    # file-writing block below, which returns early for a project with no
+    # folder - so on one of those it was never set, and every page said the
+    # machine line again. It did not show while only slow pages spoke; the
+    # moment the FIRST page of a run always speaks, "the first" has to be a
+    # thing this can actually tell.
+    first, _say_page_cost._machine_said = \
+        not _say_page_cost._machine_said, True
     # ...AND INTO A FILE, because the console is the one place lee never
     # looks - the app is started by a double-click on Windows and the window
     # behind it might as well not exist. `out/slow-pages.txt` sits in the
@@ -912,8 +1410,7 @@ def _say_page_cost(proj, page, t0, n, load=0.0):
     try:
         with open(os.path.join(out, "slow-pages.txt"),
                   "a", encoding="utf-8") as f:
-            if not _say_page_cost._machine_said:
-                _say_page_cost._machine_said = True
+            if first:
                 f.write(time.strftime("%H:%M:%S  ") + _machine_line() + "\n")
             f.write(time.strftime("%H:%M:%S  ") + line + "\n")
     except OSError:
@@ -1013,6 +1510,48 @@ def token_state(tok: str | None) -> str:
 # re-cut behind his back.
 STRIP_MEDIA = {"manhwa", "manhua"}
 
+#: The thinnest a cut piece may be, in rows. A sliver is not a page, and a
+#: click sixteen rows from the top of a strip is a mis-click rather than a
+#: decision. It applies at the edges AND between two cuts: a fourteen-row page
+#: in the middle of a chapter is the same mistake as one at the end of it.
+SLIVER = 16
+
+
+def _part_suffix(k: int, n: int = 1) -> str:
+    """`a`, `b`, ... for the k-th of n pieces of a cut page.
+
+    The letter is what makes `012a` and `012b` sort where `012` sorted, which
+    is the only thing holding a chapter in reading order between the cut and
+    `renumber_pages`. So it has to sort, and `a, b, ... z, aa` does NOT: `aa`
+    comes before `b` in every sort there is. The width is fixed by how many
+    pieces there are instead - one letter up to 26, two past it - which keeps
+    `a`/`b` for the ordinary cut and stays in order for a page nobody should
+    have cut into thirty.
+    """
+    width = 1
+    while 26 ** width < max(1, int(n)):
+        width += 1
+    s, k = "", int(k)
+    for _ in range(width):
+        s = chr(ord("a") + k % 26) + s
+        k //= 26
+    return s
+
+
+# The cleaner's address, built in.
+#
+# lee, having deployed it: *"make it built in the app and not a thing i have to
+# add to the app"*. It is a PUBLIC address - the token beside it is what guards
+# the endpoint - so the app can carry it and one less thing gets pasted into a
+# new project. Anything typed into Settings still wins; this is only what an
+# empty box means.
+#
+# The token is deliberately NOT here. Shipping that would let anyone holding a
+# copy of the app spend the GPU time it pays for, which is a bill nobody can
+# cap - see `test_nothing_that_ships_looks_like_a_key`, which is the guard that
+# says so.
+CLEAN_URL = ("https://leemarvinbernard--mangatl-clean-lama"
+             "-cleaner-clean.modal.run")
 
 class Project:
     def __init__(self, input_dir: str | None, output_dir: str):
@@ -1070,6 +1609,30 @@ class Project:
             # saved by an older copy of the app has a word in it, and a key
             # that vanishes from the sheet is a key the next save deletes.
             "ocr_detail": "",
+            # Whether Read text also says what KIND each box is - a thought
+            # balloon, a burst, a caption box, a big or a small sound effect.
+            # lee: *"alos coun;t read text do the same thing after its done
+            # reading teh text?"*
+            #
+            # OFF by default. lee: *"also make it off by defualt"*, and it is
+            # the way round this belongs: it is a REQUEST, not free - one more
+            # turn per page, carrying a 768px picture and a 1,379-token prompt
+            # - and a setting that spends money without being asked for is one
+            # people find out about from their bill.
+            #
+            # It also CHANGES boxes, which is the other reason. Read text was
+            # cut back to reading and two deletions at lee's own request:
+            # *"make it so that read text only read teh etxt and not modify
+            # boxes exapt for..."*. A pass that relabels every box on the page
+            # belongs behind a switch somebody threw.
+            #
+            # Only consulted on the AI path. The offline reader's whole promise
+            # is no key, no network and no coins, and quietly making a request
+            # on its behalf would break it - so an offline chapter is read
+            # offline and keeps the types the detector gave it. See
+            # `editor.labels_boxes`, which is the one place both halves of that
+            # question are asked.
+            "label_kinds": False,
             # WHO reads: "ai" (the vision model) or "offline" (manga-ocr on
             # this computer, easyocr for Korean and Chinese). Picked on the
             # Read text dialog, on two cards, not on the settings screen -
@@ -1133,7 +1696,21 @@ class Project:
             "backend": "anthropic", "base_url": "",
             "model": "claude-sonnet-5", "api_key": "",
             # AI cleaning (hosted manga inpainter): off | hard | all
-            "ai_clean": "off", "clean_url": "", "clean_token": "",
+            "ai_clean": "off", "clean_url": CLEAN_URL, "clean_token": "",
+            # ...and WHICH eraser the endpoint should use: one deploy of
+            # `lama_clean_modal.py` serves both. See `editor.CLEAN_MODELS`.
+            "clean_model": "anime-lama",
+            # ...and whether the text detector is used WHILE cleaning: asked
+            # what the writing is before erasing (`inpaint._reader_ink`), and
+            # asked again of the finished plate to catch what was missed
+            # (`inpaint._reread`). lee, with two crops of a cleaned balloon
+            # that still plainly says what it said: *"can you fix the issue of
+            # the text not fully getting clenned off boxes"*, and then, with a
+            # sound effect whose box came back as a rebuilt rectangle of
+            # screentone: *"see how i can see the lines of teh clenner"*. On by
+            # default: it costs two forward passes on a page being cleaned and
+            # needs nothing the project has not already got.
+            "clean_reread": True,
             # The model each step runs on, and the WHOLE of what it runs on:
             # there is no project-wide engine behind these any more. There were
             # two of them - a "Claude model" menu and a "Translation engine"
@@ -1176,17 +1753,22 @@ class Project:
             # fragment goes and the box that holds all of it stays. See
             # `editor.read_twice_boxes`.
             #
-            # No switch on the settings page: it removes a box that holds no
-            # writing of its own, which is the same job as the two drops
-            # either side of it, and none of the three is a question worth
-            # asking. The key is still read, so a project that turns it off by
-            # hand is obeyed.
+            # This said "no switch on the settings page ... not a question
+            # worth asking" and it was wrong, twice over. It ran on every read
+            # with nowhere to stop it, and the sibling below ran the same way:
+            # a comparison of three readers over one chapter lost a box on
+            # page 005 that plainly reads 슈, because one reader gave up on it
+            # and the drop took it at its word. Both switches are back on the
+            # settings page. A pass that deletes somebody's work is always a
+            # question worth asking.
             "drop_read_twice": True,
             # ...and a box the reader found NOTHING in at all. lee: *"if it
             # return nothing then delete that box that probly mena that teh
             # box was bad anyways"*. Guarded against a reader outage -- see
             # `editor.empty_boxes`, which deletes nothing on a page where
-            # every box came back empty.
+            # every box came back empty. That guard catches a reader that dies
+            # on a WHOLE page and not one that shrugs at a single box, which
+            # is what the switch is for.
             "drop_empty": True,
             # DBNet read both ways plus DB++/COO, instead of
             # comic-text-detector's own block head. OFF by default and off on
@@ -1204,6 +1786,22 @@ class Project:
             # every line of dialogue and every caption found, zero junk, at
             # 14.5 s/page. See `animetext`.
             "animetext": True,
+            # A YOLOv8 trained on WEBTOON pages for the balloons, with
+            # comic-text-detector for the ink. ON by default, which is how a
+            # manhwa and a manhua get a different default route to a manga
+            # without a per-format defaults table: `webtoon_ko()` asks
+            # `why_not_webtoon_ko` asks the medium, so on a manga the flag is
+            # set and the route is guarded off and AnimeText below wins, and
+            # on a strip it is asked first and wins. The settings page reaches
+            # the same answer the same way -- `ROUTE_MEDIA` in project.js.
+            #
+            # Off without the 12MB checkpoint, like the rest, so a machine
+            # that has not downloaded it falls through to what it had.
+            "webtoon_ko": True,
+            # The same job trained on a Chinese chapter, as a second opinion.
+            # NOT a language split: it finds slightly MORE on Korean pages
+            # than the Korean one does. See `detect/webtoon.py`.
+            "webtoon_zh": False,
             # THE REORDERED PIPELINE. Detect, read every box, THEN name it,
             # instead of asking a second neural net at detection time what a
             # box is. Free: the OCR runs on every region anyway, sound
@@ -1232,7 +1830,8 @@ class Project:
             # they existed, so nothing changes for a chapter already in
             # progress.
             "story": True,
-            "learn_characters": True,
+            "learn_characters": True, "keep_honorifics": True,
+            "retype_kinds": False,
             "learn_terms": True,
             "name_speakers": True,
             # ONE KEY PER SERVICE, not one per step.
@@ -1749,8 +2348,14 @@ class Project:
         self.save()
         return len(moves)
 
-    def split_page(self, i: int, at: int) -> tuple[bool, str]:
-        """Cut one page in two, at a row the person chose.
+    def split_page(self, i: int, at) -> tuple[bool, str]:
+        """Cut one page at the rows the person chose.
+
+        `at` is one row or a list of them. lee: *"can you make it so that i
+        can have multiple cut lines"* - a 10,413-row webtoon is four or five
+        pages long, and cutting it one row at a time meant reopening the
+        dialog on a half whose panels had all moved, four times over, with a
+        renumber and a reload between each. One pass, N+1 pages.
 
         lee: *"add page splitter that allow the user to splite the pages
         manualy"*. The automatic re-cut only runs on a chapter that arrived as
@@ -1792,22 +2397,41 @@ class Project:
         if img is None:
             return False, "that page cannot be read"
         h = img.shape[0]
-        at = int(at)
+        # ONE ROW OR MANY, and the rest of this does not care which. Sorted
+        # and de-duplicated because two cuts on the same row is one cut, and
+        # because the parts are only in reading order if the rows are.
+        rows = sorted({int(a) for a in
+                       (at if isinstance(at, (list, tuple, set)) else [at])})
+        if not rows:
+            return False, "no cut was asked for"
         # A sliver is not a page, and a cut at the very edge is a mis-click
-        # rather than a decision.
-        if not (16 <= at <= h - 16):
-            return False, f"the cut has to be inside the page (1 to {h - 1})"
+        # rather than a decision. The same distance applies BETWEEN two cuts:
+        # a fourteen-row page in the middle of a chapter is the same mistake
+        # as a fourteen-row page at the end of one.
+        for a in rows:
+            if not (SLIVER <= a <= h - SLIVER):
+                return False, (f"the cut has to be inside the page "
+                               f"(1 to {h - 1})")
+        for a, b in zip(rows, rows[1:]):
+            if b - a < SLIVER:
+                return False, (f"two cuts {b - a} rows apart leave a page "
+                               f"nobody can read - keep them {SLIVER} apart")
 
         stem, ext = os.path.splitext(os.path.basename(pg.path))
         if ext.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".bmp"):
             ext = ".png"
         folder = os.path.dirname(pg.path)
+        # The boundaries, top to bottom: the page's own top, every cut, and
+        # the page's own bottom. N cuts make N+1 pages.
+        edges = [0] + rows + [h]
+        pieces = len(edges) - 1
         made = []
-        for k, part in enumerate((img[:at], img[at:])):
-            name = f"{stem}{'ab'[k]}{ext}"
+        for k in range(pieces):
+            part = img[edges[k]:edges[k + 1]]
+            name = f"{stem}{_part_suffix(k, pieces)}{ext}"
             n = 2
             while os.path.exists(os.path.join(folder, name)):
-                name = f"{stem}{'ab'[k]}{n}{ext}"
+                name = f"{stem}{_part_suffix(k, pieces)}{n}{ext}"
                 n += 1
             if not imgio.imwrite(os.path.join(folder, name), part):
                 for done in made:
@@ -1815,7 +2439,7 @@ class Project:
                         os.remove(os.path.join(folder, done[0]))
                     except OSError:
                         pass
-                return False, "the halves could not be written"
+                return False, "the pieces could not be written"
             made.append((name, part.shape[1], part.shape[0]))
 
         keep = os.path.join(folder, "split")
@@ -1827,26 +2451,27 @@ class Project:
             # is rather than lose it. It stops being a page either way.
             pass
 
-        halves = [PageState(path=os.path.join(folder, name), name=name,
-                            width=w, height=ph)
-                  for name, w, ph in made]
+        parts = [PageState(path=os.path.join(folder, name), name=name,
+                           width=w, height=ph)
+                 for name, w, ph in made]
         clipped = 0
-        for k, half in enumerate(halves):
-            half.detected = pg.detected
-            clipped += self._carry_regions(pg, half, at if k else 0,
-                                           half.height)
+        for k, part in enumerate(parts):
+            part.detected = pg.detected
+            # `edges[k]` is where this piece starts in the page it came from,
+            # which is what every box on it has to be measured from now.
+            clipped += self._carry_regions(pg, part, edges[k], part.height)
         # The plate and the laid-out text are page-sized pictures of a page
         # that no longer exists. Both are rebuilt from the boxes that just
         # moved, so they are dropped rather than carried wrong.
-        for half in halves:
-            half.cleaned = half.typeset = half.exported = False
+        for part in parts:
+            part.cleaned = part.typeset = part.exported = False
         if pg.note:
-            halves[0].note = pg.note
-            for half in halves:
-                half.note_ids = [r["id"] for r in half.regions
+            parts[0].note = pg.note
+            for part in parts:
+                part.note_ids = [r["id"] for r in part.regions
                                  if r.get("id") in (pg.note_ids or [])]
         self._last_split_clipped = clipped
-        self.pages[i:i + 1] = halves
+        self.pages[i:i + 1] = parts
         self._img_cache.clear()
         self.save()
         # `012a` and `012b` sort where `012` sorted, which is right and is also
@@ -2264,16 +2889,58 @@ class Project:
     #: The same words as the buttons in the settings page, because a message
     #: naming a route by its settings key is a message nobody can match to
     #: what they clicked.
-    ROUTE_NAMES = (("animetext", "AnimeText YOLO12-L"),
+    ROUTE_NAMES = (("webtoon_ko", "Webtoon balloons KO"),
+                   ("webtoon_zh", "Webtoon balloons ZH"),
+                   ("animetext", "AnimeText YOLO12-L"),
                    ("manga_segmenter", "Manga109 YOLO26"),
                    ("two_specialists", "DB++ / COO"))
 
+    #: Which formats each card is offered on. The same table as `ROUTE_MEDIA`
+    #: in project.js, and the same table as the `why_not_*` guards - said here
+    #: because a flag being SET is not the same as its route being the one
+    #: that runs. `webtoon_ko` ships on, so that a manhwa gets a webtoon
+    #: default with no per-format defaults table; on a manga that flag is set
+    #: and guarded off, and anything reading the flags alone would name a
+    #: route that cannot run and warm a model nothing will call.
+    #: (a method, because `ANIME_MEDIA` and `TWO_MEDIA` are further down the
+    #: class body than this line and a dict literal here would read them
+    #: before they exist.)
+    def route_media(self) -> dict:
+        return {"webtoon_ko": tuple(STRIP_MEDIA),
+                "webtoon_zh": tuple(STRIP_MEDIA),
+                "animetext": tuple(self.ANIME_MEDIA),
+                "manga_segmenter": tuple(self.TWO_MEDIA),
+                "two_specialists": tuple(self.TWO_MEDIA)}
+
+    def route_here(self, key: str) -> bool:
+        """Is this card on screen, and its route runnable, on this format?"""
+        return self.medium in self.route_media().get(key, self.ANIME_MEDIA)
+
+    def route_key(self) -> str:
+        """Which route actually runs, as its settings key. "" is the plain one.
+
+        NOT "which flag is set". Two can be set at once and mean it - see
+        `webtoon_ko` in the defaults - and the one that runs is the first that
+        this format offers, which is the order `_detect_measured` asks them
+        in and the order the cards are in on screen.
+
+        Nor "which flag is set on the right format": the checkpoint has to be
+        on the machine too. Each route already has a predicate that asks its
+        own `why_not` - `self.animetext()`, `self.webtoon_ko()` - and asking
+        THOSE is what keeps this answer the same as the one the run makes. A
+        name read off the flags alone is how a slow-page line comes to name a
+        route that never ran.
+        """
+        for key, _name in self.ROUTE_NAMES:
+            ask = getattr(self, key, None)
+            if callable(ask) and ask():
+                return key
+        return ""
+
     def route_name(self) -> str:
         """Which detector card is on, in the words on the card."""
-        for key, name in self.ROUTE_NAMES:
-            if self.settings.get(key):
-                return name
-        return "comic-text-detector"
+        key = self.route_key()
+        return dict(self.ROUTE_NAMES).get(key, "comic-text-detector")
 
     def warm_models(self) -> str:
         """Load the picked route's checkpoints now, so no page pays for them.
@@ -2295,6 +2962,12 @@ class Project:
         again properly - with a sentence somebody can act on - by `why_not`.
         """
         name = self.route_name()
+        # WHICH ROUTE RUNS, not which flags are set. `webtoon_ko` ships on so
+        # that a strip gets a webtoon default, which means on a manga its flag
+        # is set and its route is guarded off - and warming a model nothing
+        # will call is exactly the fifteen seconds this whole method exists to
+        # stop somebody paying.
+        key = self.route_key()
         ctd = self.detector_weights()
         # A BLANK PAGE THROUGH EACH NET, not just the file off the disk.
         #
@@ -2311,17 +2984,27 @@ class Project:
                 from .detect import comictext as _ct
                 _ct._get_net(ctd)
                 _ct.page_text_mask(blank, ctd)
-            if self.settings.get("animetext"):
+            if key == "animetext":
                 from .detect import animetext as _at
                 if not _at.why_not(self.animetext_weights()):
                     _at.pieces(blank, self.animetext_weights())
-            if self.settings.get("manga_segmenter"):
+            if key == "manga_segmenter":
                 from .detect import mangaseg as _ms
                 if not _ms.why_not(self.m109_weights()):
                     _ms.pieces(blank, self.m109_weights())
+            if key in ("webtoon_ko", "webtoon_zh"):
+                from .detect import webtoon as _wt
+                w = (self.webtoon_ko_weights() if key == "webtoon_ko"
+                     else self.webtoon_zh_weights())
+                if not _wt.why_not(w):
+                    _wt.pieces(blank, w)
             # ...and the sound-effect model, which every route but the plain
-            # one asks for. It is the 116MB one, and the slowest of the lot.
-            if any(self.settings.get(k) for k, _ in self.ROUTE_NAMES):
+            # one and the webtoon pair asks for. It is the 116MB one, and the
+            # slowest of the lot, so the pair that has no use for it does not
+            # pay fifteen seconds to load it: `detect_webtoon` takes `want_sfx`
+            # and ignores it, because these models answer balloon or
+            # not-balloon and have no class for a painted sound.
+            elif key:
                 from .detect import onomatopoeia as _oo
                 if not _oo.why_not(self.coo_weights()):
                     _oo.pieces(blank, self.coo_weights())
@@ -2373,6 +3056,14 @@ class Project:
         named = (self.settings.get("weights") or "").strip()
         if named:
             return os.path.dirname(named)
+        # The launcher keeps the weights OUTSIDE the app folder, because the
+        # app folder is replaced on every update and half a gigabyte of
+        # checkpoints should not be downloaded again for a bug fix. It says
+        # where with `MANGATL_WEIGHTS`; a checkout run by hand has none set
+        # and finds them beside the code, as it always has.
+        env = (os.environ.get("MANGATL_WEIGHTS") or "").strip()
+        if env and os.path.isdir(env):
+            return env
         return os.path.dirname(os.path.abspath(__file__))
 
     def _beside(self, named: str, *files: str) -> str:
@@ -2424,13 +3115,55 @@ class Project:
 
     def why_not_animetext(self) -> str:
         """Why the AnimeText route cannot run, in a sentence, or empty."""
-        if self.medium not in self.TWO_MEDIA:
-            return ("this was measured on manga and only on manga -- see "
-                    "Project.TWO_MEDIA")
+        if self.medium not in self.ANIME_MEDIA:
+            return ("this route is offered on %s -- see Project.ANIME_MEDIA"
+                    % ", ".join(self.ANIME_MEDIA))
         if not self.detector_weights():
             return "comic-text-detector weights are needed for the clean mask"
         from .detect import animetext as _at
         return _at.why_not(self.animetext_weights())
+
+    # ---------------------------------------------- the two webtoon finders
+
+    def webtoon_ko_weights(self) -> str:
+        """The Korean webtoon balloon model. See `detect/webtoon.py`."""
+        return self._beside("webtoon_ko_weights", "webtoon-ko.onnx",
+                            "korean_webtoon.onnx")
+
+    def webtoon_zh_weights(self) -> str:
+        """The Chinese webtoon balloon model. See `detect/webtoon.py`."""
+        return self._beside("webtoon_zh_weights", "webtoon-zh.onnx",
+                            "chinese_webtoon.onnx")
+
+    def webtoon_ko(self) -> bool:
+        """Is the Korean webtoon route on, and can it actually run?"""
+        if not self.settings.get("webtoon_ko"):
+            return False
+        return not self.why_not_webtoon_ko()
+
+    def webtoon_zh(self) -> bool:
+        """Is the Chinese webtoon route on, and can it actually run?"""
+        if not self.settings.get("webtoon_zh"):
+            return False
+        return not self.why_not_webtoon_zh()
+
+    def _why_not_webtoon(self, path: str) -> str:
+        """The half both webtoon cards answer the same way."""
+        if self.medium not in STRIP_MEDIA:
+            return ("this was measured on webtoons -- it is offered on %s"
+                    % " and ".join(sorted(STRIP_MEDIA)))
+        if not self.detector_weights():
+            return "comic-text-detector weights are needed for the clean mask"
+        from .detect import webtoon as _wt
+        return _wt.why_not(path)
+
+    def why_not_webtoon_ko(self) -> str:
+        """Why the Korean webtoon route cannot run, in a sentence, or empty."""
+        return self._why_not_webtoon(self.webtoon_ko_weights())
+
+    def why_not_webtoon_zh(self) -> str:
+        """Why the Chinese webtoon route cannot run, in a sentence, or empty."""
+        return self._why_not_webtoon(self.webtoon_zh_weights())
 
     def m109_weights(self) -> str:
         """The Manga109 YOLO26 segmenter. See `detect/mangaseg.py`.
@@ -2475,6 +3208,21 @@ class Project:
         return self._beside("coo_weights", "dbpp_coo.dat", "dbpp_coo.pth",
                             "DB_finetune_COO")
 
+    def paint_weights(self) -> str:
+        """TRBA+2D, the recogniser from the other half of the COO paper.
+
+        The reader on this computer for writing that was PAINTED - see
+        `paintread`. Found the same way every other checkpoint is: named in the
+        settings, or lying beside the detector, so that downloading the file
+        next to the others is the whole of the setup.
+
+        Absent is not an error. With no file here the offline reader behaves
+        exactly as it did before this existed, and says so on the sound-effect
+        boxes it is least sure of.
+        """
+        from . import paintread
+        return self._beside("paint_weights", *paintread.WEIGHT_NAMES)
+
     #: WHICH FORMATS THIS IS OFFERED ON, and it is one.
     #:
     #: lee: *"this htuff shoud only be for manga"*. Every number in the route
@@ -2487,6 +3235,22 @@ class Project:
     #: A guard rather than a warning, because the caption saying "measured on
     #: manga only" was one, and a warning is a thing somebody reads once.
     TWO_MEDIA = ("manga",)
+
+    #: ...AND THE ONE ROUTE THAT EARNED A WIDER LIST.
+    #:
+    #: `TWO_MEDIA` above is a guard on numbers swept on manga fragments, and
+    #: it still holds for DB++/COO and the Manga109 segmenter: measured on
+    #: lee's own webtoon pages, the segmenter finds NOTHING at all (0 boxes
+    #: on two pages that carry five balloons between them) and COO's answer
+    #: is only ever a label for a box something else found.
+    #:
+    #: AnimeText is the one that transfers. On the same pages it found 3 and
+    #: 5 boxes against comic-text-detector's 4 and 3, including a caption
+    #: stack CTD missed - so it is offered on webtoons too, and lee picked it
+    #: off the comparison sheet on that evidence. A guard is worth keeping
+    #: where the measurement says keep it and worth widening where the
+    #: measurement says widen it; what it is not worth is being uniform.
+    ANIME_MEDIA = ("manga", "manhwa", "manhua")
 
     def two_specialists(self) -> bool:
         """Is the DBNet + COO route on, and can it actually run?
@@ -2568,6 +3332,20 @@ class Project:
         # when they are not. AnimeText has ONE class, so without it there is
         # no sound-effect family at all and painted type comes back as
         # dialogue -- 179 bubble boxes against 149. See `dbcoo.detect_animetext`.
+        # THE WEBTOON FINDERS FIRST, because they are the only ones on this
+        # page that were trained on one. Under a second against 20-26 s for
+        # comic-text-detector on the same tile; see `detect/webtoon.py` for
+        # the sweep and for why the pair is not a language split.
+        if (self.webtoon_ko() or self.webtoon_zh()) and weights:
+            from .detect import comictext as _ct
+            from .detect import webtoon as _wt
+            return _wt.detect_webtoon(
+                page, weights,
+                (self.webtoon_ko_weights() if self.webtoon_ko()
+                 else self.webtoon_zh_weights()),
+                classify=self.settings.get("auto_kind", True),
+                want_sfx=("sfx" in kinds),
+                **_ct.tuning_for(self.medium))
         if self.animetext() and weights:
             from .detect import comictext as _ct
             from .detect import dbcoo
@@ -2833,6 +3611,17 @@ class Project:
         # Find text REPLACES this page's boxes, so the ones it superseded do
         # not come back, hidden or not.
         self.commit(i, page, keep_hidden=False)
+        # ...and every new outline gets its second opinion at the door: a
+        # balloon-claiming box whose outline is not where any balloon is
+        # gets flagged before anything downstream trusts it, and one whose
+        # writing sits inside a single model balloon gets that balloon as
+        # its TYPESETTING shape (`fit_poly` - the cleaner never reads it;
+        # lee: "it should only help the typesetter on bubble text"). About
+        # a second on the 3-14s this step already costs, and silent when
+        # the model or ultralytics is absent. See `balloonck` for the trial
+        # it earned its place in.
+        from . import balloonck
+        balloonck.check_page(self, i, img=page.image)
 
     def summary(self) -> dict:
         return {
@@ -2840,17 +3629,36 @@ class Project:
             "output_dir": self.output_dir,
             "settings": {**self.settings,
                          "api_key": "set" if self.settings.get("api_key") else "",
-                         "clean_token": token_state(
-                             self.settings.get("clean_token")),
+                         # A token in the `.env` outranks the chapter's own -
+                         # see `editor.clean_token_for` - so the screen has to
+                         # report the one that will actually be SENT.
+                         # Reporting the chapter's would print "still the
+                         # CHANGE-ME example" under a box that cleans
+                         # perfectly well, which is the same class of lie the
+                         # third state was added to stop.
+                         "clean_token": (ENV
+                                         if _userdata.env_key("clean")
+                                         else token_state(
+                                             self.settings.get("clean_token"))),
                          **{f"{k}_key": ("set" if self.settings.get(f"{k}_key")
                                          else "")
                             # AI_STEPS, not a copy of it: a hardcoded list
                             # here meant a fourth step's key went to the
                             # browser in the clear the moment one was added.
                             for k in AI_STEPS},
-                         **{f"key_{s}": ("set" if self.settings.get(f"key_{s}")
-                                         else "")
+                         **{f"key_{s}": (ENV if _userdata.env_key(s)
+                                         else ("set"
+                                               if self.settings.get(f"key_{s}")
+                                               else ""))
                             for s in SERVICES}},
+            # Which of the four secrets the `.env` answers for, and where that
+            # file is. Booleans and a path; no secret is in here. lee:
+            # *"they key shoud be in the .env file and all teh project shoud
+            # use them"* - and a file nothing on screen mentions is a file you
+            # cannot tell is being read, which is how a stale copy in a
+            # chapter goes on being blamed for a key that was rolled.
+            "env_keys": _userdata.env_state(),
+            "env_path": _userdata.env_path(),
             # `title` was saved, written into every export and used to name
             # the files -- and never sent BACK, so the box in Settings read
             # empty on every reload and the name looked lost. It is story
@@ -2873,6 +3681,14 @@ class Project:
             # "about two fifths of the page" in the markup, which was the
             # webtoon number written down twice. See `BIG_SFX_BY_MEDIUM`.
             "big_sfx_share": big_sfx_share(self.medium),
+            # ...and which makers have nothing that can be shown a picture, so
+            # the AI company menu on READ TEXT can leave them out. Sent for
+            # the third time for the third time's reason: which models are
+            # blind is `coins.NO_SIGHT`, the model menu is already filtered by
+            # it server-side, and a copy of that list in JavaScript would be a
+            # menu that goes on offering DeepSeek for a job it cannot do the
+            # day the table changes. See `coins.blind_makers`.
+            "blind_makers": _coins.blind_makers(),
             # WHICH comic-text-detector is actually being used, so the settings
             # page can say so under an empty "Model file" box. An empty box now
             # means "look beside the app" rather than "give up", and a box that
@@ -2893,33 +3709,57 @@ class Project:
             # not, which is worth saying out loud -- somebody who downloaded
             # one file and stopped should be told which one is missing.
             "two_specialists": {
-                "ready": bool(self.medium in self.TWO_MEDIA
+                "ready": bool(self.route_here("two_specialists")
                               and self.coo_weights()
                               and not self.why_not_two_specialists()),
                 # `partly` is what puts a DISABLED row on screen with the
                 # reason in it, and it is false on a manhwa on purpose: a
                 # format this was never measured on should not be shown a
                 # switch at all, where a manga missing one download should.
-                "partly": bool(self.medium in self.TWO_MEDIA),
+                "partly": self.route_here("two_specialists"),
                 "on": bool(self.settings.get("two_specialists")),
                 "why": self.why_not_two_specialists(),
             },
-            # ...and the same three answers for the AnimeText route.
+            # ...and the same three answers for the AnimeText route, which is
+            # offered on all three formats and so asks `ANIME_MEDIA`. It asked
+            # `TWO_MEDIA` here for as long as those were the same set, and
+            # went on asking it after they stopped being - which showed as a
+            # card missing from a manhwa whose route ran perfectly well on
+            # one. The guard a row is drawn from has to be the guard the run
+            # is decided by.
             "animetext": {
-                "ready": bool(self.medium in self.TWO_MEDIA
+                "ready": bool(self.route_here("animetext")
                               and self.animetext_weights()
                               and not self.why_not_animetext()),
-                "partly": bool(self.medium in self.TWO_MEDIA),
+                "partly": self.route_here("animetext"),
                 "on": bool(self.settings.get("animetext")),
                 "why": self.why_not_animetext(),
+            },
+            # ...and for the two webtoon models, which are the other way
+            # round: offered on a strip and guarded off a manga.
+            "webtoon_ko": {
+                "ready": bool(self.route_here("webtoon_ko")
+                              and self.webtoon_ko_weights()
+                              and not self.why_not_webtoon_ko()),
+                "partly": self.route_here("webtoon_ko"),
+                "on": bool(self.settings.get("webtoon_ko")),
+                "why": self.why_not_webtoon_ko(),
+            },
+            "webtoon_zh": {
+                "ready": bool(self.route_here("webtoon_zh")
+                              and self.webtoon_zh_weights()
+                              and not self.why_not_webtoon_zh()),
+                "partly": self.route_here("webtoon_zh"),
+                "on": bool(self.settings.get("webtoon_zh")),
+                "why": self.why_not_webtoon_zh(),
             },
             # ...and the same three answers for the Manga109 route, which
             # needs one 23MB file instead of two large ones.
             "manga_segmenter": {
-                "ready": bool(self.medium in self.TWO_MEDIA
+                "ready": bool(self.route_here("manga_segmenter")
                               and self.m109_weights()
                               and not self.why_not_manga_segmenter()),
-                "partly": bool(self.medium in self.TWO_MEDIA),
+                "partly": self.route_here("manga_segmenter"),
                 "on": bool(self.settings.get("manga_segmenter")),
                 "why": self.why_not_manga_segmenter(),
             },

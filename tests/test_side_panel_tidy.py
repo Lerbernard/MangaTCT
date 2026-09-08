@@ -449,6 +449,21 @@ def test_chromium_is_left_on_its_own_scrollbar_rules():
     _panel(check)
 
 
+def _saved(pg, timeout=180000):
+    """Wait until the app says it has finished saving, then look.
+
+    Polling the file on a stopwatch is guessing at how long a machine takes,
+    and in a full run - twenty-five files and a browser each - a save that
+    re-lays a block out and rebuilds a page can take tens of seconds. The
+    browser knows the answer exactly: nothing is dirty and no lane of
+    `saveTypesetting._q` is still holding a request. So ask it.
+    """
+    pg.wait_for_function(
+        "()=>(typeof typesetDirty==='undefined'||typesetDirty===null)"
+        "&&!(saveTypesetting._q&&Object.keys(saveTypesetting._q).length)",
+        timeout=timeout)
+
+
 def test_the_outline_arrow_does_not_snap_the_value_back():
     """lee: *"i can manuly tye a number and wheni try to use teh arrow its
     reverts back to 1"*.
@@ -457,17 +472,76 @@ def test_the_outline_arrow_does_not_snap_the_value_back():
     save rebuilds the panel, and every style field in it read the SAVED copy of
     the value rather than the live one - so the rebuild put back the number
     from before the press, and `||1` turned the miss into a 1.
+
+    ## And the same complaint from the other end
+
+    The panel was fixed and the FILE still ended up with the wrong number. Four
+    presses posted 2, 3, 4 and 5, in that order, a fifth of a second apart, and
+    what was saved was **4**: four overlapping read-modify-writes on a threaded
+    server, and the one that finished last won whatever it had read first. On
+    screen everything said 5.
+
+    This test used to pass on that bug. It waited a flat 1200ms and looked -
+    which is a sample of a race, not a check of a result, and the sample it
+    happened to take was usually 5. `saveTypesetting` queues per region now, so
+    the answer is settled rather than lucky, and the wait below is for THE
+    THING BEING ASSERTED rather than for a number of milliseconds: a save
+    re-lays the block out and rebuilds the page, and how long that takes is not
+    this test's business.
     """
     def check(pg, p):
         before = pg.evaluate("+document.getElementById('lyStroke').value")
         for _ in range(4):
             pg.click("#lyStroke ~ .numbtn.up")
             pg.wait_for_timeout(60)
-        pg.wait_for_timeout(1200)
         assert pg.evaluate("+document.getElementById('lyStroke').value") \
             == before + 4
+        _saved(pg)
+        got = (p.pages[0].regions[0].get("layout_override") or {}).get("stroke")
+        assert got == before + 4, got
+        # ...and it STAYS there: a later save carrying an older number is
+        # exactly the bug, so nothing may land after the answer is right.
+        pg.wait_for_timeout(1500)
         assert (p.pages[0].regions[0].get("layout_override") or {}) \
             .get("stroke") == before + 4
+    _panel(check)
+
+
+def test_two_saves_for_one_box_are_never_in_the_air_at_once():
+    """Which is the whole of the fix, and the only part of it that is a rule.
+
+    HOW MANY requests a flurry of presses makes is not: a save that comes home
+    before the next press is its own save, and one that does not is superseded
+    at the gate - so the count is a fact about how fast the machine is, and a
+    test that pinned it would be testing the machine. What must hold on every
+    machine is that the second one does not start until the first has come
+    home, because two at once is two read-modify-writes over one region and the
+    loser is whatever the person typed last.
+    """
+    def check(pg, p):
+        live, worst = [0], [0]
+
+        def out(rq):
+            if rq.method == "POST" and "/region/" in rq.url:
+                live[0] += 1
+                worst[0] = max(worst[0], live[0])
+
+        def home(rq):
+            if rq.method == "POST" and "/region/" in rq.url:
+                live[0] -= 1
+
+        pg.on("request", out)
+        pg.on("requestfinished", home)
+        pg.on("requestfailed", home)
+        before = pg.evaluate("+document.getElementById('lyStroke').value")
+        for _ in range(10):
+            pg.click("#lyStroke ~ .numbtn.up")
+            pg.wait_for_timeout(40)
+        want = before + 10
+        _saved(pg)
+        got = (p.pages[0].regions[0].get("layout_override") or {}).get("stroke")
+        assert got == want, got
+        assert worst[0] <= 1, ("saves overlapped", worst[0])
     _panel(check)
 
 

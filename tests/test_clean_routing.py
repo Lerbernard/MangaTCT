@@ -63,8 +63,21 @@ def _one_region(img, box, dark_text, kind="sfx"):
 
 
 def _model(sub, sm):
-    """A cleaner that answers - the answer's content does not matter here."""
-    return np.full_like(sub, 127)
+    """A cleaner that answers plausibly.
+
+    It used to return a flat 127 and say *"the answer's content does not matter
+    here"*, because these tests are about ROUTING - was the model asked? - and
+    not about what came back. The content matters now: `_gave_up` gained a
+    clause for an answer that is flat and nothing like the LEVEL of what
+    surrounds it, and a flat mid-grey is 109 levels off a panel at 18 and 123
+    off a bubble at 250. Every one of these fixtures was handing back the exact
+    shape of the failure lee sent a crop of, and the cleaner was right to
+    refuse it.
+
+    So it answers at the level of the page it was given, which is what a fill
+    that works looks like. Still flat, still contentless, no longer a refusal.
+    """
+    return np.full_like(sub, int(np.median(sub)))
 
 
 def test_a_dark_flat_panel_goes_to_the_model_not_the_local_fill():
@@ -249,17 +262,52 @@ def test_a_second_clean_does_not_report_a_working_cleaner_as_dead():
         with urllib.request.urlopen(base + "/api/job", timeout=20) as r:
             return json.loads(r.read())
 
+    def settled():
+        """Wait for the press to be OVER: nothing running and nothing queued.
+
+        `running` alone is not that, in either direction, and this test spent
+        its life standing on the gap between them. Asking for a page is a POST
+        that returns before the job starts, so a poll on `not running` can
+        exit before a single pixel has been cleaned; and `running` goes false
+        the moment the work is done while the QUEUE releases its slot a beat
+        later, so a press in that gap is accepted, queued, and then looks like
+        a press that reused the plate rather than one that has not happened
+        yet.
+
+        Both windows are small, both were being won by luck, and losing either
+        reads as "the second press reused the plate" - which is a real defect
+        this test exists to catch, so it must not be able to say it by
+        accident. Idle twice over, twice in a row."""
+        calm = 0
+        for _ in range(400):
+            j = job()
+            q = j.get("queue") or {}
+            if (not j.get("running") and not q.get("running_qid")
+                    and not q.get("count")):
+                calm += 1
+                if calm >= 2:
+                    return
+            else:
+                calm = 0
+            threading.Event().wait(0.25)
+
     def clean():
+        settled()
         editor.clear_clean_warning()
         req = urllib.request.Request(
             base + "/api/clean_all", data=json.dumps({"pages": [0]}).encode(),
             headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=60) as r:
             r.read()
-        for _ in range(160):
-            if not job().get("running"):
+        # ...and give the job a moment to BE running before waiting for it to
+        # stop, or the wait is over before the work starts.
+        for _ in range(100):
+            j = job()
+            q = j.get("queue") or {}
+            if j.get("running") or q.get("running_qid") or q.get("count"):
                 break
-            threading.Event().wait(0.25)
+            threading.Event().wait(0.05)
+        settled()
         return job()
 
     try:
@@ -306,7 +354,7 @@ def test_pressing_clean_redoes_the_page():
     shutil.rmtree(root, ignore_errors=True)
     p = Project(None, root)
     img = _page_with((250, 250, 250), (20, 20, 20))
-    p.add_uploaded("p0.png", cv2.imencode(".png", img)[1].tobytes())
+    p.add_uploaded("redo_me_twice.png", cv2.imencode(".png", img)[1].tobytes())
     p.pages[0].regions = [{
         "id": 1, "kind": "bubble", "order": 0, "bbox": [70, 100, 220, 90],
         "bubble_bbox": [60, 90, 240, 110],
@@ -322,7 +370,12 @@ def test_pressing_clean_redoes_the_page():
     real = editor.inpaint_mod.inpaint_page
 
     def counting(page, **kw):
-        builds["n"] += 1
+        # ONLY this test's page. The counter is a global monkeypatch and the
+        # suite is full of daemon servers from earlier tests that can still
+        # be finishing an inpaint of their own - one strayed in during a
+        # full run and made two presses look like three builds.
+        if "redo_me_twice" in str(getattr(page, "source_path", "")):
+            builds["n"] += 1
         return real(page, **kw)
 
     editor.inpaint_mod.inpaint_page = counting
@@ -331,27 +384,70 @@ def test_pressing_clean_redoes_the_page():
         with urllib.request.urlopen(base + "/api/job", timeout=20) as r:
             return json.loads(r.read())
 
+    def settled():
+        """Wait for the press to be OVER: nothing running and nothing queued.
+
+        `running` alone is not that, in either direction, and this test spent
+        its life standing on the gap between them. Asking for a page is a POST
+        that returns before the job starts, so a poll on `not running` can
+        exit before a single pixel has been cleaned; and `running` goes false
+        the moment the work is done while the QUEUE releases its slot a beat
+        later, so a press in that gap is accepted, queued, and then looks like
+        a press that reused the plate rather than one that has not happened
+        yet.
+
+        Both windows are small, both were being won by luck, and losing either
+        reads as "the second press reused the plate" - which is a real defect
+        this test exists to catch, so it must not be able to say it by
+        accident. Idle twice over, twice in a row."""
+        calm = 0
+        for _ in range(400):
+            j = job()
+            q = j.get("queue") or {}
+            if (not j.get("running") and not q.get("running_qid")
+                    and not q.get("count")):
+                calm += 1
+                if calm >= 2:
+                    return
+            else:
+                calm = 0
+            threading.Event().wait(0.25)
+
     def clean():
+        settled()
         editor.clear_clean_warning()
         req = urllib.request.Request(
             base + "/api/clean_all", data=json.dumps({"pages": [0]}).encode(),
             headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=60) as r:
             r.read()
-        for _ in range(160):
-            if not job().get("running"):
+        # ...and give the job a moment to BE running before waiting for it to
+        # stop, or the wait is over before the work starts.
+        for _ in range(100):
+            j = job()
+            q = j.get("queue") or {}
+            if j.get("running") or q.get("running_qid") or q.get("count"):
                 break
-            threading.Event().wait(0.25)
+            threading.Event().wait(0.05)
+        settled()
         return job()
 
     try:
         editor._plate_cache.clear()
         first = clean()
-        assert builds["n"] == 1, builds
+        assert builds["n"] >= 1, builds
         assert "Cleaned 1 box" in (first.get("info") or ""), first
 
+        # STRICTLY MORE, not exactly two. What the test is about is that a
+        # second press REBUILDS rather than reusing the plate; under a full
+        # suite's load the first press's own tail work (a warm, a preview)
+        # can add a build of this same page after the job flag has dropped,
+        # and "exactly two" turned that timing into a red that meant
+        # nothing. A press that reuses the plate adds NOTHING - that is
+        # the failure this exists to catch, and `>` still catches it.
+        n1 = builds["n"]
         second = clean()
-        assert builds["n"] == 2, \
+        assert builds["n"] > n1, \
             "the second press reused the plate instead of redoing the page"
         assert "already cleaned" not in (second.get("info") or ""), second
         assert "Cleaned 1 box" in (second.get("info") or ""), second
@@ -754,6 +850,176 @@ def test_a_new_cleaner_retires_every_plate_the_old_one_made():
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_a_sub_type_does_not_throw_the_plate_away():
+    """lee, the evening the box labeller shipped: *"can you check on the
+    clenned text disapearing? cleaned pages i mean"*.
+
+    The stamp carried each box's exact KIND, which was harmless for as long as
+    a kind WAS a family. Read text labels sub-types now, so a chapter that had
+    been cleaned and was then re-read had every `sfx` become `sfx_big` - and
+    every plate on disk orphaned by a relabel that could not have changed a
+    pixel of it. Nothing was deleted; the plates simply stopped matching, and
+    the pages came back looking uncleaned.
+
+    A plate's identity SHOULD be strict - reusing a stale one is the "nothing
+    vhanged" bug this file is mostly about. The test is that it is strict about
+    the right thing: every place the cleaner looks at a kind it asks
+    `family_of` first (three in `inpaint.py`, plus `project._no_balloon`), and
+    not one branches on the sub-type.
+    """
+    from mangatl import editor
+    from mangatl import kinds as K
+    from mangatl.project import Project
+    root = scratch("_tmp_subtype_plate")
+    shutil.rmtree(root, ignore_errors=True)
+    try:
+        p = Project(None, root)
+        img = _page_with((250, 250, 250), (20, 20, 20))
+        p.add_uploaded("p0.png", cv2.imencode(".png", img)[1].tobytes())
+        p.pages[0].regions = [
+            {"id": 1, "kind": "bubble", "order": 0, "bbox": [70, 100, 220, 90],
+             "bubble_bbox": [60, 90, 240, 110],
+             "polygon": [[70, 100], [290, 100], [290, 190], [70, 190]],
+             "src_text": "テスト", "dst_text": "TEST", "confidence": 0.9},
+            {"id": 2, "kind": "sfx", "order": 1, "bbox": [20, 20, 40, 40],
+             "src_text": "ドン", "dst_text": "DOOM", "confidence": 0.9}]
+        p.pages[0].detected = True
+        before = editor._plate_stamp(p, 0)
+        path_before = editor._plate_disk_path(p, 0)
+
+        # ...the labeller does its work: a thought balloon and a big effect.
+        p.pages[0].regions[0]["kind"] = "thought"
+        p.pages[0].regions[1]["kind"] = "sfx_big"
+        assert editor._plate_stamp(p, 0) == before, \
+            "a sub-type threw away a plate it could not have changed"
+        assert editor._plate_disk_path(p, 0) == path_before
+
+        # ...and the correction that DOES change how a box is cleaned still
+        # retires it. Outside text has no balloon, so the cleaner erases a
+        # different shape - see `project._no_balloon`.
+        p.pages[0].regions[1]["kind"] = "aside"
+        assert K.family_of("aside", p.settings["custom_kinds"]) == "freefloat"
+        assert editor._plate_stamp(p, 0) != before, \
+            "a family change left the old plate answering for the new one"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_a_plate_cleaned_under_the_old_stamp_is_taken_back():
+    """The half of the fix that is easy to declare finished without.
+
+    Keying on the family brought nearly every orphaned plate back on its own,
+    because a page of `bubble`, `freefloat` and `sfx` stamps the same either
+    way - a family is its own family. Against lee's chapter: 19 pages of 23.
+
+    The other four were the pages he cleaned AFTER the reading had relabelled
+    them. Their plates went to disk under `sfx_small` and `whisper`; the
+    corrected stamp asks for `sfx` and `bubble`. So the change that rescued
+    nineteen orphaned four, and shipping only that would have been a fix that
+    took something away from the person it was for.
+
+    A miss therefore looks once for the name the OLD stamp would have given,
+    and adopts that plate if it is there. It is safe for the same reason the
+    fix is right: everything else in the stamp is identical and the sub-type
+    could never have changed a pixel.
+    """
+    import os
+    from mangatl import editor
+    from mangatl.project import Project
+    root = scratch("_tmp_adopt_plate")
+    shutil.rmtree(root, ignore_errors=True)
+    try:
+        p = Project(None, root)
+        img = _page_with((250, 250, 250), (20, 20, 20))
+        p.add_uploaded("p0.png", cv2.imencode(".png", img)[1].tobytes())
+        p.pages[0].regions = [
+            {"id": 1, "kind": "whisper", "order": 0, "bbox": [70, 100, 220, 90],
+             "polygon": [[70, 100], [290, 100], [290, 190], [70, 190]],
+             "src_text": "テスト", "dst_text": "TEST", "confidence": 0.9},
+            {"id": 2, "kind": "sfx_small", "order": 1, "bbox": [20, 20, 40, 40],
+             "src_text": "ドン", "dst_text": "DOOM", "confidence": 0.9}]
+        p.pages[0].detected = True
+
+        # The plate the old build left on disk: the same stamp with the raw
+        # kind where the family now stands.
+        import hashlib
+        was = editor._plate_stamp(p, 0)
+        geo = tuple((r.get("id"), tuple(r.get("bbox") or ()), r.get("kind"))
+                    for r in p.pages[0].regions)
+        legacy = was[:4] + (geo,) + was[5:]
+        d = os.path.join(p.output_dir, "plate_cache")
+        os.makedirs(d, exist_ok=True)
+        src = os.path.join(d, hashlib.sha1(
+            repr(legacy).encode("utf-8")).hexdigest() + ".png")
+        cv2.imwrite(src, img)
+
+        got = editor._plate_disk_path(p, 0)
+        assert got != src, "the fixture wrote the plate under the new name"
+        assert os.path.exists(got), \
+            "the plate cleaned under the old stamp was left orphaned"
+        assert os.path.exists(src), "the old plate was moved, not copied"
+
+        # ...and it does NOT reach for a plate that is genuinely stale. Change
+        # something the cleaner acts on and the adoption must find nothing.
+        p.pages[0].regions[1]["bbox"] = [20, 20, 44, 40]
+        assert not os.path.exists(editor._plate_disk_path(p, 0)), \
+            "a plate was adopted across a change that could alter it"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_the_adoption_only_looks_when_there_is_something_to_look_for():
+    """A page with no sub-type on it stamps the same either way, so there is
+    no legacy name to try and the lookup must not happen at all. This is the
+    common case - it runs on every miss on every page."""
+    import os
+    from mangatl import editor
+    from mangatl.project import Project
+    root = scratch("_tmp_adopt_noop")
+    shutil.rmtree(root, ignore_errors=True)
+    try:
+        p = Project(None, root)
+        img = _page_with((250, 250, 250), (20, 20, 20))
+        p.add_uploaded("p0.png", cv2.imencode(".png", img)[1].tobytes())
+        p.pages[0].regions = [
+            {"id": 1, "kind": "bubble", "order": 0, "bbox": [70, 100, 220, 90],
+             "polygon": [[70, 100], [290, 100], [290, 190], [70, 190]],
+             "src_text": "テスト", "dst_text": "TEST", "confidence": 0.9}]
+        p.pages[0].detected = True
+        looked = []
+        was = os.path.exists
+
+        def counted(path):
+            looked.append(path)
+            return was(path)
+
+        editor.os.path.exists = counted
+        try:
+            got = editor._plate_disk_path(p, 0)
+        finally:
+            editor.os.path.exists = was
+        assert not os.path.exists(got)
+        plates = [x for x in looked if x.endswith(".png")]
+        assert len(plates) == 1, \
+            ("a page with nothing to translate back still went looking: %r"
+             % plates)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_the_stamp_does_not_depend_on_which_project_is_open():
+    """`kinds.family_of` answers from a module global when it is not given a
+    list, and that global is filled by whichever project loaded last. A stamp
+    that reads it would answer one way before a load and another after - the
+    same bug in a new place, and harder to see. It is passed the project's own
+    sub-types."""
+    import inspect
+    from mangatl import editor
+    src = inspect.getsource(editor._plate_stamp)
+    assert "custom_kinds" in src
+    assert "family_of(r.get(\"kind\") or \"\", subs)" in src
+
+
 def test_small_kana_on_a_dark_panel_are_erased_too():
     """lee, with the box drawn and the eye open and the text still there:
     *"try to fix the text we need all the text gone"*.
@@ -930,6 +1196,65 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
     re-recorded and the stamp left alone, which is the second half of what the
     message below tells you to do and the half that is easy to skip.
 
+    **The seventh time it went red, the answer WAS to bump.** `_gave_up` gained
+    a second clause - an answer that is flat and nothing like the LEVEL of what
+    surrounds it is a refusal, not just one that is flat where its surroundings
+    have detail. That changes which boxes fall back to the local fill, so it
+    changes plates, so the stamp moved and lee's cached plates were retired -
+    which is the point: the black bar he sent a crop of is IN one of them.
+
+    **The eighth time it went red, the answer was NOT to bump.**
+    `region_from_record` gained one line - `r.kind_by_hand`, a boolean lifted
+    off the record so the box labeller can tell a type somebody CHOSE from one
+    the detector guessed. It is read in `editor.label_page_kinds` and nowhere
+    else. It touches no bbox, no polygon, no `bubble_bbox` and no mask, so
+    there is no page it can clean differently and no plate on disk it can make
+    stale. Fingerprint re-recorded, stamp left alone - the same call as the
+    sixth time, and the same reason for making it.
+
+    **The ninth time was the eighth again**, one line lower: `r.angle_by_hand`,
+    the same boolean lifted off the record for the same purpose - so the
+    reading that now gives loose writing its lean cannot undo one somebody set
+    with the handle. Read in `editor._apply_read_angles` and nowhere else, and
+    the ANGLE itself has never been part of a mask: the cleaner erases the
+    polygon, and which way the writing inside it leaned is not something it
+    asks. Fingerprint re-recorded, stamp left alone.
+
+    **The tenth time was the eighth and ninth again**, one line lower again:
+    `r.layout_measured`, the style the original letters were drawn in - their
+    ink colour, the colour and width of any keyline round them - lifted off
+    the record so that pressing Typeset stops throwing the measurement away.
+    Read in `render.style_of` and nowhere else. It is a set of COLOURS: it
+    touches no bbox, no polygon, no `bubble_bbox` and no mask, and the cleaner
+    does not ask what colour the writing it is erasing was. Fingerprint
+    re-recorded, stamp left alone.
+
+    **The eleventh time was the same call again, for a bigger change.**
+    `region_from_record` now carries the stored LAYOUT in, where before it
+    deliberately threw it away and let every stage lay the page out again -
+    2.6 of the 3 seconds a page costs, paid on every render, every export and
+    every restart (`typeset.page_fit_key`). A layout is lines, a size, line
+    positions, a frame and colours. The cleaner erases the Japanese, and where
+    the ENGLISH is going to land afterwards is not a question it asks: no
+    bbox, no polygon, no `bubble_bbox`, no mask. Fingerprint re-recorded, stamp
+    left alone.
+
+    **The twelfth time was the same call again.** `region_from_record` now
+    carries `fit_poly` in - the balloon the balloon check (`balloonck`) hands
+    the TYPESETTER when a saved outline is broken. The scope was drawn by lee
+    himself: *"it should only help the typesetter on bubble text"* - only
+    `typeset.share_masks` reads it, the cleaner's masks still come from
+    `polygon`, and this test staying honest about that is exactly why the
+    field went beside `polygon` instead of into it. No bbox, no polygon, no
+    mask. Fingerprint re-recorded, stamp left alone.
+
+    **The thirteenth time was the sixth again.** The 2026-09-02 dead-code
+    audit removed one line from `inpaint.py`: `crop = (slice(...), slice(...))`
+    in the flat-fill pass - assigned and never read, the comment right under
+    it explaining that the two reads it was built for deliberately read the
+    whole page instead. A value nothing reads cannot change a plate.
+    Fingerprint re-recorded, stamp left alone.
+
     That is why finding this red is a question and not a procedure: what has to
     be worked out is whether the bytes that moved can change a PLATE.
     """
@@ -944,13 +1269,28 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
     # It lives in another file the plate cache does not watch either, and the
     # change that finally took gold text off is in it - so a fingerprint of
     # `inpaint.py` alone would have let that one ship invisible as well.
+    #
+    # BOTH of the functions that build it, because on 2026-08-29 the polarity
+    # test moved out of `region_from_record` into `_writing_in` beside it - and
+    # a fingerprint of the caller alone would have covered that change only by
+    # accident, and would cover nothing the next time somebody edits the rule
+    # itself. What has to be watched is the code that decides which pixels are
+    # writing, wherever it happens to live.
     other = pathlib.Path(project.__file__).read_text(encoding="utf-8")
-    i = other.index("def region_from_record")
-    fn = other[i:other.index("\ndef ", i + 1)]
+
+    def _fn(name):
+        i = other.index("def " + name)
+        return other[i:other.index("\ndef ", i + 1)]
+
     got = (hashlib.sha1(body.encode("utf-8")).hexdigest()[:16],
-           hashlib.sha1(fn.encode("utf-8")).hexdigest()[:16])
+           hashlib.sha1((_fn("region_from_record")
+                         + _fn("_writing_in")
+                         # ...and the one that decides how much of a saved
+                         # outline is believed, because that decides what is
+                         # read out of it as writing and so what is erased.
+                         + _fn("_one_ground")).encode("utf-8")).hexdigest()[:16])
     assert (got, inpaint.ALGO) == (
-        ("511932a98f374cd2", "1690814a536274a6"), "2026-08-15-a"), (
+        ("230c35dc97a1a70a", "75e03926f3e02917"), "2026-08-29-b"), (
         f"the cleaning code is {got} and the stamp says {inpaint.ALGO}.\n"
         "If you changed how a page is cleaned: bump ALGO, then put both new "
         "values here. If you only moved a comment: put the new fingerprints "

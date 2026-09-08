@@ -303,18 +303,31 @@ def test_the_project_arrives_with_nothing_chosen():
     assert '"ocr_detail": "",' in inspect.getsource(Project)
 
 
-def test_the_saved_key_is_kept_even_though_nothing_reads_it():
-    """A project saved by an older copy of the app has a word in `ocr_detail`.
-    The key stays in the sheet, empty: one that vanished would be deleted by
-    the next save, and a settings file that loses keys when the app is
-    upgraded is a settings file nobody can downgrade."""
+def test_the_saved_choice_is_carried_through_a_save():
+    """`ocr_detail` is a choice again - four tabs on the settings screen - so
+    a save has to CARRY it rather than read it off a control that is not
+    there. Reading the screen for it is the bug the "Model file" box had:
+    nothing ever filled the control, so every save wrote a blank over the
+    setting.
+
+    It went the other way first. The choice was taken off the screen when a
+    close-up per box won every accuracy score it was given, and this test used
+    to pin the key as kept-but-empty. What the scoring never priced is that a
+    close-up sends one picture PER BOX, and measured against 138 real runs the
+    reader was charging under a third of what it cost. lee: *"so teh ing
+    increasing the price was teh zoom in images right? if it is can you bring
+    back teh 1, 4 and 9 cut and make them tabs instad of drop down"*.
+    """
     from pathlib import Path
     js = (Path(ocr.__file__).parent / "static" / "js" / "project.js").read_text(
         encoding="utf-8")
-    assert "ocr_detail:''" in js
+    assert "proj.settings.ocr_detail || ''" in js, \
+        "the save reads a control instead of carrying the setting"
+    assert "function pickDetail(" in js and "function syncDetailCards(" in js
     import inspect
     from mangatl.project import Project
-    assert '"ocr_detail": ""' in inspect.getsource(Project)
+    assert '"ocr_detail": ""' in inspect.getsource(Project), \
+        "the key must still default empty - empty means the default mode"
 
 
 # ------------------------------- the setting that was measured and taken out
@@ -410,11 +423,14 @@ def test_a_manga_project_nobody_configured_reads_a_crop_per_box_too(monkeypatch)
     assert _run_read({}, monkeypatch).get("detail") == "boxes"
 
 
-def test_an_old_saved_choice_is_not_obeyed(monkeypatch):
-    """There is no menu to have chosen from any more, so a word left in the
-    file is last year's answer rather than somebody's decision - and a chapter
-    half-read on tiles and half on crops would be two runs under one name."""
-    got = _run_read({"medium": "manhwa", "ocr_detail": "page"}, monkeypatch)
-    assert got.get("detail") == "boxes"
-    got = _run_read({"medium": "manga", "ocr_detail": "high"}, monkeypatch)
-    assert got.get("detail") == "boxes"
+def test_a_saved_choice_is_obeyed_and_a_bad_one_is_not(monkeypatch):
+    """It IS somebody's decision again, and the reader has to do what the
+    tabs say - a choice the reader ignores is a price that disagrees with the
+    bill. Anything that is not one of the four falls back to the close-up,
+    which is what a project with nothing chosen gets."""
+    for chosen in ("page", "auto", "high", "boxes"):
+        got = _run_read({"medium": "manga", "ocr_detail": chosen}, monkeypatch)
+        assert got.get("detail") == chosen, chosen
+    for junk in ("", "nonsense", None):
+        got = _run_read({"medium": "manhwa", "ocr_detail": junk}, monkeypatch)
+        assert got.get("detail") == "boxes", junk

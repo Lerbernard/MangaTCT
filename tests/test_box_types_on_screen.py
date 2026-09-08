@@ -122,7 +122,9 @@ def test_the_key_names_the_types_this_project_actually_has(ed):
     pg, _p, errs = ed
     _original(pg)
     said = pg.evaluate(
-        "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
+        "[...document.querySelectorAll('#legend > *')]"
+        "    .filter(s=>!s.hasAttribute('aria-hidden'))"
+        ".map(s=>s.textContent.trim())")
     # The three main types and nothing under them - lee, later: *"this shoud
     # only show the 3 main type"*. A chip for every sub-type made a paragraph
     # of colour above the page longer than anything it explained.
@@ -359,3 +361,75 @@ def test_the_text_in_a_row_can_still_be_selected(ed):
     assert pg.evaluate(
         "[...document.querySelectorAll('#list .lrow')].every(r=>!r.draggable)")
     assert not errs, errs[:2]
+
+
+# --------------------------------------------------- the reading-detail tabs
+#
+# lee, on being shown that the zoomed read is what makes a chapter dear:
+# *"can you bring back teh 1, 4 and 9 cut and make them tabs instad of drop
+# down"*, and then *"if teh user clcik on 1,4,or 9 sissble teh settings that
+# only works with zoomed in boxes"*.
+
+def test_the_reading_detail_is_four_tabs_that_carry_their_price(ed):
+    pg, _p, errs = ed
+    pg.evaluate("setTab('settings'); setSettingsTab('detection')")
+    browserpool.settled(pg)
+    got = pg.evaluate("""(()=>{
+      const b=document.getElementById('detailCards');
+      if(!b) return null;
+      return [...b.querySelectorAll('.card')].map(c=>({
+        k:c.dataset.detail, name:c.querySelector('b').textContent,
+        cost:c.querySelector('i').textContent,
+        on:c.classList.contains('on')}));})()""")
+    assert got, "the reading-detail tabs are not on the screen"
+    assert [g["k"] for g in got] == ["page", "auto", "high", "boxes"], got
+    # cheapest first, and each says what it sends - which is the whole reason
+    # the choice came back
+    assert "1 picture" in got[0]["cost"], got
+    assert "a box" in got[-1]["cost"], got
+    # zoomed is what a project with nothing chosen is really doing
+    assert [g["on"] for g in got] == [False, False, False, True], got
+    assert not errs, errs[:3]
+
+
+def test_picking_a_cut_up_page_greys_the_settings_that_need_a_close_up(ed):
+    """Read in pieces a line can be filed under the wrong box - 16 of 225 at
+    four pieces, measured - so a rule that changes a box's TYPE from the words
+    filed under it is not safe. It greys rather than disappearing: the setting
+    keeps its value and picking zoomed again finds it where it was."""
+    pg, _p, errs = ed
+    pg.evaluate("setTab('settings'); setSettingsTab('detection')")
+    browserpool.settled(pg)
+    state = lambda: pg.evaluate("""(()=>{
+      const el=document.getElementById('retype_kinds');
+      const row=el?el.closest('label'):null;
+      return {disabled:!!(el&&el.disabled),
+              greyed:!!(row&&row.classList.contains('offx')),
+              checked:!!(el&&el.checked)};})()""")
+    pg.evaluate("document.getElementById('retype_kinds').checked=true")
+    pg.evaluate("pickDetail('high')")
+    pg.wait_for_timeout(150)
+    off = state()
+    assert off["disabled"] and off["greyed"], off
+    assert off["checked"], "the setting lost its value instead of greying"
+    pg.evaluate("pickDetail('boxes')")
+    pg.wait_for_timeout(150)
+    on = state()
+    assert not on["disabled"] and not on["greyed"], on
+    assert on["checked"], "picking zoomed again did not find it as it was"
+    assert not errs, errs[:3]
+
+
+def test_the_reading_detail_is_saved_and_reaches_the_price(ed):
+    """A tab that does not change the bill is a picture of a tab."""
+    from mangatl import coins, editor
+    pg, p, _errs = ed
+    pg.evaluate("setTab('settings'); setSettingsTab('detection')")
+    pg.evaluate("pickDetail('page')")
+    pg.wait_for_timeout(400)
+    assert pg.evaluate("proj.settings.ocr_detail") == "page"
+    cheap = coins.usd_page("ocr", 10, "gemini-3.7-flash", "google",
+                           detail="page")
+    dear = coins.usd_page("ocr", 10, "gemini-3.7-flash", "google",
+                          detail="boxes")
+    assert dear > cheap * 3, (cheap, dear)

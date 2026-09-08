@@ -13,6 +13,8 @@ the right. Neither is visible in a thumbnail and both are obvious in a chapter.
 Ink in the margin is measurable, so it is measured.
 """
 import importlib.util
+import os
+import re
 
 import pytest
 
@@ -60,14 +62,30 @@ def test_the_words_are_written_once(made):
     changing what it says is changing one line and not hunting through a
     layout. A card is an advertisement; the words are the whole of it."""
     ad = card()
-    for name in ("SAYS", "NAME", "LINE", "FORMATS", "GO", "URL"):
+    for name in ("SAYS", "NAME", "BETA", "LINE", "FORMATS", "SOON"):
         assert getattr(ad, name), name
-    assert ad.URL == "mangatct.com"
     assert "translated with" in ad.SAYS
     # ...and the house style holds here too: no em dashes, no middots.
-    for name in ("SAYS", "LINE", "FORMATS", "GO", "URL"):
+    for name in ("SAYS", "BETA", "LINE", "FORMATS", "SOON"):
         text = getattr(ad, name)
         assert "—" not in text and "·" not in text, name
+
+
+def test_there_is_no_address_on_it():
+    """lee: *"dont put the website on there"*. The app is not out, and a card
+    that sends a reader somewhere they cannot go spends its one glance on a
+    disappointment - so what stands in the slot the address had is the thing
+    that is true. Asserted against the DRAWN card as well as the constants,
+    because the words are the whole of an advertisement and a stray literal in
+    the layout would be an address nobody could find to remove."""
+    ad = card()
+    assert not hasattr(ad, "URL"), "the address came back as a constant"
+    src = open(os.path.join(str(PKG), "tools", "adcard.py"),
+               encoding="utf-8").read()
+    body = re.sub(r'"""[\s\S]*?"""', " ", src)
+    body = re.sub(r"^\s*#.*$", " ", body, flags=re.M)
+    assert "mangatct.com" not in body, "an address is still drawn on the card"
+    assert ad.SOON.lower().startswith("releasing soon"), ad.SOON
 
 
 def test_the_mark_is_read_from_the_one_file_that_holds_it():
@@ -107,11 +125,16 @@ def test_the_dark_card_is_dark_and_the_light_one_is_light(made):
         assert sum(light) > 600, (shape, light)
 
 
-def test_every_card_says_where_to_go(made):
-    """The address is the whole point of the card, and on the dark ones it is
-    dark type in a gold plate rather than gold type on black. So this asks for
-    the GOLD, which is on the card either way, and asks for a lot of it: the
-    plate, or the type, is the biggest gold thing on there."""
+def test_every_card_ends_on_something(made):
+    """The last line is the point of the card, and on the dark ones it is dark
+    type in a gold plate rather than gold type on black. So this asks for the
+    GOLD, which is on the card either way, and asks for a lot of it: the plate,
+    or the type, is the biggest gold thing on there.
+
+    It used to be the address and it is `Releasing soon` now. The test does not
+    know which, and should not: what it is guarding is that the slot is FULL -
+    the way it would not be if a line were dropped and nothing put in its
+    place."""
     ad = card()
     for shape in SHAPES:
         for ground in GROUNDS:

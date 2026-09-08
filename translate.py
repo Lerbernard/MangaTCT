@@ -13,9 +13,11 @@ import http.client
 import json
 import os
 import re
+import ssl
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import kinds as _kinds
 from . import stopping as _stopping
 from .models import Page
 
@@ -277,12 +279,30 @@ TARGETS = {
     "fr": "French",
 }
 
-# Explicit source languages, for material that is not in its medium's usual
-# language - an English-translated manga being taken into Spanish, say.
+# What a source code MEANS. The menus offer three of these; the rest are here
+# so that a chapter which already carries one is still understood.
+#
+# THREE MEDIA, THREE LANGUAGES. lee, going into the beta: *"we will only
+# support the original languages so manga jappenesse, mnhawa koren and manhua
+# chinesse"*. Everything the app is measured on - the readers, the detectors,
+# the honorifics, the reading direction - is built for those three, and
+# offering a fourth was offering something nobody had ever run a page through.
+#
+# The other four are NOT deleted, and the reason is the same one that kept the
+# `comic` medium's answers alive when the medium went (see
+# `test_an_old_comic_chapter_is_still_an_english_chapter`): every reader falls
+# back to `MEDIA[medium]["source"]` for a code it does not know, so deleting
+# "en" would turn an old English chapter into a Japanese one silently - read
+# by manga-ocr, laid out right to left, with nothing on screen saying why. A
+# name that is no longer on the menu costs one line here and stops that.
 SOURCE_LANGS = {
     "ja": "Japanese", "ko": "Korean", "zh": "Chinese",
+    # ...not offered any more; understood where a project already says one:
     "en": "English", "es": "Spanish", "pt": "Portuguese", "fr": "French",
 }
+
+#: The source languages the app OFFERS - one per medium, in the menus' order.
+OFFERED_SOURCES = ("ja", "ko", "zh")
 
 
 def source_language(medium: str, source_code: str = "") -> str:
@@ -321,18 +341,62 @@ TARGET_NOTES = {
         "through word choice and sentence shape."),
     "Spanish": (
         "Choose tú or usted per relationship and keep it consistent for a "
-        "character across the chapter. Spanish runs roughly 20% longer than "
-        "English, so be especially disciplined about length."),
+        "character across the chapter."),
     "Portuguese": (
         "Use Brazilian Portuguese unless told otherwise. Choose você or o "
-        "senhor / a senhora per relationship and keep it consistent. "
-        "Portuguese runs roughly 20% longer than English, so keep lines tight."),
+        "senhor / a senhora per relationship and keep it consistent."),
     "French": (
         "Choose tu or vous per relationship and keep it consistent for a "
         "character across the chapter; a switch between them is a story beat "
-        "and should only happen if the original marks one. French runs roughly "
-        "25% longer than English, so keep lines tight."),
+        "and should only happen if the original marks one."),
 }
+
+# HONORIFICS KEPT, WHEN THE PROJECT ASKS FOR THEM.
+#
+# lee: *"a swith that lets the translator keep glow-san instad of mr glow fo
+# rthe tranlsation it shoud keep styff like oni-chan and other stuff like that
+# that manga reader like and do it for mnahwa and mahua too"*, and then the
+# limit on it: *"it shoud only keep teh very popular managa na manhua and
+# manhwa honotifics"*.
+#
+# So this is an ALLOW-LIST and not a policy. "Keep the honorifics" as an
+# instruction gets you 拙者 romanised and 部長 left as "buchou", which is not
+# what a scanlation reader is asking for - what they want is the dozen forms of
+# address that every release in the genre already keeps, and everything else
+# localised the way it would be anyway. A model given a rule rather than a list
+# picks its own dozen, and picks a different dozen on the next page.
+#
+# Each list is the forms that appear untranslated in mainstream scanlation and
+# would look wrong translated. Anything not on the list is translated.
+HONORIFIC_NOTES = {
+    "Japanese": (
+        "KEEP JAPANESE HONORIFICS AND FORMS OF ADDRESS, romanised, attached "
+        "with a hyphen: -san, -kun, -chan, -sama, -dono, -sensei, -senpai, "
+        "-kouhai. "
+        "So グロウさん is \"Glow-san\" and NEVER \"Mr. Glow\". Keep the family "
+        "terms used as address the same way: onii-chan, onee-chan, nii-san, "
+        "nee-san, onii-sama, onee-sama - and senpai and sensei standing alone "
+        "as a form of address, with no name. That list is the whole of it. "
+        "Every other Japanese word is translated as usual: do not romanise a "
+        "job title, a rank, a common noun or a greeting, and do not invent an "
+        "honorific the line does not have."),
+    "Korean": (
+        "KEEP KOREAN HONORIFICS AND FORMS OF ADDRESS, romanised: oppa, unnie, "
+        "hyung, noona, sunbae, hoobae, and the suffixes -ssi and -nim "
+        "(\"Jinwoo-ssi\", \"seonsaeng-nim\"). Keep them standing alone as "
+        "address too, with no name. That list is the whole of it. Every other "
+        "Korean word is translated as usual: do not romanise a job title, a "
+        "rank, a common noun or a greeting, and do not invent one."),
+    "Chinese": (
+        "KEEP CHINESE FORMS OF ADDRESS, romanised in pinyin without tone "
+        "marks: gege, jiejie, didi, meimei, shizun, shixiong, shijie, shidi, "
+        "shimei, and daren as a suffix (\"Wei-daren\"). Keep them standing "
+        "alone as address too, with no name. That list is the whole of it. "
+        "Every other Chinese word is translated as usual: do not romanise a "
+        "job title, a rank, a common noun or a greeting, and do not invent "
+        "one."),
+}
+
 
 SYSTEM_TEMPLATE = """You are a professional {medium} localizer and a \
 native-level {target} copy editor. You are translating one full page from \
@@ -439,12 +503,23 @@ Translation rules:
   bubbles — each bubble holds its own part, and read in order they form one
   sentence. Never translate a linked region as a self-contained line, and never
   repeat the whole sentence in each bubble.
+- WHEN YOU SPLIT A LINKED LINE, THE PUNCTUATION GOES WHERE THE SOURCE PUT IT.
+  Each box keeps the trailing marks ITS OWN source line ends with, and gets
+  none that it does not. し and ん… linked are "SI" and "LENCE..." - the dots
+  are drawn in the second box, so they belong to the second box, and "SI..."
+  followed by "LENCE" is wrong however natural it looks. The split point in
+  the words is yours to choose; where the author's dots live is not.
 - A link between SOUND EFFECTS means the same thing about a sound: one effect
   the artist drew across the page with a gap in it, not two sounds. し and ん…
   linked are しん… — a hush, one word. So read them together and split the
   English at the same place, so that what lands in the first box and what
   lands in the second are the two parts of one sound. Never make two sounds
   of it, and never put the whole of it in both boxes.
+- Two SOUND EFFECTS that plainly form one drawn sound may be split the same
+  way even where no link joins them — し then ん… is しん… whether or not
+  anybody linked the boxes, and the English splits where the drawing splits.
+  DIALOGUE is not like that: without a link, every bubble is its own complete
+  line, and a sentence is never carried from one unlinked bubble into the next.
 - A "balloon" number is a DIFFERENT thing and must not be treated the same
   way. It means the artist drew those regions as two lobes of one balloon —
   a fact about the picture, not about the words. A double balloon holds two
@@ -454,7 +529,21 @@ Translation rules:
   sentences together with a comma, and do not open the second one with "and"
   or "but" unless the Korean does.
 - {source_note}
-- {target_note}
+- {target_note}{honorific_note}
+- A SOUND EFFECT AND OUTSIDE TEXT ARE TOLD APART BY THE WORDS, and you are
+  the first thing in the pipeline that can read them. The box finder labels a
+  region from its SHAPE - loose text on the artwork, no balloon - and shape
+  cannot tell a drawn crash from a muttered aside. So when a region arrives as
+  "sfx" or "freefloat" and the words are plainly the other one, say so: put
+  "kind" on that region in your reply, "sfx" or "freefloat".
+  * "sfx" is a NOISE: an impact, a movement, a texture, a heartbeat - ドン,
+    ざわざわ, ドキドキ. It has no grammar and nobody says it.
+  * "freefloat" is somebody TALKING or THINKING off-balloon - a muttered
+    aside, an unvoiced thought, a label, a sign, a caption on the art.
+  * Change it ONLY between those two, and only when the words settle it.
+    Never propose a kind for a region that arrived as anything else, never
+    for a bubble, and leave "kind" out entirely when the label it came with
+    is right - which is most of them.
 - Work out WHO SPEAKS each line before translating it — from the reading
   order, the synopsis, the character sheet and the dialogue itself — and
   fill in "speaker". Steady speaker attribution is what keeps pronouns
@@ -471,20 +560,14 @@ Translation rules:
 - Spell every character's name EXACTLY as the character sheet and glossary
   do — never invent an alternative romanization for a name that is already
   on the sheet.
-- Text must be SHORT — it has to fit inside the original speech bubble, and
-  the bubble is the size the artist drew. Two numbers travel with each region:
-  * "src_char_count", how long the Korean is. Aim under about 1.6 times it.
-  * "fits_chars", where it is given: how many characters THAT balloon holds
-    at a comfortable reading size. It is measured off the shape on the page
-    rather than guessed from the language, and going over it is not a matter
-    of style — the typesetter must then shrink the line until the reader is
-    squinting, or let it run outside the balloon. This is the number that
-    matters. Where it is given, it OVERRULES the ratio above: a long line in a
-    big balloon is fine, and a short one in a small balloon is not.
-  What a long line costs is not a wrong translation, it is six-point type. Cut
-  the words that carry nothing: "It's no exaggeration to say that nearly 90%
-  of Arsilan's territory has already been destroyed" is "Nearly 90% of Arsilan
-  is already gone." Cut WORDS. Never punctuation — see the rule about runs.
+- LENGTH IS NOT A CONSTRAINT ON YOU. Say what the {source} says. Never cut a
+  word, a qualifier or a nuance to make a line shorter, and never pad one out
+  to fill a balloon — the balloon is the typesetter's problem and it is
+  already solved: the type is set smaller. A line that fits and does not say
+  what the page says is the worst line on the page.
+  Being NATURAL is still a constraint, and a different one: the shortest
+  wording that carries the whole meaning is the right wording, because that is
+  how people talk, not because of the space. Do not translate long.
 - Honorifics may be retained where they carry meaning the target language
   cannot.
 - A RUN of marks is part of the line and is copied as a run. "!!!" is three
@@ -494,6 +577,15 @@ Translation rules:
 - Use plain punctuation that comic typesetting fonts can actually draw:
   straight apostrophes and quotes, three periods for an ellipsis, and a
   hyphen only inside a hyphenated word.
+- A MARK THE SOURCE LINE CARRIES STAYS ON IT, in the same place. A heart, a
+  star, a music note, a sparkle, a sweat drop, an anger mark: `これから本番♥`
+  is "This is the real thing♥" and never "This is the real thing". The mark is
+  part of what the balloon says — it is the difference between a line and a
+  flirt — and it is not punctuation to be tidied. Keep the same number of
+  them: `♥♥` is two.
+  This does NOT let you add one. A mark the {source} does not have is
+  decoration you invented, and it goes on the page as though the artist drew
+  it.
 - NEVER introduce a dash the original does not have. A sentence continuing
   into the next bubble ENDS with three periods — not with a dash. Use a dash
   only where the {source} itself carries one (—, ─, ━, 〜 or a run of ー).
@@ -502,8 +594,14 @@ Translation rules:
   the FRONT of the next bubble is a scanlation habit, and on a line that
   continues nothing it is a pause the artist never drew. Open with the first
   word.
-  Letters of the target language are fine;
-  decorative symbols, music notes and source-language punctuation are not.
+- WHAT MAY APPEAR IN THE LINE: letters of the target language, plain
+  punctuation, and the marks the {source} line itself carries. Source-language
+  punctuation is not — 。、！？ come across as the target's own. Nor is a
+  symbol you reached for yourself.
+  (This read "decorative symbols and music notes are not" until the app could
+  draw them. It was right while a comic face had no glyph for a heart and one
+  in the line came out as an empty box on the page; it is wrong now, and the
+  rule it has become is the one above: the SOURCE decides, not taste.)
 - Sound effects: render as a comic SFX in {target} ("CRASH", "THUD"), not a
   sentence. Typeset it as a typesetter would DRAW it — bare. Never wrap a sound
   in asterisks: *TURN* is chat, not typesetting. Write TURN.
@@ -515,6 +613,24 @@ Translation rules:
   Never squeeze a sentence into "CRASH" to satisfy its label. The rule does not
   run the other way: a region marked "bubble" holding a bare sound is still a
   sound, which is the rule further down this list.
+- THE KANA SAY THE SHAPE OF THE SOUND, and the English has to have the same
+  shape. The source writes duration and stop into the spelling, and it is the
+  one part of a sound effect you are not guessing at:
+  * a trailing small っ/ッ CUTS THE SOUND OFF. End the English on a hard
+    consonant — TAP, CLACK, PERK, SHK. Never on a hiss or a held vowel: セッ
+    is a clipped sound and "SHFF" is a sustained one, which is the opposite of
+    what the page drew.
+  * a trailing ー, 〜 or a repeated vowel HOLDS it. Lengthen the English to
+    match: ザブーン is SPLAAASH, not SPLASH.
+  * a trailing … lets it FADE. Let the English trail off too.
+  * a repeated kana is a repeated sound, and repeats in the English.
+- ONE DRAWN SOUND, ONE ENGLISH WORD — and one English word for one drawn
+  sound. `already_said.sounds` is what this chapter has settled so far: if a
+  sound is in that list, use the word it already has. If it is not, pick a
+  word that is NOT already spoken for in that list. Two sounds the artist drew
+  differently must not arrive as the same word — ザブン is a body going under
+  and バチャ is a splatter, and printing both as SPLASH throws away a
+  distinction that was drawn on purpose.
 - NEVER censor. If a line swears, typeset the swear in full. Softening it to a
   milder word, or masking letters with *, #, @ or $, is a mistranslation: the
   author chose how hard that line lands and it is not yours to move. The only
@@ -543,14 +659,148 @@ Quality gate — do this before you answer:
   breaks as \\n — an unescaped quote breaks the whole page."""
 
 
+# THE TRAILING DOTS BELONG TO THE BOX THE ARTIST DREW THEM IN.
+#
+# lee, over a linked pair - `し` and `ん…` drawn as one しん… across a panel -
+# that came back "SI..." and "LENCE": *"becasue these are linked teh ai messes
+# up whickh one had the ......"*.
+#
+# The split itself was right; the punctuation went to the wrong half. And the
+# model has no way to get it reliably right, because it is being asked to break
+# one English word across two boxes and decide where the author's pause lives
+# at the same time. The second is not a judgement at all - the page SAYS which
+# box has the dots. `し` has none and `ん…` has them, so the English is "SI" and
+# "LENCE...", every time, whatever the model returned.
+#
+# ONLY INSIDE A LINK, and only the trailing dots. A standalone line that trails
+# off keeps its ellipsis whether or not the Japanese drew one - lee has kept
+# that everywhere, and `strip_added_ellipsis` says so about the other end of
+# the line. What is different here is that the box boundary is not the author's:
+# a linked pair is one drawn mark that got cut in two, so the dots are a fact
+# about the source and not a choice about the English.
+_TAIL_DOTS = re.compile(r"(?:\.{2,}|[…‥]+|・{2,}|。{2,})\s*$")
+
+
+def _dotted(t: str) -> bool:
+    """Does this end in an ellipsis, in either language's spelling?"""
+    return bool(_TAIL_DOTS.search((t or "").rstrip()))
+
+
+def _undot(t: str) -> str:
+    return _TAIL_DOTS.sub("", (t or "").rstrip()).rstrip()
+
+
+def fix_linked_tails(regions, note: bool = False) -> int:
+    """Put every linked box's trailing ellipsis where its own source has one.
+
+    Returns how many lines were changed, which is what the run report counts.
+
+    `note` marks the region, and PROOFREADING passes it - lee: *"proffreading
+    shud also catch stuff like this"*. At translation time this is one of a
+    dozen things being settled and a note on every one would be noise; at
+    proofreading it is a correction to a finished line, which is the thing the
+    proofread report exists to show. The report already prints the wording it
+    replaced, so the note only has to say WHY it moved.
+    """
+    groups: dict = {}
+    for r in regions:
+        link = int(getattr(r, "link", 0) or 0)
+        # A `balloon` link is a fact about the PICTURE - two lobes of one
+        # balloon - and says nothing about one mark being cut in two. Only a
+        # real link is one thing split.
+        if link and getattr(r, "link_kind", "") != "balloon":
+            groups.setdefault(link, []).append(r)
+    fixed = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        for r in group:
+            dst = (getattr(r, "dst_text", "") or "").strip()
+            if not dst:
+                continue
+            want = _dotted(getattr(r, "src_text", "") or "")
+            if want == _dotted(dst):
+                continue
+            new = (_undot(dst) + "...") if want else _undot(dst)
+            if new and new != dst:
+                r.dst_text = new
+                fixed += 1
+                if note:
+                    r.flagged = ((getattr(r, "flagged", "") or "")
+                                 + " ellipsis: the dots belong to the box whose"
+                                   " original has them").strip()
+    return fixed
+
+
+# THE ONLY TWO KINDS A READING MAY SWAP BETWEEN.
+#
+# lee: *"the tranlator or read text shoiud tun sfx into outside text or turn
+# outside text into sfx only those 2"*. The pair is the whole rule, and the
+# "only those 2" is the safety in it: both are LOOSE TEXT ON THE ARTWORK with
+# no balloon round them, which is exactly why the box finder cannot tell them
+# apart - it is working from shape, and they have the same shape. Everything
+# else a box can be says something about the picture that the words cannot
+# overrule, and a bubble is a bubble whatever is written in it.
+RETYPE_KINDS = ("sfx", "freefloat")
+
+
+def _retype(region, item, ctx) -> bool:
+    """Let the reading correct a sound effect that is an aside, or the reverse.
+
+    Refused unless the project asked for it, unless the region is already in
+    one of the two FAMILIES, and unless the answer is the other one. A model
+    that proposes "bubble", or proposes the family a region is already in, is
+    ignored rather than argued with.
+
+    ## Families, not exact kinds
+
+    This compared `region.kind` against the pair directly, and that was right
+    for exactly as long as a loose box could only ever BE `sfx` or
+    `freefloat`. Read text now labels sub-types, so an effect comes out of it
+    as `sfx_big` - which is not in the pair, so the retype was refused and
+    lee's switch quietly stopped working on every effect the labeller touched.
+
+    A sub-type is a kind of its family and nothing about `sfx_big` says it
+    cannot be outside text; it says the opposite, that somebody thought it was
+    a big sound. So the question is asked of the family.
+
+    The whole sub-type goes when the family does. `sfx_big` is not a kind of
+    outside text and there is no honest translation of it into one - the box
+    lands on the family's own default and can be sub-typed again from there.
+    """
+    if not getattr(ctx, "retype_kinds", False):
+        return False
+    want = str(item.get("kind") or "").strip().lower()
+    if want not in RETYPE_KINDS:
+        return False
+    now = str(getattr(region, "kind", "") or "").strip().lower()
+    fam = _kinds.family_of(now)
+    if fam not in RETYPE_KINDS or fam == want:
+        return False
+    region.kind = want
+    region.flagged = ((getattr(region, "flagged", "") or "")
+                      + " kind: read as %s rather than %s" % (want, now)).strip()
+    return True
+
+
 def build_system(medium: str = "manga", target: str = "en",
-                 source: str = "") -> str:
+                 source: str = "", honorifics: bool = False) -> str:
+    """The system prompt for one project.
+
+    `honorifics` keeps the genre's forms of address in the English rather than
+    localising them - "Glow-san", not "Mr. Glow". Off by default, because it is
+    a house-style decision and the house is the person releasing the chapter;
+    a reader who wants "Mr. Glow" is not wrong. See `HONORIFIC_NOTES`, which is
+    a short list on purpose.
+    """
     src = source_language(medium, source)
     tgt = TARGETS.get(target, "English")
+    note = HONORIFIC_NOTES.get(src, "") if honorifics else ""
     return SYSTEM_TEMPLATE.format(
         medium=medium, source=src, target=tgt,
         source_note=SOURCE_NOTES.get(src, ""),
         target_note=TARGET_NOTES.get(tgt, ""),
+        honorific_note=("\n- " + note) if note else "",
     )
 
 
@@ -558,7 +808,10 @@ SYSTEM = build_system()
 
 SCHEMA_HINT = """Return:
 {"regions":[{"id":<int>,"translation":<str>,
-"speaker":<str|null>,"confidence":<0..1>}],"page_notes":<str>,
+"speaker":<str|null>,"confidence":<0..1>,
+"kind":"sfx"|"freefloat" (OPTIONAL — only when the region's given kind is one
+  of those two and the words are plainly the other; leave it out otherwise)}],
+"page_notes":<str>,
 "glossary_additions":{<source term>:"<canon rendering> (<what it is>)"}
   (the bracket is REQUIRED — "Tarel (the copper coin)", never bare "Tarel";
   no people — never a named character, only places/organizations/titles/items),
@@ -611,6 +864,18 @@ Go through every region and fix ONLY what is wrong:
   nickname the sheet does not use — rewrite it to the sheet's exact
   spelling. The glossary's renderings of recurring terms and place names are
   equally canon: one place, one spelling, every page.
+- LINKED BOXES: check which one the dots belong to. Regions sharing a
+  non-zero "link" are ONE mark the artist drew and the box finder cut in two,
+  so the trailing ellipsis goes on the box whose ORIGINAL line ends with one -
+  し and ん… are "SI" and "LENCE...", never "SI..." and "LENCE". It reads
+  equally well either way, which is exactly why it goes wrong; the page
+  settles it, so do not choose.
+- HONORIFICS are the project's decision and not yours. "keep_honorifics" in
+  the request says which way it went. True: a Japanese honorific already on a
+  name — -san, -sama, -chan, -kun, -dono — STAYS exactly as it is, and
+  "Glow-san" is never tidied into "Glow" or into "Mr. Glow". False: one that
+  survived translation comes off. Either way it is the same choice on every
+  line of the page, and it is not a matter of what reads better.
 - Do not use a proper name the character sheet and glossary do not contain.
   If the current line names somebody the sheet does not know, leave the name
   as it stands and note it; do not "correct" it into a name you recognise.
@@ -631,9 +896,16 @@ Rules:
   sheet or the glossary, no detail the {source} does not state, nothing
   "clarified" that the original leaves implicit. Staying close to what was
   written is the job.
-- Never make a line meaningfully longer — it has to fit the same bubble.
+- Length is not yours to police. Making a line shorter so it fits is a
+  change to what the page says, and the page wins; the typesetter sets
+  smaller type. Do not pad one out either.
 - Plain punctuation only: straight quotes, three periods for an ellipsis, a
   hyphen only inside a hyphenated word.
+- A MARK IS NOT PUNCTUATION AND IS NOT YOURS TO TIDY. A heart, star, music
+  note, sparkle, sweat drop or anger mark in the current line stays exactly
+  where it is, in the same number. The rule above is about quotes and dashes;
+  removing a ♥ under it deletes something the artist typeset. Take one off
+  only when the {source} line has none — and say so in page_notes.
 - Do NOT add a dash the {source} does not have — least of all at the start or
   end of a line to mark a sentence carried across bubbles. That is three
   periods at the END, not a dash. Remove any dash you find used that way.
@@ -672,6 +944,17 @@ def build_proofread_payload(page: Page, ctx: SeriesContext) -> dict:
         "source_language": source_language(ctx.medium,
                                            getattr(ctx, "source", "")),
         "target_language": TARGETS.get(ctx.target, "English"),
+        # THE SAME FIELD THE TRANSLATOR GETS, and it was missing here.
+        #
+        # `keep_honorifics` reached `_base_payload` and stopped there, so the
+        # translator was told to keep -san and the copy editor two steps later
+        # was told nothing at all. Measured on lee's chapter 3 with the real
+        # prompt: 019's `やっぱりグロウさんなんか嫌い` came back "I really don't
+        # like Glow-san." and the proofreader returned "...like Glow.", quietly
+        # undoing a setting somebody had switched on - and it did it under two
+        # different versions of the prompt, so it is the missing field and not
+        # a bad turn.
+        "keep_honorifics": ctx.honorifics,
         "series_context": ctx.synopsis,
         "glossary": ctx.glossary,
         # ---- everything below here changes from page to page ----
@@ -695,11 +978,20 @@ def build_proofread_payload(page: Page, ctx: SeriesContext) -> dict:
             # SFX stay out: "CRASH" needs no copy edit, and a model asked to
             # polish one tends to turn it into a sentence.
             #
-            # So does a text box somebody added themselves. There is no source
-            # for the proofreader to check it against, and those are not a
-            # translation to be corrected - they are what the person wanted
+            # THE FAMILY, and this read `r.kind != "sfx"` until Read text began
+            # labelling sub-types. A box that came out of it as `sfx_big` is not
+            # the string "sfx", so every labelled sound effect started arriving
+            # at the copy editor - paid for by the box, and handed to the one
+            # model most likely to turn DOOM into a sentence. The exclusion was
+            # always about the family; the string only worked while the two were
+            # the same thing.
+            #
+            # A text box somebody added themselves stays out too. There is no
+            # source for the proofreader to check it against, and those are not
+            # a translation to be corrected - they are what the person wanted
             # the page to say.
-            if ((r.dst_text or "").strip() and r.kind != "sfx"
+            if ((r.dst_text or "").strip()
+                and _kinds.family_of(getattr(r, "kind", "") or "") != "sfx"
                 and not getattr(r, "own_text", False))
         ],
     }
@@ -739,9 +1031,18 @@ def proofread_page(
         if last_err:
             user += f"\n\nYour previous reply was rejected: {last_err}. Fix it."
 
+        _cap = 8000
+        if attempt == 0 and not last_err:
+            from . import coins as _c
+            _cap = _c.reply_cap("proofread",
+                                len(payload.get("regions") or []),
+                                sum(len(str(r.get("text") or ""))
+                                    for r in (payload.get("regions") or [])),
+                                model)
         text = _ask(client, kind, model,
                     build_proofread_system(ctx.medium, ctx.target,
-                                           getattr(ctx, "source", "")), user)
+                                           getattr(ctx, "source", "")), user,
+                    max_tokens=_cap)
         try:
             data = _extract_json(text)
         except Exception as e:
@@ -773,12 +1074,17 @@ def proofread_page(
                     strip_added_ellipsis(
                         strip_added_dashes(fixed, r.src_text), r.src_text),
                     r.src_text)
+                # This run's notes replace the last run's - see the same
+                # comment in `translate_page`, and the fourteen doubled
+                # remarks in lee's chapter 3 report that found it.
+                from .ocr import looks_like_garbage
+                r.flagged = looks_like_garbage(r.src_text, r) or ""
                 if added_masking(r.dst_text, r.src_text):
                     r.flagged = (r.flagged or "") + " " + CENSOR_NOTE
-                note = quieter(r.dst_text, r.src_text) or too_long(
-                    r.dst_text, r, comfort_size(
-                        getattr(ctx, "min_font", 12),
-                        getattr(ctx, "max_font", 34)))
+                note = (quieter(r.dst_text, r.src_text)
+                        or stops_short(r.dst_text, r.src_text)
+                        or too_long(r.dst_text, r,
+                                    getattr(ctx, "min_font", 12)))
                 if note:
                     r.flagged = ((r.flagged or "") + " " + note).strip()
 
@@ -808,6 +1114,12 @@ def proofread_page(
                                  ).strip()
             if renamed:
                 data["spelling_fixed"] = renamed
+        # ...and again after the copy edit, for the same reason it runs after
+        # the translation: the proofreader is reading one box at a time and
+        # will happily move an ellipsis onto the half that reads better. Where
+        # the author's dots live is not a copy-editing decision. See
+        # `fix_linked_tails`.
+        fix_linked_tails(page.regions, note=True)
         return data
 
     raise RuntimeError(
@@ -836,11 +1148,11 @@ class SeriesContext:
     # `already_said`. Filled as a run goes and thrown away with it, which is
     # the right lifetime: it is about one chapter being consistent with
     # itself, and the sheet and the glossary are what carry across chapters.
-    # The type sizes this project will set between. Both are needed to say how
-    # much a balloon HOLDS: the budget is taken at `comfort_size`, a fraction
-    # of the full size and never below the floor. Carried here so `fits_chars`
-    # can put the number in the request; the typesetter's own copies are
-    # `TypesetConfig.min_font` and `.max_font`.
+    # The type sizes this project will set between. `min_font` is the one that
+    # is still asked a question: it is the FLOOR, and `too_long` uses it to ask
+    # whether a line goes in at all. Nothing budgets against `max_font` any
+    # more - no length budget reaches the model at all, see `_base_payload`.
+    # The typesetter's own copies are `TypesetConfig.min_font` and `.max_font`.
     min_font: int = 12
     max_font: int = 34
     speakers_seen: list[str] = field(default_factory=list)
@@ -852,6 +1164,23 @@ class SeriesContext:
     # page 45, in the body of two narration boxes, and nothing anywhere had
     # ever written the name down. See `names_in`.
     names_seen: list[str] = field(default_factory=list)
+    # ...and the SOUNDS this chapter has already given an English word to.
+    #
+    # The same argument as `terms_seen`, on the part of a chapter where the
+    # drift is easiest to see. A page is translated in its own request, so a
+    # full-chapter run is twenty-three requests and not one: page 22 is
+    # answered without knowing what page 21 decided. Measured over all fifty
+    # sound effects in lee's chapter:
+    #
+    #   スッ -> SHH on 021 and SWISH on 022
+    #   ぱっ -> PERK on 010 and BEAM on 022
+    #   SPLASH for ザブン, ザボンッ and バチャ three times - a body going under
+    #     and a splatter, drawn as two sounds and printed as one word
+    #   SWISH for サラッ as well as スッ, so スッ collides in both directions
+    #
+    # Sixteen of the fifty are caught in one or the other. Fifty sounds is a
+    # few hundred tokens: the cheapest consistency this app can buy.
+    sounds_seen: dict[str, str] = field(default_factory=dict)
     # THE STORY SWITCHES. lee: *"add a story setting that allow the user ti
     # turn the story thing off, and to tun what the ai detects with check
     # boxes"*.
@@ -870,6 +1199,10 @@ class SeriesContext:
     learn_terms: bool = True
     name_speakers: bool = True
     honorifics: bool = True
+    # Whether a reading may correct a box's kind between sfx and outside text.
+    # OFF by default: it changes a thing the person may have set by hand, and
+    # a setting that rewrites your own labels should be one you asked for.
+    retype_kinds: bool = False
     medium: str = "manga"           # manga | manhwa | manhua | comic
     target: str = "en"              # en | es | pt | fr
     source: str = ""                # source language code; "" follows medium
@@ -1013,6 +1346,41 @@ def remember_said(ctx: "SeriesContext", page, adds: dict | None = None) -> None:
     for n in names_in([r.dst_text or "" for r in page.ordered()]):
         if n not in names:
             names.append(n)
+    # ...and the SOUNDS, which nothing was carrying at all. See
+    # `SeriesContext.sounds_seen` for what that cost on lee's chapter.
+    #
+    # First rendering wins, the same rule as `terms` above and for the same
+    # reason: the second one IS the drift. It is a floor, not a ceiling - a
+    # sound the model gives a new word to on page 22 is exactly the thing
+    # this is here to stop, and it can only stop it by having gone first.
+    sounds = getattr(ctx, "sounds_seen", None)
+    if sounds is None:
+        sounds = ctx.sounds_seen = {}
+    for r in page.ordered():
+        if _kinds.family_of(getattr(r, "kind", "") or "") != "sfx":
+            continue
+        k = sound_key(getattr(r, "src_text", ""))
+        v = " ".join((getattr(r, "dst_text", "") or "").split())
+        if k and v and k not in sounds:
+            sounds[k] = v
+
+
+def sound_key(s: str) -> str:
+    """The comparison form of a drawn sound.
+
+    Whitespace out - a sound drawn down a column arrives with newlines in it
+    and `ザ\\nブン` is `ザブン` - and full width normalised, because `ﾄﾞﾝ` and
+    `ドン` are one sound in two encodings.
+
+    It does NOT fold katakana into hiragana, and that restraint is borrowed
+    whole from `editor._fold_kana`, which learnt it the hard way: `キョロ` and
+    `きょろ` are two spellings somebody may have chosen on purpose. Folding
+    them here would be milder than folding them there - the worst it can do is
+    hand one spelling the other's English - but it is the same wrong idea and
+    the author's choice is not ours to flatten.
+    """
+    import unicodedata
+    return unicodedata.normalize("NFKC", "".join((s or "").split()))
 
 
 # Roughly how much area one character of typeset English takes, as a multiple
@@ -1026,36 +1394,23 @@ def remember_said(ctx: "SeriesContext", page, adds: dict | None = None) -> None:
 CHAR_AREA = 1.05
 BALLOON_PACK = 0.55
 
-# The size to budget at, as a fraction of what the project calls a full-size
-# line. NOT `min_font`, which is what this used to use and is why the number
-# meant nothing: min_font is the floor below which a human gets flagged, and on
-# that chapter the typesetter never went near it - it set a median of 32px
-# against a floor of 11, and 18px was the smallest thing on 71 pages. A budget
-# of "what could be crammed in if we shrank the type to illegible" said the
-# median balloon held 634 characters when the median line was 43, and the note
-# fired zero times out of 134.
-#
-# 0.7 of max_font is where the flags line up with the pages: on that chapter it
-# raises 11 notes, and every one is a balloon the typesetter really did have to
-# squeeze (chosen sizes 21-29, against the chapter's median 32). At 0.75 it
-# starts calling out balloons that came out at 34px, which are fine.
-COMFORT_FONT = 0.7
-
 # How far past the estimate a line has to go before it is worth saying so. The
 # estimate is an estimate; a note on a line that is merely snug is a note
 # nobody will read twice.
 OVER_FITS = 1.25
 
-
-def comfort_size(min_font: int = 12, max_font: int = 34) -> int:
-    """The type size a balloon should be budgeted at.
-
-    A fraction of the project's full size, never below its floor - a project
-    whose two settings sit on top of each other gets the floor, which is the
-    only size it has.
-    """
-    lo = max(6, int(min_font or 12))
-    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))
+# There was a `comfort_size` here - 0.7 of the project's full type size - and
+# everything about length was measured against it: the budget in the payload,
+# and the note. It is gone with the budget. lee: *"i wan the most accurate
+# transaltion no matter the leght of the of it so i dont want to shrink or
+# expand teh translation to fit anythng"*.
+#
+# Comfort was the right question while the model was being asked to cut words.
+# It is the wrong question now: a line that comes out at small type is not a
+# defect any more, it is the price of the accurate line, and 141 of the 220
+# lines on lee's own chapter were over the comfortable size while NONE of them
+# were over the floor. A report where two thirds of the flags are things
+# nobody is going to act on is a report nobody reads.
 
 
 def fits_chars(region, size: int = 12) -> int:
@@ -1108,7 +1463,15 @@ def quieter(dst: str, src: str) -> str:
 
 
 def too_long(dst: str, region, size: int = 12) -> str:
-    """Did it come back longer than the balloon holds?
+    """Will the balloon not hold this line AT ALL?
+
+    `size` is the project's FLOOR - the smallest type it will set - and that is
+    the whole of what changed here. It used to be `comfort_size`, so the note
+    meant "this will come out small", and the model was being asked to cut
+    words to avoid it. It is not asked that any more: lee wants the accurate
+    line whatever it costs in type size, so small type is the answer and not a
+    fault. What is still worth saying is that a line will not go in at any size
+    the project allows, because that one the typesetter cannot solve.
 
     Only where there is a balloon to measure - see `fits_chars`, which is an
     estimate and is treated as one: the note is only raised at OVER_FITS past
@@ -1119,6 +1482,44 @@ def too_long(dst: str, region, size: int = 12) -> str:
     if room and n > room * OVER_FITS:
         return "about %d characters for a balloon that holds ~%d" % (n, room)
     return ""
+
+
+#: What a line is allowed to end on. Anything else, where the source trailed
+#: off, is a sentence that stopped rather than one that faded.
+_ENDED = tuple('.!?…‥—–-"\'”’」』）)】』～~')
+
+
+def stops_short(dst: str, src: str) -> str:
+    """The source trails off and the English just stops.
+
+    lee's page 008: `とっても良かったですあり…` - she is saying thank you and is
+    cut off - came back **"It was wonderful. Than"**. Not shortened, not
+    mistranslated: it ends mid-word with nothing after it, and on the finished
+    page that reads as a typo rather than as somebody being interrupted.
+
+    A note and not a repair, the same as `quieter` above: adding the dots back
+    would be choosing how the line breaks off, and the person reading the flag
+    can see the page. "Than-" and "Thank yo-" and "Than..." are three different
+    performances and only one of them is the typesetter's.
+    """
+    s, d = (src or "").strip(), (dst or "").strip()
+    if not s or not d:
+        return ""
+    if not s.endswith(("…", "‥", "—", "―", "－", "...", "．．．")):
+        return ""
+    if d.endswith(_ENDED):
+        return ""
+    return "the source trails off and this stops dead: %r" % d[-24:]
+
+
+# There was a `half_a_sound` here for a day, flagging any sound effect whose
+# English began mid-word: lee's page 016 came back "Si..." in one box and
+# "lence..." in the next, and I read that as the model cutting a word in half.
+# He looked at the page and said it was right - *"everrything is working as
+# entened the 2 016 and 017 are not mistakes"*. しん… IS one hush drawn across
+# two boxes, and splitting the English where the drawing splits is the answer
+# he wants. The check was calling a good page bad, so it is gone, along with
+# the prompt rule that told the model not to do it.
 
 
 def already_said(ctx: "SeriesContext") -> dict:
@@ -1159,6 +1560,26 @@ def already_said(ctx: "SeriesContext") -> dict:
              (getattr(ctx, "terms_seen", None) or {}).items() if k and v}
     if terms:
         out["terms"] = dict(list(terms.items())[:60])
+    # ...and the SOUNDS. The fourth gap and the one nothing covered at all: a
+    # sound effect has no speaker, is never proposed as a term and never
+    # reaches the glossary, so what a chapter decided `スッ` was had no record
+    # anywhere. `SeriesContext.sounds_seen` has the measurement.
+    #
+    # Both directions matter and the prompt asks for both, which is why the
+    # whole list travels rather than a lookup of the sounds on this page: one
+    # Japanese sound must get one English word, AND two Japanese sounds the
+    # artist drew differently must not collapse into the same one. The second
+    # of those cannot be checked against a sound that is not in front of you.
+    #
+    # It is about 150 tokens on a chapter with fifty sound effects in it,
+    # measured, and like the three lists above it is not in what
+    # `editor.context_boxes` prices - `coins.drift` measures what a run really
+    # sent against what the shape predicted and corrects for it, which is how
+    # the other three have always been paid for.
+    sounds = {str(k): str(v) for k, v in
+              (getattr(ctx, "sounds_seen", None) or {}).items() if k and v}
+    if sounds:
+        out["sounds"] = dict(list(sounds.items())[:80])
     names = [str(x).strip() for x in (getattr(ctx, "names_seen", None) or [])
              if str(x).strip()]
     if names:
@@ -1236,10 +1657,25 @@ def _base_payload(page: Page, ctx: SeriesContext,
                 "panel": r.panel_id,
                 "kind": r.kind,
                 "text": r.src_text,
-                "src_char_count": len(r.src_text),
-                **({"fits_chars": fits} if (fits := fits_chars(
-                    r, comfort_size(getattr(ctx, "min_font", 12),
-                                    getattr(ctx, "max_font", 34)))) else {}),
+                # NO LENGTH BUDGET TRAVELS WITH A REGION ANY MORE.
+                #
+                # There were two: `src_char_count`, which the prompt turned
+                # into "aim under 1.6 times the source", and `fits_chars`,
+                # how much the balloon holds at a comfortable size. Both are
+                # gone, with the rule that used them. lee: *"i wan the most
+                # accurate transaltion no matter the leght of the of it so i
+                # dont want to shrink or expand teh translation to fit
+                # anythng"*.
+                #
+                # Removing the RULE and leaving the NUMBERS would have been
+                # the worse half of the job: a budget sitting in the payload
+                # with nothing said about it is still a budget, and a model
+                # that sees how much room it has will use it.
+                #
+                # `fits_chars` itself is alive and is what `too_long` measures
+                # with - but at the floor now, not at a comfortable size, so
+                # it says "this will not fit at all" rather than "this will be
+                # small". See `too_long`.
                 # Two different facts, and they used to be one key. See
                 # `models.TextRegion.link_kind`.
                 **({("balloon"
@@ -1507,6 +1943,38 @@ def is_google_endpoint(url: str) -> bool:
     return "generativelanguage.googleapis.com" in (url or "").lower()
 
 
+def _openrouter_body_extras(base_url: str, model: str) -> dict:
+    """The two OpenRouter-only fields a request carries (task #119).
+
+    `usage: {include: true}` asks for USAGE ACCOUNTING: the reply then
+    carries `usage.cost` - what OpenRouter actually charged for the call -
+    and `completion_tokens_details.reasoning_tokens`. `coins.usage_extras`
+    reads both, so the bill settles on the provider's own number instead of
+    our copy of their price table.
+
+    `provider.max_price` is a routing ceiling, in USD PER MILLION tokens
+    (their stated unit): any endpoint above it is skipped. Set at 1.5x our
+    own table for the model, it lets routing pick any sane provider while
+    refusing the one having an expensive day - which is what keeps the
+    metered cost inside the hold the run was started on. A model our table
+    does not price gets no ceiling: guessing one could route every request
+    away.
+    """
+    if not is_openrouter_endpoint(base_url):
+        return {}
+    out = {"usage": {"include": True}}
+    try:
+        from . import coins as _c
+        r = _c.rate_for(model, "openrouter")
+        if r is not None and r is not _c.UNKNOWN and (r.inp or r.out):
+            out["provider"] = {"max_price": {
+                "prompt": round(r.inp * 1.5, 4),
+                "completion": round(r.out * 1.5, 4)}}
+    except Exception:
+        pass
+    return out
+
+
 def is_openrouter_endpoint(url: str) -> bool:
     return "openrouter.ai" in (url or "").lower()
 
@@ -1592,11 +2060,46 @@ SLOW_TRIES = 3
 # most retryable class of failure there is, and it was the one thing the loop
 # below did not retry - a read timeout on page 12 of a 23-page proofread ended
 # the whole run with a stack trace out of `ssl.py`.
-_WENT_QUIET = (TimeoutError, ConnectionError, http.client.HTTPException)
+# ...and a BROKEN one. `ssl.SSLError` is the connection itself failing, not
+# the server answering: `SSLV3_ALERT_BAD_RECORD_MAC` is one record arriving
+# with the wrong integrity tag, `UNEXPECTED_EOF_WHILE_READING` is the far end
+# vanishing mid-record. Neither says anything about the request, and sending
+# the request again is the whole of the fix. lee's Read text died at page 22
+# of 58 on a bad record MAC - a run that had already paid for the pages it
+# never got to, killed by one corrupted packet on a link that then worked
+# fine for the retry that never happened.
+#
+# It belongs HERE rather than in its own branch because the class is the same
+# one this tuple already names: accepted, then nothing usable came back.
+# Uploading a page image is a megabyte-plus POST, which is exactly the shape
+# of request an antivirus TLS proxy or a tired VPN mangles.
+_WENT_QUIET = (TimeoutError, ConnectionError, http.client.HTTPException,
+               ssl.SSLError)
+
+# The one SSL failure that is an ANSWER and not an accident. A certificate
+# that does not verify will not verify on the third try either, and retrying
+# it hides the one thing the person has to fix. Same reason a name that does
+# not resolve is not retried.
+_NOT_QUIET = (ssl.SSLCertVerificationError,)
 
 
-def _too_slow(what: str, model: str, seconds: int, tries: int) -> str:
+def _too_slow(what: str, model: str, seconds: int, tries: int, e=None) -> str:
     """The sentence a person gets instead of a traceback."""
+    if isinstance(e, ssl.SSLError) or isinstance(
+            getattr(e, "reason", None), ssl.SSLError):
+        # A different failure needs a different sentence. "did not answer
+        # within 300 seconds" sends somebody to look for a faster model, and
+        # the wait had nothing to do with it: the answer was coming and the
+        # link mangled it. What they can act on is the middle of the link.
+        return (f"the secure connection to the {what} server broke {tries} "
+                f"times running, so the {what} stopped here. This is not the "
+                f"model, the key or the page - the request went out and the "
+                f"reply came back damaged, which is what a VPN, a company "
+                f"proxy or an antivirus that inspects traffic does to a big "
+                f"upload. Everything finished before this is saved and the "
+                f"pages it did not reach have been refunded. Run it again; "
+                f"if it keeps stopping in the same place, turn off HTTPS "
+                f"scanning for this app or run it off the VPN.")
     return (f"{model} did not answer within {seconds} seconds, {tries} times "
             f"running, so the {what} stopped here. Nothing is wrong with the "
             f"page - the request was accepted and the answer never came. "
@@ -1608,10 +2111,13 @@ def _too_slow(what: str, model: str, seconds: int, tries: int) -> str:
 def _went_quiet(e) -> bool:
     """...including a timeout wrapped in a URLError, which is what a slow
     CONNECT looks like while a slow READ raises the bare thing."""
+    if isinstance(e, _NOT_QUIET):
+        return False
     if isinstance(e, _WENT_QUIET):
         return True
     reason = getattr(e, "reason", None)
-    return reason is not None and isinstance(reason, _WENT_QUIET)
+    return (reason is not None and isinstance(reason, _WENT_QUIET)
+            and not isinstance(reason, _NOT_QUIET))
 
 
 class OpenAICompatClient:
@@ -1660,6 +2166,9 @@ class OpenAICompatClient:
                 "messages": [{"role": "system", "content": system},
                              {"role": "user", "content": user}],
             }
+            if not getattr(self, "_no_or_extras", False):
+                body_obj.update(_openrouter_body_extras(self.base_url,
+                                                        self.model))
             if self.safety and not getattr(self, "_no_safety", False):
                 body_obj["extra_body"] = safety_body(self.safety)
             if not getattr(self, "_no_temperature", False):
@@ -1688,6 +2197,15 @@ class OpenAICompatClient:
                 if e.code == 400 and "temperature" in low \
                         and not getattr(self, "_no_temperature", False):
                     self._no_temperature = True
+                    continue
+                # A price ceiling that filtered every provider (a stale
+                # table, a price rise) must not fail the page: the same
+                # request goes again without the ceiling, and the settle
+                # still catches whatever it really cost.
+                if e.code in (400, 404) and not getattr(
+                        self, "_no_or_extras", False) and (
+                        "max_price" in low or "provider" in low):
+                    self._no_or_extras = True
                     continue
                 # an endpoint that will not take the safety block gets the
                 # same request again without it rather than failing the page
@@ -1718,7 +2236,7 @@ class OpenAICompatClient:
                         delay *= 2
                         continue
                     raise RuntimeError(_too_slow(
-                        "translation", self.model, self.timeout, slow)) from e
+                        "translation", self.model, self.timeout, slow, e)) from e
                 if isinstance(e, urllib.error.URLError):
                     raise RuntimeError(
                         f"could not reach the translation server at "
@@ -1757,6 +2275,9 @@ class OpenAICompatClient:
             body_obj = {"model": self.model, "max_tokens": max_tokens,
                         "messages": [{"role": "system", "content": system},
                                      {"role": "user", "content": content}]}
+            if not getattr(self, "_no_or_extras", False):
+                body_obj.update(_openrouter_body_extras(self.base_url,
+                                                        self.model))
             if self.safety and not getattr(self, "_no_safety", False):
                 body_obj["extra_body"] = safety_body(self.safety)
             if not getattr(self, "_no_json_mode", False):
@@ -1777,6 +2298,11 @@ class OpenAICompatClient:
                         and not getattr(self, "_no_json_mode", False):
                     self._no_json_mode = True
                     continue
+                if e.code in (400, 404) and not getattr(
+                        self, "_no_or_extras", False) and (
+                        "max_price" in low or "provider" in low):
+                    self._no_or_extras = True
+                    continue
                 if e.code == 400 and ("safety" in low or "extra_body" in low) \
                         and not getattr(self, "_no_safety", False):
                     self._no_safety = True
@@ -1796,7 +2322,7 @@ class OpenAICompatClient:
                         delay *= 2
                         continue
                     raise RuntimeError(_too_slow(
-                        "reading", self.model, self.timeout, slow)) from e
+                        "reading", self.model, self.timeout, slow, e)) from e
                 if isinstance(e, urllib.error.URLError):
                     raise RuntimeError(
                         f"could not reach the OCR server at {self.base_url} "
@@ -1925,9 +2451,14 @@ def _meter(resp, model: str = "") -> None:
 
 
 def _ask(client, kind: str, model: str, system: str, user: str,
-         cache_prefix: str = "") -> str:
+         cache_prefix: str = "", max_tokens: int = 8000) -> str:
     """One turn. `cache_prefix` is the head of `user` that repeats across a
     run and is worth marking for the cache.
+
+    `max_tokens` bounds the reply - callers that know the page pass
+    `coins.reply_cap` (about twice the predicted reply), so the unbounded
+    half of the bill is a number we chose. A retry after a truncated reply
+    must pass the full 8000 rather than the cap that truncated it.
 
     Google needs no marking - its cache is implicit above about a thousand
     tokens and asks only that the repeated part come first, which is what the
@@ -1937,7 +2468,7 @@ def _ask(client, kind: str, model: str, system: str, user: str,
     if kind == "openai":
         # No marking to do: the OpenAI-compatible path covers local models and
         # third-party gateways, and `user` already carries the whole payload.
-        return client.complete(system, user)
+        return client.complete(system, user, max_tokens=max_tokens)
     content = user
     if cache_prefix and _cacheable(cache_prefix):
         content = [
@@ -1945,7 +2476,8 @@ def _ask(client, kind: str, model: str, system: str, user: str,
              "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": user[len(cache_prefix):]},
         ]
-    kwargs = dict(model=model, max_tokens=8000, system=_system_blocks(system),
+    kwargs = dict(model=model, max_tokens=int(max_tokens or 8000),
+                  system=_system_blocks(system),
                   messages=[{"role": "user", "content": content}])
     if model not in _NO_TEMPERATURE:
         try:
@@ -1982,20 +2514,66 @@ def _ask_vision(client, kind: str, model: str, system: str, user: str,
     content.append({"type": "text", "text": user})
     kwargs = dict(model=model, max_tokens=4000, system=_system_blocks(system),
                   messages=[{"role": "user", "content": content}])
-    # OCR wants the flattest, most literal decoding we can get (temperature 0),
-    # which also suppresses the "plausible but not in the image" hallucinations.
-    if model not in _NO_TEMPERATURE:
-        try:
-            resp = client.messages.create(temperature=0, **kwargs)
-            _meter(resp, model)
-            return "".join(b.text for b in resp.content if b.type == "text")
-        except Exception as e:
-            if "temperature" not in str(e).lower():
-                raise
-            _NO_TEMPERATURE.add(model)
-    resp = client.messages.create(**kwargs)
+    resp = _create_read(client, model, kwargs)
     _meter(resp, model)
     return "".join(b.text for b in resp.content if b.type == "text")
+
+
+# Models that refused to have their thinking turned off - remembered, like
+# `_NO_TEMPERATURE`, so every following page skips the attempt. Fable 5 and
+# the Mythos line reject `thinking: {"type": "disabled"}` outright, and Opus 5
+# rejects it above effort `high`; either way the read goes ahead with thinking
+# on, is metered for what it really used, and is quoted high rather than low.
+_NO_THINKING_OFF: set[str] = set()
+
+
+def _create_read(client, model: str, kwargs: dict):
+    """One Anthropic read, with the two knobs a read asks for and a model may
+    refuse: temperature 0 and thinking off.
+
+    Temperature 0 is the flattest, most literal decoding there is, and it
+    suppresses the "plausible but not in the picture" guesses. Newer models
+    reject the parameter outright.
+
+    Thinking off is task #125 by lee's decision - *"turn it of ad let me do a
+    run and compare"* - for the models on `coins.READ_THINKING_OFF`, which is
+    also the list the quote reads, so the price and the request agree. On
+    Claude 5 thinking is on unless asked otherwise, and on lee's 58-page
+    manhwa five sixths of the read's output was reasoning nobody saw and
+    nobody had asked for.
+
+    Each knob is dropped on its own when the model refuses it, and the
+    refusal is remembered for the process. Anything else is a real error and
+    must surface.
+    """
+    from . import coins as _c
+    want_temp = model not in _NO_TEMPERATURE
+    want_off = _c.read_thinks_off(model) and model not in _NO_THINKING_OFF
+    for _ in range(3):
+        extra = {}
+        if want_temp:
+            extra["temperature"] = 0
+        if want_off:
+            extra["thinking"] = {"type": "disabled"}
+        try:
+            return client.messages.create(**extra, **kwargs)
+        except Exception as e:
+            said = str(e).lower()
+            if want_temp and "temperature" in said:
+                _NO_TEMPERATURE.add(model)
+                want_temp = False
+                continue
+            if want_off and ("thinking" in said or "effort" in said):
+                _NO_THINKING_OFF.add(model)
+                want_off = False
+                # Out loud, once: the read that follows costs what a thinking
+                # read costs, and the person comparing the two must know
+                # which one they got.
+                print(f"[read] {model} would not turn its thinking off "
+                      f"({e}); reading with it on", flush=True)
+                continue
+            raise
+    return client.messages.create(**kwargs)
 
 
 def build_ocr_system(source: str = "Japanese") -> str:
@@ -2016,14 +2594,32 @@ def build_ocr_system(source: str = "Japanese") -> str:
         f"- Copy the {source} characters exactly as printed, in reading order "
         "(for Japanese: top-to-bottom, and right-to-left across columns).\n"
         "- Output the ORIGINAL script only. Do NOT translate. Do NOT romanize.\n"
+        # The rule was already here and was ignored on lee's page 013, so it now
+        # carries the failure itself. Naming the exact confusion beats naming
+        # the category: `実` with じつ set beside it came back `実じっは…`, the
+        # ruby spliced into the middle of the word it explains.
         "- Do NOT include furigana / ruby (the tiny pronunciation kana printed "
-        "beside kanji). Transcribe the main line only.\n"
+        "beside kanji). Transcribe the main line only. The ruby is set SMALLER "
+        "and OFF TO THE SIDE of the character it belongs to; it is never part "
+        "of the line. If 実 has じつ printed beside it, the line is 実は… and "
+        "NOT 実じっは… — a run of kana appearing in the middle of a word it "
+        "spells out is ruby that has been read by mistake.\n"
         "- Transcribe ONLY what is actually printed. Never guess, complete, or "
         "invent text. If a region is unreadable, decorative, or empty, return "
         "an empty string for it. A plausible-sounding line that is not clearly "
         "in the image is WRONG — prefer the empty string.\n"
-        "- Preserve small kana (っ ゃ ゅ ょ) vs full kana, and dakuten / "
-        "handakuten exactly (が vs か, で vs て, ば vs は).\n"
+        # Directional, because the failures all go ONE way: the small form is
+        # written full-size, never the reverse. Five in 220 lines of lee's
+        # chapter - タツ for タッ, クツ for クッ, ぶつ for ぶっ, あつて for
+        # あって, ヘフ？ for へっ？ - and each one changes the English: クツ
+        # was translated "PFFT".
+        "- Preserve small kana (っ ッ ゃ ゅ ょ ァ ィ) vs full kana, and dakuten "
+        "/ handakuten exactly (が vs か, で vs て, ば vs は). THE SMALL FORM IS "
+        "THE ONE THAT GETS MISSED: a sound ending in ツ is almost always ッ "
+        "(タッ, クッ, not タツ, クツ), つ before て/た/と is almost always っ "
+        "(あって, not あつて), and a sound that ends in つ is almost always っ "
+        "(ぶっ, not ぶつ). Look at the character's SIZE against the ones around "
+        "it, not at what would make a word.\n"
         # This used to say "write an ellipsis as three periods ...", which was
         # written for Japanese and is an instruction to CHANGE the page. lee's
         # chapter 1 prints "거, 취향 참…." and "흐음…." - an ellipsis glyph and
@@ -2038,6 +2634,23 @@ def build_ocr_system(source: str = "Japanese") -> str:
         "an ellipsis is … where the page prints … and ... where it prints ..., "
         "a full stop after an ellipsis (….) is part of the line, and a "
         "long-vowel mark is ー. Do not tidy, normalise, or add stray symbols.\n"
+        # THE MARKS THAT ARE PART OF THE LINE. lee, with a crop of 「これから
+        # 本番♥」: *"i want teh read text to be able to read stuff like haearts
+        # and other thiungs that text can usualy have"*.
+        #
+        # Nothing above told the reader what to do with one. The rule before
+        # this said "punctuation", which a heart is not, and the one after it
+        # says never to invent - so the safe reading of the prompt was to drop
+        # it, and a mark the artist typeset INSIDE the balloon is part of what
+        # the line says. It is the difference between "this is it" and "this
+        # is it ♥".
+        "- MARKS SET IN THE LINE ARE PART OF THE LINE. A heart, a star, a "
+        "music note, a sparkle, a sweat drop, an anger mark - anything typeset "
+        "among the words rather than drawn on the artwork - is transcribed "
+        "where it stands, as the character it is: ♥ ♡ ★ ☆ ♪ ♫ ※ ⁉ ‼ 💢 💦 ✨. "
+        "「これから本番♥」 is `これから本番♥` and never `これから本番`. This is "
+        "the same rule as the punctuation one and not licence to invent: a "
+        "mark you cannot clearly see is not there.\n"
         # ...and the shape of the line, which the crops were flattening: page
         # 013's narration is printed as three lines and arrived as one.
         "- Keep the LINE BREAKS as printed. A run of writing set as three lines "
@@ -2087,6 +2700,481 @@ def build_ocr_system(source: str = "Japanese") -> str:
         'Return ONLY JSON, no prose or code fences: '
         '{"regions":[{"id":<int>,"text":"<exact text>"}]} with one entry per '
         "numbered region.")
+
+
+# ------------------------------------------------------- what kind of box ----
+#
+# lee: *"i want [it] to try to accura;y lables all the boxes with the sub
+# types ... it shoud not creade or dleet boxes just labbles them"*. First asked
+# of the proofreader; then, a minute later, *"alos coun;t read text do the same
+# thing after its done reading teh text?"* - and he was right, for three
+# reasons that all point the same way.
+#
+# **The read step already pays for a picture.** The proofreader is handed
+# `Page(image=np.zeros(...))`; it has never seen the artwork and adding it
+# there means buying a page image on every proofread, and a proofread is
+# re-run. The reader is looking at the page already.
+#
+# **These types are decided by DRAWING, not by wording.** A thought balloon is
+# a thought balloon whatever it says: cloud outline, no tail. Burst is spiky,
+# whisper is broken, a caption box is ruled, big-versus-small is size. The
+# proofreader knows the English and the reader is looking at the ink, and it is
+# the ink that settles every one of these.
+#
+# **The proofreader cannot see half the boxes.** `build_proofread_payload`
+# drops `kind == "sfx"` on purpose, so it could never have told Big / impact
+# from Small / background at all.
+#
+# THE PICTURE IS NOT THE READER'S PICTURE. The reader's default is one crop per
+# box, padded 25% around the WRITING - and a balloon is drawn well outside its
+# writing. Measured on lee's chapter 3, 141 balloons with a traced outline:
+#
+#     the crop holds the whole outline      21 of 141   (15%)
+#     median share of the outline in it     0.66
+#     under 90% of the outline             108 of 141
+#
+# So a labeller riding on the crops would be judging balloon shape from two
+# thirds of a balloon. It gets its own picture: the whole page at 768px, which
+# is ~553 image tokens - a third of the 1,747 a full-resolution page costs, and
+# enough to read every number tag and see every outline. One request a page.
+LABEL_SIDE = 768
+
+# How each type is DRAWN.
+#
+# Written against reference charts lee sent - *"use these to helpyou understand
+# teh buble types"* - and against his own pages, where the two disagree. Four
+# charts, plus AnimeOutline's tutorial and Blambot's grammar page. What they
+# agree on is in here; where they DISAGREE is in `LABEL_APART` below, because a
+# disagreement between traditions is exactly where a labeller goes wrong.
+#
+# Keyed by the shipped sub-type keys, because those are the only ones a model is
+# ever offered - see `kinds.labelling_vocabulary`.
+LABEL_LOOKS = {
+    "bubble": "a plain balloon, smooth closed outline, usually with a tail "
+              "pointing at whoever is speaking. THE DEFAULT - a balloon that "
+              "is not clearly one of the others is this one, and so is one "
+              "whose shape says something we have no name for",
+    # Three drawings, not one. lee's first chart files vertical narrow strips,
+    # plain rectangles AND rounded "THREE DAYS AGO" pills all under captions;
+    # an earlier version of this line said "square-cornered" and would have
+    # missed two of the three.
+    "narration": "a BOX rather than a balloon, and no tail. Any of: a plain "
+                 "rectangle, a rounded-corner rectangle or pill (often a date "
+                 "or a time - \"three days ago\"), or a long narrow strip laid "
+                 "down the side of the page. Holds narration or a caption, not "
+                 "somebody speaking",
+    # Written against real pages as well as the charts. lee's page 017 has two
+    # thought balloons and neither is the textbook one: soft LUMPY ovals with
+    # no trail of circles at all. An earlier draft said "scalloped, AND a trail
+    # of small circles", which would have called both of them plain speech - a
+    # description narrow enough to match only the diagram is a description that
+    # only labels diagrams.
+    #
+    # The FLASH balloon used to be the last clause of this one, on lee's own
+    # instruction - *"flash bubbles shub be considered thoughts bubbles"* - and
+    # he took it back after seeing one holding a line a character says out loud
+    # to somebody standing in front of her: *"this is calsiified as a thught
+    # bubble, its not"*. It has a type of its own now - `fancy`, below.
+    #
+    # Filing it here did not merely mislabel it, it aimed the TYPESETTING at
+    # the wrong thing: a thought balloon is set in italic to say "not said
+    # aloud", and this is said aloud.
+    "thought": "not a smooth oval, and no tail pointing at a mouth, AND "
+               "nothing drawn in the space around it. Any of: a cloud or "
+               "scalloped outline; a soft lumpy irregular one; or a trail of "
+               "small separate circles where a tail would be. An only "
+               "slightly irregular outline with no tail is this one too. "
+               "UNVOICED - what the character is thinking, not saying",
+    # THE TELL IS WHAT IS DRAWN AROUND IT, NOT THE OUTLINE.
+    #
+    # The first version of this was about the FLASH shape alone - a smooth
+    # core with a halo of fine radial spikes - because that was the balloon
+    # lee sent. His second example is nothing like it: a soft LUMPY outline
+    # with little flowers dotted in the space around it, holding "R-Really?!".
+    # lee: *"here is another exmale of a happy bubble"*.
+    #
+    # By outline alone that one is a textbook thought balloon, and it is a
+    # character speaking. What the two examples have in common is not their
+    # edge, it is the DECORATION outside it - sparkles, small stars, flowers,
+    # a halo of spikes - which is the artist saying *delighted*, and delight
+    # is a thing you say out loud.
+    #
+    # So the rule is about the space around the balloon, and `thought` has
+    # gained the matching clause: a lumpy outline with nothing round it.
+    "fancy": "MARKS DRAWN IN THE SPACE AROUND THE BALLOON - sparkles, small "
+             "stars, flowers, hearts, or a halo of many fine radial spikes "
+             "like a starburst or a glow. The outline itself may be anything: "
+             "a smooth oval, or lumpy and cloud-like. It is the decoration "
+             "outside it that decides, and it means the line is SPOKEN with "
+             "delight, excitement or flattery - not thought",
+    # Page 017's 倍…!? is a FACETED balloon - straight segments meeting at
+    # corners - and nothing about it is star-shaped, so "star-shaped" alone
+    # would have missed it.
+    "shout": "the outline itself is a ZIGZAG: spiky, jagged, star-shaped, "
+             "exploding, or drawn from straight segments meeting at angles "
+             "rather than as a curve. The points are part of the wall of the "
+             "balloon - few and large enough to count as its shape - and it "
+             "counts filled solid black as well as white. Usually shouting or "
+             "a shock, and the type inside is often larger or heavier",
+    "whisper": "the outline is BROKEN - drawn as a dashed or dotted line "
+               "instead of a continuous one - and the type inside is often "
+               "small. A balloon deliberately drawn faint",
+    "freefloat": "writing lying straight on the artwork with nothing drawn "
+                 "round it. THE DEFAULT for unboxed writing",
+    "narration_free": "narration or a caption lying on the artwork with no "
+                      "shape round it - a voice telling the story rather than "
+                      "a character speaking",
+    "aside": "a small muttered remark set beside a character, often in smaller "
+             "or scratchier type than the dialogue - an aside, not a line",
+    "sign": "writing that is PART OF THE SCENE and not part of the "
+            "conversation: a shop sign, a banner, a label on a box, the cover "
+            "of a book, a sign on a wall",
+    "sfx": "a drawn sound. THE DEFAULT for one",
+    "sfx_big": "a drawn sound that is LARGE - it dominates its panel, or runs "
+               "across a good part of the page",
+    "sfx_small": "a drawn sound that is SMALL - a little noise tucked beside a "
+                 "character or an object, not an impact",
+}
+
+# The pairs that actually get confused, and the shapes that look like one of
+# ours and are not.
+#
+# Every line here is a case where two of the descriptions above could both be
+# read as fitting, or where a real balloon convention has no type in this app
+# and would otherwise be swept into the nearest one. A list of definitions
+# answers the easy boxes; this is for the ones that decide how good the whole
+# pass is.
+#
+# The last four are the important ones. Manga draws several balloons this app
+# has no name for - weak or fading speech, gloom, an electronic voice, a stiff
+# formal one - and each of them has a shape that one of our descriptions would
+# happily claim. A wavy balloon is not a cloud. An angular radio balloon is not
+# a burst. Getting a box wrong is worse than leaving it plain, so each of them
+# is sent to its family's default BY NAME rather than left to the general
+# when-in-doubt rule, which only fires when the model is already unsure.
+LABEL_APART = (
+    # The collision lee's ruling creates, and the one most worth spelling out:
+    # a flash balloon IS spiky, and the burst description is about spikes.
+    "A FLASH balloon and a BURST are both spiky and are not the same thing. A "
+    "flash has a smooth oval core with a halo of MANY FINE hair-like spikes "
+    "around it, like a glow or a starburst - answer fancy. A burst has FEW "
+    "LARGE points that are the wall of the balloon itself, a zigzag you could "
+    "trace - answer shout.",
+    "A FANCY balloon and a THOUGHT are told apart by what is drawn AROUND "
+    "the balloon, not by its outline. Sparkles, small stars, flowers, hearts "
+    "or a halo of fine spikes in the space outside it - answer fancy, even "
+    "when the outline is lumpy or cloud-like, because that decoration is the "
+    "artist drawing delight and delight is spoken aloud. A cloud, scalloped "
+    "or lumpy outline with NOTHING drawn round it - answer thought.",
+    "A tail is what separates speech from thought, but a MISSING tail is not "
+    "enough on its own: a smooth oval with no tail - or with a small notch or "
+    "inward-pointing tail - is usually a character speaking from off-panel, "
+    "and that is plain speech. Read it as thought only when the outline is "
+    "also cloud-like or lumpy.",
+    "A rectangle with a TAIL is somebody speaking in a square balloon, which "
+    "is plain speech. A caption box has no tail.",
+    "A big sound effect against a small one is judged against the PAGE and its "
+    "panels, not against the other effects on it: a page whose sounds are all "
+    "small does not contain a big one.",
+    "A sign is part of the scene - it would still be there if nobody were "
+    "speaking. Narration on the art is a voice, and belongs to no object in "
+    "the picture.",
+    "A BLACK FILL is not a type. A balloon filled solid black is drawn that "
+    "way for menace or dread, and it can be any shape: judge it by its "
+    "OUTLINE exactly as if it were white.",
+    "A WAVY or wobbly outline - continuous, but rippling - is weak, fading or "
+    "uneasy speech. It is not a cloud and not a broken line: answer plain "
+    "speech.",
+    "A balloon with corners AND a jagged lightning-bolt tail is a voice from a "
+    "radio, a phone or a speaker. Answer plain speech, not a burst.",
+    "A balloon whose bottom edge MELTS or drips is sadness. Answer plain "
+    "speech.",
+)
+
+
+# The ONE exception to "the family cannot change", and it is switched off
+# unless the project asked for it.
+#
+# lee's own switch says why: *"Find text tells these two apart by shape, and
+# they have the same shape - loose text on the art, no balloon. Reading the
+# words settles it."* Everything else in this prompt is decided by how a box is
+# DRAWN, and for this one pair that rule is exactly wrong - there is nothing to
+# look at, which is the whole reason the detector cannot do it either.
+#
+# It ran at translation time until lee asked: *"can read text do this before
+# chnage teh sub type and after reading?"* - and it belongs here, because the
+# reading is what settles it and the reading has already happened. Doing it
+# first also means the sub-type is chosen INSIDE the corrected family instead
+# of being assigned to the wrong one and stranded there.
+SWAP_RULE = (
+    "ONE EXCEPTION, and only between Sound effect and Freefloat text. Those "
+    "two are both loose writing on the artwork with nothing drawn round them - "
+    "they have the SAME SHAPE, so for this pair alone the shape decides "
+    "nothing and the WORDS decide. Each of those regions is listed with what "
+    "was read in it.\n"
+    "A noise is a sound effect: ドン, ザッ, a drawn crash, a thump, a rustle - "
+    "written to be HEARD rather than said.\n"
+    "A phrase somebody is saying or thinking is Freefloat text, however small "
+    "and however unboxed: a muttered aside, a label, a line of narration.\n"
+    "Answer with a type from the OTHER of those two families when the words "
+    "plainly say so, and leave it alone otherwise. This does not apply to "
+    "balloons: a bubble stays a bubble.\n\n")
+
+
+ANGLE_RULE = (
+    "AND THE ANGLE OF THE WRITING, for the regions marked `angle?` in the "
+    "listing and no others. Those are the ones with no balloon drawn round "
+    "them - loose writing set straight onto the artwork - and that writing is "
+    "very often tilted, which the typesetting has to match or the English "
+    "sits level on a page where nothing else is.\n"
+    "- Give it in DEGREES, as a number, positive ANTICLOCKWISE, 0 for level.\n"
+    "- It is the lean of the BASELINE the characters sit on, not the shape of "
+    "the box round them and not the direction of the tail of anything.\n"
+    "- Writing set in a vertical column is NOT tilted: a column running "
+    "straight down the page is 0, not 90. Answer the lean of the column "
+    "itself.\n"
+    "- The honest answer is usually 0. Give a number other than 0 only when "
+    "the tilt is plain to see, and keep it between -60 and 60. A wrong angle "
+    "is worse than a level line, because a level line is what the page would "
+    "have had anyway.\n"
+    "- Omit `angle` entirely for any region not marked `angle?`.\n\n")
+
+
+def build_label_system(vocab: dict, source: str = "Japanese",
+                       may_swap: bool = False,
+                       want_angle: bool = False) -> str:
+    """The labeller's instructions, built from the types it may actually use.
+
+    The vocabulary is grouped BY FAMILY and the prompt is written family by
+    family, because the family is the one thing this step may not change. lee
+    chose that: the family decides how a box is cleaned and typeset, and it was
+    settled at detection from geometry - whether there is a balloon drawn round
+    the writing - which a detector reading pixels does better than a model
+    reading a thumbnail. A wrong sub-type costs a typeface. A box moved from
+    balloon to sound effect stops being cleaned as a balloon and drops out of
+    proofreading entirely.
+    """
+    lines = []
+    for fam, items in vocab.items():
+        if not items:
+            continue
+        lines.append("%s (%s):" % (_kinds.FAMILY_LABELS.get(fam, fam), fam))
+        for key, label in items:
+            look = LABEL_LOOKS.get(key, "")
+            lines.append('  "%s" — %s%s' % (key, label,
+                                            (": " + look) if look else ""))
+    return (
+        f"You are looking at one page of a {source} comic. Every box that has "
+        "been found on it is outlined in RED and carries a red number tag.\n\n"
+        "Your job is to say what KIND of box each one is. You are not "
+        "transcribing, translating or correcting anything, and you are not "
+        "deciding which boxes should exist — the boxes are already decided.\n\n"
+        "Each region is listed with the family it belongs to. THE FAMILY "
+        "CANNOT CHANGE. Choose only from the types listed under that region's "
+        "own family; a type from another family is not an available answer, "
+        "however well it fits.\n\n"
+        + (SWAP_RULE.format(source=source) if may_swap else "")
+        + "The types:\n" + "\n".join(lines) + "\n\n"
+        "Telling them apart:\n"
+        + "\n".join("- " + s for s in LABEL_APART) + "\n\n"
+        "How to decide:\n"
+        "- Go by HOW THE BOX IS DRAWN, not by what it says. A thought balloon "
+        "holding an ordinary sentence is still a thought balloon, and an "
+        "excited line in a plain smooth balloon is still plain speech.\n"
+        "- WHEN IN DOUBT, SAY SO: set \"sure\" to false and the box keeps "
+        "whatever type it already has. Every one of these boxes is already "
+        "labelled and usable; you are only being asked to improve on one "
+        "where the drawing PLAINLY says something more specific. A confident "
+        "wrong label is worse than leaving a box alone, because somebody has "
+        "to find it and undo it.\n"
+        "- \"sure\" is not a formality. Answer false whenever the shape is "
+        "small, cut off by the panel edge, partly hidden behind a character, "
+        "or simply ambiguous - and false is a complete answer on its own.\n"
+        "- Anything outlined in GREY is not yours to label.\n\n"
+        + (ANGLE_RULE if want_angle else "")
+        + "Return one entry for every numbered region, and no others. Return "
+        'ONLY JSON, no prose or code fences: '
+        '{"regions":[{"id":<int>,"kind":"<one of the keys above>",'
+        '"sure":true|false%s}]}'
+        % (',"angle":<number>' if want_angle else ""))
+
+
+# Which families are worth an angle. lee named two - *"onlu for freefloat and
+# sfx"* - and then, having seen outside text set on a slant: *"also make all
+# teh freefloast text be start no more angle"*.
+#
+# So it is the sound effects, and the reading fills in the ones the ink
+# measurement at Find text never reached. Asking about outside text as well
+# would be buying an answer nothing acts on: `typeset.fit_region` sets a
+# freefloat block level on purpose now, and it says so there.
+ANGLE_KINDS = ("sfx",)
+ANGLE_LIMIT = 60.0
+
+
+def label_kinds(page: "Page", ctx: "SeriesContext", png: bytes, vocab: dict,
+                client=None, model: str = "", max_retries: int = 1,
+                angles: "Optional[dict]" = None) -> dict:
+    """Ask what kind of box each region is. Returns {region_id: kind}.
+
+    Only answers that survive every rule are returned, so the caller can apply
+    the lot without re-checking: a key that is not in the vocabulary is
+    dropped, and so is one whose family differs from the box's own. The prompt
+    says both; this is the half that does not depend on a model complying.
+
+    An id that is not on the page is dropped too - which is the whole of "it
+    shoud not creade or dleet boxes". This function returns labels for boxes
+    that already exist and has no way to say anything else.
+
+    Pass a dict as `angles` to also ask HOW THE WRITING LEANS, and it is
+    filled with {region_id: degrees}. lee: *"is posible while looking at the
+    box type with reas text ask it to give the angle of the text for the
+    typesetter"* - *"onlu for freefloat and sfx"*.
+
+    Those two families and no others, and that is not an arbitrary pair: they
+    are the writing with nothing drawn round it, which is the writing that
+    leans. A balloon's words follow the balloon. Asking here rather than in a
+    pass of its own is free of a request: this step is already looking at a
+    picture of the whole page with every box outlined on it, which is exactly
+    what an angle has to be read from.
+    """
+    regions = [r for r in page.regions if not getattr(r, "own_text", False)]
+    if not regions or not png or not vocab:
+        return {}
+    kind_ok = {key: fam for fam, items in vocab.items() for key, _l in items}
+    if not kind_ok:
+        return {}
+
+    if client is None:
+        client, model, backend = make_client(
+            backend=ctx.backend, base_url=ctx.base_url,
+            model=ctx.model or MODEL, api_key=ctx.api_key,
+            safety=getattr(ctx, "safety", "") or "",
+            step_name=getattr(ctx, "step_name", "") or "")
+    else:
+        backend = "openai" if isinstance(client, OpenAICompatClient) \
+            else "anthropic"
+
+    fam_of = {r.id: _kinds.family_of(getattr(r, "kind", "") or "")
+              for r in regions}
+    order = sorted(regions, key=lambda r: (getattr(r, "order", 0), r.id))
+    # Sound effect against outside text is settled by the WORDS, not the shape -
+    # see `SWAP_RULE` - so those regions are listed WITH what was read in them
+    # and nothing else is. A page of transcriptions would be a second copy of
+    # the reading in a prompt that is about the drawing.
+    may_swap = bool(getattr(ctx, "retype_kinds", False))
+
+    # WHICH boxes an angle is wanted for, decided here and marked in the
+    # listing rather than described in the prompt. The prompt cannot see the
+    # page's families; the listing is the only place the two agree.
+    ask_angle = {r.id for r in order
+                 if angles is not None and fam_of[r.id] in ANGLE_KINDS}
+
+    def _row(r):
+        row = "%d: family %s, currently %s" % (r.id, fam_of[r.id],
+                                               getattr(r, "kind", "") or "?")
+        if may_swap and fam_of[r.id] in RETYPE_KINDS:
+            said = " ".join((getattr(r, "src_text", "") or "").split())[:60]
+            if said:
+                row += ", reads %s" % said
+        if r.id in ask_angle:
+            row += ", angle?"
+        return row
+
+    listing = "\n".join(_row(r) for r in order)
+    system = build_label_system(vocab, source_language(ctx.medium, ctx.source),
+                                may_swap=may_swap,
+                                want_angle=bool(ask_angle))
+    import base64
+    b64 = base64.b64encode(bytes(png)).decode("ascii")
+
+    want = {r.id for r in order}
+    last_err = ""
+    for _attempt in range(max_retries + 1):
+        _stopping.check()
+        user = ("The regions on this page, in reading order:\n" + listing
+                # A box somebody typed themselves is drawn and numbered on the
+                # picture like any other, and it is NOT in the listing - there
+                # is no writing in the artwork under it, so there is no drawing
+                # to read a kind off. Without this line the prompt's "one entry
+                # per numbered region" and the listing disagree, and the model
+                # is left to decide which of the two to obey.
+                + "\n\nSome boxes on the picture may not be in that list. "
+                  "Ignore those; answer for the listed regions only.\n\n"
+                  "Give the kind of each. Answer with the family's default "
+                  "wherever the drawing does not plainly say otherwise.")
+        if last_err:
+            user += "\n\nYour previous reply was rejected: %s. Fix it." % last_err
+        try:
+            text = _ask_vision(client, backend, model or MODEL, system, user,
+                               b64)
+            data = _extract_json(text)
+        except Exception as e:
+            last_err = str(e)[:200]
+            continue
+        items = [it for it in (data.get("regions") or []) if isinstance(it, dict)]
+        if not items:
+            last_err = "regions was empty"
+            continue
+        out: dict[int, str] = {}
+        for it in items:
+            try:
+                rid = int(it.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if rid not in want:
+                continue                  # not a box on this page
+            # THE ANGLE IS READ FIRST AND KEPT SEPARATELY, so a region whose
+            # kind is rejected below still gives up its angle. The two answers
+            # are about different things - what the box IS, and which way its
+            # writing leans - and one of them being unusable says nothing
+            # about the other.
+            if rid in ask_angle and "angle" in it:
+                try:
+                    deg = float(it.get("angle"))
+                except (TypeError, ValueError):
+                    deg = None
+                # A number outside the range asked for is not clamped into it.
+                # Clamping turns "I have misread this box as sideways" into a
+                # confident 60-degree lean, which is the wrong answer stated
+                # firmly; dropping it leaves the box level, which is what the
+                # page would have had anyway.
+                if deg is not None and deg == deg and abs(deg) <= ANGLE_LIMIT:
+                    angles[rid] = round(deg, 1)
+            # AN UNSURE ANSWER IS NOT AN ANSWER. lee: *"if the ai is not
+            # confident of a box acthergory it shoud not change the type"*.
+            #
+            # The rule it replaces was "when in doubt, answer the family's
+            # default", which is not leaving a box alone - it is CHANGING it,
+            # to plain speech, on no evidence. A box that somebody labelled by
+            # hand, or that the detector got right, was overwritten by a shrug.
+            #
+            # Enforced here as well as asked for in the prompt, for the same
+            # reason the family rule is a few lines down: a prompt is a
+            # request.
+            #
+            # MISSING reads as sure, and that is the safe direction rather
+            # than the strict one. A model that ignores the field would
+            # otherwise have every one of its answers dropped and this step
+            # would quietly stop doing anything at all - a silent total
+            # regression, which is worse than the thing being fixed. Only an
+            # explicit `false` throws an answer away.
+            if it.get("sure") is False:
+                continue
+            got = str(it.get("kind") or "").strip()
+            if got not in kind_ok:
+                continue                  # not a type it was offered
+            if kind_ok[got] != fam_of[rid] and not (
+                    # THE ONE EXCEPTION, and it is off unless the project asked
+                    # for it. Sound effect and outside text have the same shape,
+                    # so the words decide - see `SWAP_RULE`. Enforced here as
+                    # well as asked for in the prompt, for the same reason the
+                    # family rule is: a prompt is a request.
+                    may_swap and kind_ok[got] in RETYPE_KINDS
+                    and fam_of[rid] in RETYPE_KINDS):
+                continue                  # the family is not its to change
+            out[rid] = got
+        return out
+    return {}
 
 
 # ---------------------------------------------------------------- names ----
@@ -2878,10 +3966,22 @@ def translate_page(
         # price instead of all of it.
         fixed, _rest = split_at_the_fixed_part(user)
 
+        # The reply is bounded at about twice its own prediction - the
+        # unbounded half of the bill becomes a number we chose. Only on the
+        # FIRST try: a retry after a truncated reply gets the full ceiling,
+        # because the cap must never be the thing that truncated it twice.
+        _cap = 8000
+        if attempt == 0 and not last_err:
+            from . import coins as _c
+            _cap = _c.reply_cap("translate", len(payload.get("regions") or []),
+                                sum(len(str(r.get("text") or ""))
+                                    for r in (payload.get("regions") or [])),
+                                model)
         text = _ask(client, kind, model,
                     build_system(ctx.medium, ctx.target,
-                                 getattr(ctx, "source", "")), user,
-                    cache_prefix=fixed)
+                                 getattr(ctx, "source", ""),
+                                 getattr(ctx, "honorifics", True)), user,
+                    cache_prefix=fixed, max_tokens=_cap)
 
         try:
             data = _extract_json(text)
@@ -2922,14 +4022,35 @@ def translate_page(
                         r.src_text),
                     r.src_text),
                 r.src_text)
+            # THE NOTES ON THIS BOX ARE THIS RUN'S, and nobody else's.
+            #
+            # `flagged` arrives on the region carrying whatever the LAST run
+            # put there - `region_from_record` loads it and everything below
+            # used to append. So a box re-translated three times carried three
+            # copies of the same remark, and lee's chapter 3 report proved it:
+            # fourteen lines saying "about 9 characters for a balloon that
+            # holds ~5 about 9 characters for a balloon that holds ~5", and
+            # three sound effects still carrying a note from `half_a_sound`,
+            # a check that had been deleted from the app entirely.
+            #
+            # The reading's own note is not lost: `looks_like_garbage` is a
+            # pure function of the source text and the box, so asking it again
+            # gives the same answer it gave at Read text. What is thrown away
+            # is every remark about ENGLISH THAT NO LONGER EXISTS.
+            # ...and the one thing about the box itself the reading can fix.
+            # See `RETYPE_KINDS`: a shape cannot tell a drawn crash from a
+            # muttered aside, and the words can.
+            _retype(r, item, ctx)
+            from .ocr import looks_like_garbage
+            r.flagged = looks_like_garbage(r.src_text, r) or ""
             if added_masking(r.dst_text, r.src_text):
                 r.flagged = (r.flagged or "") + " " + CENSOR_NOTE
             # ...and the two the last chapter needed: a shout cut down to one
             # mark, and a line the balloon will not hold.
-            note = quieter(r.dst_text, r.src_text) or too_long(
-                r.dst_text, r, comfort_size(
-                    getattr(ctx, "min_font", 12),
-                    getattr(ctx, "max_font", 34)))
+            note = (quieter(r.dst_text, r.src_text)
+                    or stops_short(r.dst_text, r.src_text)
+                    or too_long(r.dst_text, r,
+                                getattr(ctx, "min_font", 12)))
             if note:
                 r.flagged = ((r.flagged or "") + " " + note).strip()
             # Who said it, unless nobody asked for that. A speaker the
@@ -2944,6 +4065,11 @@ def translate_page(
                 r.confidence = 0.0
             if r.confidence < 0.5:
                 r.flagged = (r.flagged or "") + " low translation confidence"
+
+        # ...and now the whole page is in, which is when a LINK can be looked
+        # at: the rule is about where the dots sit across two boxes, so it
+        # cannot be decided one region at a time. See `fix_linked_tails`.
+        fix_linked_tails(page.regions)
 
         story = getattr(ctx, "story", True)
         gl = data.get("glossary_additions") or {}

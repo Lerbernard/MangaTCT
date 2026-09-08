@@ -1158,6 +1158,22 @@ def test_exporting_is_what_makes_it_this_project_s_results(tmp_path):
 
         post("/api/export", {"dir": str(tmp_path / "out"), "mode": "clean"})
         assert p.settings.get("exported") is True
+        # WAIT FOR THE RUN THIS TEST STARTED. `/api/export` answers as soon as
+        # the job is queued, and the job walks the page list in a thread that
+        # outlives this function. Two things went wrong because of it, and
+        # neither showed up until some other file ran first in the same
+        # process: the reset below emptied the pages underneath it, and the
+        # stop-watch it installs is a module global - so the NEXT test to
+        # clean a page raised `Stopped` from a run it had nothing to do with.
+        #
+        # `/api/reset` now stops a running job before it clears (see
+        # `editor._quiet_the_queue`), which is the app's half of it. This is
+        # the test's half: do not leave a thread of your own behind.
+        for _ in range(600):               # generous: a loaded box is slow
+            if not p.job.get("running"):
+                break
+            threading.Event().wait(0.05)
+        assert not p.job.get("running"), "the export never finished"
         post("/api/reset", {"keep_settings": True})
         assert not p.settings.get("exported"), \
             "a new chapter inherited the last one's results"

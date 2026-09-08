@@ -104,10 +104,23 @@ def test_it_is_measured_where_it_is_decided():
     from where import PKG
     src = (PKG / "ocr.py").read_text(encoding="utf-8")
     at = src.index("painted sounds are ")
-    note = src[max(0, at - 2200):at]
+    note = src[max(0, at - 2400):at]
     assert "24/43" in note and "11/11" in note
-    assert "0.376" in note and "0.000" in note
+    assert "0.401" in note and "0.000" in note
     assert "そして" in note, "the invented dialogue, named"
+
+
+def test_the_note_goes_away_once_the_second_reader_is_here():
+    """A warning about a problem that has been fixed teaches people to ignore
+    warnings. With `paintread` running these boxes come back at 0.138 and the
+    invented dialogue is gone, so there is nothing to warn about."""
+    from where import PKG
+    src = (PKG / "ocr.py").read_text(encoding="utf-8")
+    at = src.index("painted sounds are ")
+    head = src[max(0, at - 2400):at]
+    assert "painter is None" in src[max(0, at - 2600):at], \
+        "the note is not conditioned on the specialist being absent"
+    assert "0.138" in head, "and it says what the second reader scores instead"
 
 
 def test_the_ai_path_carries_no_such_note():

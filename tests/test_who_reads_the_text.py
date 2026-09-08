@@ -7,7 +7,9 @@ Neither wins outright, which is why it is a menu and not a swap. Over 225
 boxes the two agree on 83% of the dialogue; where they part it is usually the
 AI that filed a line under the wrong box number (16 of 189, on 7 of 23 pages)
 - a mistake reading one crop at a time cannot make. On painted sound effects
-the AI wins and it is not close.
+the AI wins - though no longer by four times: `paintread` reads those with a
+specialist now, and on the eighteen effects where the two runs can be compared
+box for box it is 0.056 against 0.130 rather than against 0.401.
 
 What is tested here is the WIRING, because that is where a second reader goes
 wrong: a run that quietly still costs coins, a keyless machine refusing the

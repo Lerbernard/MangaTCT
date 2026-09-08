@@ -97,7 +97,10 @@ setTimeout(async ()=>{
   // lee: *"the tools are duplicated it shoud only be onteh side bar"*.
   const slots=()=>[...d.querySelectorAll('#toolbox .tbtn')]
     .map(b=>b.dataset.slot);
-  ok(slots().length===9, 'the toolbox has a slot for every kind of tool');
+  // One BUTTON per tool since the slots opened into sections ("the slots
+  // are still there and they are SECTIONS now" - toolbar.js). What is nine
+  // is the set of sections, not the number of buttons.
+  ok(new Set(slots()).size===9, 'the toolbox has a slot for every kind of tool');
   ['move','select','text','paint','fill','retouch','shape','pick','view']
     .forEach(k=>ok(slots().includes(k), `the toolbox has the ${k} slot`));
   ok(!d.getElementById('brushBtn') && !d.getElementById('stampBtn')

@@ -136,7 +136,9 @@ def test_the_legend_is_the_three_main_types(ed):
     pg.evaluate("setView('original')")
     browserpool.settled(pg)
     chips = pg.evaluate(
-        "[...document.querySelectorAll('#legend > *')].map(s=>s.textContent.trim())")
+        "[...document.querySelectorAll('#legend > *')]"
+        "    .filter(s=>!s.hasAttribute('aria-hidden'))"
+        ".map(s=>s.textContent.trim())")
     # The three main types are BUTTONS now - see
     # `tests/ui/the_legend_draws_the_box.test.js`. Still the same words,
     # with the select-boxes tool on the end of the row.
@@ -202,9 +204,14 @@ def test_double_clicking_the_hand_goes_to_actual_size(ed):
     pg.evaluate("fitPage()")
     pg.wait_for_timeout(500)
     assert pg.evaluate("fitZoom") < 0.9, pg.evaluate("fitZoom")
-    b = pg.evaluate("""(()=>{const r=document.querySelector(
-        '.tbtn[data-slot=view]').getBoundingClientRect();
-        return {x:r.left+r.width/2, y:r.top+r.height/2};})()""")
+    # The button by NAME, not by a pair of numbers. It used to measure the
+    # rect once and send the mouse to that spot, and in a 460px-tall window
+    # the view slot is the last section of a strip that is taller than the
+    # pane - so the coordinates landed on nothing, `elementFromPoint` said
+    # `none`, and a passing feature failed a geometry test. The strip scrolls
+    # (`#toolbox{overflow-y:auto}`) and a locator scrolls it into view first,
+    # which is also what a person does.
+    hand = pg.locator(".tbtn[data-slot=view]").first
 
     for step in (1 / 1.25, 1.25):          # from below, and from above
         pg.evaluate("fitPage()")
@@ -216,7 +223,7 @@ def test_double_clicking_the_hand_goes_to_actual_size(ed):
         assert abs(away - 1) > 0.1, away
         assert pg.evaluate(
             "document.getElementById('zlabel').textContent") != "100%"
-        pg.mouse.dblclick(b["x"], b["y"])
+        hand.dblclick()
         pg.wait_for_timeout(900)
         now = pg.evaluate("scale")
         assert abs(now - 1) < 0.02, (away, now)
@@ -273,19 +280,24 @@ def test_it_is_still_empty_after_typeset(ed):
 # --------------------------------------------------- what you start with
 
 def test_the_preloaded_list_is_the_one_in_the_picture():
-    """lee: *"only these should be default"*. Four under Bubble text, three
-    under Outside text, two under Sound effect. A preload is a starting point,
+    """lee: *"only these should be default"*. A preload is a starting point,
     not a catalogue - every one is a row somebody reads past before reaching
     their own, and a shout, a yell and an angry line are one kind of typesetting
-    asked for three times."""
+    asked for three times.
+
+    Five under Bubble text since 2026-08-28: `Fancy bubble` joined them when a
+    FLASH balloon stopped being filed under Thought. lee: *"this is
+    calsiified as a thught bubble, its not"*. That is not a catalogue growing,
+    it is a type that was being called by another type's name."""
     from mangatl import kinds as K
     assert [lb for _k, lb in K.PRELOADED["bubble"]] == [
-        "Caption box", "Thought bubble", "Burst / shout", "Whisper"]
+        "Caption box", "Thought bubble", "Fancy bubble", "Burst / shout",
+        "Whisper"]
     assert [lb for _k, lb in K.PRELOADED["freefloat"]] == [
         "Narration on the art", "Aside / mutter", "Sign or label"]
     assert [lb for _k, lb in K.PRELOADED["sfx"]] == [
         "Big / impact", "Small / background"]
-    assert len(K.PRELOAD_KEYS) == 9
+    assert len(K.PRELOAD_KEYS) == 10
 
 
 def test_a_new_project_starts_with_exactly_those(tmp_path):

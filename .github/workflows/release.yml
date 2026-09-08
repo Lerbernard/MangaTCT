@@ -1,0 +1,181 @@
+# A release, from a tag.
+#
+#     git tag v1.0.1 && git push origin v1.0.1
+#
+# ...and this makes the app zip, the launcher exe, the Windows installer and
+# the manifest, and publishes all of it HERE, on this repository. lee:
+# *"we alredy have a github repo, we dont need a newone"*. So there is no
+# second repository and no second token: the Release goes on this repo with
+# the `GITHUB_TOKEN` every run already has, and `manifest.json` - the one
+# url every installed copy reads - is committed to this repo's main branch.
+#
+# ONE-TIME SETUP is therefore ONE thing, and `docs/releasing.md` says why it
+# is not really an extra ask:
+#
+#   * THE REPOSITORY MUST BE PUBLIC. A private repo's Release assets need a
+#     token to download, and the whole point of a self-updating app is that
+#     it fetches without one. The app is GPL-3.0 and every copy handed out
+#     already comes with the offer of its source, so publishing the source
+#     is a commitment that has been in force since the licence was chosen.
+#
+# The tag must equal `version.py` or the run refuses at the first step - the
+# number on the download page and the number in the running app come from
+# the same string or not at all.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# The Release and the manifest commit are both written here, by this run.
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: The tag is the version, and the fast tests pass
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mangatl
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tag matches version.py
+        working-directory: mangatl
+        run: python tools/release.py check-tag "${GITHUB_REF_NAME}"
+      - id: v
+        working-directory: mangatl
+        run: echo "version=$(python tools/release.py version)" >> "$GITHUB_OUTPUT"
+      - name: Install what the fast tests need
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy opencv-contrib-python-headless pillow pytest fonttools
+      - name: The version, launcher and release tests
+        working-directory: mangatl
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest -q tests/test_the_app_has_a_version.py \
+                              tests/test_the_launcher_keeps_the_app_current.py \
+                              tests/test_a_release_is_made_from_a_tag.py
+      - name: Every weight url answers with the promised file
+        working-directory: mangatl
+        run: python tools/release.py models
+
+  build:
+    name: App zip, launcher, installer (Windows)
+    needs: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mangatl
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: The app zip
+        working-directory: mangatl
+        run: python tools/release.py zip --out dist
+
+      - name: The runtime (Python + every package) and the staged app
+        working-directory: mangatl
+        shell: pwsh
+        run: pwsh launcher/build_runtime.ps1 -Stage stage -AppZip "dist/mangatct-app-${{ needs.check.outputs.version }}.zip"
+
+      - name: The launcher exe
+        working-directory: mangatl
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller
+          python tools/release.py version-info
+          pyinstaller --clean --noconfirm launcher/MangaTCT.spec
+          Copy-Item dist/MangaTCT.exe stage/MangaTCT.exe
+          & stage/MangaTCT.exe --version; if ($LASTEXITCODE -ne 0) { throw "the exe does not start" }
+
+      - name: The installer (Inno Setup)
+        working-directory: mangatl
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y; }
+          & $iscc "/DAppVersion=${{ needs.check.outputs.version }}" "/DStage=$PWD\stage" launcher\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+          Get-ChildItem dist
+
+      - name: The manifest and the checksums
+        working-directory: mangatl
+        run: python tools/release.py manifest --out dist --base "https://github.com/${{ github.repository }}/releases/download/v${{ needs.check.outputs.version }}/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.check.outputs.version }}
+          path: |
+            mangatl/dist/mangatct-app-*.zip
+            mangatl/dist/MangaTCT-Setup-*.exe
+            mangatl/dist/manifest.json
+            mangatl/dist/SHA256SUMS
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ needs.check.outputs.version }}
+          path: dist
+
+      # 1. the assets, on a Release on this repository, with the token every
+      #    run already has. Nothing to create by hand and nothing to rotate.
+      - name: Create the release and upload the files
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check.outputs.version }}
+          name: MangaTCT ${{ needs.check.outputs.version }}
+          body: |
+            MangaTCT ${{ needs.check.outputs.version }} (beta).
+
+            * **MangaTCT-Setup-${{ needs.check.outputs.version }}.exe** — Windows 10/11, 64-bit. Install this one.
+            * mangatct-app-${{ needs.check.outputs.version }}.zip — the app's source (GPL-3.0); installed copies fetch this by themselves on update.
+            * SHA256SUMS — checksums of both.
+
+            Installed copies update themselves; there is nothing to do here unless this is your first install.
+          files: |
+            dist/mangatct-app-*.zip
+            dist/MangaTCT-Setup-*.exe
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
+
+      # 2. the manifest, on main - the ONE url every installed launcher
+      #    reads. Written LAST, after the files it names are up, so a
+      #    launcher never reads a manifest pointing at nothing.
+      #
+      #    Committed with `[skip ci]` because it lands on main and the tests
+      #    workflow runs on every push: a one-line json commit does not need
+      #    the suite, and a release should not queue a run behind itself.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: repo
+      - name: Point the channel at the new version
+        working-directory: repo
+        run: |
+          cp ../dist/manifest.json manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git diff --cached --quiet && { echo "manifest unchanged"; exit 0; }
+          git commit -m "MangaTCT ${{ needs.check.outputs.version }} [skip ci]"
+          git push origin HEAD:main

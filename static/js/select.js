@@ -294,13 +294,6 @@ function selDeselect(){
   selBBoxCache=null; selMaskVer++; selShape=null;
   selToolUI(); selRedrawAnts();
 }
-function selAll(){
-  const m=selMaskCanvas(); if(!m) return;
-  const g=m.getContext('2d');
-  g.fillStyle='#fff'; g.fillRect(0,0,m.width,m.height);
-  selBBoxCache=undefined; selMaskVer++; selToolUI(); selAntsLoop();
-}
-
 /* mode: 'new' replaces, 'add' unions (Shift), 'sub' subtracts (Alt) */
 function selCommitShape(shape,mode){
   const m=selMaskCanvas(); if(!m) return;
@@ -975,6 +968,10 @@ function toggleSelTool(t){
   selTool = (selTool===t) ? null : t;
   if(selTool){
     disarmTools('sel');
+    // The export preview covers the stage and swaps the picture the ants are
+    // measured against, which left a lit marquee that drew nothing after the
+    // first drag. A tool in hand owns the stage - see `toolInHand`.
+    if(typeof exactOff === 'function') exactOff();
     ensureCanvas(); selEnsureHandlers();
     // put any selected text region down, so the panel with the selection
     // tools stays on screen instead of swapping to the typesetting panel
@@ -1249,6 +1246,9 @@ if(typeof window!=='undefined' && typeof document!=='undefined'){
     else if(e.key==='w'||e.key==='W') toggleSelTool('wand');
     else if(e.key==='g'||e.key==='G') toggleSelTool('fill');
     else if(e.key==='e'||e.key==='E') toggleEraser();
+    // R for reveal - the region eraser, which puts the scan back where you
+    // paint. E rubs out paint and stops at the plate; R goes through it.
+    else if(e.key==='r'||e.key==='R') toggleUnclean();
     // T is the transform, and the transform has its corners free - lee asked
     // for Ctrl+T and then, once he heard that Chrome keeps that one for
     // opening a tab: *"isntead of control t just make it t"*. Scale and rotate

@@ -75,7 +75,18 @@ def _stacked(rx=150, ry=80, dy=70):
     return bub, cv2.bitwise_and(ink, bub)
 
 
-def _side_by_side(rx=80, ry=100, dx=75):
+# The point size that sits between what the two lobes can hold and what the
+# whole balloon can. `test_a_division_too_small_to_read_is_refused` needs a
+# floor there and nowhere else; anything lower and the lobes clear it too,
+# anything higher and neither shape does.
+# 18, down from 22 when Comic Neue became the default face on 2026-08-26
+# (`fonts/LICENSES.md`). Only this file's "too small to read is refused" test
+# reads it, and that test needs a floor the DIVIDED fit cannot reach while the
+# MERGED one can - which is a property of the face's widths, not a constant.
+FLOOR = 18
+
+
+def _side_by_side(rx=70, ry=120, dx=60):
     """Two ovals meeting side by side - a waist, but a VERTICAL one.
 
     Horizontal lines are not squeezed by it: across the middle of the pair the
@@ -190,13 +201,20 @@ def test_a_division_too_small_to_read_is_refused():
     floor a human set while merging clears it, merging wins. Same balloon and
     same sentence as the test above; only the floor has moved.
     """
-    bub, ink = _side_by_side()
+    # A smaller pair than the file's default, and its own on purpose: the one
+    # other test using `_side_by_side()` is happy with the defaults, and this
+    # one needs a balloon where dividing genuinely cannot reach the floor. At
+    # the old 70x120/60 the divided fit simply SET AT the floor rather than
+    # going under it, so nothing was refused and no value of FLOOR helped -
+    # the fixture had stopped straddling, which is the thing its own assertion
+    # below is there to notice. Divided it reaches 14, merged 19.
+    bub, ink = _side_by_side(rx=50, ry=90, dx=40)
     r = _region(bub, ink)
-    loose, tight = _cfg(), _cfg(min_font=26)
+    loose, tight = _cfg(), _cfg(min_font=FLOOR)
     divided_size = fit_region(_region(bub, ink), loose, bub).font_size
     merged = _best(TEXT, bub > 0, tight)
     assert merged is not None
-    assert divided_size < 26 <= merged.font_size, \
+    assert divided_size < FLOOR <= merged.font_size, \
         (divided_size, merged.font_size, "fixture no longer straddles the floor")
 
     lay = fit_region(r, tight, bub)

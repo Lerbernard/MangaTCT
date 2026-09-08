@@ -349,7 +349,7 @@ def outline(bgr: np.ndarray, box, text_bbox):
     # that shape is bigger than the right answer and is not a balloon. So a
     # candidate has to pass everything before it can win, and the ink is still
     # there to fall back to.
-    piece = tone = None
+    piece = None
     for seed in seeds:
         got = _flat_piece(lab, seed, cx, cy)
         if got is None or float(got.sum()) < KEEP * got.size:
@@ -391,7 +391,7 @@ def outline(bgr: np.ndarray, box, text_bbox):
             continue
 
         if piece is None or got.sum() > piece.sum():
-            piece, tone = got, seed
+            piece = got
     if piece is None:
         return None
 
@@ -558,8 +558,6 @@ def name_the_kinds(bgr: np.ndarray, regions: list, path: str,
     said = [b for b in boxes if b[4] in (1, 2)]
     if not said:
         return 0
-    from .. import kinds as _kinds
-
     done = 0
     for r in regions:
         kind = getattr(r, "kind", "bubble")
@@ -583,62 +581,3 @@ def name_the_kinds(bgr: np.ndarray, regions: list, path: str,
         done += 1
     return done
 
-
-def rectangles(boxes: list, W: int, H: int) -> list:
-    """The model's boxes, as the rectangles the block head would have given.
-
-    lee: *"i liek the boxes teh other detetor does but i still want teh
-    maskinf of ctd"*, and then *"lets focus on the buble and outside etxt for
-    now"*.
-
-    So this stands in for `_decode_blocks` and nothing else changes: whatever
-    comes back is still cropped to comic-text-detector's pixel mask, still
-    split into clusters, still classified, still padded, still carries the
-    mask the cleaner paints. Only WHERE the rectangles come from moves.
-
-    The one real problem is granularity, and the model's own balloon class
-    solves it. It boxes a LINE where this app boxes a BALLOON -- 182 against
-    141 over lee's chapter -- so every line whose centre stands inside one
-    balloon becomes one rectangle. Measured that way over the same 69 pages:
-
-        the app ships                 141 dialogue boxes
-        this produces                 147
-        of the app's it finds         139
-        of the app's it misses          2
-        boxes nothing else has          4
-        boxes with no ink under them    3
-
-    The two it misses are big stylised display type. Of the four it adds, the
-    chapter title on 012 and 수군 on 039 are real writing the app has never
-    boxed; two flourishes on 022 and a chandelier on 042 are artwork.
-
-    `(x0, y0, x1, y1, score)`, in page coordinates, biggest score first.
-    """
-    bub = sorted([b for b in boxes if b[4] == 0
-                  and (b[2] - b[0]) * (b[3] - b[1]) <= MAX_PAGE * W * H],
-                 key=lambda b: -b[5])
-    # The same balloon comes back from two overlapping windows on a tall page.
-    keep = []
-    for b in bub:
-        if any(_inside((b[0], b[1], b[2] - b[0], b[3] - b[1]), k) > 0.6
-               for k in keep):
-            continue
-        keep.append(b)
-
-    text = [b for b in boxes if b[4] in (1, 2)]
-    out, claimed = [], set()
-    for k in keep:
-        mine = [b for b in text
-                if k[0] <= (b[0] + b[2]) / 2.0 <= k[2]
-                and k[1] <= (b[1] + b[3]) / 2.0 <= k[3]]
-        if not mine:
-            continue                    # an empty balloon is not a text box
-        for b in mine:
-            claimed.add(id(b))
-        out.append((min(b[0] for b in mine), min(b[1] for b in mine),
-                    max(b[2] for b in mine), max(b[3] for b in mine),
-                    float(k[5])))
-    for b in text:
-        if id(b) not in claimed:
-            out.append((b[0], b[1], b[2], b[3], float(b[5])))
-    return sorted(out, key=lambda r: -r[4])

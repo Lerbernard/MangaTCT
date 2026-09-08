@@ -62,6 +62,10 @@ function applyZoom(){
   img.style.width=w+'px'; img.style.height='auto';
   const ri=$('refImg');
   if(ri && sideBySide) ri.style.width=w+'px';   // reference keeps the zoom
+  // The exported page is laid over the top of this one and has to be exactly
+  // as big, or the swap between them slides.
+  const ex=$('exact');
+  if(ex) ex.style.width=w+'px';
   scale=w/nw;
   // The percentage is the REAL one: how big a page pixel is on screen.
   // It used to be `zoom`, which is measured from the fit - so a page shrunk
@@ -114,6 +118,22 @@ function syncViewChrome(){
   const strip = (typeof stripMedium === 'function') ? stripMedium() : true;
   if (cb) cb.style.display = (view === 'original' && strip)
     ? 'inline-flex' : 'none';
+  // The translation tab's own furniture stays on the translation tab. The
+  // side panel is one panel shared by both views, so the manual-translation
+  // toggle, its buttons, the box-shortcut hint and the box-kind legend all
+  // showed on the Image tab too, where none of them does anything.
+  // lee: *"get rid of this in the imaged tab"*, *"remoev these form the
+  // image tab"*.
+  const tr = (view === 'original');
+  const man = $('manual');
+  if (man) man.style.display = tr ? '' : 'none';
+  const mr = $('manrow');
+  if (mr) mr.style.display = (tr && $('manual_translate')
+                              && $('manual_translate').checked) ? '' : 'none';
+  const kh = $('kbdHint');
+  if (kh) kh.style.display = tr ? '' : 'none';
+  const lg = $('legend');
+  if (lg) lg.style.display = tr ? '' : 'none';
 }
 
 /* Put the page back in front of the person after the stage has been away.
@@ -435,6 +455,8 @@ async function setView(v){
   const pcv=$('paint'); if(pcv) pcv.style.display = v==='typeset'?'':'none';
   syncViewChrome();
   syncTextToggle();
+  if(typeof exactChrome==='function') exactChrome();
+  if(typeof exactOff==='function') exactOff();   // the picture is changing
   syncBoxesForView(v);
   // The strip does not need redrawing here: the view change goes through
   // `stopBrush`/`paintToolUI` on the way out of the Edit view and through
@@ -540,12 +562,22 @@ function setTab(t, byHand){
   // opening a screen behind the tab bar's back.
   if(typeof showPicker==='function' && !setTab._fromPicker)
     showPicker(t==='new');
-  const full = t==='settings';
+  // `full` and `isSet` are the same question again.
+  //
+  // They were not, for one afternoon: the recommended faces were a page of
+  // their own beside Settings, and everything the two shared hung off `full`
+  // while everything that was Settings alone - the snapshot behind Cancel, the
+  // font menu, the synopsis measuring itself - hung off `isSet`. The page has
+  // moved to the website, where it belongs (`site/fonts.html`), so there is
+  // one full-width screen again. The two names are kept because the split cost
+  // nothing and the next full-width page will want them.
+  const isSet = t==='settings';
+  const full = isSet;
   $('stage').style.display = t==='edit'?'block':'none';
   $('results').classList.toggle('on',t==='results');
   $('side').style.display = t==='edit'?'block':'none';
   $('pages').style.display = (full || t==='new')?'none':'';
-  const sp=$('settingsPage'); if(sp) sp.style.display = full?'flex':'none';
+  const sp=$('settingsPage'); if(sp) sp.style.display = isSet?'flex':'none';
   const cw=$('canvasWrap');
   if(cw) cw.style.display = (full || t==='new')?'none':'';
   syncViewChrome();
@@ -573,14 +605,17 @@ function setTab(t, byHand){
   if(typeof renderPages==='function') renderPages();
   syncTabs();
   if(t==='results') loadResults();
-  if(full && typeof snapshotSettings==='function') snapshotSettings();
-  if(full){
+  // ...and these three are SETTINGS, not "any full-width page". A snapshot for
+  // a Cancel button on a page with no Cancel button, a font menu nothing on
+  // this page has, and a textarea that is not here.
+  if(isSet && typeof snapshotSettings==='function') snapshotSettings();
+  if(isSet){
     if(typeof fillCkFont==='function') fillCkFont();
     if(typeof renderCustomKinds==='function') renderCustomKinds();
   }
   // A textarea inside a hidden page measures as zero, so the synopsis can
   // only be sized once its page is actually on screen.
-  if(full && typeof growSynopsis==='function') growSynopsis();
+  if(isSet && typeof growSynopsis==='function') growSynopsis();
 }
 
 /* Each full-page tab shows one section at a time; its left-hand nav picks it. */
@@ -599,7 +634,6 @@ function setSettingsTab(name){
 }
 /* The story sections used to be a page of their own. Anything that still asks
    for one by its old name lands on the same section. */
-function setMangaTab(name){ setSettingsTab(name); }
 /* The File screen's rail. One section on it today - New project - and the
    machinery is the settings page's, so adding the second is a button and a
    <section>. */

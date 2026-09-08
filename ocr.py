@@ -460,7 +460,7 @@ def tile_rects(page: Page, max_side: int = MAX_SIDE, detail: str = "auto"
     return out
 
 
-def detail_for(medium: str = "") -> str:
+def detail_for(medium: str = "", chosen: str = "") -> str:
     """What "Reading detail" means when nobody has chosen one.
 
     A crop per box, on every format now. Measured twice, on two formats, and
@@ -485,10 +485,54 @@ def detail_for(medium: str = "") -> str:
 
     Cutting the page FINER made it worse, which is the tell: the mistake is
     not resolution, it is matching what was read to numbers drawn on a page.
-    A crop per box has one box in it and nothing to match. It is also the
-    cheaper mode, so there is nothing left on the other side of the scale.
+    A crop per box has one box in it and nothing to match.
+
+    ## ...and it is the DEAREST mode, which is what brought the choice back
+
+    That last paragraph used to end "it is also the cheaper mode, so there is
+    nothing left on the other side of the scale", and it was wrong. Measured
+    over 138 real runs off lee's own ledger, a read costs about 2,400 input
+    tokens PER PICTURE on the Gemini line - and zoomed sends one picture a
+    box, so a ten-box page sends ten. The whole page sends one:
+
+        1 piece    ~2,400 input tokens a page
+        4 pieces   ~9,600
+        9 pieces   ~21,600
+        zoomed     ~2,400 x however many boxes are on the page
+
+    On lee's chapter that is a read costing 25,000 tokens a page against the
+    2,900 the price thought, which is why reading was being charged at about a
+    third of what it cost. Accuracy still says zoomed and the scoring above
+    still stands; what changed is that the other side of the scale turned out
+    to have something on it after all. lee: *"so teh ing increasing the price
+    was teh zoom in images right? if it is can you bring back teh 1, 4 and 9
+    cut"*.
+
+    So it is a CHOICE again, `boxes` is still what nobody choosing gets, and
+    the price follows the choice - see `coins.usd_page`.
     """
-    return "boxes"
+    got = str(chosen or "").strip().lower()
+    return got if got in DETAILS else "boxes"
+
+
+#: The four ways the reader can be shown a page, cheapest first, with what
+#: each sends. `pieces` is pictures per PAGE; `boxes` sends one a box and is
+#: written as 0 because its count is not known until the page is.
+DETAILS = {
+    "page": {"pieces": 1, "name": "Whole page",
+             "why": "One picture. The cheapest read there is, and the least "
+                    "able to make out small vertical type."},
+    "auto": {"pieces": 4, "name": "4 pieces",
+             "why": "Quartered, so each piece arrives near its own "
+                    "resolution."},
+    "high": {"pieces": 9, "name": "9 pieces",
+             "why": "Finer still. Scored no better than 4 on lee's chapter "
+                    "and costs over twice as much."},
+    "boxes": {"pieces": 0, "name": "Zoomed per box",
+              "why": "A close-up of every box. The most accurate by a wide "
+                     "margin - 96% against 83% - and the dearest, because it "
+                     "sends one picture a box instead of one a page."},
+}
 
 
 def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
@@ -749,7 +793,8 @@ def looks_like_garbage(text: str, region: TextRegion) -> str | None:
 
 
 def ocr_page(page: Page, engine=None, lang: str = "ja",
-             engine_name: str = "auto", relabel: bool = False) -> None:
+             engine_name: str = "auto", relabel: bool = False,
+             paint_weights: str = "") -> None:
     """Read every region on the page, and -- if asked -- say what each one IS.
 
     `relabel` is the reordered pipeline. See `readkinds`: the label costs
@@ -757,8 +802,20 @@ def ocr_page(page: Page, engine=None, lang: str = "ja",
     and the alternative is a second neural net whose whole job is that one
     question. Off by default and never on for a format it was not measured
     on; `Project` decides.
+
+    `paint_weights` turns on the SECOND reader, for boxes in the sound-effect
+    family. See `paintread`: manga-ocr is superb on typeset dialogue and a coin
+    toss on hand-drawn paint, TRBA+2D is the other way round, and the two
+    together halve the error over the 54 boxes both were measured on. Empty
+    means the checkpoint is not on this machine, and then this behaves exactly
+    as it did before the second reader existed.
     """
     engine = engine or get_engine(lang, engine_name)
+    painter = None
+    if paint_weights:
+        from . import paintread
+        if paintread.available(paint_weights):
+            painter = paintread.get_reader(paint_weights)
     try:
         owner, idx_of = _pixel_owner(page)   # so overlaps aren't read twice
     except Exception:
@@ -785,40 +842,62 @@ def ocr_page(page: Page, engine=None, lang: str = "ja",
             r.src_text, r.ocr_ok = "", False
             r.flagged = f"ocr failed: {e}"
             continue
+        # ...and a box in the sound-effect family is read a SECOND time, by the
+        # reader that was trained on paint, and the two answers are settled by
+        # `paintread.prefer`. Only this family: everywhere else manga-ocr is
+        # already at 0.025 CER and TRBA cannot spell a kanji, so a second pass
+        # there would cost 0.7s a box to make the page worse.
+        #
+        # A failure here is not a failed read. The first answer is already in
+        # hand and it is the one the app had before this reader existed, so a
+        # missing wheel or a broken checkpoint costs the page nothing.
+        if painter is not None and r.src_text.strip() \
+                and _kinds.family_of(getattr(r, "kind", "")) == "sfx":
+            from . import paintread
+            try:
+                r.src_text = paintread.prefer(
+                    r.src_text, paintread.read_one(img, painter))
+            except Exception as e:      # noqa: BLE001 - never fail a page
+                r.flagged = ((r.flagged or "")
+                             + f" painted-text reader failed: {e}").strip()
         bad = looks_like_garbage(r.src_text, r)
         if bad:
             r.ocr_ok = False
             r.flagged = bad
-        elif _kinds.family_of(getattr(r, "kind", "")) == "sfx" \
-                and r.src_text.strip():
-            # A PAINTED SOUND READ HERE IS WORTH LOOKING AT. This is the one
-            # place in the app where a wrong answer arrives wearing a right
-            # one's face.
+        elif painter is None and r.src_text.strip() \
+                and _kinds.family_of(getattr(r, "kind", "")) == "sfx":
+            # A PAINTED SOUND READ BY manga-ocr ALONE IS WORTH LOOKING AT, and
+            # this is the one place in the app where a wrong answer arrives
+            # wearing a right one's face.
             #
             # Measured over every box the detector filed as a sound effect
             # across the 23 pages of chapter 3 - 54 of them, transcribed off
             # the page by eye:
             #
             #     typeset writing filed as sfx   CER 0.000   11/11 exact
-            #     actually painted sounds        CER 0.376   24/43 exact
+            #     actually painted sounds        CER 0.401   24/43 exact
             #
             # The split is the whole story. manga-ocr was trained on typeset
             # dialogue and it is flawless on typeset dialogue even when the box
-            # round it says otherwise. On paint it is a coin toss - and NINE of
-            # the nineteen misses are not misreadings at all, they are ordinary
-            # dialogue words invented over a brush stroke: アア came back as
-            # そして, バチャ as じゃあ and as ダメっ, ガチャッ as やっぱり, ドホ
-            # as いや. That is the decoder's language model filling a silence,
-            # and it produces a plausible Japanese line with full confidence.
+            # round it says otherwise. On paint it is a coin toss - and nine of
+            # its misses are not misreadings at all, they are ordinary dialogue
+            # words invented over a brush stroke: アア came back as そして,
+            # バチャ as じゃあ and as ダメっ, ガチャッ as やっぱり, ドホ as いや.
+            # That is the decoder's language model filling a silence, and it
+            # produces a plausible Japanese line at full confidence.
             #
             # `looks_like_garbage` cannot see these: they are not garbage, they
             # are good Japanese in the wrong place. So the box says so itself.
-            # A NOTE and not a verdict - the reading stays, `ocr_ok` stays
-            # true, nothing is removed - because it is right more often than
-            # not and throwing the answer away would cost more than it saves.
+            # A NOTE and not a verdict - the reading stays, `ocr_ok` stays true,
+            # nothing is removed - because it is right more often than not.
             #
-            # Only on this path. The AI reads the same paint without inventing
-            # dialogue over it, so a page read that way carries no such note.
+            # ONLY WHEN THE SECOND READER IS NOT HERE. With `paintread` running
+            # the same boxes come back at 0.138 and the invented dialogue is
+            # gone, so the note would be a warning about a problem that has
+            # been fixed - and a warning on a box that is probably right is how
+            # people learn to ignore warnings. The AI path carries no such note
+            # either, for the same reason: it does not invent dialogue over
+            # paint.
             r.flagged = ((r.flagged or "") + " read here: painted sounds are "
                          "this reader's weak spot — worth a look").strip()
 

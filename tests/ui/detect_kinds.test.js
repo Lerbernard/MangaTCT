@@ -39,8 +39,11 @@ setTimeout(()=>{
     // `proj` is a top-level `let` in core.js, so it lives in the global
     // lexical scope and is not a property of window - assigning w.proj would
     // quietly make a second, unread variable. eval reaches the real one.
+    // The menu itself is gone ("One detector, and no menu to read it off
+    // any more" - syncDetectKinds). The finder now comes off the project's
+    // settings, so that is where the harness puts it.
     const set=(det)=>{
-      d.getElementById('detector').value=det;
+      w.eval("proj=Object.assign(proj||{},{settings:Object.assign((proj&&proj.settings)||{},{detector:'"+det+"'})})");
       w.syncDetectKinds();
     };
 

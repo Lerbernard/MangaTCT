@@ -2,11 +2,18 @@
    Split from editor.html. Classic script: shares globals with the other
    modules and must load in the order editor.html lists. No build step. */
 
-/* The tightest line gap the FITTER chooses for itself, the browser's copy of
-   typeset.MIN_LEADING. It is what an unfitted box starts at; the box itself
-   goes lower, because typing a number is a decision. A test holds the two
-   numbers together. */
-const MIN_LEADING = 1.20;
+/* The band the FITTER chooses inside, the browser's copy of
+   typeset.MIN_LEADING and typeset.MAX_LEADING. MIN is what an unfitted box
+   starts at; the box itself goes outside both, because typing a number is a
+   decision. A test holds the numbers in the two files together.
+
+   1.20 used to be the FLOOR. Measured against the published English chapter
+   with one ruler over both - line pitch over the height of the tall letters -
+   the app at 1.20 came out at 1.80 where the published pages sit at 1.31, so
+   the tightest thing the fitter would choose was 38% looser than the book.
+   lee: *"the max youu shoud use is 1.20"*. */
+const MIN_LEADING = 1.00;
+const MAX_LEADING = 1.20;
 
 /* The link mark, as line art on the same 24-box as every tool icon. It was a
    🔗 emoji, which is a colour picture from the system font: a different weight,
@@ -153,6 +160,21 @@ function renderList(){
               onclick="event.stopPropagation();setBoxShown(${r.id},${off})"
           >${eyeIcon(!off)}</span></div>
       <div class="tx">${esc(r.dst_text)||'<span class="muted">not translated</span>'}</div>
+      <!-- What the proofreader changed, directly under what it changed it to.
+           lee: *"shwo the proofreading changes too in the trnalation tab"*.
+
+           The page note above the list says the proofreader HAD a remark and
+           the chips beside it say which boxes it touched. Neither says what it
+           did, and a copy edit is only reviewable against the line it
+           replaced: "Take a look" beside "Take a good look" IS the decision.
+
+           Struck through and dimmed, because it is the wording that is gone -
+           the line above it is the one the page will carry. Written by one
+           proofread run, cleared by the next run that leaves the line alone,
+           and cleared the moment anybody types in the box. -->
+      ${r.proofread_was?`<div class="tx wasline"
+        title="What this line said before the proofreader"><s>${
+        esc(r.proofread_was)}</s></div>`:''}
       <!-- ...and no empty Japanese line under it either: there is no original
            to read, so "no text read" reads as a failure rather than as the
            absence of a question. -->
@@ -209,7 +231,19 @@ function growBox(t){
    (A note like this belongs here and not in the template below: an HTML
    comment inside the string is rendered into the panel, and this one would
    have put the word "Japanese" back into the DOM it is removing it from.) */
+/* The price, on the button - the same pip the scoped-run dialog shows, so
+   "this costs a coin" looks the same everywhere it is true. And the same
+   silence: a read that happens on this computer is free, so the Read text
+   button of an offline-reader project carries no number at all (the server
+   agrees - see the `paid` rule on the endpoint). */
+function coinChip(n){
+  return ` <span class="rbcoin">${n} <svg class="coinpip" width="11"` +
+         ` height="11" aria-hidden="true"><use href="#tctcoin"/></svg></span>`;
+}
+
 function regionInlineEditor(r){
+  const readFree = (typeof proj!=='undefined' && proj
+                    && (proj.settings.ocr_reader||'ai')==='offline');
   return `<div class="rinline" onclick="event.stopPropagation()">
       ${selMulti.size>1
         ? `<p class="help" style="margin:0 0 7px"><b>${selMulti.size} boxes selected</b></p>`
@@ -220,44 +254,139 @@ function regionInlineEditor(r){
                 oninput="noteEdit(${r.id},'src_text',this.value);growBox(this)"
                 onchange="flushEdit()">${esc(r.src_text)}</textarea>
       <label>Output text</label>
-      <textarea rows="1"
+      <textarea rows="1" id="out_${r.id}"
                 oninput="noteEdit(${r.id},'dst_text',this.value);growBox(this)"
                 onchange="flushEdit()">${esc(r.dst_text)}</textarea>
-      <div class="row" style="margin-top:9px;flex-wrap:wrap">
-        <button onclick="splitRegion(${r.id})" title="This box covers several bubbles">Split</button>
-        ${selMulti.size>1
-          ? `<button onclick="mergeSelected()"
-                     title="One box round all ${selMulti.size}, texts joined (M)"
-             >Merge ${selMulti.size} boxes</button>`
-          : ''}
-        <button class="danger" onclick="delSelected()">Delete${
-          selMulti.size>1?` ${selMulti.size} boxes`:''}</button>
-      </div>
-      <div class="row" style="margin-top:6px;flex-wrap:wrap;align-items:center">
+      <!-- SIX BUTTONS, THREE ROWS OF TWO, FULL WIDTH. lee: *"make teh 2
+           button take teh whoe with of teh box with some adiing and make it
+           3 row of 2, read tetx and trandate, link and link next and
+           spscial charter and delete"*. Split is gone with the same
+           sentence; a special character goes in the OUTPUT box and not the
+           input one - the input is what the page already says in its own
+           language and is not ours to add to. See marks.py for the library
+           and typeset.mark_glyph for how one is drawn. -->
+      <div class="rbtns">
+        <button onclick="readBox(${r.id})" id="readBox_${r.id}"
+                title="${readFree
+                  ? 'Re-read the writing in this box on this computer — free'
+                  : 'Re-read the writing in this box from the image, with the reader the project uses — 1 coin'}">
+          Read text${readFree ? '' : coinChip(1)}</button>
+        <button onclick="translateBox(${r.id})" id="trBox_${r.id}"
+                title="Translate just this box, nothing else sent — 1 coin">
+          Translate${coinChip(1)}</button>
         ${r.link
-          ? `<span class="pill" title="Linked">${linkIcon()} linked #${r.link}</span>
-             <button onclick="unlinkRegion(${r.id})">Unlink</button>`
+          ? `<button onclick="unlinkRegion(${r.id})"
+                     title="Linked to #${r.link}">Unlink #${r.link}</button>
+             <button onclick="linkNext(${r.id})"
+                     title="Link to the next bubble">Link to next</button>`
           : `<button onclick="startLink(${r.id})"
                      title="Pick a bubble to link to">
                ${linkIcon()} Link…</button>
              <button onclick="linkNext(${r.id})"
-                     title="Link to the next bubble">
-               Link to next</button>`}
+                     title="Link to the next bubble">Link to next</button>`}
+        <button class="ghost" onclick="openMarks(${r.id})"
+                title="Put a heart, star, note or other special character in this line">
+          Special characters…</button>
+        <button class="danger" onclick="delSelected()">Delete${
+          selMulti.size>1?` ${selMulti.size} boxes`:''}</button>
       </div>
+      ${selMulti.size>1
+        ? `<div class="row" style="margin-top:6px">
+             <button style="width:100%" onclick="mergeSelected()"
+                     title="One box round all ${selMulti.size}, texts joined (M)"
+             >Merge ${selMulti.size} boxes</button></div>`
+        : ''}
     </div>`;
 }
 function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
 
-/* '#rrggbb' or 'rgb(r,g,b)' -> '#rrggbb', for <input type=color>. */
+/* '#rrggbb', 'rgb(r,g,b)' or 'rgba(r,g,b,a)' -> '#rrggbb', for <input
+   type=color>.
+
+   `rgba` because the server sends the typesetting colours that way now: a
+   hollow letterform has NO fill, and CSS has to be told so in a colour rather
+   than in a flag. This used to accept `rgb` only, so every colour arrived
+   unrecognised and fell back - and the fallback churns the panel, which
+   rebuilds, which swallows clicks on the number steppers. Six presses on the
+   line-gap arrow landed three.
+
+   The alpha is dropped on purpose: `<input type=color>` has nowhere to put
+   it, and this function exists to fill that control in. */
 function cssHex(c, fallback){
   if(typeof c==='string'){
-    const h=/^#([0-9a-f]{6})$/i.exec(c.trim());
+    const t=c.trim();
+    // Eight digits first: an emptied fill is `#rrggbbaa` with a zero alpha
+    // (`render.NO_FILL`), and the six-digit test below would not match it, so
+    // it would fall back to the default and a block somebody emptied would
+    // read as solid black in the panel.
+    const a=/^#([0-9a-f]{8})$/i.exec(t);
+    if(a) return '#'+a[1].toLowerCase();
+    const h=/^#([0-9a-f]{6})$/i.exec(t);
     if(h) return '#'+h[1].toLowerCase();
-    const m=/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i.exec(c.trim());
-    if(m) return '#'+[m[1],m[2],m[3]]
-      .map(v=>(+v).toString(16).padStart(2,'0')).join('');
+    const m=/^rgba?\((\d+),\s*(\d+),\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(t);
+    if(m){
+      const rgb='#'+[m[1],m[2],m[3]]
+        .map(v=>(+v).toString(16).padStart(2,'0')).join('');
+      // A zero alpha is how "no fill" reaches this from the page's own CSS,
+      // and it has to survive the trip to hex or the round trip turns an
+      // emptied block back into a solid one.
+      return (m[4]!==undefined && +m[4]===0) ? rgb+'00' : rgb;
+    }
   }
   return fallback;
+}
+
+
+/* The three parts of a colour well, from one value, so the chip, the hidden
+   field and the label cannot disagree about what is in it. `none` is drawn
+   the way it was chosen - the white box with the red line - because a
+   transparent chip on a dark panel looks like a field nobody has touched,
+   and "not set" and "set to nothing" are different answers. */
+function wellBits(id, value, dflt, editable, auto){
+  // '' is MIXED - part of the text says one thing and part another
+  // (`styleNow` hands it through from `spanFieldInfo`) - and the well shows
+  // an empty chip, Photoshop-fashion, instead of pretending one answer.
+  if(value===''){
+    return `<i id="${id}Chip" style=""></i>
+          <input id="${id}" type="hidden" value="">
+          <b id="${id}Hex">mixed</b>`;
+  }
+  const v = cssHex(value, dflt);
+  const gone = typeof isNoFill === 'function' && isNoFill(v);
+  // `data-auto` means THIS COLOUR IS A READOUT AND NOT A CHOICE - the page
+  // worked it out and nobody asked for it. A well carrying it is not sent on a
+  // save, so the block goes on being free to change its mind about itself.
+  // `openTypesetPicker` takes the flag off the moment somebody picks a colour.
+  // See `wellChosen` below and `editor.layout_preview`.
+  // A well can also be EMPTY, which is a third state and not the same as
+  // `none`: the shadow and the glows are off unless a colour is put in them,
+  // and an empty chip with the word `off` says so. `none` is a colour somebody
+  // chose - the crossed swatch - and on the glow it is how the × says *not
+  // even the automatic one*.
+  const off = !v;
+  // `data-was` is what the page put in the field. A well is a readout only
+  // while it still SAYS that: anything that changes the value has chosen,
+  // whether or not it remembered to take the flag off. Belt and braces, and
+  // the braces are what keep a well from silently swallowing a colour set by
+  // some path nobody thought of.
+  return `<i id="${id}Chip" class="${gone?'noswatch':''}"
+            style="${(gone||off)?'':'background:'+v}"></i>
+          <input id="${id}" type="hidden" value="${v}"${
+            auto?` data-auto="1" data-was="${v}"`:''}>
+          <b id="${id}Hex">${gone?'none':(v||'off')}</b>`;
+}
+
+/* Did somebody CHOOSE this colour, or is it the one the page worked out?
+
+   Level one only - the override - for the same reason `hand_style` reads level
+   one alone: a MEASURED ink is a finding about the artwork, not a choice, and
+   a save that promoted one to a hand edit would pin it against every later
+   re-reading. `style.<key>_set` is that same level arriving fresh from the
+   preview; `layout_override.<key>` is it as stored. */
+function wellChosen(r, ov, key){
+  const st = (r && r.style) || {};
+  const v = st[key + '_set'] ?? (ov || {})[key];
+  return !!(v && String(v).trim());
 }
 
 function renderInspector(){
@@ -341,6 +470,8 @@ function renderInspector(){
     $('inspector').innerHTML = r
       ? typesettingPanel(r)
       : `<div class="card"><h3>Translated view</h3></div>`;
+    if(typeof snapshotTypesetPanel==='function') snapshotTypesetPanel();
+    if(typeof gradientOwnsTheWell==='function') gradientOwnsTheWell();
     return;
   }
   // Original view: the region editor is folded INTO the selected list row
@@ -370,10 +501,6 @@ function renderInspector(){
 const KIND_ORDER = KIND_FAMILIES;
 /* Every kind on offer: the three defaults, then whatever sub-types the person
    has made, grouped under the family each belongs to. */
-function kindKeys(){
-  return KIND_FAMILIES.reduce(
-    (all,f)=>all.concat([f], subsOf(f).map(k=>k.key)), []);
-}
 function kindLabel(k){
   if(DEFAULT_LABELS[k]) return DEFAULT_LABELS[k];
   const s=subTypes().find(c=>c.key===k);
@@ -448,7 +575,8 @@ function renderLegend(){
   // family it belongs to, which is the thing the legend is for.
   // lee: *"this shoud only show the 3 main type"*. Which sub-type a box is is
   // read off the box's own menu, one box at a time.
-  bits.push('<span><i style="border:1px dashed #9aa4b2"></i>unsure</span>');
+  bits.push('<span class="lgunsure">'
+            + '<i style="border:1px dashed #9aa4b2"></i>unsure</span>');
   // ...AND THE BOX-SELECT TOOL, HERE AS WELL AS IN THE TOOLBOX.
   //
   // lee, over a screenshot of this row: *"also add teh select button in here
@@ -457,6 +585,10 @@ function renderLegend(){
   // pixels - and it lights up the same way the kind buttons do, off the same
   // state the toolbox reads, so the two can never disagree.
   const armed = (typeof boxSel !== 'undefined' && boxSel) ? ' on' : '';
+  // ...SET APART. The three kinds decide what a drawn box IS; this one is a
+  // TOOL that picks boxes up. lee: *"make teh slector tool be seprated form
+  // the other as they have diferent functions"*.
+  bits.push('<i class="lgdiv" aria-hidden="true"></i>');
   bits.push(`<button type="button" class="lgmain lgsel${armed}" `+
             `onclick="toggleBoxSelect()" `+
             `title="Drag a square over the page to select every box it `+
@@ -543,9 +675,9 @@ function cleanPanel(){
     ${cleanable.map(r=>`
       <div class="lay ${r.id===sel?'on':''}" onclick="select(${r.id})">
         <i style="background:${r.skip_clean?'#555':'#9fe870'}"></i>
-        <span>Region ${(r.order??0)+1}${r.skip_clean?' - not cleaned'
-          :(r.clean_route?' — '+esc(cleanRouteLabel(r.clean_route))
-            +(r.clean_core?', strokes only':''):'')}</span>
+        <span title="${r.clean_route?esc(cleanRouteLabel(r.clean_route))
+            +(r.clean_core?', strokes only':''):''}"
+          >Region ${(r.order??0)+1}${r.skip_clean?' - not cleaned':''}</span>
         <span class="lx" title="${r.skip_clean?'Clean this bubble':'Leave the original text'}"
               onclick="event.stopPropagation();toggleClean(${r.id})">
           ${r.skip_clean?'&#8709;':'&#128065;'}</span>
@@ -670,8 +802,17 @@ function shapeList(){
 
 let stackOpen=true, retouchOpen=false;
 let strokesOpen=false;      // folded away until asked for
-/* Opacity's default is 100, and `||` would turn a deliberate 0 into it. */
+/* Opacity's default is 100, and `||` would turn a deliberate 0 into it.
+
+   With a RANGE selected, the slider shows the range's own number - the way
+   the size box already behaves (`sizeShown`) - and the block's otherwise. */
 function _opOf(r, ov){
+  if(typeof spanFieldInfo === 'function'){
+    const inf = spanFieldInfo(r, 'opacity');
+    if(inf && !inf.mixed && inf.value !== undefined && inf.value !== null
+       && inf.value !== '')
+      return Math.max(0, Math.min(100, +inf.value || 0));
+  }
   const v = styleNow(r, ov, 'opacity', undefined);
   return (v===undefined || v===null || v==='') ? 100
     : Math.max(0, Math.min(100, +v || 0));
@@ -701,8 +842,12 @@ var lyOpen = {text:true, para:true, char:true, colour:true, fx:true,
    what a typesetter sets, and there was no way to ask for it. */
 function setAlign(id, how){
   const el=$('lyAlign'); if(el) el.value=how;
-  document.querySelectorAll('.alignb').forEach(b=>b.classList.remove('pri'));
-  const hit=[...document.querySelectorAll('.alignb')]
+  // Scoped to the alignment row: the curve-kind chips wear `.alignb` for
+  // the styling, and an unscoped sweep here was putting the picked curve's
+  // light out every time an alignment was pressed.
+  document.querySelectorAll('.alignrow .alignb')
+    .forEach(b=>b.classList.remove('pri'));
+  const hit=[...document.querySelectorAll('.alignrow .alignb')]
     .find(b=>(b.getAttribute('onclick')||'').includes(`'${how}'`));
   if(hit) hit.classList.add('pri');
   if(typeof onTypesetStyle==='function') onTypesetStyle(id);
@@ -733,7 +878,44 @@ function lyGrp(key, title, body){
    for an outline, a gap and an angle alike. */
 function styleNow(r, ov, key, dflt){
   const st = (r && r.style) || {};
-  return st[key] ?? (ov || {})[key] ?? dflt;
+  const base = st[key] ?? (ov || {})[key] ?? dflt;
+  // PART OF THE TEXT CAN WEAR ITS OWN STYLE. With a range selected in the
+  // box you type into, the panel shows the RANGE's value for the
+  // span-capable fields; on the whole block, a field the spans disagree
+  // about shows BLANK, Photoshop-fashion - one box must not claim one
+  // answer when the letters carry three. lee: *"the are with confilects
+  // ... shoud be empthy like photoshop does it"*.
+  if(typeof spanFieldInfo === 'function'){
+    const inf = spanFieldInfo(r, key);
+    if(inf) return inf.mixed ? '' : (inf.value !== undefined
+                                     ? inf.value : base);
+  }
+  return base;
+}
+
+/* What goes in the TEXT COLOUR well.
+
+   `styleNow` is right about where to look and wrong about what it finds on
+   one kind of block. A hollow letterform has nothing inside it, and the
+   colour sitting in `fg` is what the RIM is drawn in - `inkstyle` measured
+   the original ink and `_hollow_colours` moves it to the outline. So the well
+   read `#000000` and showed a black chip on a block whose middle is the page.
+   lee, with a hollow SPLAAASH and a black chip: *"the transparent text shoud
+   acuuly be transaparent with teh transtaptrent box in teh text color box"*.
+
+   The well is not only a readout, it is the control: what it shows is what a
+   save writes back, so a colour standing in it quietly filled the block in on
+   the next save of anything else on the panel.
+
+   `inkPair` is the same rule the drawing uses, so the chip and the page
+   cannot disagree. Picking a colour here does NOT fill the block back in -
+   `render._hollow_colours` says why it cannot be read that way - and turning
+   the finding off wants a control of its own. */
+function lyFill(r, ov, L){
+  if(typeof inkPair === 'function' && r && r.layout){
+    try{ if(inkPair(r, L).hole) return 'rgba(0,0,0,0)'; }catch(_){}
+  }
+  return styleNow(r, ov, 'fg', L.fg);
 }
 
 function typesettingPanel(r){
@@ -746,6 +928,16 @@ function typesettingPanel(r){
   return `<div class="card ${edited?'on':''}">
     <h3>Typesetting ${edited?'<span class="chip g">edited</span>':''}</h3>
     ${kindSelects(r, 'ly')}
+    <!-- The same special-character library the translation rows have, here
+         where the words are actually typed. lee: *"addteh special charter
+         button to the image tab too"*. It inserts at the caret when the
+         block is being typed into, and onto the block's text otherwise. -->
+    <div class="row" style="margin-top:7px">
+      <button class="ghost" style="width:100%"
+              onclick="openMarks(${r.id})"
+              title="Put a heart, star, note or other special character in this line">
+        Special characters…</button>
+    </div>
     <!-- The Text box is gone: the words are typed on the PAGE, in the block
          itself, which is where you can see them land. A second copy of them in
          the panel was the same sentence in two places, and the two had to be
@@ -817,8 +1009,18 @@ function typesettingPanel(r){
     </select>
     <div class="row" style="margin-top:7px">
       <div style="flex:1"><label style="margin-top:0">Size</label>
-        <input id="lySize" type="number" value="${L.font_size}"
-               oninput="onTypesetEdit(${r.id})"
+        <!-- styleNow, and onTypesetStyle: SIZE IS A RANGE TOOL NOW. With
+             characters selected in the box you type into it shows - and
+             sets - the size of THAT range, and shows blank when the range
+             carries more than one, the way every other tool on this panel
+             already did. lee: *"the changing size and fonts happens to teh
+             whole etxt box instead fo just the selevcted text"*.
+             onTypesetStyle is the one that offers the edit to the range
+             first and falls through to the whole block when nothing is
+             selected. -->
+        <input id="lySize" type="number"
+               value="${sizeShown(r,ov,L)}"
+               oninput="onTypesetStyle(${r.id})"
                onchange="flushTypesetEdit()"></div>
       <div style="flex:1"><label style="margin-top:0">Rotation</label>
         <input id="lyRot" type="number" step="1" value="${+(L.rotate||0)}"
@@ -842,8 +1044,25 @@ function typesettingPanel(r){
                value="${styleNow(r,ov,'stroke',(r.layout&&r.layout.stroke)??1)}"
                oninput="onTypesetStyle(${r.id})"></div>
     </div>
-    <div class="sl" title="Arc">
-      <span>Curve</span>
+    <label style="margin-top:9px">Curve</label>
+    <div class="row curvekinds">
+      ${['arch','sag','wave','rise'].map(k=>{
+        const kd=String(styleNow(r,ov,'curve_kind','arch')||'arch');
+        const amt=+styleNow(r,ov,'curve',0);
+        const on=(k==='sag') ? (kd==='arch'&&amt<0)
+                : (k==='arch') ? (kd==='arch'&&amt>=0) : (kd===k);
+        return `<button class="alignb${on?' pri':''}" title="${
+          {arch:'Arched like a rainbow',sag:'Sagging down',
+           wave:'One S along the line',
+           rise:'Slanting up, letters upright'}[k]}"
+          onclick="setCurveKind(${r.id},'${k}')">${
+          {arch:'Arch',sag:'Sag',wave:'Wave',rise:'Rise'}[k]}</button>`;
+      }).join('')}
+      <input id="lyCurveKind" type="hidden"
+             value="${String(styleNow(r,ov,'curve_kind','arch')||'arch')}">
+    </div>
+    <div class="sl" title="How strongly the line bends">
+      <span>Amount</span>
       <input type="range" min="-180" max="180" step="5"
              value="${+styleNow(r,ov,'curve',0)}"
              oninput="$('lyCurve').value=this.value;onTypesetStyle(${r.id})">
@@ -860,17 +1079,13 @@ function typesettingPanel(r){
       <div style="flex:1"><label style="margin-top:0">Text colour</label>
         <span class="colwell" style="width:100%;box-sizing:border-box"
               onclick="openTypesetPicker(this,'lyFg',${r.id})">
-          <i id="lyFgChip" style="background:${cssHex(styleNow(r,ov,'fg',L.fg),'#000000')}"></i>
-          <input id="lyFg" type="hidden"
-                 value="${cssHex(styleNow(r,ov,'fg',L.fg),'#000000')}">
-          <b id="lyFgHex">${cssHex(styleNow(r,ov,'fg',L.fg),'#000000')}</b></span></div>
+          ${wellBits('lyFg', lyFill(r,ov,L), '#000000',
+                     false, !wellChosen(r,ov,'fg'))}</span></div>
       <div style="flex:1"><label style="margin-top:0">Outline colour</label>
         <span class="colwell" style="width:100%;box-sizing:border-box"
               onclick="openTypesetPicker(this,'lyEdge',${r.id})">
-          <i id="lyEdgeChip" style="background:${cssHex(styleNow(r,ov,'edge',L.edge),'#ffffff')}"></i>
-          <input id="lyEdge" type="hidden"
-                 value="${cssHex(styleNow(r,ov,'edge',L.edge),'#ffffff')}">
-          <b id="lyEdgeHex">${cssHex(styleNow(r,ov,'edge',L.edge),'#ffffff')}</b></span></div>
+          ${wellBits('lyEdge', styleNow(r,ov,'edge',L.edge), '#ffffff',
+                     false, !wellChosen(r,ov,'edge'))}</span></div>
     </div>
     <!-- Each well says which end of the gradient it IS, over the well, the
          way every other pair in this panel is labelled. The heading used to
@@ -970,10 +1185,15 @@ function typesettingPanel(r){
             title="Outer glow">Outer glow</label>
         <span class="colwell" style="width:100%;box-sizing:border-box"
               onclick="openTypesetPicker(this,'lyGlow',${r.id})">
-          <i id="lyGlowChip" style="background:${cssHex(styleNow(r,ov,'glow',''),'')||'transparent'}"></i>
-          <input id="lyGlow" type="hidden"
-                 value="${cssHex(styleNow(r,ov,'glow',''),'')}">
-          <b id="lyGlowHex">${cssHex(styleNow(r,ov,'glow',''),'')||'off'}</b></span></span>
+          ${/* A sound effect over artwork is given a halo in the opposite
+                colour whether or not anybody asked - so this well, like the
+                two above it, shows a colour that may be nothing but a
+                READOUT, and must not be sent back on a save of something
+                else. `wellChosen` is the question; the × writes an explicit
+                "none" rather than an empty field, so turning it off is a
+                choice the page can tell from silence. */''}
+          ${wellBits('lyGlow', styleNow(r,ov,'glow',''), '',
+                     false, !wellChosen(r,ov,'glow'))}</span></span>
       <span style="width:52px"><label style="margin-top:0" title="How far the glow reaches, px">Size</label>
         <input id="lyGlowS" type="number" min="0" max="40" step="1" style="width:100%"
                value="${+styleNow(r,ov,'glow_size',6)}"
@@ -997,4 +1217,123 @@ function typesettingPanel(r){
     </div>
     `)}
   </div>`;
+}
+
+/* ---------------- the marks that go in a line ----------------
+
+   lee: *"i wan a big librey of icons that can be put there"*, with a crop of
+   「これから本番♥」.
+
+   A mark is a CHARACTER in the line and nothing more - it goes into the output
+   box like any letter, travels in `dst_text`, saves with the chapter and
+   exports with it. Everything that makes it a picture happens at the last
+   moment, in `typeset.mark_glyph`, and nothing here knows about that.
+
+   Which is why this inserts text and does not do anything cleverer: the
+   alternative - a mark as its own object on the block - would need a place in
+   the record, in the undo list, in the exporter and in the line breaker, and
+   would buy nothing a character does not already give. */
+let markFor=null;                 // which region the picker is open for
+
+function openMarks(id){
+  markFor=id;
+  const box=$('markGrid'); if(!box) return;
+  box.innerHTML=(MARK_LIB||[]).map(([group,items])=>
+    `<div style="margin-bottom:10px">
+       <label style="margin:0 0 4px">${esc(group)}</label>
+       <div class="row" style="flex-wrap:wrap;gap:6px">
+         ${items.map(([ch,name])=>
+           // The character rides a data attribute, NOT an inline call:
+           // putMark("♥") inside a double-quoted onclick attribute ends the
+           // attribute at ♥'s own quote, so every tile was a syntax error
+           // and a click did nothing - which is exactly how lee reported it.
+           `<button class="markbtn" title="${esc(name)}" data-ch="${ch}"
+                    onclick="putMark(this.dataset.ch)">
+              <img alt="${esc(name)}" loading="lazy"
+                   src="/marksample?c=${encodeURIComponent(ch)}"></button>`
+           ).join('')}
+       </div>
+     </div>`).join('')
+    || '<p class="help">No marks available.</p>';
+  $('markdlg').classList.add('on');
+}
+function closeMarks(){ $('markdlg').classList.remove('on'); markFor=null; }
+
+/* Put one in, AT THE CURSOR, and leave the cursor after it.
+
+   Appending to the end was the first version and it is wrong for the case the
+   feature exists for: `これから本番♥` puts the heart at the end of THAT
+   sentence, and a balloon holding two sentences wants it in the middle.
+
+   AND FROM THE IMAGE TAB TOO. lee: *"whe i click on an icon in te speceial
+   charater it shsody add it to teh tselectred box output text and the text
+   box in the image tab"*. Three homes, tried in order: the Output text box
+   when the translation row is open (at its cursor); the box being typed
+   into on the canvas (at its caret, through the same input path typing
+   takes); otherwise straight onto the record - the output text, and the
+   typeset lines with it so the page shows the character at once. */
+function putMark(ch){
+  if(markFor===null) return;
+  // The Output text box takes it AT ITS CURSOR - but only on the
+  // Translation tab. The boxes list (and so this textarea) is in the DOM on
+  // the Image tab too, and taking this branch there sent the character to
+  // the record as a bare text edit, whose save drops the fitting - so the
+  // mark reached the output text and never the words on the page.
+  const el=$('out_'+markFor);
+  if(el && (typeof view==='undefined' || view==='original')){
+    const a=el.selectionStart==null?el.value.length:el.selectionStart;
+    const b=el.selectionEnd==null?a:el.selectionEnd;
+    el.value=el.value.slice(0,a)+ch+el.value.slice(b);
+    el.focus();
+    el.selectionStart=el.selectionEnd=a+ch.length;
+    // ...through the same path typing goes through, so the block redraws,
+    // the edit is saved and it lands in the undo list as one change.
+    noteEdit(markFor,'dst_text',el.value);
+    flushEdit();
+    if(typeof growBox==='function') growBox(el);
+    return;
+  }
+  const r=(typeof regions!=='undefined')
+          ? regions.find(x=>x.id===markFor) : null;
+  if(!r){ closeMarks(); return; }
+  if(typeof editing!=='undefined' && editing===markFor
+     && typeof editBox!=='undefined' && editBox){
+    // the canvas editor is open on this block: insert at its caret and let
+    // its own input handler remap, mirror and save
+    // Straight into the editor's document, at its caret - not through
+    // `execCommand`, which is deprecated, and not by appending to the
+    // element, which would be writing behind the editor's back.
+    if(typeof tbInsertText==='function' && tbIsOpen()) tbInsertText(ch);
+    else { editBox.focus(); editBox.textContent+=ch;
+           editBox.dispatchEvent(new Event('input',{bubbles:true})); }
+    // ...and the output text carries it too - the line being typeset and
+    // the translation record travel together
+    noteEdit(markFor,'dst_text',(r.dst_text||'')+ch);
+    flushEdit();
+    return;
+  }
+  // In the Image view the words on the page come from the typeset lines, so
+  // the character lands there as well - in the SAME save as the text. Two
+  // saves raced: the text edit drops the fitting on the server, and when its
+  // drop landed after the lines save it popped the very line the ♥ was on,
+  // so the mark reached the output text and never the page. One body with
+  // both halves cannot race itself, and the server keeps the fitting when
+  // the same request supplies it.
+  const dst=(r.dst_text||'')+ch;
+  if(typeof view!=='undefined' && view==='typeset'
+     && r.layout && Array.isArray(r.layout.lines) && r.layout.lines.length){
+    const lines=r.layout.lines.slice();
+    lines[lines.length-1]=(lines[lines.length-1]||'')+ch;
+    r.dst_text=dst;
+    r.layout.lines=lines.slice();
+    const ov=Object.assign({}, r.layout_override||{},
+                           {lines:lines.slice(), locked:true});
+    r.layout_override=ov;
+    if(typeof drawText==='function') drawText();
+    if(typeof drawOverlay==='function') drawOverlay();
+    upd(markFor, {dst_text:dst, layout:ov});
+    return;
+  }
+  noteEdit(markFor,'dst_text',dst);
+  flushEdit();
 }

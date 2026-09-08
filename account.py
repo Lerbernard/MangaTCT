@@ -385,16 +385,6 @@ def claim_username(name: str) -> str:
     return d["username"]
 
 
-def set_photo(icon: str) -> None:
-    """The picture icon. Written on the website, mirrored here so the editor
-    can draw it without another round trip."""
-    d = _read()
-    d["photo"] = str(icon or "")[:64]
-    _write(d)
-
-
-# ------------------------------------------------------------------ the purse
-
 def refresh_me() -> dict:
     """Ask the server what the account holds, and remember it."""
     got = call("me")
@@ -504,7 +494,7 @@ def _main(argv=None) -> int:
     import sys
 
     ap = argparse.ArgumentParser(prog="python -m mangatl.account",
-                                 description="The MangaTCT account.")
+                                 description="The MangaTCT account (beta).")
     ap.add_argument("what", nargs="?", default="who",
                     choices=("who", "signin", "signup", "signout", "name"))
     ap.add_argument("value", nargs="?", default="")

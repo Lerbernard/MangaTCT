@@ -572,8 +572,14 @@ def _by_nearest(balloon: np.ndarray, seeds: list[np.ndarray],
 
 
 def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
-                    cfg: BalloonConfig | None = None) -> int:
+                    cfg: BalloonConfig | None = None,
+                    rename: bool = True) -> int:
     """Give every speech region the balloon around it. Returns how many got one.
+
+    `rename=False` finds the balloons and CHANGES NOTHING ELSE. Detection wants
+    the renaming below and passes nothing; the door a saved chapter comes back
+    through - `project.find_balloons`, called on every `materialize` - must not
+    have it. See lee: *"boxes chaning type after i reload the projet"*.
 
     Sound effects are left alone on purpose: they have no balloon, and the
     ink's own footprint is the right place for them.
@@ -624,8 +630,17 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     # already fills it - so "no balloon found" means "not a drawn balloon", not
     # "loose on the artwork". A rule built on it would relabel half the
     # dialogue in a chapter. lee, shown the measurement, picked promote only.
+    #
+    # A FREE BLOCK MAY STILL TAKE A BALLOON when the promotion is off, and it
+    # has to: refusing to look would typeset the English into the bare box the
+    # Japanese was set in, which is a tall narrow column. Taking one that
+    # ANOTHER block is already typesetting into is the thing that must not
+    # happen, and that is answered where it can be seen -
+    # `project.drop_borrowed_balloons`, on the way in. Narrowing this list was
+    # tried instead and is wrong: it also takes the balloon off a caption
+    # sitting alone in one, which is the case this line exists for.
     up = _attach(gray, regions, cfg, ("bubble", "narration", "freefloat"),
-                 promote=True)
+                 promote=rename)
     # …and again on the negative, for the black balloons. A block the page
     # called free-floating is allowed in this time: on a black balloon the ring
     # of "is there paper round this?" reads as artwork, so a block inside one
@@ -633,8 +648,9 @@ def attach_balloons(gray: np.ndarray, regions: list[TextRegion],
     # that question, and a better one than the ring gave - so a block that
     # turns out to be in a balloon is called what it is.
     dark = _attach(255 - gray, regions, cfg,
-                   ("bubble", "narration", "freefloat"), promote=True)
-    _shut_in_a_round_wall(gray, regions, cfg)
+                   ("bubble", "narration", "freefloat"), promote=rename)
+    if rename:
+        _shut_in_a_round_wall(gray, regions, cfg)
     return up + dark
 
 

@@ -6,6 +6,8 @@ Reserve the expensive path for text over artwork, gradients and screentone.
 """
 from __future__ import annotations
 
+import traceback
+
 import cv2
 import numpy as np
 
@@ -69,6 +71,79 @@ HALO_TOL = 4           # grey levels under a flat background that still read as 
 TONE_REACH = 6         # the same sweep on texture, kept shorter - see _local_bg
 TONE_TOL = 10          # and stricter, because artwork is legitimately dark
 GHOST_TOL = 6          # ink still this much darker than its surroundings = ghost
+# ...and the same question asked another way, because a median cannot see a
+# faint one. `ghost_delta` compares the MEDIAN level where the ink was against
+# the ring round it; a ghost three grey levels off white is plainly readable
+# and three is under GHOST_TOL. Lowering GHOST_TOL to reach it fires on grain.
+#
+# What a ghost always has, however faint, is EDGES - it is writing. So the
+# second question is about high frequency rather than level: how much detail is
+# left inside the painted area, on a page that has none around it.
+#
+# Measured on lee's chapter 3 (23 manga pages, 252 painted areas) and on the
+# 15-page manhwa (120 areas, his own plates):
+#
+#     flat surroundings        199 of 252   detail inside: median 0.02
+#     the 164 flat-fill boxes               every one under 0.30
+#     everything above 0.30                 telea or pattern copy - the local
+#                                           fallback, and visibly ghosted
+#
+# 0.35 is an order of magnitude over the floor and above everything the flat
+# fill does. GHOST_FLAT is what counts as "no detail around it": past that the
+# ring has texture of its own and this test says nothing - which is `_gave_up`'s
+# argument in reverse.
+GHOST_HF = 0.35        # detail left where the surroundings have none = a ghost
+GHOST_FLAT = 0.6       # ...and this is how flat the surroundings have to be
+# ...and the THIRD question, which neither of those two can ask: writing the
+# mask NEVER COVERED. Both tests above start from `rec["ink"]` - from where the
+# mask went - so a kana sitting a little apart from the column is invisible to
+# them by construction, and that is what every crop of residue lee has sent is.
+# Measured on his page 001: 95% of the ink inside a cleaned region is inside the
+# mask, and the leftovers are the 5%.
+#
+# Inferring it from TONE - "the balloon is clean, so anything off its level is
+# ink somebody missed" - was tried and marked a balloon outline, a rock texture,
+# hair, speed lines and a whole small panel of artwork as writing to erase. A
+# level cannot tell writing from a drawing, and that is not a threshold that
+# needs tuning, it is the wrong question.
+#
+# What CAN tell them apart is the thing trained to: read the finished plate with
+# the text segmenter, and anything it still calls text, inside a region this page
+# actually cleaned, is text that is still there. See `_reread`. The reader is
+# injected rather than imported - `inpaint` knows nothing about weights files -
+# and a page with no reader configured cleans exactly as it did before.
+RESIDUE_PAD = 2        # slack round what was erased before calling it missed
+# The ground a box is written on, where it has one. See `_off_the_ground`.
+# GROUND_TOL is measured, not chosen: over lee's 221 boxes the paper inside a
+# balloon sits within 3 levels of its own median and a glyph is 200 off it, so
+# anything from 5 to 40 separates them - 12 is the middle of that, and the same
+# number `FLAT_STD` already calls flat.
+GROUND_TOL = 12        # levels off the box's own median that count as writing
+GROUND_CLEAR = 0.55    # ...and this much of the box has to BE the ground
+# ...and this is how much the ground may wander and still be ONE ground, as the
+# median distance from the median - a statistic half the box has to be inside,
+# so the writing cannot move it. Measured over lee's 221 boxes: 80% of them are
+# at 6 or under (paper, and the flat interior of a black balloon), his grainy
+# brushed-black balloon is at 12, and everything this test has to refuse starts
+# at 37 - the line screen on the shirt at 37, the dot tone at 70, the credits
+# over grass at 51.
+GROUND_MAD = 15        # ...and a ground that wanders more than this is not one
+GROUND_AROUND = 0.25   # this much of the ring outside the box has to be it too
+# ...and this many of the box's hundred cells have to be EMPTY. Writing leaves
+# margins and the space between two lines; a field of tone leaves nothing.
+# Measured over the 189 boxes on lee's chapter that get this far: the emptiest
+# tenth are dense captions at 7 cells of 100, and a light line screen and a
+# light dot screen both leave 0.
+GROUND_GAPS = 0.03
+# ...and this much of the smaller of two readings has to be shared before one
+# of them may replace the other. See `_agrees`.
+GROUND_AGREE = 0.25
+# ...and how wide a mark has to be before it is a SHAPE and not a stroke. A
+# balloon with a drawing in it is a box with one solid area in it, and "off the
+# ground" cannot tell that from a word by level alone. Writing is made of
+# strokes: the widest on lee's pages is a display sound effect at about 20
+# pixels, and nothing survives an erosion by 15 unless it is 31 across.
+GROUND_SOLID = 15
 GLYPH_STROKE = 3       # written strokes are this thick at least; tone dots are not
 GLYPH_MIN_AREA = 60    # ...and a letter covers at least this much, however thin
 GLYPH_MIN_SIDE = 5     # ...and is at least this wide and this tall
@@ -113,7 +188,71 @@ MASK_MAX_SHARE = 0.55  # a "text" mask covering more of its region than this is 
 # plate to the byte, and a run that does not finish produces no plate at all -
 # so no cached plate on anybody's disk is stale because of it. Retiring a
 # chapter of plates costs a re-clean, and it buys nothing here.
-ALGO = "2026-08-15-a"
+# 2026-08-22-a: the ghost sweep gained a second question. `ghost_delta` is a
+# median and cannot see a haze three grey levels off white; `ghost_detail` asks
+# whether anything is still DRAWN where the page around it is blank. It changes
+# pixels as well as flags - a box that now reads as ghosted is re-filled or
+# asked of the model again - so every plate made before it has to retire.
+# 2026-08-23-a: the finished plate is READ, where there is a reader to read it
+# with, and writing the mask never covered is erased on a second go (`_reread`).
+# It changes pixels on every page that had residue on it - which is the whole
+# point - so the plates that still have that residue on them have to retire.
+# 2026-08-23-b: and the SCAN is read too, which changes what gets erased on
+# every page with a sound effect or a caption on artwork - see `_reader_ink`.
+# ...and a fully white bubble keeps the flat fill even with "the model does the
+# whole page" chosen, which changes every plain balloon on lee's chapter.
+# 2026-08-23-c: the doorstep stops at the balloon (`_complete_strokes`), so a
+# box whose corner lands on a bubble's outline no longer follows that outline
+# out of the box and bites a wedge out of the edge. lee: *"this is bad its
+# reaching out of teh box"*.
+# 2026-08-23-d: what the writing IS is measured against the box's own ground
+# where it has one, and asked of the reader where it has not (`_off_the_ground`).
+# Five rescues collapse into that pair, and it changes the mask on 189 of lee's
+# 221 boxes. lee: *"i dont wan you to hard code it for this exmaple i wnat you
+# to caome up with a system taht clenneas them all teh time on any manga"*.
+# 2026-08-23-e: ...and what stands off that ground has to be CONTAINED in the
+# box before it is erased (`_contained`). Without it the rule took the rain
+# behind a caption, the outline of a bubble and a man's head, all of which
+# stand off the paper exactly like a stroke. lee: *"the ai shoud try to keep
+# teh boes instd of removing it ... this guy head is gone even though uts not
+# on teh text"*.
+# 2026-08-24-a: on a plain white bubble the clean is now EXHAUSTIVE. The colour
+# is known, so anything left inside the balloon that is not that colour is a
+# leftover, and `_all_of_it` erases it whether or not the ghost test - a median
+# over the whole mask, blind to two dashes among three thousand clean pixels -
+# can see it. lee, with a crop of a cleaned balloon with two dashes of a kana
+# still in it: *"there ate still residue on the whoite boxes ... make the
+# clenner allways clenne out all the text"*.
+# 2026-08-25-a: the doorstep finishes a stroke and no longer follows a line
+# that merely touches one. It reaches eight pixels past the box to complete a
+# glyph drawn a little too big, and it was reaching that far along the HAIR
+# behind a sound effect, because hair the kana touches is one component with
+# them: 1,347px of it on lee's page 008, 86% of everything the doorstep added
+# to that box, and it came back chopped into segments. lee, with the crop:
+# *"thry to have the clneer fix his"*. Over the chapter, 8,532px less of the
+# page painted for 32px more readable residue out of 801,840. The same pass
+# gives a TURNED box a doorstep round the box that was turned, instead of round
+# the upright rectangle it was derived from - a stroke leaving the quad's
+# corner was outside every ring the rule knew about and was left standing.
+# 2026-08-29-a: the glyph mask a SAVED record is rebuilt with reads which way
+# round the balloon is, instead of assuming ink is dark
+# (`project._writing_in`). On lee's page 009 - a solid black balloon with
+# white Japanese in it - the old line marked the BALLOON as writing and the
+# letters as clean: 24,164 pixels of "ink" in a balloon of 26,758. The
+# cleaner was asked to erase ninety per cent of the balloon, `_flat_from` had
+# not one pixel of ground left to sample, and Telea filled it from the dotted
+# screentone outside. That is not in this file and the plate cache does not
+# watch that file either, so the stamp covers it - the same arrangement, and
+# the same reason, as 2026-08-12-b.
+# 2026-08-29-b: a saved outline is READ against the page before it is used
+# (`project._one_ground`), so a box whose outline runs off its balloon onto the
+# artwork stops asking for the artwork to be erased. Page 019's outline is a
+# rectangle a third bigger than its balloon in every direction, and the writing
+# read out of it took in the hatching in the corners. Three of lee's 137
+# outlines move; the other 134 come back untouched and their plates would be
+# identical - but a plate is keyed on this stamp and not on its pixels, so
+# every one of them retires and is made again.
+ALGO = "2026-08-29-b"
 
 
 def ink_and_background(gray: np.ndarray, area: np.ndarray,
@@ -232,10 +371,16 @@ def _letterlike(mask: np.ndarray, min_stroke: int = GLYPH_STROKE) -> np.ndarray:
 # undone from a flag.
 
 GLYPH_REACH = 8        # how far past its box a caught stroke may be followed
+# ...and how much of a mark may still lie beyond that before it stops being a
+# stroke's tail and starts being a line that merely touches the writing. The
+# same share `glyphs_only` and `_only_what_the_box_contains` use for the same
+# claim, named separately because this one is measured against the DOORSTEP.
+DOORSTEP_SHARE = OUTSIDE_SHARE
 
 
 def _complete_strokes(erase: np.ndarray, gray: np.ndarray, inverted: bool,
-                      bbox) -> np.ndarray:
+                      bbox, inside: "np.ndarray | None" = None,
+                      area: "np.ndarray | None" = None) -> np.ndarray:
     """Finish the strokes the box cut in half, and nothing else.
 
     The mask is clipped at the box, so a glyph drawn a little past it comes out
@@ -246,17 +391,59 @@ def _complete_strokes(erase: np.ndarray, gray: np.ndarray, inverted: bool,
     already caught. A stroke leaving the box is completed; line work crossing
     the middle of the box, which may well touch a glyph, is not adopted, because
     nothing inside the box is added at all.
+
+    `inside` says a BALLOON was found round this box, and it buys one extra
+    condition: the doorstep may FINISH a stroke, not adopt one. lee's page 003
+    is why. The corner of a box lands on the balloon's own outline, the mask
+    catches 23 pixels of it, and this rule followed the arc out of the box and
+    took 125 more - so the fill painted white over the outline and the leaves
+    behind it, and the bubble came back with a wedge cut out of its edge. He
+    sent the crop: *"this is bad its reaching out of teh box"*.
+
+    Position cannot tell those apart: the outline sits just outside the
+    detected interior, and so does writing that pokes past it, which is the
+    whole reason the fence dilates the balloon at all. What tells them apart is
+    the SHARE. A bubble is drawn round its words with room to spare, so a
+    stroke this box really caught is mostly inside it - 0.93 on the stroke in
+    `test_a_glyph_drawn_past_its_box_is_finished_not_cut_in_half`. The bubble's
+    outline is 0.155: the box did not catch that stroke, it clipped a corner of
+    something that goes right round the balloon.
+
+    Only where there IS a balloon. Measured over lee's chapter, 146 components
+    are adopted here and 61 of them have more in the doorstep than the box
+    caught - but 48 of those 61 are sound effects, whose box is drawn tight on
+    a mark that genuinely carries on, and refusing them puts the stubs back:
+    *"the tetxt is a non negotiable they need to go"*. A box with no balloon
+    behaves exactly as it did.
+
+    `area` is the box somebody TURNED, when they turned one. Everything here is
+    a ring round a shape, and for a turned box the shape is not `bbox` - `bbox`
+    is the upright rectangle the turn is computed from, and the quad's corners
+    sweep well outside it. A stroke leaving the quad's lower-right corner
+    landed clean outside the ring built round the rectangle and was never
+    offered to the doorstep at all: the fixture in
+    `test_a_glyph_poking_past_a_turned_edge_still_comes_off` came back with
+    125px of 136 still standing, a bead of ink hanging off the corner. A
+    comment here used to call using `bbox` deliberate, on the grounds that a
+    ring round the turned box's BOUNDING RECTANGLE would be a ring round
+    something much bigger than the box. That is true and it is an argument
+    against the bounding rectangle, not for it - the quad itself is neither.
     """
     m = _u8(erase)
     if not m.any():
         return m
     x, y, w, h = (int(v) for v in bbox)
     H, W = gray.shape[:2]
-    box = np.zeros((H, W), bool)
-    box[max(0, y):y + h, max(0, x):x + w] = True
-    room = np.zeros((H, W), bool)
-    room[max(0, y - GLYPH_REACH):y + h + GLYPH_REACH,
-         max(0, x - GLYPH_REACH):x + w + GLYPH_REACH] = True
+    if area is not None:
+        box = area > 0
+        room = cv2.dilate(box.astype(np.uint8),
+                          np.ones((2 * GLYPH_REACH + 1,) * 2, np.uint8)) > 0
+    else:
+        box = np.zeros((H, W), bool)
+        box[max(0, y):y + h, max(0, x):x + w] = True
+        room = np.zeros((H, W), bool)
+        room[max(0, y - GLYPH_REACH):y + h + GLYPH_REACH,
+             max(0, x - GLYPH_REACH):x + w + GLYPH_REACH] = True
     doorstep = room & ~box
     if not doorstep.any():
         return m
@@ -265,12 +452,51 @@ def _complete_strokes(erase: np.ndarray, gray: np.ndarray, inverted: bool,
     cand = (full & doorstep).astype(np.uint8)
     if not cand.any():
         return m
-    # which pieces of doorstep ink touch what the box caught
-    _, lab = cv2.connectedComponents(
-        ((full & room).astype(np.uint8)), 8)
+    # which pieces of doorstep ink touch what the box caught, labelled ACROSS
+    # THE PAGE so a mark that carries on past the doorstep can be told from one
+    # that ends in it - the same reason `glyphs_only` labels the page and not
+    # the crop: cut at the boundary, everything looks self-contained
+    _, lab = cv2.connectedComponents(full.astype(np.uint8), 8)
     touching = set(np.unique(lab[(m > 0) & box])) - {0}
     if not touching:
         return m
+    # A STROKE THE BOX CUT ENDS IN THE DOORSTEP. That is what a doorstep is
+    # for: eight pixels, about half a stroke, the tail of a glyph drawn a
+    # little past its box. A mark with most of itself still to come out there
+    # is not a tail, it is a line that happens to touch the writing - and on a
+    # sound effect, drawn over the picture rather than in a bubble, that is the
+    # ordinary case. lee's page 008: the hair behind あはは touches the kana, so
+    # the doorstep followed the strand out and the fill took 1,347px of hair -
+    # 86% of everything the doorstep added to that box. He sent the crop of it
+    # coming back in pieces: *"thry to have the clneer fix his"*.
+    #
+    # A SHARE and not a yes-or-no. "Does any of it lie past the doorstep" reads
+    # beautifully and is useless: one anti-aliased pixel at the tip of the
+    # 1,804px bar in `test_a_glyph_poking_past_a_turned_edge_still_comes_off`
+    # lies past it, and that one pixel threw the whole stroke away and put the
+    # stub back. `OUTSIDE_SHARE` is the number the rest of this file already
+    # uses for exactly this claim.
+    #
+    # The `inside` clause below cannot stand in for it. That one asks how the
+    # ink is SHARED between box and doorstep, which a long mark crossing a
+    # small box passes comfortably, and it only runs where a balloon was found
+    # - which is never, on the boxes this is about.
+    kept = set()
+    for li in touching:
+        comp = lab == li
+        total = int(comp.sum())
+        if total and int((comp & ~room).sum()) > DOORSTEP_SHARE * total:
+            continue
+        kept.add(li)
+    touching = kept
+    if not touching:
+        return m
+    if inside is not None:
+        touching = {li for li in touching
+                    if int(((lab == li) & box).sum())
+                    >= int(((lab == li) & doorstep).sum())}
+        if not touching:
+            return m
     add = np.isin(lab, list(touching)) & doorstep
     out = m.copy()
     out[add] = 255
@@ -290,6 +516,16 @@ def glyphs_only(region, text_mask: np.ndarray,
     already been cut at the boundary, so everything looks self-contained. With
     `gray` we label the ink across the page and drop any component that has
     pixels outside the region.
+
+    NOT ON A SOUND EFFECT, and it was measured before that was left alone.
+    `place_mask()` hands an effect its own INK - right for typesetting one along
+    the mark it replaces, and not an area at all - so the shape test below bails
+    out and the rule has never run on one. Giving it the BOX instead, which is
+    the obvious repair, costs more than it saves: over lee's 48 sound effects it
+    took 29,679px out of the masks, and 19,899 of those were pixels the text
+    detector calls writing against 8,195 of artwork. An effect is drawn over the
+    picture with its box pulled tight around it, so its own strokes fail
+    containment as readily as the artwork behind them do.
     """
     area = region.place_mask()
     if area is None or gray is None:
@@ -535,6 +771,38 @@ def ghost_delta(before: np.ndarray, after: np.ndarray, ink: np.ndarray,
     if gap(before) < GHOST_TOL:
         return 0.0                       # never was dark: nothing to leave behind
     return gap(after)
+
+
+def ghost_detail(after: np.ndarray, ink: np.ndarray) -> float:
+    """How much detail is left where the ink was, on a page that has none
+    around it. 0.0 when the surroundings are not flat enough to ask.
+
+    The companion to `ghost_delta`, and deliberately a different statistic.
+    That one asks how DARK the old ink still is, as a median, and a faint even
+    haze barely moves a median. This one asks whether anything is still DRAWN
+    there - a high-pass, which is what writing is made of and what a fill is
+    not.
+
+    Both are needed. A thick grey smear moves the median and blurs the edges;
+    a three-level haze of the actual glyph shapes moves neither the median nor
+    `_gave_up`'s standard deviation, and is the one lee's pages kept.
+    """
+    m = (ink > 0).astype(np.uint8)
+    core = cv2.erode(m, np.ones((3, 3), np.uint8)) > 0
+    if core.sum() < 20:
+        core = m > 0
+    ring = (cv2.dilate(m, np.ones((2 * HALO_REACH + 5,) * 2, np.uint8)) > 0) \
+        & ~(_dilated(m, HALO_REACH) > 0)
+    if core.sum() < 20 or ring.sum() < 20:
+        return 0.0
+    g = after.astype(np.float32)
+    if g.ndim == 3:
+        g = cv2.cvtColor(after, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    hf = np.abs(g - cv2.GaussianBlur(g, (0, 0), 2.0))
+    out = float(np.median(hf[ring]))
+    if out >= GHOST_FLAT:
+        return 0.0            # the artwork round it has detail of its own
+    return float(np.median(hf[core]))
 
 
 def background_is_flat(img: np.ndarray, region: TextRegion,
@@ -1183,13 +1451,21 @@ def redraw(page: Page, out: np.ndarray, neural=None, again=()) -> list:
     return did
 
 
-def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarray:
+def inpaint_page(page: Page, neural=None, neural_all: bool = False,
+                 look=None) -> np.ndarray:
     """`neural(img, mask) -> img` is an optional LaMa-style callable.
+
+    `look(bgr) -> full-page text mask` is an optional READER, and it is asked
+    one question: what writing is still on the finished plate. Everything else
+    in this file decides where the ink is BEFORE cleaning and then trusts
+    itself; this is the one step that checks. See `_reread`.
 
     Normally only TEXTURED backgrounds (screentone, art) go to the inpainter;
     flat white bubbles are filled instantly with their background colour. With
-    `neural_all=True` every cleaned region - flat bubbles included - is routed
-    through `neural` instead, for people who want the model to do all of it.
+    `neural_all=True` every cleaned region that is not a FULLY WHITE bubble is
+    routed through `neural` instead, for people who want the model to do all of
+    it - pale grey, tone, gradients and artwork included. The white bubble is
+    kept back because there is nothing there to guess: see the flat path below.
 
     The model is called once per REGION, on a crop with `NEURAL_CTX` pixels of
     page around it, rather than once on the whole page. A hosted inpainter
@@ -1218,6 +1494,17 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
     # One entry per region the model will be asked about: the crop to send and
     # the mask within it. See the docstring - a bubble at a time, not a page.
     hard_jobs: list[dict] = []
+    # ...and, where there is a reader, WHAT THE WRITING IS. See `_reader_ink`:
+    # a saved region carries no bitmap, so the mask it is rebuilt with is "the
+    # dark pixels inside the box", and on a sound effect over screentone that
+    # is the screentone.
+    writing = _looked(look, page.image, gray.shape)
+    # ...and where it said so, inside the boxes. The fence at the end keeps a
+    # fill inside the balloon, and a balloon that stops short of the words is
+    # how lee's page 003 kept two kana; what the reader calls writing is the
+    # one claim that outranks a guessed outline. Gathered here so the fence can
+    # excuse it whether the first pass erased it or `_reread` found it after.
+    reader_room = np.zeros(gray.shape, bool)
 
     for r in page.regions:
         # Stop means stop -- one check per region. See `stopping`: cleaning is
@@ -1229,7 +1516,35 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
         if r.text_mask is None or getattr(r, "skip_clean", False):
             continue
         full_area = r.place_mask()
+        # WHAT IS THE WRITING IN THIS BOX. Two answers, and between them they
+        # cover every box on a page:
+        #
+        #   * the box has ONE GROUND - paper, a black panel, a grey plate - and
+        #     then the writing is exactly what differs from it, measured, with
+        #     nothing to guess. `_off_the_ground`.
+        #   * the ground is artwork or screentone, which nothing can model, and
+        #     then only a thing trained on text can say. `_reader_ink`.
+        #
+        # Where the ground answers, the reader is still added to it: it sees the
+        # white outline round a mark that no level test can, and it is capped so
+        # it can only ever add a little.
+        #
+        # Where neither answers, the old chain below stands - the dark pixels in
+        # the box, the light/dark split, `_letterlike` - which is what this pair
+        # replaced and what is left when both of them decline.
+        told = _reader_ink(writing, r, gray.shape)
+        ground = _off_the_ground(gray, r.bbox)
         base = r.text_mask
+        # ...and a ground reading has to have SOMETHING in common with whatever
+        # else this box has been said to be - the reader where there is one, the
+        # mask the region carries where there is not. See `_agrees`.
+        if ground is not None and not _agrees(
+                ground, told if told is not None else _in_box(base, r.bbox)):
+            ground = None
+        if ground is not None:
+            base = ground if told is None else (ground | told)
+        elif told is not None:
+            base = told
         inverted = False
         if full_area is not None:
             w = _window(gray.shape, full_area, base)
@@ -1264,7 +1579,14 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
             # still stands - the halo, the stroke completion and the ghost
             # check all need to know which way the ink goes - but what to
             # erase is what was found.
-            if inverted and _kinds.family_of(r.kind) != "sfx":
+            #
+            # ...and only when neither of the two above answered. Both of them
+            # already know which way round the tones run - the median does not
+            # care, and the reader reads white on black as readily as black on
+            # white - so this is the last resort it always was, not a third
+            # opinion overruling them.
+            if inverted and _kinds.family_of(r.kind) != "sfx" \
+                    and ground is None and told is None:
                 base = np.zeros(gray.shape, bool)
                 base[w] = _letterlike(polar) > 0
         # ...and only now, with every reading this cleaner has had its go, ask
@@ -1279,7 +1601,6 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
         bx0, by0 = max(0, bx0), max(0, by0)
         bw0 = max(1, min(bw0, gray.shape[1] - bx0))
         bh0 = max(1, min(bh0, gray.shape[0] - by0))
-        crop = (slice(by0, by0 + bh0), slice(bx0, bx0 + bw0))
         # These two read the whole page on purpose: whether a stroke carries on
         # past the region is exactly the question a crop cannot answer.
         base_u8 = _u8(base)
@@ -1337,23 +1658,56 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
         # sky. A focus mask is not clipped at a threshold in the first place, so
         # it has no half-glyphs to finish.
         #
-        # Off `bbox` even on a turned box, deliberately. What this adds is
-        # doorstep ink joined to ink the box already caught, and "doorstep"
-        # here is a RING round a rectangle - handed the turned box's bounding
-        # rectangle it would be a ring eight pixels outside a shape much bigger
-        # than the box, which the fence undoes again anyway. The corners a turn
-        # sweeps out are already the region's own, through `box_lim` above.
-        erase = _complete_strokes(erase, gray, inverted, r.bbox)
+        # ...and on a box somebody TURNED, a ring round THAT box. `box_lim`
+        # above already hands the corners a turn sweeps out to the region, but
+        # only by `DILATE_PX`; the doorstep is eight, and a stroke leaving the
+        # quad's corner falls outside any ring built round the upright
+        # rectangle. It was left standing, 125px of 136 on the fixture for it.
+        # ...and the doorstep stops at the balloon, where there is one: what is
+        # just outside a bubble's box and joined to its writing is the bubble's
+        # own outline as often as it is a glyph. See `_complete_strokes`.
+        bm = getattr(r, "bubble_mask", None)
+        if bm is not None and getattr(bm, "shape", None)[:2] != gray.shape[:2]:
+            bm = None
+        erase = _complete_strokes(erase, gray, inverted, r.bbox, bm,
+                                  _own_area(r, gray.shape, 0))
         spare = _spared(base_u8, erase, gray, inverted)
+        if told is not None:
+            reader_room |= told & (box_lim > 0)
 
-        w = _window(gray.shape, full_area, erase)
+        # ...and the box goes into the window as well, not only the balloon and
+        # the mask. Every measurement below is bounded by `area` or by the mask
+        # itself, so a wider window is the same answer computed on a bigger
+        # crop - but `_reread` looks for writing anywhere in the BOX, and a
+        # balloon that stops short of the words draws a window that stops short
+        # of them too. That is lee's page 003 exactly, and the check would have
+        # been blind to it in the one case it exists for.
+        w = _window(gray.shape, full_area, erase, box_lim)
         g, area = gray[w], (None if full_area is None else full_area[w])
         ink, spare_c = erase[w], spare[w]
         flat, bg, spread = ((False, np.zeros(3), 255.0) if area is None else
                             _flat_from(page.image[w], area, ink, spare_c))
         d = _dilated(ink)
+        # ...and WHERE THIS REGION MAY LOOK for writing it missed: THE BOX THE
+        # PERSON DREW, and nothing else. Not the window - that is a rectangle
+        # round the balloon and takes in whatever else is standing in it - and
+        # not the mask, which is the thing being checked.
+        #
+        # And deliberately not the balloon either, which is the whole reason
+        # lee's page 003 still says しゅぁ and もる. Both of those are inside
+        # his box, on the balloon's own white, and OUTSIDE the interior the
+        # balloon finder drew - it stops a dozen rows short of the writing.
+        # Every step here is clipped to that interior, so the words were never
+        # in a mask, and the fence at the end would have put them back if they
+        # had been. The box is the person's statement that the words are in
+        # here; the balloon is a guess about where a shape ends. See `_reread`,
+        # which is why it is safe to prefer the first over the second HERE and
+        # nowhere else: a trained reader has to call these pixels writing
+        # before anything looks at them.
+        own_c = box_lim[w] > 0
         rec = {"r": r, "win": w, "ink": ink, "inv": inverted,
-               "how": "", "flat": None, "job": None}
+               "how": "", "flat": None, "job": None,
+               "own": own_c, "left": None}
         done.append(rec)
         # lee: *"the ai shoud be clening those not the cleaner the cleneer only
         # need to cleaner the white bubbles"*. A flat background is the local
@@ -1406,8 +1760,21 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
         # `_slab_worked`: the one route that knows what it is painting is the
         # one route that can be marked, and lee's page 024 is a balloon the
         # sample called flat and the fill left the writing standing on.
+        # ...and a FULLY WHITE bubble takes it even with "the model does the
+        # whole page" chosen. lee, having run the chapter that way and looked:
+        # *"look into making the local clenner do teh white biexes because it
+        # did a bettr jib"*, with a picture of a plain bubble the model had
+        # left one speck of a kana in.
+        #
+        # It is not a preference between two cleaners. On a white balloon the
+        # background is KNOWN - one colour, measured off the paper around the
+        # words - so the fill is exactly right by construction and instant and
+        # free. A model, however good, is guessing at a thing that is not in
+        # doubt, and a guess can leave a speck. "The whole page" means every
+        # area the local path cannot prove it has right, and that is what it
+        # now does: pale grey, tone, gradients, artwork, all of it still goes.
         slab = None
-        if mine and not (neural is not None and neural_all):
+        if mine:
             level = _bg_level(g, area, ink, bg, spare_c)
             wide = _with_halo(g, area, d, spare_c, level, inverted)
             tried = page.image[w].copy()
@@ -1434,7 +1801,7 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
                 # stays whole-page.
                 full_d = np.zeros(gray.shape, np.uint8)
                 full_d[w] = d
-                tone_masks.append(full_d)
+                tone_masks.append((r.id, full_d))
                 rec["how"] = "pattern copy"
                 r.flagged = (r.flagged or "") + \
                     " screentone: cleaned by pattern copy, worth a look"
@@ -1506,9 +1873,40 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
                     hard_jobs.append(rec["job"])
 
     # Screentone first, on the still-untouched plate, so the copy sources clean
-    # neighbours rather than a half-inpainted page.
-    for tm in tone_masks:
-        out = shift_fill(out, tm)
+    # neighbours rather than a half-inpainted page. That is also what makes the
+    # next line necessary: the plate being sourced from still has every OTHER
+    # region's Japanese on it, and the copy will take it if it fits. See
+    # `shift_fill`, and lee's page 001 with a speech balloon printed across a
+    # character's kimono.
+    if tone_masks:
+        # The BOXES, not the ink in them. A box is where somebody - the
+        # detector or a person - said there is writing, and it is the only
+        # answer here that does not depend on how good the mask is: without a
+        # reader a box's "ink" on screentone IS the screentone, and blocking
+        # that as a source would take the tone away from the one route that
+        # exists to copy tone. A box is a small part of the paper and the rest
+        # of it is still there to source from.
+        each = {}
+        for r in page.regions:
+            if r.text_mask is None:
+                continue
+            own = _own_area(r, gray.shape, DILATE_PX)
+            b = np.zeros(gray.shape, np.uint8)
+            if own is None:
+                bx, by, bw, bh = (int(v) for v in r.bbox)
+                b[max(0, by - DILATE_PX):by + bh + DILATE_PX,
+                  max(0, bx - DILATE_PX):bx + bw + DILATE_PX] = 1
+            else:
+                b[own] = 1
+            each[r.id] = b
+        for rid, tm in tone_masks:
+            # every box but this one's: a hole is allowed to source from the
+            # rest of its own box, which is the paper right beside it
+            avoid = np.zeros(gray.shape, np.uint8)
+            for k, b in each.items():
+                if k != rid:
+                    avoid |= b
+            out = shift_fill(out, tm, avoid=avoid)
 
     if neural is not None:
         for job in hard_jobs:
@@ -1516,6 +1914,11 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
     elif hard_mask.any():
         out = cv2.inpaint(out, hard_mask, 3, cv2.INPAINT_TELEA)
 
+    # ...and only now, with the page as clean as the first pass can make it, is
+    # it worth reading. Before the sweep, so that what the reader finds is
+    # repaired by the same three paths that repair a ghost, and reported by the
+    # same flag if it survives them.
+    reread = _reread(page.image, out, done, look) if look is not None else 0
     _sweep_ghosts(gray, out, done, neural, page.image)
 
     # ---- the fence ----------------------------------------------------------
@@ -1581,6 +1984,31 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
         if bm is not None and getattr(bm, "shape", None)[:2] == gray.shape[:2]:
             room &= cv2.dilate((bm > 0).astype(np.uint8), reach_k) > 0
         allowed |= room
+    # ...with ONE exception, and it is the balloon clause it excuses, never the
+    # box. lee's page 003 is what it is for: two bubbles whose found interior
+    # stops a dozen rows short of the last line of kana, so the words sit inside
+    # his box, on the balloon's own white, and outside the shape. Clipped to
+    # that shape the cleaner cannot reach them - and it is not a threshold that
+    # can be loosened, because "a bit outside the balloon" is also where the
+    # artwork is.
+    #
+    # What makes this safe is what was asked, not how far it reaches: a text
+    # segmenter looked at the page and called these pixels writing. That is the
+    # one claim that outranks a guessed outline, and it is still inside the box
+    # the person drew - which is the rule he actually stated.
+    #
+    # Both readings count, and they have to: the one taken before anything was
+    # erased (`_reader_ink`, gathered into `reader_room`) and the one taken of
+    # the finished plate (`_reread`). Only the second was excused at first, and
+    # it left the fence undoing in silence exactly what the first pass had got
+    # right - erased before the sweep looks, so never seen as residue, and
+    # painted back at the end.
+    if reader_room.any():
+        allowed |= _dilated(reader_room, DILATE_PX) > 0
+    for rec in done:
+        left = rec.get("left")
+        if left is not None and np.any(left):
+            allowed[rec["win"]] |= _dilated(_u8(left), DILATE_PX) > 0
     out[~allowed] = page.image[~allowed]
 
     # ...and then the second step, over whatever the first one left standing.
@@ -1597,6 +2025,11 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
     # been conducted by looking at it and guessing; this is the count.
     # "fell back" is a region the model was asked for and did not deliver.
     stats: dict = {}
+    if reread:
+        # Boxes the reader found writing in that no mask had covered. Counted
+        # because it is the one number that says whether the extra pass is
+        # earning its two seconds a page.
+        stats["missed text found"] = reread
     if again:
         stats["second pass"] = len(again)
     if drawn:
@@ -1635,6 +2068,12 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False) -> np.ndarra
             for rec in done:
                 if rec.get("job") is job:
                     rec["r"].clean_route = "fell back"
+    # ...and which boxes had writing the mask never covered, so the person
+    # looking at the report can go and see whether the second go got it.
+    for rec in done:
+        if np.any(rec.get("left")):
+            rec["r"].clean_route = \
+                ((rec["r"].clean_route or "") + " + reread").strip()
     # ...and the second step, said last because everything above rewrites the
     # route from the FIRST pass's own record. A box that needed both says both:
     # the person looking at the report wants to know which of these had writing
@@ -1716,6 +2155,32 @@ def _run_neural(out: np.ndarray, job: dict, neural, extra: int = 0,
 GAVE_UP_DETAIL = 12.0   # the ring has to have something in it (cf. FLAT_STD)
 GAVE_UP_FLAT = 4.0      # ...and the answer to have nothing
 
+# ...and the second way the same failure arrives, which the pair above cannot
+# see. lee, with a crop of page 1: a solid BLACK bar where the Japanese `SHHH`
+# had been - *"i dont know if the ckenner or the amount of step required to
+# properly clenn it is too low but this is happening"*.
+#
+# That box sits on the pale, smooth, sparkly gradient at the top of the page.
+# The ring around it has nothing like 12 levels of detail in it, so the test
+# above never fires, and a slab is flat ON FLAT and accepted. "A flat answer on
+# flat paper is right" is true only when it is the SAME flat.
+#
+# So: whatever the ring's detail, an answer that is flat AND nothing like the
+# level of what surrounds it is a refusal too. The number is measured rather
+# than picked - over the 221 boxes the cleaner paints on lee's chapter, the gap
+# between a fill's own mean and the mean of the ring just outside it
+# (`his/level.py`):
+#
+#     every fill        mean 5.3   median 0.7   p90 15.7   max 105.2
+#     the FLAT ones     mean 1.6   median 0.6   p90  1.5   max  31.6
+#
+# and the flat ones are the only ones this clause ever looks at. A fill that is
+# right sits within a level or two of the paper it is patching; the worst
+# legitimate case in the whole chapter is 32. A black bar on pale paper is 150
+# to 200 away. Sixty is about twice the worst real answer and about a third of
+# the failure, which is as much daylight as either side needs.
+GAVE_UP_LEVEL = 60.0
+
 
 def _gave_up(sub: np.ndarray, filled: np.ndarray, mask: np.ndarray) -> bool:
     """Did the model erase this area rather than redraw it?
@@ -1736,8 +2201,14 @@ def _gave_up(sub: np.ndarray, filled: np.ndarray, mask: np.ndarray) -> bool:
         return False                      # nothing to compare against
     g_in = _gray(filled)[m]
     g_ring = _gray(sub)[ring]
-    return bool(float(g_ring.std()) >= GAVE_UP_DETAIL
-                and float(g_in.std()) < GAVE_UP_FLAT)
+    flat = float(g_in.std()) < GAVE_UP_FLAT
+    # Flat where the surroundings are not...
+    if flat and float(g_ring.std()) >= GAVE_UP_DETAIL:
+        return True
+    # ...or flat and nothing like the level of them, which is the same refusal
+    # on paper too smooth for the first test to see. See `GAVE_UP_LEVEL`.
+    return bool(flat and abs(float(g_in.mean()) - float(g_ring.mean()))
+                >= GAVE_UP_LEVEL)
 
 
 def _local_fill(out: np.ndarray, job: dict) -> None:
@@ -1761,6 +2232,535 @@ def _local_fill(out: np.ndarray, job: dict) -> None:
     out[w] = _feather(sub, cv2.inpaint(sub, full, 3, cv2.INPAINT_TELEA), full)
 
 
+def _looked(look, img: np.ndarray, shape) -> "np.ndarray | None":
+    """Ask the reader about a page, and take no for an answer.
+
+    A reader that throws, that is not configured, or that hands back something
+    the wrong shape is a reason to skip a check - never a reason to fail the
+    page somebody is cleaning.
+    """
+    if look is None:
+        return None
+    try:
+        m = look(img)
+    except Exception:
+        traceback.print_exc()
+        return None
+    if m is None:
+        return None
+    m = np.asarray(m)
+    if m.ndim != 2 or m.shape != tuple(shape[:2]):
+        return None
+    return m > 0
+
+
+def _strokes_not_shapes(mask: np.ndarray) -> np.ndarray:
+    """Drop what is too WIDE to have been written.
+
+    Level alone cannot tell a word from a drawing - both are off the ground -
+    and a balloon with a picture in it is a box where that matters: the drawing
+    is one solid area, and erasing it is artwork gone for good. Writing is made
+    of strokes, so nothing in it survives an erosion by `GROUND_SOLID`; a filled
+    shape keeps most of itself. This is the same argument `second_pass` makes
+    with "several separate marks, not one blob", made where it does not need
+    the marks to be several - a single `\u3057` is still a stroke.
+    """
+    m = _u8(mask)
+    if not m.any():
+        return mask > 0
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                  (2 * GROUND_SOLID + 1,) * 2)
+    core = cv2.erode(m, k)
+    if not core.any():
+        return mask > 0
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m, 8)
+    out = np.zeros(mask.shape, bool)
+    for i in range(1, n):
+        sel = lab == i
+        if int((sel & (core > 0)).sum()) >= 0.2 * int(st[i, cv2.CC_STAT_AREA]):
+            continue                       # a shape, not a stroke
+        out |= sel
+    return out
+
+
+def _in_box(mask: "np.ndarray | None", bbox) -> "np.ndarray | None":
+    """A page-sized mask clipped to one box - what a region says about itself,
+    rather than everything its threshold caught on the page."""
+    if mask is None:
+        return None
+    x, y, w, h = (int(v) for v in bbox)
+    m = np.asarray(mask)
+    out = np.zeros(m.shape[:2], bool)
+    out[max(0, y):y + h, max(0, x):x + w] = True
+    return (m > 0) & out
+
+
+def _agrees(a: "np.ndarray | None", b: "np.ndarray | None") -> bool:
+    """Do two readings of the same box have anything in common?
+
+    A ground reading and a mask reading can both be plausible and be about
+    different things: on dark artwork with bright hatching over it, the box's
+    median is the artwork and what stands off it is the HATCH, while the mark
+    somebody boxed is a shade darker still and never leaves the tolerance. The
+    two answers then share nothing at all, and that is the signature - not the
+    size of either one, which looks reasonable in both.
+
+    So a ground reading may CORRECT the mask a region carries; it may not
+    replace it with something the region has never heard of. Where the region
+    has no other opinion worth the name, there is nothing to disagree with and
+    the ground stands alone.
+    """
+    if a is None or b is None:
+        return True
+    na, nb = int(np.count_nonzero(a)), int(np.count_nonzero(b))
+    if min(na, nb) < GLYPH_MIN_AREA:
+        return True
+    return int(np.count_nonzero(a & b)) >= GROUND_AGREE * min(na, nb)
+
+
+def _off_the_ground(gray: np.ndarray, bbox) -> "np.ndarray | None":
+    """The writing in this box, where the box has ONE GROUND to write on.
+
+    Every box on a page is writing on a ground, and there are only two kinds of
+    ground. One can be modelled - paper, a black panel, a grey plate, anything
+    that is one level - and there the writing is EXACTLY what differs from that
+    level, with nothing to guess and no detector needed. The other cannot:
+    artwork, and screentone, where the ground is a pattern at the same scale as
+    a stroke. lee: *"i dont wan you to hard code it for this exmaple i wnat you
+    to caome up with a system taht clenneas them all teh time on any manga"*.
+
+    This is the first case, and it is most boxes. The level is the median of the
+    box - a box is drawn round writing with room to spare, so most of it IS the
+    ground - and the writing is what sits more than `GROUND_TOL` off it. That
+    one sentence covers black on white, WHITE ON BLACK, grey on grey and gold on
+    cream alike, which is five rescues in this file replaced by a measurement:
+
+      * the light/dark split and the rim vote that decides which way round it
+        goes - the median does not care which way round the tones run;
+      * `_letterlike`, which dropped a column of ruby off lee's page 009
+        because a 6-pixel kana is the size of a screentone dot;
+      * the empty-mask fallback, and the `SAW_ENOUGH` idea that was left
+        undone because no ratio could tell tone from writing.
+
+    Five things keep it honest, and every one of them is a way it was caught
+    being wrong on a real page or a fixture built from one:
+
+      * IT REFUSES A GROUND THAT WANDERS (`GROUND_MAD`). Screentone, artwork
+        and gradients are not one level, and it says so rather than guessing.
+        The reader is what answers there.
+      * ...and refuses a box with more ink in it than ground (`GROUND_CLEAR`).
+      * THE GROUND HAS TO CONTINUE OUTSIDE THE BOX (`GROUND_AROUND`). A box is
+        drawn ON something, so the thing it sits on is there just outside it
+        too. Without this, a box drawn tight on a bold mark reads the MARK as
+        its ground and hands back the paper, which is the box erased.
+      * WRITING LEAVES GAPS (`GROUND_GAPS`). Split the box into a hundred cells
+        and some of them - margins, the space between two lines - have nothing
+        in them. A field of tone has nothing empty anywhere. Measured: every
+        one of the 189 boxes on lee's chapter that gets this far leaves at
+        least 7 cells of 100 empty, and a light line screen and a light dot
+        screen leave none at all. This is what tells a column of ruby from a
+        field of tone, which are the same thing close up.
+      * and runs, not marks, so paper grain and a stray dot are not writing,
+        with no run bigger than `MASK_MAX_SHARE` of the box.
+    """
+    x, y, w, h = (int(v) for v in bbox)
+    H, W = gray.shape[:2]
+    x, y = max(0, x), max(0, y)
+    w, h = min(w, W - x), min(h, H - y)
+    if w < 8 or h < 8:
+        return None
+    sub = gray[y:y + h, x:x + w].astype(np.int16)
+    lvl = float(np.median(sub))
+    # How far the ground itself wanders, measured so that the writing cannot
+    # move it: half the box is within the MAD of the median, and writing is
+    # never half the box. Past `GROUND_MAD` this is not one ground.
+    mad = float(np.median(np.abs(sub - lvl)))
+    if mad > GROUND_MAD:
+        return None
+    # ...and the tolerance is the ground's own wander, never less than
+    # `GROUND_TOL`. lee's brushed-black balloon is grainy over ±36 levels and
+    # the white writing on it is 240 clear of the median; a fixed tolerance
+    # either calls that grain writing or calls a pale grey stroke ground.
+    tol = max(float(GROUND_TOL), 3.0 * mad)
+    off = np.abs(sub - lvl) > tol
+    if float((~off).mean()) < GROUND_CLEAR:
+        return None                       # more ink than ground: not a reading
+    # ...and the ground has to be there outside the box as well.
+    pad = GLYPH_REACH
+    X0, Y0 = max(0, x - pad), max(0, y - pad)
+    X1, Y1 = min(W, x + w + pad), min(H, y + h + pad)
+    near = gray[Y0:Y1, X0:X1].astype(np.int16)
+    out = np.ones(near.shape, bool)
+    out[y - Y0:y - Y0 + h, x - X0:x - X0 + w] = False
+    if int(out.sum()) >= 200 and \
+            float((np.abs(near[out] - lvl) <= tol).mean()) < GROUND_AROUND:
+        return None
+    # ...and writing leaves gaps. A hundred cells, and a ground fills them all.
+    n = 10
+    ys = np.linspace(0, h, n + 1).astype(int)
+    xs = np.linspace(0, w, n + 1).astype(int)
+    cells = empty = 0
+    for a in range(n):
+        for b in range(n):
+            cell = off[ys[a]:ys[a + 1], xs[b]:xs[b + 1]]
+            if cell.size < 9:
+                continue
+            cells += 1
+            empty += float(cell.mean()) < 0.05
+    if cells and empty < GROUND_GAPS * cells:
+        return None
+    keep = _whole_glyphs(off, most=int(MASK_MAX_SHARE * w * h))
+    if not keep.any():
+        return None
+    keep = _strokes_not_shapes(keep)
+    if not keep.any():
+        return None
+    keep = _contained(keep, gray, lvl, tol, (x, y, w, h))
+    if not keep.any():
+        return None
+    out = np.zeros(gray.shape, bool)
+    out[y:y + h, x:x + w] = keep
+    return out
+
+
+def _contained(keep: np.ndarray, gray: np.ndarray, lvl: float, tol: float,
+               box) -> np.ndarray:
+    """Drop what only LOOKS like writing because the box cut it off.
+
+    Off-the-ground is measured inside the box, and inside a box a hatched
+    background, a bubble's outline and the edge of somebody's head are all
+    marks standing off the paper exactly like a stroke. What they are not is
+    CONTAINED: they carry on outside the box, and typesetting does not - the
+    box was drawn round it.
+
+    lee, sent a page cleaned with the ground rule and no containment: *"the ai
+    shoud try to keep teh boes instd of removing it ... this guy head is gone
+    even though uts not on teh text"*. Measured on his chapter, 7% of every
+    ground answer was ink with nothing the reader would call writing anywhere
+    near it, and it was the vertical rain behind a caption, the outline of a
+    bubble, and a man's head.
+
+    Same rule and same number as `glyphs_only`, which has always said this
+    about the detector's own mask - it just could not be asked about a mark no
+    fixed threshold can see. Asked against the ground, it can.
+    """
+    x, y, w, h = box
+    H, W = gray.shape[:2]
+    pad = max(2 * GLYPH_REACH, w // 4, h // 4)
+    X0, Y0 = max(0, x - pad), max(0, y - pad)
+    X1, Y1 = min(W, x + w + pad), min(H, y + h + pad)
+    near = gray[Y0:Y1, X0:X1].astype(np.int16)
+    off = (np.abs(near - lvl) > tol).astype(np.uint8)
+    n, lab = cv2.connectedComponents(off, 8)
+    if n <= 1:
+        return keep
+    box_of = np.zeros(off.shape, bool)
+    box_of[y - Y0:y - Y0 + h, x - X0:x - X0 + w] = True
+    inside = np.zeros(off.shape, bool)
+    inside[y - Y0:y - Y0 + h, x - X0:x - X0 + w] = keep
+    edge = np.zeros(off.shape, bool)
+    edge[0, :] = edge[-1, :] = True
+    edge[:, 0] = edge[:, -1] = True
+    out = np.zeros(keep.shape, bool)
+    for li in set(np.unique(lab[inside])) - {0}:
+        comp = lab == li
+        total = int(comp.sum())
+        if total and int((comp & ~box_of).sum()) > OUTSIDE_SHARE * total:
+            continue                      # it carries on outside: artwork
+        if (comp & edge).any():
+            continue                      # ...and this one has no end in sight
+        out |= (comp & inside)[y - Y0:y - Y0 + h, x - X0:x - X0 + w]
+    return out
+
+
+def _reader_ink(writing: "np.ndarray | None", r,
+                shape) -> "np.ndarray | None":
+    """What the READER says the writing in this region is.
+
+    A saved region carries no bitmap - a 40-page chapter would sit on close to
+    a gigabyte of them - so the mask it is rebuilt with is the only thing
+    geometry can give: THE DARK PIXELS INSIDE THE BOX. On a white bubble that
+    is the words and nothing else, which is why it stood for so long.
+
+    On lee's page 013 it is the screentone. A sound effect drawn in white
+    outline over a horizontal line screen has 11,352 dark pixels in its box and
+    the letters are not among them - the mask is every tone line, the whole
+    rectangle goes to the model, and what comes back is a rebuilt patch of tone
+    with the shape of the box in it. lee, with the crop: *"see how i can see
+    the lines of teh clenner that shoud not happen it should clenly fit with
+    teh art"*. On his page 001 the same rule marks the trousers and the dark
+    foliage under a line of white credits.
+
+    Every rescue in `inpaint_page` - the light-on-dark split, `_letterlike`,
+    `glyphs_only`, the empty-mask fallback - is a repair for that one rule, and
+    not one of them can repair the case where the dark pixels in the box ARE
+    the artwork. Nothing can, from a level. So where a reader is configured it
+    is asked first, and what it says the writing is, is what gets erased: 5,066
+    pixels of glyph on that sound effect instead of 11,352 pixels of shirt.
+
+    Returns None when there is no reader, or when it finds nothing here worth
+    calling writing - and then the old mask stands, because a detector that
+    cannot see a mark is not evidence that the mark is not there. That is the
+    sfx case in particular: a big stylised one is not what it was trained on.
+
+    ...and None again when it calls MOST OF THE BOX writing. A box is drawn
+    round the words with room to spare, so the glyphs in it are a fifth of it
+    and a fifth is what the reader answers on every region of lee's chapter -
+    the worst is 19%. An answer over `MASK_MAX_SHARE` is not a tighter reading
+    of the writing, it is the reader having lost the plate, and acting on it
+    here would erase the box rather than the words. That is the same cap
+    `_reread` applies to the same reader for the same reason.
+    """
+    if writing is None:
+        return None
+    x, y, w, h = (int(v) for v in r.bbox)
+    box = np.zeros(shape[:2], bool)
+    # The doorstep as well as the box, the same margin `_complete_strokes` and
+    # the fence use: a glyph drawn a little past its box is still this box's.
+    box[max(0, y - GLYPH_REACH):y + h + GLYPH_REACH,
+        max(0, x - GLYPH_REACH):x + w + GLYPH_REACH] = True
+    m = writing & box
+    n = int(m.sum())
+    if n < GLYPH_MIN_AREA or n > MASK_MAX_SHARE * int(box.sum()):
+        return None
+    return m
+
+
+def _whole_glyphs(mask: np.ndarray, most: int = 0) -> np.ndarray:
+    """Keep what is big enough to have been WRITING, in runs rather than one
+    mark at a time.
+
+    `most` caps a run from above as well: a run bigger than that is not a word,
+    it is the ground. That is what tells a column of ruby from a field of
+    screentone - both are specks a stroke apart, and only one of them covers
+    the box.
+
+    The reader answers per pixel, and a per-pixel answer has fringe on it: a
+    dot of screentone it was unsure about, two pixels of a balloon rim, the
+    edge of a stroke that was already erased. None of those is a character
+    somebody has to read, and all of them are pixels this would otherwise go
+    and repaint.
+
+    The size test is taken over the RUN and not over each piece, and lee's page
+    003 is the argument. The three kana left standing in that bubble measure
+    230, 53 and 36 pixels: per piece, a threshold that keeps the 36 keeps a
+    speck of tone as well, and one that drops it erases one character out of
+    three and leaves the other two on the page. Together they are 319 pixels
+    within half a stroke's reach of each other, which no speck of anything is.
+    Writing comes in runs; that is what makes it writing.
+
+    Only the pixels themselves are kept - the gaps a run is grouped across are
+    never painted.
+    """
+    m = _u8(mask)
+    if not m.any():
+        return mask > 0
+    n, grp = cv2.connectedComponents(_dilated(m, GLYPH_REACH), 8)
+    keep = np.zeros(mask.shape, bool)
+    ink = m > 0
+    for i in range(1, n):
+        sel = (grp == i) & ink
+        if int(sel.sum()) < GLYPH_MIN_AREA:
+            continue
+        if most and int(sel.sum()) > most:
+            continue
+        ys, xs = np.nonzero(sel)
+        if xs.max() - xs.min() + 1 < GLYPH_MIN_SIDE or \
+                ys.max() - ys.min() + 1 < GLYPH_MIN_SIDE:
+            continue
+        keep |= sel
+    return keep
+
+
+def _reread(before: np.ndarray, out: np.ndarray, done: list[dict], look) -> int:
+    """Read the finished plate and find writing that was never in a mask.
+
+    lee, with two crops of a white balloon that still plainly says しゅぁ and
+    もる: *"can you fix the issue of the text not fully getting clenned off
+    boxes"*, and before that *"i also want to create a systhem that looks for
+    thet text ain the boxes and tells teh clenner where they are and the
+    clenner will only clenn that are isnstad of the whoile box"*. This is that
+    system, and the answer to *"can read text return the are athat need to be
+    clenned?"* is yes - the segmentation head, run again on the result.
+
+    `look(bgr) -> full-page mask` is the reader, injected by the caller so this
+    file never learns where a weights file lives. With none, this never runs and
+    the page is cleaned exactly as it was.
+
+    Three things make the answer usable, and each of them was a way of getting
+    it wrong:
+
+      * only INSIDE A BOX THIS PAGE CLEANED (`rec["own"]`). Run on lee's page
+        001 the reader still marks 44% of what it marked on the original, and
+        nearly all of that is a painted chapter title and two drawn sound
+        effects that nobody ever drew a box round. They are not residue; they
+        are text this page was never asked to erase.
+      * only where THE CLEANER NEVER PAINTED. A stroke that was erased and left
+        a faint rim is still read as text, and it is not this test's business -
+        `ghost_delta` and `ghost_detail` have been asking about exactly that
+        for a version now, and they can measure how faint it is.
+      * only pieces the size of a LETTER, in runs (`_whole_glyphs`).
+
+    ...and one thing keeps it from ever being a catastrophe: if what is left
+    covers most of the region, the reader is not pointing at residue, it is
+    disagreeing about the whole box. Say so and change nothing. Erasing "most
+    of a box" on the strength of a second opinion is how a panel of artwork
+    goes, and artwork does not come back.
+
+    Returns how many regions had something left in them.
+    """
+    still = _looked(look, out, out.shape)
+    if still is None or not still.any():
+        return 0
+    still = still.copy()
+
+    # Everywhere this page was PAINTED, and a couple of pixels of slack round
+    # it. Page-wide rather than per-region on purpose: boxes overlap, and a
+    # stroke cleaned by its neighbour is cleaned.
+    #
+    # What was painted, rather than what the masks said - the halo sweep, the
+    # model's own padding and the feathered seam all reach past a mask, and
+    # every pixel any of them touched has been dealt with, well or badly. This
+    # test is only ever about the pixels NOTHING touched. The mask goes in as
+    # well, for the fill that happened to paint a pixel its own colour.
+    page_gray = _gray(before)
+    gone = page_gray != _gray(out)
+    for rec in done:
+        gone[rec["win"]] |= _u8(rec["ink"]) > 0
+    still &= ~(_dilated(gone, RESIDUE_PAD) > 0)
+
+    n = 0
+    for rec in done:
+        own = rec.get("own")
+        if own is None or not own.any():
+            continue
+        w = rec["win"]
+        left = _whole_glyphs(still[w] & own)
+        if not left.any():
+            continue
+        # ...and then the same widening every other mask in this file gets,
+        # on the terms the ghost sweep's SECOND GO uses rather than the first
+        # pass's: reach further, and count anything barely off the background.
+        # The reader answers with the stroke, and a stroke on a page has an
+        # anti-aliased skirt no threshold set for a first pass can see; filled
+        # without it, the fill reads that skirt as the colour to paint with and
+        # lee's two kana came back as pale blobs instead of gone. Measured on
+        # his box: the darkest pixel left in it is 211 at the first pass's
+        # tolerance, 236 at the ordinary one and 248 at this one, on paper at
+        # 255.
+        #
+        # Being this generous is safe HERE and would not be in the first pass,
+        # for the reason the whole check is: `touching` keeps it to ink joined
+        # to what the reader called writing, and `own` keeps it inside the box.
+        g = page_gray[w]
+        left = _with_halo(g, own.astype(np.uint8), _u8(left), None,
+                          _local_bg(g, rec["inv"]), rec["inv"],
+                          reach_px=HALO_REACH + 6, tol=max(3, HALO_TOL // 2),
+                          touching=True) > 0
+        if int(left.sum()) > MASK_MAX_SHARE * int(own.sum()):
+            rec["r"].flagged = (rec["r"].flagged or "") + \
+                " clean: the page reads as still having writing over most of " \
+                "this box — check it, it was left as it is"
+            continue
+        rec["left"] = left
+        job = rec.get("job")
+        if job is not None:
+            # The model is asked about the whole region again, so the pixels
+            # it was never shown have to be in the mask it is shown this time.
+            tight = ((job["tight"] > 0) | (_dilated(_u8(left)) > 0))
+            job["tight"] = tight.astype(np.uint8) * 255
+            job["mask"] = _dilated(job["tight"], MODEL_PAD)
+        n += 1
+    return n
+
+
+def _erase_mask(rec: dict) -> np.ndarray:
+    """Everything this region means to have erased: what the mask caught, and
+    whatever the reader found afterwards that it never covered."""
+    left = rec.get("left")
+    if left is None or not np.any(left):
+        return _u8(rec["ink"])
+    return (((rec["ink"] > 0) | (left > 0)).astype(np.uint8)) * 255
+
+
+def _ghost_left(before, after, rec) -> tuple:
+    """Is there still typesetting in this box, and by which measure?
+
+    Three independent tests and any of them is enough: how dark the old ink
+    still is against its ring (`ghost_delta`), how much is still DRAWN there
+    where the page around it is blank (`ghost_detail`), and - where a reader
+    read the plate - the same two questions again about writing the mask never
+    covered at all (`_reread`).
+
+    That last mask is asked about SEPARATELY rather than folded into the first,
+    and the arithmetic is why. Both measures are medians taken over the whole
+    ink mask; two hundred pixels of missed kana beside three thousand pixels of
+    properly cleaned column moves neither one. Measured on its own it is the
+    loudest ghost on the page - and once it has been filled, the same
+    measurement is what says so, so a repaired box stops complaining without
+    anybody having to remember to clear anything.
+    """
+    w = rec["win"]
+    for ink, what in ((rec["ink"], ""), (rec.get("left"), "missed ")):
+        if ink is None or not np.any(ink):
+            continue
+        lvl = ghost_delta(before[w], after[w], ink, rec["inv"])
+        if lvl > GHOST_TOL:
+            return True, "%s%d levels" % (what, round(lvl))
+        hf = ghost_detail(after[w], ink)
+        if hf > GHOST_HF:
+            return True, "%sstill drawn (detail %.2f)" % (what, hf)
+    return False, ""
+
+
+# ON A PLAIN BUBBLE THERE IS NOTHING TO PROTECT, so nothing is left standing.
+#
+# Every other route in this file has to be careful, because it is painting over
+# artwork and a mask that reaches too far erases a drawing. A fully white
+# balloon interior is the one place in a manga page where that is not true: the
+# colour is KNOWN, measured off the paper around the words, and anything inside
+# that is not that colour is either writing or a mark on the paper. There is no
+# third thing to be careful of.
+#
+# It is needed because the ghost test cannot see small leftovers. `_ghost_left`
+# is a median over the whole ink mask, and lee's crop is the case that defeats
+# it: a balloon over a face, cleaned, with two dashes of a kana about twenty
+# pixels long still in the middle of the white. Two hundred pixels beside three
+# thousand properly cleaned ones moves no median, and the detector will not read
+# two dashes as text either, so neither the ghost sweep nor the re-read ever
+# fires. lee: *"there ate still residue on the whoite boxes use a better
+# offlien clenner for it or make the clenner allways clenne out all the text"*.
+# The second half of that is this: on a white box, always, all of it.
+FLAT_ALL_TOL = 10      # levels off the known colour that count as a mark
+FLAT_ALL_MAD = 4.0     # ...or this many times the paper's own grain
+FLAT_ALL_MOST = 0.5    # a component bigger than this much of the box is art
+
+
+def _all_of_it(sub: np.ndarray, area: np.ndarray, bg: np.ndarray) -> int:
+    """Erase everything left on a known ground. Returns pixels painted."""
+    inside = area > 0
+    if int(inside.sum()) < 100:
+        return 0
+    g = _gray(sub).astype(np.int16)
+    lvl = float(np.median(g[inside]))
+    mad = float(np.median(np.abs(g[inside] - lvl)))
+    tol = max(float(FLAT_ALL_TOL), FLAT_ALL_MAD * mad)
+    off = inside & (np.abs(g - lvl) > tol)
+    if not off.any():
+        return 0
+    # A BLOB IS NOT A MARK. A balloon can legitimately have something drawn in
+    # it - a sweat drop, a small figure, the tail of the balloon beside it - and
+    # the two tests that already know the difference are reused rather than
+    # guessed at again: a run of writing is capped from above, and a shape whose
+    # middle survives erosion is a drawing rather than a stroke.
+    keep = _whole_glyphs(off, most=int(FLAT_ALL_MOST * inside.sum()))
+    keep = _strokes_not_shapes(keep)
+    if not keep.any():
+        return 0
+    sub[keep] = bg.astype(sub.dtype)
+    return int(keep.sum())
+
+
 def _sweep_ghosts(gray: np.ndarray, out: np.ndarray, done: list[dict],
                   neural=None, original: "np.ndarray | None" = None) -> None:
     """Look at the finished plate and deal with typesetting that is still there.
@@ -1773,49 +2773,70 @@ def _sweep_ghosts(gray: np.ndarray, out: np.ndarray, done: list[dict],
     area is the whole fix. Results are cached by content upstream, so the retry
     costs nothing on a page that is merely being re-rendered.
 
+    A region with no model and nothing flat about it gets the one repair a
+    local method can be trusted with - Telea over the missed strokes - and only
+    when a reader has actually pointed at them.
+
     Anything still showing after that is left alone and reported: a third
     automatic pass on a reconstruction is as likely to make it worse, so say
     what happened and which path produced it, and let the person decide.
     """
     after = _gray(out)
+
     redone = False
     for rec in done:
         if not rec["flat"]:
             continue
+        # ...and this one is not gated on the ghost test, deliberately. See
+        # `_all_of_it`: what it is for is the leftover a median cannot see.
+        area, spare, bg, level = rec["flat"]
+        if _all_of_it(out[rec["win"]], area, bg):
+            redone = True
+    if redone:
+        after = _gray(out)
+
+    for rec in done:
+        if not rec["flat"]:
+            continue
         w = rec["win"]
-        if ghost_delta(gray[w], after[w], rec["ink"], rec["inv"]) <= GHOST_TOL:
+        if not _ghost_left(gray, after, rec)[0]:
             continue
         area, spare, bg, level = rec["flat"]
-        wider = _with_halo(gray[w], area, _dilated(rec["ink"]), spare, level,
-                           rec["inv"], reach_px=HALO_REACH + 6,
+        wider = _with_halo(gray[w], area, _dilated(_erase_mask(rec)), spare,
+                           level, rec["inv"], reach_px=HALO_REACH + 6,
                            tol=max(3, HALO_TOL // 2))
         out[w][wider > 0] = bg.astype(out.dtype)
         redone = True
 
-    if neural is not None:
-        for rec in done:
-            if rec["flat"] or not rec["job"]:
-                continue
-            w = rec["win"]
-            if ghost_delta(gray[w], after[w], rec["ink"], rec["inv"]) \
-                    <= GHOST_TOL:
-                continue
+    for rec in done:
+        if rec["flat"]:
+            continue
+        w = rec["win"]
+        if not _ghost_left(gray, after, rec)[0]:
+            continue
+        if neural is not None and rec["job"]:
             _run_neural(out, rec["job"], neural, extra=DILATE_PX + 2,
                         again=original)
+            redone = True
+        elif np.any(rec.get("left")):
+            # No model to ask and nothing flat to refill: Telea over the
+            # missed strokes and nothing else. It is the weakest repair here
+            # and it is still the right one - what it is covering is a
+            # character somebody can read, and `_local_fill` is given the
+            # tight mask precisely so a local method cannot smear a region.
+            _local_fill(out, {"win": w, "tight": _dilated(_u8(rec["left"]))})
             redone = True
 
     if redone:
         after = _gray(out)
 
     for rec in done:
-        w = rec["win"]
-        left = ghost_delta(gray[w], after[w], rec["ink"], rec["inv"])
-        if left <= GHOST_TOL:
+        still, how = _ghost_left(gray, after, rec)
+        if not still:
             continue
         rec["r"].flagged = (rec["r"].flagged or "") + \
             (" ghost: source text is still faintly visible after the %s "
-             "(%d levels) — paint it out in Edit" % (rec["how"] or "clean",
-                                                     round(left)))
+             "(%s) — paint it out in Edit" % (rec["how"] or "clean", how))
 
 
 def _feather(orig: np.ndarray, filled: np.ndarray, mask: np.ndarray,
@@ -1836,10 +2857,22 @@ def _feather(orig: np.ndarray, filled: np.ndarray, mask: np.ndarray,
     replaced right up to its own boundary.
     """
     grow = max(1, int(round(px)))
-    m = cv2.dilate((mask > 0).astype(np.uint8),
+    hard = (mask > 0).astype(np.float32)
+    m = cv2.dilate(hard.astype(np.uint8),
                    cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
                                              (2 * grow + 1,) * 2)).astype(np.float32)
     m = cv2.GaussianBlur(m, (0, 0), px)
+    # ...and the mask itself is OPAQUE, which growing before the blur was meant
+    # to achieve and does not. A Gaussian at this radius peaks around 0.77 even
+    # in the middle of a wide stroke, so every fill in this file - the model's
+    # and the local one - was leaving 23% of the original ink on the page. On a
+    # black glyph over white that is a pixel at 206, which is a legible outline
+    # of the word that was there, and it is the ghost `ghost_detail` was written
+    # to find. Measured: 1px stroke 0.64, 3px 0.75, 10px 0.77.
+    #
+    # So the ramp is what lies OUTSIDE, exactly as the paragraph above says, and
+    # inside there is no ramp at all.
+    m = np.maximum(m, hard)
     if filled.ndim == 3:
         m = m[..., None]
     blended = orig.astype(np.float32) * (1 - m) + filled.astype(np.float32) * m
@@ -1862,7 +2895,8 @@ def _feather(orig: np.ndarray, filled: np.ndarray, mask: np.ndarray,
 # fill, used on every page that never reaches a model.
 
 
-def shift_fill(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
+def shift_fill(img: np.ndarray, mask: np.ndarray,
+               avoid: "np.ndarray | None" = None) -> np.ndarray:
     """Content-aware fill without opencv-contrib: copy REAL pixels in.
 
     Diffusion inpainting (Telea) smears - a healed spot on screentone or
@@ -1873,8 +2907,26 @@ def shift_fill(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
     hatches, flats stay flat. Whatever a shift cannot source (off-image, or
     inside the hole itself) falls back to Telea, and the caller feathers the
     seam.
+
+    `avoid` IS THE REST OF THE JAPANESE ON THE PAGE, and it is only nominally
+    optional. The search reaches four hole-widths in every direction, which on
+    a 210px sound-effect box is most of the paper, and it picks the shift whose
+    RING matches best. A flat ring matches a balloon's flat interior
+    beautifully - so on lee's page 001 the winning shift copied a speech
+    balloon into the hole and the page came back with 「ここの湯は…濁って…」
+    printed across a character's kimono. The hole has no idea what it is being
+    handed; nothing downstream looks either.
+
+    Only the hole ITSELF was ever excluded, on the grounds that a source has to
+    exist. Writing is the same argument: it is about to be erased everywhere
+    else on this page too, so it is not there to be copied. It is charged like
+    an off-image source - the shift loses coverage and pays `rough` for it -
+    rather than forbidden outright, because on a page where every direction
+    runs into some writing, a shift that clips the corner of a bubble is still
+    better than a page-wide Telea smear.
     """
     m = mask > 0
+    no_src = m if avoid is None else (m | (avoid > 0))
     ys, xs = np.nonzero(m)
     if xs.size == 0:
         return img.copy()
@@ -1914,7 +2966,7 @@ def shift_fill(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
         if ok.mean() < 0.7:
             continue
         oy, ox, osy, osx = ry[ok], rx[ok], sy[ok], sx[ok]
-        known = ~m[osy, osx]
+        known = ~no_src[osy, osx]
         if known.mean() < 0.7:
             continue
         d = f[oy[known], ox[known]] - f[osy[known], osx[known]]
@@ -1934,8 +2986,8 @@ def shift_fill(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
         # no fill can be right.
         sy, sx = ys + dy, xs + dx
         inside = (sy >= 0) & (sy < H) & (sx >= 0) & (sx < W)
-        cover = float((inside & ~m[np.clip(sy, 0, H - 1),
-                                   np.clip(sx, 0, W - 1)]).mean())
+        cover = float((inside & ~no_src[np.clip(sy, 0, H - 1),
+                                        np.clip(sx, 0, W - 1)]).mean())
         score += (1.0 - cover) * rough
         if best is None or score < best[0]:
             best = (score, dx, dy)
@@ -1948,7 +3000,7 @@ def shift_fill(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
         sy, sx = hy + dy, hx + dx
         ok = (sy >= 0) & (sy < H) & (sx >= 0) & (sx < W)
         oky, okx, oksy, oksx = hy[ok], hx[ok], sy[ok], sx[ok]
-        src_known = ~m[oksy, oksx]
+        src_known = ~no_src[oksy, oksx]
         out[oky[src_known], okx[src_known]] = img[oksy[src_known],
                                                   oksx[src_known]]
         remaining[oky[src_known], okx[src_known]] = False

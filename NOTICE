@@ -48,6 +48,20 @@ DB++ fine-tuned on COO (comic onomatopoeia)
   note      the underlying images are Manga109's and carry Manga109's own
             terms, which are not these. See below.
 
+TRBA+2D fine-tuned on COO (comic onomatopoeia)
+  file      TRBA_Rot+SAR+HardROIhalf+2D.pth / trba_coo.pth / TRBA_2D.pth
+  from      https://github.com/ku21fan/COO-Comic-Onomatopoeia  (ECCV 2022)
+  licence   MIT for the authors' code; the COO annotations are CC BY 4.0
+  used for  READING painted sound effects, on the reader that runs on this
+            computer
+  note      the recogniser from the other half of the same paper as the DB++
+            detector above, and the same Manga109 note applies to it. Its MODEL
+            CODE is redistributed here, under MIT, in `paintread/trba/` with
+            the authors' LICENSE beside it -- the app has to build the network
+            before it can load anything into it. The WEIGHTS are not
+            redistributed: like every other model file, the person using the
+            app downloads them.
+
 Manga109 panel/balloon/text segmenter (YOLO26)
   file      m109seg.pt / manga109-seg.pt / best.pt
   from      https://huggingface.co/ShadowB/
@@ -62,6 +76,23 @@ AnimeText (YOLO12-L)
   paper     arXiv 2510.07951
   licence   GPL-3.0
   used for  the "AnimeText detector" route
+
+webtoon balloon models, Korean and Chinese (YOLOv8)
+  files     webtoon-ko.onnx / korean_webtoon.onnx,
+            webtoon-zh.onnx / chinese_webtoon.onnx
+  from      https://github.com/xulihang/balloon-dataset  (published with
+            ImageTrans, as korean_webtoon.zip and chinese_webtoon.zip)
+  licence   NOT STATED. The repository carries no LICENSE file and the model
+            files carry no card. Check before relying on either of them for
+            anything that matters. They are run here as ONNX graphs through
+            onnxruntime, so no Ultralytics code is used and its AGPL does not
+            reach this app -- but that says nothing about the WEIGHTS, which
+            were trained with YOLOv8 and whose terms nobody has written down.
+  used for  the "Webtoon balloons KO" and "Webtoon balloons ZH" routes, on
+            manhwa and manhua
+  note      as with every other model file here, the weights are NOT
+            redistributed: the person using the app downloads them. 12MB each.
+            They are not a language split - see `detect/webtoon.py`.
 
 comic bubble + text detector (RT-DETR)
   file      detector.onnx / detector-v4-s_int8.onnx
@@ -108,6 +139,27 @@ which is their statement about their own work.
 This note exists so that whoever reads it later knows the question is there.
 It is not legal advice and nobody here is a lawyer. If money is going to
 change hands, ask one.
+
+
+CODE BUNDLED INTO THE APP
+-------------------------
+
+static/js/vendor/prosemirror.js is a build of the ProseMirror packages --
+prosemirror-model, -state, -view, -history, -keymap, -commands, -transform,
+and their dependencies w3c-keyname, orderedmap and rope-sequence. It is the
+document, the selection and the marks-on-a-range model behind the box you
+type into on the page. Every one of them is MIT, which permits
+redistribution inside a GPL-3.0 work; the full text of each licence is
+reproduced in static/js/vendor/LICENSES.md, which is what MIT asks of
+anyone shipping it.
+
+It is COMMITTED rather than fetched. This app has no build step and serves
+static/js/*.js straight off disk, and a local program that reached out to a
+CDN to open a text box would stop working the day the network did.
+
+Nothing else in this program is somebody else's code shipped inside it. The
+Python dependencies are installed by the person running it, from their own
+publishers, like the models above.
 
 
 WHAT IS NOT COVERED BY ANY OF THIS

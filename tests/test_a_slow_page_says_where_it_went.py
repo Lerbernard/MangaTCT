@@ -35,6 +35,8 @@ is the thing to turn off; if the net is, it is the machine.
 And it only speaks when a page was slow. A run that is behaving should not
 narrate, or the one line that matters is buried in three hundred that do not.
 """
+import time
+
 import pytest
 
 from where import PKG
@@ -100,29 +102,133 @@ def test_the_split_adds_up_to_the_total(capsys):
     assert abs((net + craft + rest) - total) < 0.2
 
 
+def _proj(**s):
+    """A Project with no folder: `_say_page_cost` reads settings and nothing
+    else off it, and building a real one wants a directory of pages."""
+    from mangatl.project import Project
+
+    class _Proj(Project):
+        def __init__(self, **st):
+            self.settings = dict(st)
+            self.settings.setdefault("medium", "manga")
+
+        def _picked(self, key):
+            return bool(self.settings.get(key)) and self.route_here(key)
+
+        def two_specialists(self):
+            return self._picked("two_specialists")
+
+        def manga_segmenter(self):
+            return self._picked("manga_segmenter")
+
+        def animetext(self):
+            return self._picked("animetext")
+
+        def webtoon_ko(self):
+            return self._picked("webtoon_ko")
+
+        def webtoon_zh(self):
+            return self._picked("webtoon_zh")
+
+    return _Proj(**s)
+
+
 def test_the_page_line_names_which_route_spent_it(capsys):
     """Four cards, and a total that does not say which one was picked is a
     total nobody can act on. The card names are the ones on screen."""
-    from mangatl.project import Project, _say_page_cost
-
-    class _Proj:
-        route_name = Project.route_name
-        ROUTE_NAMES = Project.ROUTE_NAMES
-
-        def __init__(self, **s):
-            self.settings = s
+    from mangatl.project import _say_page_cost
 
     class _P:
         image = None
         source_path = "006.png"
 
+    # The name has to be the route that RAN, so `route_name` asks each route's
+    # own predicate - which asks whether the checkpoint is on this machine.
+    # That is not what this test is about, so the predicates are the flag and
+    # the format guard and nothing else. Borrowing `route_name` alone stopped
+    # working the day it started asking, which is the point of a stub this
+    # thin: it fails loudly rather than answering something plausible.
     for key, name in (("two_specialists", "DB++ / COO"),
                       ("animetext", "AnimeText YOLO12-L"),
-                      ("manga_segmenter", "Manga109 YOLO26")):
-        _say_page_cost(_Proj(**{key: True}), _P(), 0.0, 5)
+                      ("manga_segmenter", "Manga109 YOLO26"),
+                      ("webtoon_ko", "Webtoon balloons KO"),
+                      ("webtoon_zh", "Webtoon balloons ZH")):
+        p = _proj(**{key: True,
+                     "medium": "manhwa" if key.startswith("webtoon") else
+                               "manga"})
+        _say_page_cost(p, _P(), 0.0, 5)
         assert name in capsys.readouterr().err, key
-    _say_page_cost(_Proj(), _P(), 0.0, 5)
+    _say_page_cost(_proj(), _P(), 0.0, 5)
     assert "comic-text-detector" in capsys.readouterr().err
+
+
+def test_the_first_page_of_a_run_always_says_so(capsys):
+    """lee: *"koren detector is taking 13 second per page"*.
+
+    Thirteen is under the bar, so a whole chapter ran and left nothing on
+    record at all - not the route, not the page size, not the machine line,
+    which is the one fact that turns "slow" into a diagnosis. The bar exists
+    so a run that behaves stays quiet, and one line at the top of a run is
+    not noise: it is the baseline every later line is read against, and on a
+    run where nothing is slow enough to complain it is the only line there
+    is."""
+    from mangatl.project import _say_page_cost
+
+    class _P:
+        image = None
+        source_path = "001.png"
+
+    _say_page_cost._machine_said = False
+    _say_page_cost(_proj(), _P(), time.time(), 5)
+    said = capsys.readouterr().err
+    assert "machine" in said, "and the machine line above it"
+    assert "find text  001.png" in said, said
+    # ...and the second is silent again, because it was quick.
+    _say_page_cost(_proj(), _P(), time.time(), 5)
+    assert not capsys.readouterr().err
+
+
+def test_the_webtoon_route_says_where_inside_itself_it_went(capsys):
+    """"Thirteen seconds" cannot be acted on. This route is two models with
+    completely different shapes of cost - comic-text-detector's segmentation,
+    one fixed pass that does not care how tall the page is, and one small
+    pass per tile that does - so which of them the time is in is the whole
+    question, and neither a total nor a page size answers it."""
+    from mangatl.detect import webtoon as WT
+    from mangatl.project import _say_page_cost
+
+    class _P:
+        image = None
+        source_path = "001.png"
+
+    WT.LAST_SPLIT = "mask 11.4s  boxes 1.2s  ink 0.1s  5 tiles"
+    _say_page_cost._machine_said = False
+    _say_page_cost(_proj(medium="manhwa", webtoon_ko=True), _P(),
+                   time.time(), 5)
+    said = capsys.readouterr().err
+    assert "mask 11.4s" in said and "5 tiles" in said, said
+    # ...and a route that does not report one says nothing extra.
+    _say_page_cost._machine_said = False
+    _say_page_cost(_proj(medium="manga", animetext=True), _P(),
+                   time.time(), 5)
+    assert "mask 11.4s" not in capsys.readouterr().err
+
+
+def test_a_route_the_format_does_not_offer_is_not_the_name(capsys):
+    """`webtoon_ko` ships ON so a strip gets a webtoon default with no
+    per-format defaults table, which means on a MANGA the flag is set and the
+    route is guarded off. A line naming a route that never ran is worse than
+    no line."""
+    from mangatl.project import _say_page_cost
+
+    class _P:
+        image = None
+        source_path = "006.png"
+
+    _say_page_cost(_proj(medium="manga", webtoon_ko=True, animetext=True),
+                   _P(), 0.0, 5)
+    said = capsys.readouterr().err
+    assert "AnimeText" in said and "Webtoon" not in said
 
 
 def test_getting_the_page_off_the_disk_is_its_own_number(capsys):
@@ -132,12 +238,9 @@ def test_getting_the_page_off_the_disk_is_its_own_number(capsys):
     ran is not in any detector, so the load cannot be folded into their time
     or it hides behind whichever route is being blamed this week."""
     import time as _t
-    from mangatl.project import Project, _say_page_cost
+    from mangatl.project import _say_page_cost
 
-    class _Proj:
-        settings = {}
-        ROUTE_NAMES = Project.ROUTE_NAMES
-        route_name = Project.route_name
+    _Proj = _proj
 
     class _P:
         image = None
@@ -159,13 +262,12 @@ def test_the_line_also_lands_in_a_file_in_the_project_folder(tmp_path):
     `out/slow-pages.txt` can be read after the run, sent, or looked at over
     the bridge. Appended, because the pattern ACROSS a run is the diagnosis:
     one slow page is a load, every page slow is the machine."""
-    from mangatl.project import Project, _say_page_cost
+    from mangatl.project import _say_page_cost
 
-    class _Proj:
-        settings = {}
-        ROUTE_NAMES = Project.ROUTE_NAMES
-        route_name = Project.route_name
-        output_dir = str(tmp_path)
+    def _Proj():
+        p = _proj()
+        p.output_dir = str(tmp_path)
+        return p
 
     class _P:
         image = None
@@ -196,11 +298,10 @@ def test_the_first_slow_page_carries_a_line_about_the_machine(tmp_path):
     assert said.startswith("machine")
     assert "opencv" in said and "cores" in said and "gemm" in said
 
-    class _Proj:
-        settings = {}
-        ROUTE_NAMES = Project.ROUTE_NAMES
-        route_name = Project.route_name
-        output_dir = str(tmp_path)
+    def _Proj():
+        p = _proj()
+        p.output_dir = str(tmp_path)
+        return p
 
     class _P:
         image = None
@@ -267,7 +368,7 @@ def test_the_wait_on_craft_is_what_is_reported_not_its_runtime():
     block head hides most of it. Reporting its runtime would say the page cost
     time it never spent."""
     src = (PKG / "detect" / "comictext.py").read_text(encoding="utf-8")
-    start = src.index("craft_job = _POOL.submit(_craft.pieces, img)")
+    start = src.index("craft_job = _POOL.submit(_craft.pieces, img, **knobs)")
     mark = src.index("_t_net = _time.time()")
     join = src.index("craft_pieces = craft_job.result()")
     assert start < mark < join, "the clock stops before the wait, not after it"

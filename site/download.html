@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Download | MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Download MangaTCT for Windows. Free, open
+ source, updates itself.">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints - same boot as every other page. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t}catch(e){}</script>
+
+<style>
+/* Every name here is prefixed `dl`. style.css belongs to the signed-in pages
+   and owns short names like `.tag` and `.card`; a page that borrows another
+   page's stylesheet must not coin names without checking who already owns
+   them. Every state names its background AND its color, in style.css's own
+   variables (--ink, --dim, --mut, --panel, --line - there is no --fg here). */
+.dlhero{background:var(--panel);border:1px solid var(--line);border-radius:20px;
+ padding:26px 24px;margin:0 0 24px;position:relative;overflow:hidden}
+.dlhero::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;
+ background:linear-gradient(90deg,var(--accent),var(--accent2),transparent)}
+.dlget{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:20px 0 0}
+.dlbig{font-size:17px;padding:14px 26px;background:linear-gradient(160deg,
+ var(--accent),var(--accent2));color:var(--on-accent);border:1px solid var(--accent);
+ border-radius:12px;font-weight:800;text-decoration:none;display:inline-block}
+.dlbig:hover{color:var(--on-accent);filter:brightness(1.06)}
+.dlbig:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.dlmeta{color:var(--mut);font-size:13.5px;line-height:1.7}
+.dlmeta b{color:var(--dim);font-weight:650}
+.dlcols{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+ margin:0 0 24px}
+.dlcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+ padding:18px 20px}
+.dlcard h3{margin:0 0 8px;font-size:17px}
+.dlcard p{margin:0 0 10px;color:var(--dim);font-size:14.5px}
+.dlcard p:last-child{margin-bottom:0}
+.dlwarn{border-left:3px solid var(--accent);background:var(--panel2);
+ border-radius:0 12px 12px 0;padding:14px 18px;margin:0 0 24px;color:var(--dim)}
+.dlwarn b{color:var(--ink)}
+.dlsteps{list-style:none;counter-reset:d;margin:0;padding:0}
+.dlsteps li{counter-increment:d;position:relative;padding:0 0 16px 44px;
+ color:var(--dim);font-size:14.5px}
+.dlsteps li::before{content:counter(d);position:absolute;left:0;top:-2px;
+ width:28px;height:28px;border-radius:50%;background:var(--accent);
+ color:var(--on-accent);font-weight:700;display:flex;align-items:center;
+ justify-content:center;font-size:14px}
+.dlsteps b{display:block;color:var(--ink);margin-bottom:2px}
+.dlwhere{width:100%;border-collapse:collapse;font-size:14px}
+.dlwhere td{padding:8px 10px;border-top:1px solid var(--line);
+ vertical-align:top;color:var(--dim)}
+.dlwhere td:first-child{white-space:nowrap;width:1%;color:var(--ink);
+ font:600 13px/1.6 ui-monospace,Consolas,monospace}
+.dlmuted{color:var(--mut);font-size:13.5px}
+code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+ padding:1px 6px;font:13px/1.6 ui-monospace,Consolas,monospace;color:var(--ink)}
+</style>
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb on" href="download.html">Download</a>
+    <a class="navb" href="tutorial.html">Guide</a>
+    <a class="navb" href="fonts.html">Fonts</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <a class="navb cta" id="acct" href="account.html">Account</a>
+    <button class="navb icon" id="theme" type="button" aria-label="Theme"></button>
+  </nav>
+</header>
+
+<main>
+  <h1>Download MangaTCT</h1>
+  <p class="lede">Free, and it stays on your computer: your pages are never
+    uploaded anywhere except to the AI service you pick, for the steps that
+    need one.</p>
+
+  <div class="dlhero">
+    <h2 style="margin:0;font-size:22px">MangaTCT for Windows <span id="dlver" class="mut"></span></h2>
+    <p style="margin:8px 0 0;color:var(--dim)">Windows 10 or 11, 64-bit. One
+      installer, no administrator password, and it updates itself from then
+      on.</p>
+    <div class="dlget">
+      <a class="dlbig" id="dlbtn"
+         href="https://github.com/Lerbernard/MangaTCT/releases/latest">Download for Windows</a>
+      <p class="dlmeta" id="dlsize">
+        <b>About 700 MB</b> to download, about 4 GB on disk once the models
+        are there.<br>
+        <a href="https://github.com/Lerbernard/MangaTCT/releases/latest">All releases and checksums</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="dlwarn">
+    <b>Windows will warn you the first time.</b> The installer is not signed
+    yet - a code-signing certificate is the next thing on the list - so
+    SmartScreen says <i>"Windows protected your PC"</i>. Click
+    <b>More info</b>, then <b>Run anyway</b>. If you would rather check first,
+    every release publishes the SHA-256 of both files.
+  </div>
+
+  <h2>What happens when you run it</h2>
+  <ol class="dlsteps">
+    <li><b>Install, about a minute.</b> It goes into your own user folder, so
+      there is no administrator prompt. Nothing is added to your system
+      settings and nothing runs in the background.</li>
+    <li><b>The first start downloads the text models, about 200 MB.</b> They
+      come from the people who published them, not from us - we are not
+      allowed to redistribute them, which is also why they are not in the
+      installer. It says which one it is fetching while it does it.</li>
+    <li><b>Then the editor opens in your browser.</b> It is running on your
+      own machine at <code>127.0.0.1</code> - the browser is the interface,
+      not the internet. Point it at a folder of pages and press
+      <b>Find text</b>.</li>
+    <li><b>Add your API key when you want to translate.</b> Finding text,
+      cleaning and typesetting cost nothing and need no key. Reading and
+      translating call Claude, Gemini or OpenRouter - your key, or coins
+      bought here. <a href="pricing.html">What things cost</a>.</li>
+  </ol>
+
+  <h2 style="margin-top:34px">Updates</h2>
+  <div class="dlcols">
+    <div class="dlcard">
+      <h3>It updates itself</h3>
+      <p>Every time you start MangaTCT it checks for a new version, and a new
+        version is a few megabytes, not another 700. You never reinstall.</p>
+      <p>An update that arrives while you are working is used the next time you
+        start - a chapter open on screen is never swapped out from under
+        you.</p>
+    </div>
+    <div class="dlcard">
+      <h3>If something goes wrong</h3>
+      <p>The previous version stays on your disk, and MangaTCT falls back to it
+        by itself if a new one cannot start.</p>
+      <p>In the app: <b>File &rsaquo; Report a problem</b> gathers your version,
+        your machine and the last lines of the log, with anything key-shaped
+        taken out, ready to paste.</p>
+    </div>
+    <div class="dlcard">
+      <h3>Where things go</h3>
+      <table class="dlwhere">
+        <tr><td>%LOCALAPPDATA%\MangaTCT</td><td>the app, its Python and the models</td></tr>
+        <tr><td>~\.mangatl</td><td>your fonts, settings and keys - untouched by updates and by uninstalling</td></tr>
+        <tr><td>Documents\MangaTCT</td><td>exported pages, unless you pick a folder</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>Not on Windows?</h2>
+  <p class="dlmuted" style="max-width:70ch">The app is Python and runs on macOS
+    and Linux, but there is no installer for them yet and the beta is not
+    tested there. If you are comfortable with a terminal, the source of every
+    release is on the
+    <a href="https://github.com/Lerbernard/MangaTCT/releases/latest">releases page</a>
+    - unzip it, <code>pip install -r requirements.txt</code>, and
+    <code>python -m mangatl.editor</code>. MangaTCT is free software under the
+    GNU GPL v3.</p>
+
+  <p class="dlmuted" style="margin-top:26px" id="dlcontact"></p>
+</main>
+
+<footer style="max-width:1040px;margin:0 auto;padding:0 22px 40px;color:var(--mut);font-size:13px">
+  Built by <b>LMB Technology</b>.
+  <a href="index.html">Home</a> &middot;
+  <a href="tutorial.html">Guide</a> &middot;
+  <a href="pricing.html">Coins</a> &middot;
+  <a href="https://github.com/Lerbernard/MangaTCT">Source (GPL-3.0)</a>
+</footer>
+
+<script>
+/* The version, the direct link and the real size come from the SAME manifest
+   the installed app reads. That is deliberate: the site is deployed when the
+   site changes and the app is released when the app changes, and a version
+   number typed into this page would be wrong from the first release after
+   it. With the fetch blocked or JS off, the button still goes to
+   `/releases/latest`, which is right whatever the version is. */
+var MANIFEST = 'https://raw.githubusercontent.com/Lerbernard/MangaTCT/main/manifest.json';
+(function(){
+  fetch(MANIFEST, {cache: 'no-cache'}).then(function(r){
+    if (!r.ok) throw new Error(r.status); return r.json();
+  }).then(function(m){
+    var v = m.app && m.app.version;
+    if (v) document.getElementById('dlver').textContent = v;
+    var i = m.installer;
+    if (i && i.url) {
+      var b = document.getElementById('dlbtn');
+      b.href = i.url;
+      b.textContent = 'Download MangaTCT ' + (i.version || v || '') + ' for Windows';
+      var mb = Math.round((i.size || 0) / 1e6);
+      if (mb) document.getElementById('dlsize').innerHTML =
+        '<b>' + mb + ' MB</b> to download, about 4 GB on disk once the models are there.<br>' +
+        '<a href="https://github.com/Lerbernard/MangaTCT/releases/latest">All releases and checksums</a>';
+    }
+  }).catch(function(){ /* the fallback link is already right */ });
+})();
+
+/* The theme button: same storage key as every other page, no CDN needed. */
+(function(){
+  var d = document.documentElement, b = document.getElementById('theme');
+  function paint(){ b.textContent = (d.dataset.theme !== 'light') ? '☼' : '☾'; }
+  b.addEventListener('click', function(){
+    var next = (d.dataset.theme !== 'light') ? 'light' : 'dark';
+    d.dataset.theme = next;
+    try{ localStorage.setItem('tct-theme', next); }catch(e){}
+    paint();
+  });
+  paint();
+})();
+</script>
+</html>

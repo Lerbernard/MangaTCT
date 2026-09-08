@@ -297,7 +297,8 @@ class SfxLayout:
 
 
 def fit_sfx(frame: SfxFrame, text: str, measure, lo: int = 8, hi: int = 160,
-            gap_frac: float = STACK_GAP) -> SfxLayout:
+            gap_frac: float = STACK_GAP,
+            over_long: float = None, over_wide: float = None) -> SfxLayout:
     """Largest size whose word fits the original's own footprint.
 
     `measure(size, s) -> (w, h)` returns the INK extent of `s` at that size --
@@ -311,11 +312,19 @@ def fit_sfx(frame: SfxFrame, text: str, measure, lo: int = 8, hi: int = 160,
     same ink, same weight on the page, turned to read the way English reads.
     """
     lines = [(text or "").strip()]
+    # The allowances exist because the target is FUZZY: the footprint of the
+    # Japanese ink is an estimate, so a couple of percent either way is noise.
+    # A BOX is not an estimate, and a caller fitting to one passes 1.0 - lee:
+    # *"make it fie exacly the size of the box"*. Exactly should not carry a
+    # tolerance, and the two percent was enough to cost a whole point of size
+    # on every effect once the clamp outside stopped allowing any slack.
+    ol = OVER_LONG if over_long is None else float(over_long)
+    ow = OVER_WIDE if over_wide is None else float(over_wide)
 
     for size in range(int(hi), int(lo) - 1, -1):
         gap = max(1, int(round(size * gap_frac)))
         w, h = measure(size, lines[0])
-        if w <= frame.length * OVER_LONG and h <= frame.width * OVER_WIDE:
+        if w <= frame.length * ol and h <= frame.width * ow:
             return SfxLayout(lines, size, gap, frame.angle, frame.cx, frame.cy,
                              True)
 

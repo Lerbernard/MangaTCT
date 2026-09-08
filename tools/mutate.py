@@ -1412,13 +1412,18 @@ MUTANTS = [
 
     # ---- the estimate that learns
     ("learn-a-fresh-install-invents-a-correction", COIN,
-     "    return (_clamp(rin / pin) if pin and rin else 1.0,\n"
-     "            _clamp(rout / pout) if pout and rout else 1.0)",
-     "    return (_clamp(rin / pin) if pin and rin else 2.0,\n"
-     "            _clamp(rout / pout) if pout and rout else 2.0)", T_LEARN),
+     "    dout = _clamp(rout / pout) if pout and rout else 1.0\n"
+     "    return (din, dout, dout)",
+     "    dout = _clamp(rout / pout) if pout and rout else 2.0\n"
+     "    return (din, dout, dout)", T_LEARN),
     ("learn-the-correction-is-never-applied", COIN,
-     "    din, dout = drift(step, model, backend)",
-     "    din, dout = 1.0, 1.0", T_LEARN),
+     "    din, dout, dthk = drift(step, model, backend)",
+     "    din, dout, dthk = 1.0, 1.0, 1.0", T_LEARN),
+    ("learn-the-thinking-correction-lands-on-the-reply", COIN,
+     "    return r.usd(tin=tin * din, cached=cached * din,\n"
+     "                 tout=tvis * dout + tthk * dthk)",
+     "    return r.usd(tin=tin * din, cached=cached * din,\n"
+     "                 tout=(tvis + tthk) * dout)", T_LEARN),
     ("learn-one-correction-does-for-both-sides", COIN,
      "    return r.usd(tin=int(round(tin * din)), cached=int(round(cached * din)),\n"
      "                 tout=int(round(tout * dout)))",
@@ -1452,13 +1457,15 @@ MUTANTS = [
      "    at = None\n"
      "    key = (step, (model or \"\").strip().lower(), (backend or \"\").strip().lower())",
      T_LEARN),
+    # (re-anchored: the meter line grew src/detail/labelled after these were
+    # written, so both anchors had gone stale and the pair sat SKIPped)
     ("learn-the-meter-does-not-say-how-big-the-run-was", PY,
-     "                               step=step, backend=backend, ctx=ctx,\n"
-     "                               boxes=sum(boxes[:done]), pages=done)",
-     "                               step=step, backend=backend, ctx=ctx)", T_LEARN),
+     "                               boxes=sum(boxes[:done]), pages=done,",
+     "                               boxes=0, pages=0,", T_LEARN),
     ("learn-a-cancelled-run-claims-every-page", PY,
-     "                               boxes=sum(boxes[:done]), pages=done)",
-     "                               boxes=sum(boxes), pages=len(boxes))", T_LEARN),
+     "                               boxes=sum(boxes[:done]), pages=done,",
+     "                               boxes=sum(boxes), pages=len(boxes),",
+     T_LEARN),
 
     # ---- a menu you can trust
     ("menu-offers-what-the-key-cannot-reach", PY,
@@ -1967,9 +1974,6 @@ MUTANTS = [
      '        out["speakers"] = keep[:40]', '        out["speakers"] = keep',
      T_SAID),
     # ---- the line has to fit, and the dashes come off
-    ("fit-there-is-no-budget-on-a-line", TR,
-     '  * "src_char_count", how long the Korean is. Aim under about 1.6 times it.',
-     '  * "src_char_count", how long the Korean is.', T_FIT),
     ("fit-a-dash-in-the-middle-stays", TR,
      '    t = re.sub(r"\\s*[—–]+\\s*", ", ", t)', "    t = t", T_FIT),
     ("fit-the-dash-becomes-nothing-instead-of-a-comma", TR,
@@ -2011,22 +2015,9 @@ MUTANTS = [
      "    n = int(px * BALLOON_PACK / (CHAR_AREA * 144))", T_HOLD),
     ("hold-a-balloon-is-packed-to-its-edges", TR,
      "BALLOON_PACK = 0.55", "BALLOON_PACK = 1.0", T_HOLD),
-    ("hold-the-number-is-never-sent", TR,
-     '                **({"fits_chars": fits} if (fits := fits_chars(\n'
-     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
-     '                                    getattr(ctx, "max_font", 34)))) else {}),',
-     "", T_HOLD),
-    ("hold-a-guess-is-sent-as-a-measurement", TR,
-     '                **({"fits_chars": fits} if (fits := fits_chars(\n'
-     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
-     '                                    getattr(ctx, "max_font", 34)))) else {}),',
-     '                "fits_chars": fits_chars(r, 12),', T_HOLD),
     ("hold-the-project-minimum-is-ignored", ED,
      '        p.ctx.min_font = int(s.get("min_font") or 12)',
      "        p.ctx.min_font = 12", T_HOLD),
-    ("hold-the-project-full-size-is-ignored", ED,
-     '        p.ctx.max_font = int(s.get("max_font") or 34)',
-     "        p.ctx.max_font = 34", T_SIZE),
     ("hold-a-snug-line-is-nagged-about", TR,
      "OVER_FITS = 1.25", "OVER_FITS = 1.0", T_HOLD),
     ("hold-nothing-is-ever-too-long", TR,
@@ -2042,12 +2033,18 @@ MUTANTS = [
     ("shout-a-louder-line-is-mentioned-too", TR,
      "    if was >= 2 and now < was:", "    if was >= 2 and now != was:",
      T_HOLD),
-    ("shout-the-note-never-reaches-the-region", TR,
-     "            note = quieter(r.dst_text, r.src_text) or too_long(\n"
-     "                r.dst_text, r, comfort_size(\n"
-     "                    getattr(ctx, \"min_font\", 12),\n"
-     "                    getattr(ctx, \"max_font\", 34)))",
-     "            note = \"\"", T_HOLD),
+    # The budget moved to the FLOOR when lee asked for the accurate line
+    # whatever it costs in type size, so the note now means "will not go in at
+    # all" rather than "will be small". These two hold that.
+    ("hold-the-note-is-taken-at-a-comfortable-size-again", TR,
+     '                        or too_long(r.dst_text, r,\n'
+     '                                    getattr(ctx, "min_font", 12)))',
+     '                        or too_long(r.dst_text, r,\n'
+     '                                    getattr(ctx, "max_font", 34)))', T_HOLD),
+    ("hold-a-length-budget-is-sent-to-the-model-again", TR,
+     '                "text": r.src_text,\n',
+     '                "text": r.src_text,\n'
+     '                "src_char_count": len(r.src_text),\n', T_HOLD),
     # ---- the size the reader gets, and the two dashes that got there first
     #
     # A hyphen-minus standing alone is a dash the page printed. Page 002's
@@ -2083,35 +2080,11 @@ MUTANTS = [
     # The budget is taken at a size the typesetter will actually set. It used
     # to be taken at min_font, which on the measured chapter was 11 against a
     # median chosen size of 32 - the note fired zero times in 134 regions.
-    ("size-the-budget-is-taken-at-the-floor", TR,
-     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
-     "    return lo", T_SIZE),
-    ("size-the-budget-is-taken-at-the-ceiling", TR,
-     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
-     "    return max(lo, int(max_font or lo))", T_SIZE),
-    ("size-the-comfortable-size-may-fall-below-the-floor", TR,
-     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
-     "    return int(round(int(max_font or lo) * COMFORT_FONT))", T_SIZE),
-    ("size-a-project-with-no-full-size-is-budgeted-at-a-guess", TR,
-     "    return max(lo, int(round(int(max_font or lo) * COMFORT_FONT)))",
-     "    return max(lo, int(round(int(max_font or 34) * COMFORT_FONT)))",
-     T_SIZE),
     ("size-the-reasoned-character-area-is-kept", TR,
      "CHAR_AREA = 1.05", "CHAR_AREA = 0.6", T_SIZE),
-    ("size-the-comfortable-size-is-the-full-one", TR,
-     "COMFORT_FONT = 0.7", "COMFORT_FONT = 1.0", T_SIZE),
-    ("size-the-request-still-budgets-at-the-floor", TR,
-     '                    r, comfort_size(getattr(ctx, "min_font", 12),\n'
-     '                                    getattr(ctx, "max_font", 34)))) else {}),',
-     '                    r, getattr(ctx, "min_font", 12))) else {}),', T_SIZE),
-    ("size-the-prompt-still-says-the-smallest-type", TR,
-     "    at a comfortable reading size. It is measured off the shape on the page",
-     "    at the smallest type this project allows. It is measured off the page",
-     T_SIZE),
-    ("size-the-ratio-still-outranks-the-balloon", TR,
-     "    matters. Where it is given, it OVERRULES the ratio above: a long line in a",
-     "    matters. Where it is given, it agrees with the ratio above: a long line in a",
-     T_SIZE),
+    ("size-the-model-is-asked-to-cut-words-again", TR,
+     "- LENGTH IS NOT A CONSTRAINT ON YOU.",
+     "- Text must be SHORT and you should cut words.", T_SIZE),
     # ---- the cleaner says what it did
     #
     # `inpaint_page` names a route on every box and flags the ones it is not
@@ -4664,8 +4637,15 @@ MUTANTS = [
      T_SEG),
 
     # One detector finds all of it, and a box round other boxes is a bracket.
-    ("anim-the-route-is-on-by-default", PRJ,
-     '            "animetext": False,', '            "animetext": True,',
+    # The default BECAME True on purpose (test_one_detector_finds_all_of_it
+    # pins it), so the mutant is the reverse of what it was: quietly turning
+    # the route OFF is now the bug a test must catch. The old spelling of
+    # this spec also taught the leftover-mutant guard a lesson: with the
+    # find string legitimately gone and the replacement legitimately present
+    # once, a healthy tree read as a crime scene and every measurement in
+    # the project stopped.
+    ("anim-the-route-is-off-by-default", PRJ,
+     '            "animetext": True,', '            "animetext": False,',
      T_ANIM),
     ("anim-a-missing-checkpoint-does-not-stop-it", PRJ,
      "        return not self.why_not_animetext()", "        return True",
@@ -4858,9 +4838,13 @@ MUTANTS = [
     ("boxsel-shift-does-not-add", BOXSEL,
      "  _bsDrag = {x0: p.x, y0: p.y, add: !!(e.shiftKey), el: el};",
      "  _bsDrag = {x0: p.x, y0: p.y, add: false, el: el};", T_STOP),
+    # Re-anchored: the disarm moved into the keydown listener when the
+    # Escape shortcut was added, and the old anchor's absence (with its
+    # replacement present once, as `}` before a listener always is) tripped
+    # the leftover-mutant guard on a healthy tree.
     ("boxsel-the-tool-stays-armed", BOXSEL,
-     "  toggleBoxSelect(false);\n}\n\nwindow.addEventListener",
-     "}\n\nwindow.addEventListener", T_STOP),
+     "  else if(e.key === 'Escape' && boxSel) toggleBoxSelect(false);",
+     "  else if(false && boxSel) toggleBoxSelect(false);", T_STOP),
     ("merge-one-box-is-enough-to-merge", ROPS,
      "  if(ids.length < 2){ toast('Select two or more boxes to merge.'); return; }",
      "  if(ids.length < 1){ toast('Select two or more boxes to merge.'); return; }",

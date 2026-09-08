@@ -50,6 +50,21 @@ PAGES = _pages()
 needs_pages = pytest.mark.skipif(not PAGES, reason="need sample manga pages")
 
 
+def _on_the_page(box, shape):
+    """The one thing a released box is NOT allowed to be: off the page.
+
+    Found by pointing this at lee's own chapter: one drag of 145 widens a box
+    at x=692 by 60% on a page 960 wide, and it comes back seven pixels narrower
+    because it was clipped at the edge. That is not the spring-back this file
+    is about - a box has to be on the page it belongs to - so what is asserted
+    is "exactly where you let go, as far as the paper goes".
+    """
+    H, W = shape[:2]
+    x, y, w, h = box
+    x, y = max(0, x), max(0, y)
+    return (x, y, min(w, W - x), min(h, H - y))
+
+
 def _drags(box):
     """The five ways a hand actually changes a box."""
     x, y, w, h = box
@@ -77,9 +92,10 @@ def test_a_resized_box_is_exactly_the_box_you_let_go_of():
                 nr = region_from_box(page, *box, kind=r.kind, rid=r.id,
                                      snap=False)
                 tot += 1
-                if tuple(nr.bbox) != tuple(box):
+                want = _on_the_page(box, img.shape)
+                if tuple(nr.bbox) != want:
                     moved += 1
-                    examples.append((os.path.basename(f), box,
+                    examples.append((os.path.basename(f), want,
                                      tuple(nr.bbox)))
     if tot == 0:
         pytest.skip("no boxes detected to resize")

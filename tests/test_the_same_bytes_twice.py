@@ -88,11 +88,29 @@ def test_the_translate_payload_puts_the_fixed_part_first():
 
 
 def test_the_proofread_payload_puts_the_fixed_part_first():
+    """The SAME fixed part as the translator's, in the same order.
+
+    `keep_honorifics` joined it when the proofreader turned out to be undoing
+    a setting nobody had ever told it about - see
+    `test_the_honorific_the_proofreader_took_off`. It belongs up here with the
+    other fields that do not change during a run: a fixed field sitting below
+    a moving one ends the cached prefix and throws away every byte after it.
+    """
     keys = list(T.build_proofread_payload(_page(), _ctx()))
-    fixed = ["medium", "source_language", "target_language",
+    fixed = ["medium", "source_language", "target_language", "keep_honorifics",
              "series_context", "glossary"]
     assert keys[:len(fixed)] == fixed, keys
     assert keys[len(fixed)] == "characters", keys
+
+
+def test_both_payloads_open_with_the_same_fixed_keys():
+    """One run, one set of settings, one order. A field added to one builder
+    and forgotten in the other is exactly how `keep_honorifics` came to be
+    obeyed at step three and ignored at step four."""
+    a = list(T._base_payload(_page(), _ctx()))
+    b = list(T.build_proofread_payload(_page(), _ctx()))
+    n = a.index("characters")
+    assert b[:n] == a[:n], (a[:n], b[:n])
 
 
 def test_two_pages_of_one_chapter_share_a_long_prefix():
@@ -167,13 +185,45 @@ def test_a_short_one_is_left_alone():
 
 
 def test_the_real_prompts_land_on_the_right_side_of_the_line():
-    """Translate and proofread clear the minimum; the reader's does not. If
-    that ever changes, this says so rather than quietly costing money."""
-    tr = T.build_system("manga", "en")
-    assert T._cacheable(tr), f"the translator's system prompt is only {len(tr)} chars"
-    ocr = T.build_ocr_system(T.source_language("manga", ""))
-    assert not T._cacheable(ocr), \
-        f"the reader's system prompt is now {len(ocr)} chars — worth caching?"
+    """Every real prompt is marked for the cache exactly when it clears the
+    minimum, and `coins.SHAPES` prices it the same way.
+
+    This used to assert that the READER's prompt was under the line - *"if that
+    ever changes, this says so rather than quietly costing money"*. It changed,
+    and the test did its job: the reader was taught to keep the marks a line
+    carries - a heart, a star, a music note - and the prompt went 4,012 to
+    4,438 characters, past the 4,096 `_cacheable` wants.
+
+    The answer to the question it asked - *worth caching?* - is that the
+    caching is automatic and began the moment the prompt grew. What was NOT
+    automatic is the PRICE: `SHAPES["ocr"].sys_in` still said 552 and still sat
+    under the floor, so the estimate went on charging a prompt twice that size
+    at full input rate instead of at a tenth.
+
+    That is the money this test is really about, so it is what it checks now.
+    Which side of the line a prompt lands on is READ OFF `_cacheable` rather
+    than written down - a figure in a test is a figure somebody has to notice.
+
+    It does NOT check that `sys_in` equals the prompt's length. The first
+    version did, at four characters to the token, and went red on `translate`:
+    16,593 characters against a `sys_in` of 2,086, which is eight to the token.
+    Four is an English rule of thumb and `SHAPES["translate"]` was fitted to a
+    real invoice, so the test was wrong and the number may or may not be. Where
+    the ratio is known good the size IS pinned - see
+    `test_what_kind_of_box_this_is.py` - and here the claim is only the one
+    that can be made exactly.
+    """
+    from mangatl import coins
+    from mangatl import kinds as K
+    prompts = {"translate": T.build_system("manga", "en"),
+               "ocr": T.build_ocr_system(T.source_language("manga", "")),
+               "proofread": T.build_proofread_system(),
+               "label": T.build_label_system(
+                   K.labelling_vocabulary(K.migrate([], seed=True)))}
+    for step, text in prompts.items():
+        sh = coins.SHAPES[step]
+        assert (coins.cached_tokens(sh, "claude-sonnet-5") > 0) \
+            is T._cacheable(text), (step, len(text), sh.sys_in)
 
 
 def test_both_turns_send_the_marked_blocks():

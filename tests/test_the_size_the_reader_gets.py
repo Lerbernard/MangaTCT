@@ -144,104 +144,119 @@ def test_and_a_source_with_a_real_dash_still_exempts_the_whole_line():
         "WAIT—WHAT DID YOU SAY?"
 
 
-# --- the size the reader gets ------------------------------------------------
+# --- and then lee took the length budget away ---------------------------------
+#
+# Everything from here down used to be about `comfort_size`, a fraction of the
+# project's full type size that the model was given as a budget and told to cut
+# words to stay inside. lee: *"i wan the most accurate transaltion no matter
+# the leght of the of it so i dont want to shrink or expand teh translation to
+# fit anythng"*. The budget is gone, the function is gone, and what is left is
+# the one question a floor can answer: does this line go in AT ALL.
 
-def test_the_budget_is_not_taken_at_the_floor():
-    """min_font is where a human gets flagged, not where the type is set."""
-    assert T.comfort_size(11, 40) > 11
-
-
-def test_it_is_taken_at_a_fraction_of_the_full_size():
-    assert T.comfort_size(11, 40) == round(40 * T.COMFORT_FONT)
-
-
-def test_the_fraction_is_where_the_flags_matched_the_pages():
-    """0.75 called out balloons that came out at 34px; 0.6 missed real ones."""
-    assert 0.65 <= T.COMFORT_FONT <= 0.72
-
-
-def test_it_never_goes_below_the_floor():
-    assert T.comfort_size(30, 10) == 30
-    assert T.comfort_size(20, 20) == 20
-
-
-def test_a_project_with_no_full_size_setting_is_budgeted_at_its_floor():
-    """Not at a number invented here. The floor is the only size it has said."""
-    assert T.comfort_size(20, 0) == 20
-    assert T.comfort_size(20, None) == 20
+def test_no_length_budget_reaches_the_model():
+    """Both numbers, gone from the region. Removing the RULE and leaving the
+    NUMBERS would have been the worse half of the job: a budget in the payload
+    with nothing said about it is still a budget."""
+    c = T.SeriesContext()
+    c.min_font, c.max_font = 11, 40
+    got = T.build_payload(_page([_r()]), c)["regions"][0]
+    assert "fits_chars" not in got
+    assert "src_char_count" not in got
 
 
-def test_a_bigger_full_size_leaves_room_for_fewer_characters():
-    r = _r()
-    assert T.fits_chars(r, T.comfort_size(11, 40)) < \
-        T.fits_chars(r, T.comfort_size(11, 20))
+def test_the_comfortable_size_is_gone_with_it():
+    assert not hasattr(T, "comfort_size")
+    assert not hasattr(T, "COMFORT_FONT")
 
+
+def test_the_prompt_tells_the_model_length_is_not_its_problem():
+    sys = T.build_system("manhwa", "en", "Korean")
+    assert "LENGTH IS NOT A CONSTRAINT ON YOU" in sys
+    flat = re.sub(r"\s+", " ", sys)
+    assert "Never cut a word, a qualifier or a nuance to make a line shorter" \
+        in flat
+    assert "never pad one out to fill a balloon" in flat
+    assert "the type is set smaller" in flat
+
+
+def test_and_still_asks_for_natural_english():
+    """The one length-ish thing that survives, and it is not about space: the
+    shortest wording that carries the WHOLE meaning is how people talk."""
+    flat = re.sub(r"\s+", " ", T.build_system("manhwa", "en", "Korean"))
+    assert "Being NATURAL is still a constraint" in flat
+    assert "Do not translate long" in flat
+
+
+def test_the_old_budget_is_nowhere_in_the_prompt():
+    sys = T.build_system("manhwa", "en", "Korean")
+    for gone in ("fits_chars", "src_char_count", "comfortable reading size",
+                 "OVERRULES the ratio", "1.6 times"):
+        assert gone not in sys, gone
+
+
+def test_no_target_language_is_told_to_keep_its_lines_tight():
+    """Spanish, Portuguese and French each carried "runs 20% longer than
+    English, so keep lines tight". That is the same instruction in a
+    per-language coat."""
+    for tgt in ("es", "pt", "fr", "en"):
+        sys = T.build_system("manhwa", tgt, "Korean")
+        assert "keep lines tight" not in sys, tgt
+        assert "disciplined about length" not in sys, tgt
+
+
+# --- the note that is left -----------------------------------------------------
 
 def test_the_character_area_is_the_measured_one():
     """1.05, off `typeset._best` against the real masks - not the reasoned 0.6.
 
-    The reasoning left out the space between words, the ragged right of a
-    wrapped line, and a balloon being a round hole.
+    `fits_chars` outlived the budget: it is what the remaining note measures
+    with, at the floor.
     """
     assert 0.9 <= T.CHAR_AREA <= 1.2
 
 
-def test_the_median_balloon_no_longer_holds_a_paragraph():
-    """690px webtoon bubble, 11/40. It used to say 634; the lines were 43."""
-    r = _r(w=340, h=340)
-    assert T.fits_chars(r, T.comfort_size(11, 40)) < 120
+def test_a_line_that_will_not_go_in_at_the_floor_is_flagged():
+    """The one thing the typesetter cannot solve by setting smaller type."""
+    r = _r(w=90, h=60)
+    room = T.fits_chars(r, 11)
+    assert room, "the fixture measures nothing, so it proves nothing"
+    assert "holds ~" in T.too_long("x" * (room * 3), r, 11)
 
 
-def test_a_line_the_typesetter_would_have_to_squeeze_is_flagged():
-    """Page 067, 133 characters in a balloon the typesetter dropped to 21px."""
+def test_a_line_that_merely_comes_out_small_says_nothing():
+    """Page 067's 133 characters in a 300x300 balloon: the typesetter drops to
+    21px and sets it, and that is now the right answer rather than a fault.
+    Under the old comfortable budget this was a flag."""
     r = _r(w=300, h=300)
-    assert "holds ~" in T.too_long("x" * 133, r, T.comfort_size(11, 40))
+    assert T.too_long("x" * 133, r, 11) == ""
 
 
-def test_and_an_ordinary_line_in_the_same_balloon_is_not():
-    r = _r(w=300, h=300)
-    assert T.too_long("x" * 43, r, T.comfort_size(11, 40)) == ""
+def test_the_note_is_taken_at_the_projects_own_floor():
+    """Not at a number invented here - a project set in big type has the same
+    floor question as one set in small."""
+    r = _r(w=200, h=200)
+    assert T.fits_chars(r, 11) > T.fits_chars(r, 30)
+    assert T.too_long("x" * 400, r, 30) and not T.too_long("x" * 400, r, 8)
 
 
 # --- and it has to reach the request -----------------------------------------
 
-def test_the_context_carries_both_ends():
+def test_the_context_still_carries_the_floor():
     c = T.SeriesContext()
-    assert hasattr(c, "min_font") and hasattr(c, "max_font")
+    assert hasattr(c, "min_font")
 
 
-def test_the_settings_carry_the_full_size_too():
-    import inspect
-
-    from mangatl import editor
-    src = inspect.getsource(editor._ctx_from_settings)
-    assert 'p.ctx.max_font = int(s.get("max_font") or 34)' in src
-
-
-def test_the_request_budgets_at_the_comfortable_size():
-    c = T.SeriesContext()
-    c.min_font, c.max_font = 11, 40
-    got = T.build_payload(_page([_r()]), c)["regions"][0]
-    assert got["fits_chars"] == T.fits_chars(_r(), T.comfort_size(11, 40))
-
-
-def test_a_project_set_in_bigger_type_gets_a_smaller_budget():
-    small, big = T.SeriesContext(), T.SeriesContext()
-    small.min_font, small.max_font = 11, 20
-    big.min_font, big.max_font = 11, 40
-    a = T.build_payload(_page([_r()]), small)["regions"][0]["fits_chars"]
-    b = T.build_payload(_page([_r()]), big)["regions"][0]["fits_chars"]
-    assert b < a
-
-
-def test_the_prompt_says_which_size_it_measured_at():
-    sys = T.build_system("manhwa", "en", "Korean")
-    assert "fits_chars" in sys
-    assert "comfortable reading size" in sys
-    assert "smallest type this project allows" not in sys
-
-
-def test_the_prompt_says_the_balloon_beats_the_ratio():
-    """A ratio is a fact about languages; this one is about the balloon."""
-    sys = re.sub(r"\s+", " ", T.build_system("manhwa", "en", "Korean"))
-    assert "OVERRULES the ratio" in sys
+def test_the_run_takes_the_note_at_the_floor():
+    """Both places a translated line is checked, and neither of them budgets
+    against anything else any more."""
+    from where import PKG
+    src = (PKG / "translate.py").read_text(encoding="utf-8")
+    calls = [ln for ln in src.splitlines() if "too_long(r.dst_text" in ln]
+    assert len(calls) == 2, calls
+    body = "\n".join(src.splitlines())
+    assert body.count('too_long(r.dst_text, r,') == 2
+    # and the only mentions left of the old budget are the notes saying it went
+    live = [ln for ln in src.splitlines()
+            if "comfort_size" in ln and not ln.lstrip().startswith("#")
+            and "`comfort_size`" not in ln]
+    assert not live, live

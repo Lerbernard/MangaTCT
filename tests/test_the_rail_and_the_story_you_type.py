@@ -268,7 +268,12 @@ def test_the_stamp_survives_keep_settings():
     clear - a stamp written before that copy would be quietly put back."""
     src = (PKG / "editor.py").read_text(encoding="utf-8")
     at = src.index('if path == "/api/reset":')
-    branch = src[at:at + 3000]
+    # To the NEXT branch, not a fixed number of characters. The window was
+    # 3,000 and the branch grew past it the first time somebody wrote a
+    # paragraph of comment inside it, which turned a rule about ORDER into a
+    # test about length.
+    end = src.index('if path == "/api/', at + 10)
+    branch = src[at:end]
     assert '"chapter_id"' in branch
     assert branch.index("p.settings.update(keep)")         < branch.index('p.settings["chapter_id"]'),         "stamped after the copy, or the old id comes back"
 

@@ -193,15 +193,19 @@ def test_a_box_with_the_eye_closed_is_still_cleaned_underneath(tmp_path):
     kept = next(r for r in page.regions if r.id == 1)
     assert kept.skip_clean
     assert kept.clean_route, "the plate under it was not built"
+    # The ROW says "Region 1" and nothing else - lee: *"these shoud just say
+    # region"*. What the route was is on the row's tooltip, where it is there
+    # for anybody who wants it and in the way of nobody who does not.
     js = (PKG / "static" / "js"
           / "panels.js").read_text(encoding="utf-8")
     at = js.index("not cleaned")
-    assert "clean_route" in js[at:at + 200], \
-        "the row no longer prefers 'not cleaned' over the route"
+    row = js[at - 300:at + 120]
+    assert "cleanRouteLabel" in row and "title=" in row, \
+        "the route is not on the row's tooltip any more"
 
 
 def test_the_panel_says_it_in_words(tmp_path):
-    """The row reads "Region 1 - filled flat", not "Region 1 - flat fill".
+    """The tooltip reads "filled flat", not "flat fill".
     Parsed out of the file, so the names on the row and the names in the
     report cannot drift apart unnoticed."""
     from pathlib import Path

@@ -79,20 +79,37 @@ def ed(tmp_path):
 
 # ------------------------------------------------------------- the fonts
 
+def _default_face_name() -> str:
+    """The name the menu should be showing: whatever face the app would
+    actually typeset in, by its own reckoning.
+
+    Both of these tests used to spell it "CCWildWords". That was fixture data
+    wearing the clothes of an assertion - when the font left the repo on
+    2026-08-26 (see `fonts/LICENSES.md`) they went red for a reason that had
+    nothing to do with what they are about, which is that the menu names the
+    REAL face instead of a placeholder or the first row of a list. Asked of
+    `default_font_path` it is the same claim and it survives the next change
+    of default.
+    """
+    import os
+    from mangatl import typeset as _ts
+    return os.path.splitext(os.path.basename(_ts.default_font_path()))[0]
+
+
 def test_the_font_menu_names_the_face_it_would_use(ed):
     """It read "Same as the bubble setting", which answers a question nobody
     asked: you opened the menu to find out WHICH FACE, and the one word not on
     it was the name of the face."""
     pg, _p, errs = ed
+    want = _default_face_name()
     first = pg.evaluate(
         "document.getElementById('lyFont').options[0].textContent.trim()")
-    assert first == "CCWildWords", first
+    assert first == want, (first, want)
     assert pg.evaluate(
-        "document.getElementById('lyFont').options[0].dataset.name") \
-        == "CCWildWords"
+        "document.getElementById('lyFont').options[0].dataset.name") == want
     shown = pg.evaluate("""(()=>{const s=document.getElementById('lyFont');
         return s.options[s.selectedIndex].textContent.trim();})()""")
-    assert shown == "CCWildWords", shown
+    assert shown == want, (shown, want)
     assert "Same as" not in pg.evaluate(
         "document.getElementById('inspector').textContent")
     assert not errs, errs[:2]
@@ -112,7 +129,7 @@ def test_a_sub_type_row_names_the_face_it_inherits(ed):
                 s.selectedIndex];})()""")
     assert got is not None, "no sub-type row"
     assert got[0] == "", got
-    assert got[1] == "CCWildWords", got
+    assert got[1] == _default_face_name(), got
     assert got[2] == 0, "an inherited face is shown as a chosen one"
     assert not errs, errs[:2]
 

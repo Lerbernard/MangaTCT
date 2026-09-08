@@ -78,8 +78,14 @@ def test_a_checkpoint_that_is_not_there_is_not_an_error(tmp_path, monkeypatch):
 
     monkeypatch.setattr(P, "__file__", str(tmp_path / "project.py"))
     p = Project(None, str(tmp_path / "out"))
-    p.settings.update(medium="manga", manga_segmenter=True, animetext=False)
-    assert p.warm_models() == "Manga109 YOLO26"      # no weights anywhere
+    p.settings.update(medium="manga", manga_segmenter=True, animetext=False,
+                      webtoon_ko=False)
+    # ...and the name it gives back is the route that will actually RUN, not
+    # the card that is ticked. With no checkpoint anywhere `_detect_measured`
+    # falls through to comic-text-detector, and a "warming Manga109" that was
+    # followed by comic-text-detector pages would be the wrong half of the
+    # truth. `route_key` asks each route's own predicate for exactly this.
+    assert p.warm_models() == "comic-text-detector"
 
 
 def test_the_route_is_named_in_the_words_on_the_card():

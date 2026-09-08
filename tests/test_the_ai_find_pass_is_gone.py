@@ -333,8 +333,19 @@ def test_the_context_carries_it_to_the_client():
     assert 'p.ctx.step_name = STEP_LABEL.get(step, "")' in \
         inspect.getsource(editor._ctx_from_settings)
     src = inspect.getsource(translate)
-    assert src.count('step_name=getattr(ctx, "step_name", "") or "")') == 3, \
-        "one of the three places a client is built is not passing it"
+    # EVERY place a client is built, however many that is - not a number.
+    #
+    # This said `== 3` and went red when the box labeller became a fourth
+    # caller: the test complaining about the right thing in a way that made
+    # correct code look wrong. The claim is not "there are three of these", it
+    # is "no caller was missed", and the second can be asserted without a
+    # figure somebody has to maintain. A guard that must be edited every time
+    # the thing it guards is used CORRECTLY is a guard people learn to edit
+    # without reading.
+    built = src.count("= make_client(")
+    assert built >= 3, built
+    assert src.count('step_name=getattr(ctx, "step_name", "") or "")') == built, \
+        "one of the %d places a client is built is not passing it" % built
 
 
 def test_the_refusal_itself_says_which_step(monkeypatch):

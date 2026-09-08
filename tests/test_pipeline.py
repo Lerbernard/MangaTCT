@@ -32,8 +32,27 @@ def _bundled(name: str) -> str:
     return str(PKG / "fonts" / name)
 
 
-def _anime_ace() -> str:
-    return _bundled("AnimeAce.ttf")
+def _shipped_face() -> str:
+    """Any comic face this build actually ships.
+
+    It used to be `AnimeAce.ttf`, and on 2026-08-26 that file left the repo:
+    Blambot's free licence permits use but not redistribution, and mangatl is
+    software people download. See `fonts/LICENSES.md`. Comic Neue is the face
+    that replaced it as the default and is under the Open Font License, which
+    does permit it.
+    """
+    return _bundled("ComicNeue-Regular.ttf")
+
+
+def _face_without_em_dash() -> str:
+    """A shipped face whose cmap has no U+2014, for the tests about drawing one
+    that is not there.
+
+    This was Anime Ace, which happened to lack the glyph. Of the faces that
+    ship now, Gaegu, Jua and Nanum Pen Script all do - Gaegu is the pick
+    because it also has a full Latin alphabet to draw the rest of the line in.
+    """
+    return _bundled("Gaegu-Regular.ttf")
 
 
 def _sample_pages(n: int = 4) -> list[str]:
@@ -286,7 +305,7 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     # 50 of them, `w_balance` in 33 and `w_ragged` in 7, and the rows below
     # are three of those. A weight that had genuinely died would have scored
     # nought.
-    ("w_last_line", 135, 230,      # re-picked when the line-gap floor rose to 1.20
+    ("w_last_line", 135, 250,      # see RE-PICKED below
      "THIS POWER CAN ONLY SAVE PEOPLE WHEN IT'S BOUND TO THE TRUE SAINT."),
     # Without it, the largest type that merely fits wins and every bubble
     # comes out cramped: 21pt on three lines becomes 17pt on two. This is the
@@ -294,20 +313,20 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     ("w_small", 180, 130, "MY HARD WORK PAID OFF TOO—"),
     # Without it a lone word on a half-empty line costs nothing, and the tall
     # narrow balloon takes the extra break.
-    ("w_orphan", 175, 266, "MY HARD WORK PAID OFF TOO—"),
+    ("w_orphan", 130, 230, "MY HARD WORK PAID OFF TOO—"),
     # Without it there is no comfortable line length to aim at, so the block
     # spreads from six full lines into seven short ones - buying a point of
     # size with a shape no typesetter would set.
-    ("w_cpl", 135, 260,           # re-picked when the line-gap floor rose to 1.20
+    ("w_cpl", 145, 200,           # see RE-PICKED below
      "THIS POWER CAN ONLY SAVE PEOPLE WHEN IT'S BOUND TO THE TRUE SAINT."),
     # Without it lines need not match each other in length, so the balloon
     # takes five uneven lines over six matched ones and pays a point for them.
-    ("w_balance", 165, 260,       # re-picked when the line-gap floor rose to 1.20
+    ("w_balance", 145, 210,       # see RE-PICKED below
      "THIS POWER CAN ONLY SAVE PEOPLE WHEN IT'S BOUND TO THE TRUE SAINT."),
     # Without it unused width on a line is free, so the block spreads into a
     # taller stack of stubs that each fill their own narrow chord and buys two
     # points of size with the raggedness.
-    ("w_ragged", 150, 200,        # re-picked when the line-gap floor rose to 1.20
+    ("w_ragged", 135, 240,        # see RE-PICKED below
      "MY HARD WORK PAID OFF TOO—"),
     # A TALL balloon with almost nothing in it, which is the only shape this
     # term speaks to. `vfill` is a one-sided ramp: it charges a block for the
@@ -318,6 +337,34 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     # with the term and a 26pt ribbon without it, floating in white.
     ("w_vfill", 150, 300, "NO WAY."),
 ])
+# RE-PICKED. These bubble dimensions are calibrated against the FACE the app
+# typesets in: a weight only shows itself where it actually decides something,
+# and where that is depends on the widths of the letters. The sizes moved once
+# before, when the line-gap floor rose to 1.20, and again on 2026-08-26 when
+# CCWildWords and AnimeAce left the repo over their licences
+# (`fonts/LICENSES.md`) and Comic Neue became the default. Five of the six went
+# flat - the weight changed nothing at the old size - and were re-found by
+# sweeping bubble sizes for one where each term still decides the layout.
+#
+# They moved a THIRD time on 2026-08-27, when the line-gap band came down off
+# a measurement - lee: *"the max youu shoud use is 1.20"*, and the fitter now
+# reaches for 1.00-1.10 where it used to floor at 1.20. A different gap fits a
+# different number of lines, so five of the six went flat again and were
+# re-found the way this note says to: by sweeping.
+#
+# Every one of them still decides something somewhere - 3 sizes for w_ragged,
+# 46 for w_balance - which is the reassuring half of the result. A weight that
+# had gone flat EVERYWHERE would have been a finding about the weight.
+#
+# `w_ragged` is the clearest of them: at 135x240 the term buys three balanced
+# lines at 20pt, and without it the block takes six one-word stubs to reach
+# 24pt. That is the trade the weight exists to refuse, which is what makes the
+# fixture a fair test of it rather than merely a red one - and it is the same
+# trade, at the same sizes, that it showed before the gap moved.
+#
+# If this goes flat again, do NOT delete the case: sweep for a new size. A
+# weight that decides nothing anywhere is the finding; a weight that decides
+# nothing at one arbitrary bubble size is a fixture that has drifted.
 def test_each_layout_weight_is_load_bearing(knob, w, h, text):
     from mangatl.typeset import fit_region
     font = default_font_path()
@@ -436,8 +483,16 @@ def test_a_split_balloon_is_divided_by_how_much_each_half_says():
     cfg = TypesetConfig(font_path=default_font_path(), min_font=12, max_font=34)
 
     as_detected = [fit_region(r, cfg) for r in regions]
-    assert abs(as_detected[0].font_size - as_detected[1].font_size) >= 8, \
-        [(l.font_size, l.lines) for l in as_detected]   # the bug, still there
+    # The bug, still there. As a RATIO, not a count of points: the claim is
+    # that one half is cramped while the other shouts, and how many points
+    # apart that is depends on the face. This asked for 8 and got 7 the day
+    # CCWildWords left the repo (`fonts/LICENSES.md`), with 17pt against 24pt
+    # on screen - the mismatch it exists to demonstrate, failing its own
+    # threshold.
+    big = max(l.font_size for l in as_detected)
+    small = min(l.font_size for l in as_detected)
+    assert big >= 1.35 * small, \
+        [(l.font_size, l.lines) for l in as_detected]
 
     before = [r.bubble_mask.copy() for r in regions]
     shares = link_masks(regions)
@@ -656,11 +711,25 @@ def test_a_two_lobed_balloon_is_divided_along_its_own_neck():
     from mangatl.typeset import fit_region, share_masks
     texts = ["MY HARD WORK PAID OFF TOO—", "—SO TAKE CARE NOW!"]
     regions = _two_lobe_regions(*texts)
-    cfg = TypesetConfig(font_path=default_font_path(), min_font=12, max_font=24)
+    # `max_font=34`, as the split-balloon test above already uses. It was 24,
+    # and at 24 this fixture stopped demonstrating anything on 2026-08-26 when
+    # Comic Neue became the default face (`fonts/LICENSES.md`): both blocks
+    # reached the CEILING - 23pt and 24pt - so the mismatch the test exists to
+    # show was being hidden by the cap rather than absent. Given room, the two
+    # come out 23pt against 34pt, which is the "one cramped, the other
+    # shouting" the docstring describes, and the share cut evens them to 23 and
+    # 24.
+    cfg = TypesetConfig(font_path=default_font_path(), min_font=12, max_font=34)
 
     as_detected = [fit_region(r, cfg) for r in regions]
-    assert min(l.font_size for l in as_detected) <= 22, \
-        [(l.font_size, l.lines) for l in as_detected]      # the bug, still there
+    # The bug, still there - as a RATIO between the halves rather than an
+    # absolute point size, because how many points apart they land depends on
+    # the face and the ceiling, while "one is set far smaller than the other"
+    # is the thing that is actually wrong with the page.
+    _big = max(l.font_size for l in as_detected)
+    _small = min(l.font_size for l in as_detected)
+    assert _big >= 1.35 * _small, \
+        [(l.font_size, l.lines) for l in as_detected]
 
     before = [r.bubble_mask.copy() for r in regions]
     shares = share_masks(regions, cfg)
@@ -827,7 +896,7 @@ def test_text_is_not_crowded_against_the_bubble_edge():
     has to scale with the type - a fixed pixel margin looks generous at 12pt
     and looks like a mistake at 30pt."""
     # a bundled comic face, so the fixture is the same everywhere
-    font = _bundled("CCWildWords.ttf")
+    font = _bundled("ComicNeue-Bold.ttf")
     gap, size = _edge_gap(TypesetConfig(font_path=font))
     assert gap >= 0.55 * size, f"only {gap:.1f}px of air around {size}pt type"
 
@@ -845,11 +914,44 @@ def test_round_bubbles_keep_their_gutter_on_the_curve():
     "too close to the edge". The fit is measured against the bubble eroded by
     the gutter instead, so the clearance is perpendicular to the outline.
     """
-    font = _bundled("CCWildWords.ttf")
+    font = _bundled("ComicNeue-Bold.ttf")
     cfg = TypesetConfig(font_path=font)
     txt = "YOU'RE THE ONE WHO TOLD ME TO COME HERE IN THE FIRST PLACE."
     gap, size = _edge_gap(cfg, 150, 150, txt, shape="oval")
-    assert gap >= 0.9 * size, f"only {gap:.1f}px of air around {size}pt type"
+
+    # Against the SAME bubble with the gutter knobs off, which is the claim
+    # this test is making - that eroding the bubble is what buys the air.
+    #
+    # It used to be `gap >= 0.9 * size`, an absolute figure calibrated against
+    # CCWildWords, which left the repo on 2026-08-26 (`fonts/LICENSES.md`).
+    # Comic Neue has its own widths, the fitter lands on a different point size
+    # for the same balloon, and 0.9 went red at 0.84 while the mechanism was
+    # working perfectly. A number tuned to one face was never testing the rule;
+    # measured against the knobs-off fit it is the same claim and it survives
+    # the next change of face. Its flat-bubble sibling above already works this
+    # way.
+    # ...and over SEVERAL bubble sizes rather than one, because the ratio is
+    # quantised: both fits land on an integer point size, and one of them
+    # rounding the other way moves the ratio by a tenth. At 150 it reads 1.50
+    # and at 145 it reads 2.04, on the same mechanism doing the same thing.
+    #
+    # A single size was a knife-edge, and on 2026-08-27 it fell off - the
+    # line-gap band came down (see typeset.MAX_LEADING), the bare fit found
+    # one more point of size, and 1.496 failed a threshold of 1.5 while the
+    # gutter was working exactly as well as before. The median over a spread
+    # is the same claim without the knife-edge.
+    ratios = []
+    for wh in (140, 145, 150, 155, 160, 170, 180):
+        g, sz = _edge_gap(cfg, wh, wh, txt, shape="oval")
+        b, bsz = _edge_gap(
+            TypesetConfig(font_path=font, pad_em=0.0, pad_px=0,
+                          v_margin_frac=0.0), wh, wh, txt, shape="oval")
+        ratios.append((g / sz) / (b / bsz))
+    ratios.sort()
+    mid = ratios[len(ratios) // 2]
+    assert mid > 1.5, (mid, ratios)
+    assert min(ratios) > 1.3, (mid, ratios)
+    assert gap >= 0.55 * size, f"only {gap:.1f}px of air around {size}pt type"
 
     # The circle is the case that separates the two ways of measuring. A
     # square of the same span has no curve to fall foul of, so it should not
@@ -1924,11 +2026,20 @@ def test_outline_width_is_honoured_everywhere():
 
 def test_render_cache_key_ignores_computed_layout():
     """Rendering writes computed layouts back to the page. If the cache key
-    included them it would change on every render and never hit."""
-    import inspect
+    included them it would change on every render and never hit.
+
+    `layout` was the only one for a long time and the test read the literal
+    comparison that excluded it. It is a set now - the cleaner's REPORT joined
+    it, having caused this exact failure by a slower route (see
+    `test_the_key_that_changed_on_every_other_look.py`) - so the test asks the
+    set rather than the line of code that reads it.
+    """
     from mangatl import editor
-    src = inspect.getsource(editor._render_stamp)
-    assert '!= "layout"' in src, "cache key must exclude computed layout"
+    assert "layout" in editor._NOT_A_PICTURE, \
+        "cache key must exclude computed layout"
+    # ...and it is actually the set the stamp uses.
+    import inspect
+    assert "_NOT_A_PICTURE" in inspect.getsource(editor._render_stamp)
 
 
 def test_custom_clean_plate_replaces_only_its_own_page():
@@ -2095,6 +2206,12 @@ def test_the_warm_up_gives_way_to_a_real_job():
     try:
         p.job["running"] = True
         editor._plate_cache.clear()
+        # ...and the RENDER cache, which is global and keyed on content: every
+        # test in this file uses the same fixture pages, so the pictures the
+        # last test built answer for this one, `warm_pages` sees a chapter
+        # with nothing to do and - correctly - never starts. The test is
+        # about a warm-up that HAS work yielding the floor, so give it work.
+        editor._render_cache.clear()
         editor.warm_pages(p, 0)
         time.sleep(0.4)
         assert editor._warm["done"] == 0, \
@@ -2115,8 +2232,19 @@ def test_warming_up_never_spends_the_hosted_cleaner_by_itself():
     """Building pages ahead of time is a kindness while it stays local. With
     the hosted cleaner switched on it would mean a call out to the network for
     every page nobody has cleaned yet - so pressing Clean stays the thing that
-    spends that, and the warm-up only rebuilds what is already paid for."""
+    spends that, and the warm-up only rebuilds what is already paid for.
+
+    ALREADY PAID FOR IS A FILE ON DISK, and this used to read the `cleaned`
+    flag for it. They come apart on exactly the page that hurts: a plate built
+    while the cleaner refused a box is deliberately not cached, and the flag is
+    set all the same, so the warm-up rebuilt that page - and called the
+    endpoint again - every time the render cache turned over. See
+    `tests/test_the_page_that_kept_changing.py`, and lee, watching one change
+    under him: *"when i firt didi te clean it didi not look like thsi after a
+    while it turn into this what happened"*.
+    """
     import shutil
+    import cv2 as _cv2
     from mangatl import editor
 
     shutil.rmtree(scratch("_tmp_warm6"), ignore_errors=True)
@@ -2129,8 +2257,13 @@ def test_warming_up_never_spends_the_hosted_cleaner_by_itself():
         assert not any(editor._worth_warming(p, i) for i in range(3)), \
             "an uncleaned page must not be sent to the network unasked"
         p.pages[1].cleaned = True
+        assert not editor._worth_warming(p, 1), \
+            "the flag is a claim; a page with no plate would be built again"
+        fp = editor._plate_disk_path(p, 1)
+        _os.makedirs(_os.path.dirname(fp), exist_ok=True)
+        _cv2.imwrite(fp, p.materialize(1).image)
         assert editor._worth_warming(p, 1), \
-            "a page already cleaned costs nothing to rebuild"
+            "a plate already on disk costs nothing to rebuild"
         p.pages[2].regions = []
         assert editor._worth_warming(p, 2), \
             "a page with no text is only ever the scan"
@@ -2612,20 +2745,25 @@ def test_sanitize_only_emits_glyphs_the_font_has():
     from fontTools.ttLib import TTFont
     from mangatl.typeset import sanitize_for_font
 
-    path = _anime_ace()
+    path = _shipped_face()
     cov = set(TTFont(path, lazy=True).getBestCmap().keys())
 
     nasty = "THE POWER OF HEALINGー —really— ♪oh♪ “yes” ōkami"
     out = sanitize_for_font(nasty, path, substitutes=True)
     assert out, "sanitising must not wipe the line out"
     # every emitted character is either drawable by the font OR the em-dash,
-    # which the renderer draws by hand (em_dash_glyph)
+    # which the renderer draws by hand (em_dash_glyph), or a mark drawn
+    # from the bundled mark faces (mark_glyph) - neither is tofu
+    from mangatl.typeset import MARK_CHARS
     for ch in out:
-        assert ch == "—" or ord(ch) in cov, \
+        assert ch == "—" or ch in MARK_CHARS or ord(ch) in cov, \
             f"emitted a character the font cannot draw: {ch!r}"
     assert "HEALING-" in out            # chōonpu mapped, not dropped
     assert "—really—" in out            # em-dash KEPT, drawn by hand
-    assert "♪" not in out          # music note: no glyph, no stand-in -> gone
+    # the music note is a MARK now: stamped by mark_glyph, so dropping it
+    # here was a silent edit to what the balloon says - and how a ♥ picked
+    # from the special-characters dialog vanished from the page
+    assert "♪oh♪" in out
     assert "okami" in out               # ō decomposed to its base letter
 
 
@@ -2637,7 +2775,7 @@ def test_with_substitutes_off_nothing_is_stood_in_for():
     SHOWN, not one to be papered over."""
     from mangatl.typeset import sanitize_for_font
 
-    path = _anime_ace()
+    path = _shipped_face()
     nasty = "THE POWER OF HEALINGー —really— ♪oh♪ “yes” ōkami"
     out = sanitize_for_font(nasty, path)          # default: substitutes off
 
@@ -2652,7 +2790,7 @@ def test_typeset_never_lets_tofu_reach_the_layout():
     characters must still lay out, and every line must be drawable."""
     import cv2
     from fontTools.ttLib import TTFont
-    from mangatl.typeset import TypesetConfig, fit_region
+    from mangatl.typeset import MARK_CHARS, TypesetConfig, fit_region
     from mangatl.models import Page, TextRegion
 
     img = np.full((400, 400, 3), 255, np.uint8)
@@ -2662,16 +2800,18 @@ def test_typeset_never_lets_tofu_reach_the_layout():
     r = TextRegion(id=0, bbox=(60, 100, 280, 200), bubble_mask=mask,
                    bubble_bbox=(50, 90, 300, 220),
                    dst_text="THE POWER OF HEALINGー… ♪")
-    font = _anime_ace()
+    font = _shipped_face()
     lay = fit_region(r, TypesetConfig(font_path=font, substitutes=True))
     assert lay and lay.lines
     cov = set(TTFont(font, lazy=True).getBestCmap().keys())
     for line in lay.lines:
         for ch in line:
-            assert ord(ch) in cov, f"layout contains undrawable {ch!r}"
+            assert ch in MARK_CHARS or ord(ch) in cov, \
+                f"layout contains undrawable {ch!r}"
     joined = " ".join(lay.lines)
     assert "HEALING-..." in joined.replace("  ", " ")
-    assert "♪" not in joined
+    # ♪ stays: it is a mark, drawn by hand at render time (mark_glyph)
+    assert "♪" in joined
 
     # ...and with the switch off the same line goes through untouched, with
     # the trouble reported instead of hidden. lee: *"if its of the text the
@@ -2717,7 +2857,7 @@ def test_a_missing_spare_font_never_takes_a_page_down(monkeypatch):
 
     r = _oval_region(300, 220, "THE PAGE STILL TYPESETS ITSELF.")
     lay = ts.fit_region(r, ts.TypesetConfig(
-        font_path=_bundled("CCWildWords.ttf")))
+        font_path=_bundled("ComicNeue-Bold.ttf")))
     assert lay.lines and any(s.strip() for s in lay.lines)
 
 
@@ -2733,7 +2873,7 @@ def _letterless_font(tmp_path) -> str:
     from fontTools.ttLib import TTFont
     from fontTools.subset import Subsetter
     out = str(tmp_path / "symbols_only.ttf")
-    f = TTFont(_bundled("CCWildWords.ttf"))
+    f = TTFont(_bundled("ComicNeue-Bold.ttf"))
     s = Subsetter()
     s.populate(text=".,!?")
     s.subset(f)
@@ -2747,7 +2887,7 @@ def test_a_font_with_no_letters_in_it_is_not_a_typesetting_font(tmp_path):
     from mangatl.typeset import can_typeset, usable_font, sanitize_for_font
     symbols = _letterless_font(tmp_path)
 
-    assert can_typeset(_bundled("CCWildWords.ttf"))
+    assert can_typeset(_bundled("ComicNeue-Bold.ttf"))
     assert usable_font(symbols)          # it really does load - that's the trap
     # and this is the damage: nothing of the line survives being made drawable
     assert not any(c.isalnum()
@@ -3307,7 +3447,7 @@ def test_fitter_ignores_the_shorter_alternative():
                    bubble_bbox=(30, 30, 340, 240),
                    dst_text="He is coming for all of us right now!")
     r.dst_compact = "Run!"
-    font = _anime_ace()
+    font = _shipped_face()
     lay = fit_region(r, TypesetConfig(font_path=font))
     joined = " ".join(lay.lines)
     assert "coming" in joined
@@ -3321,41 +3461,85 @@ def test_prompt_and_schema_no_longer_ask_for_compact():
     assert "compact" not in build_system("manga", "en")
 
 
-def test_fitter_never_splits_a_word():
-    """Hyphenation is gone for good - the fitter uses line breaks and size
-    only. Even a word too wide for the bubble must come through whole (the
-    layout is flagged, not the word butchered)."""
+def _unhyphenate(lines):
+    """The lines as one sentence again, with a word-break hyphen taken back out.
+
+    Added when hyphenation arrived: a test whose real subject is WHERE a block
+    lands was asserting `" ".join(lines) == dst_text` in passing, and started
+    failing on `SOME- / TIME.` A line-final hyphen means the next line
+    continues the same word, which is true of every fixture in this file -
+    none of them contains a dash the author wrote. Where that distinction
+    matters it is tested for its own sake, in
+    `test_breaking_at_the_authors_dashes.py`.
+    """
+    out = ""
+    for i, ln in enumerate(lines):
+        last = i + 1 == len(lines)
+        out += ln[:-1] if (ln.endswith("-") and not last) else ln
+        if not last and not ln.endswith("-"):
+            out += " "
+    return out
+
+
+def test_a_word_is_split_only_where_english_splits_it():
+    """This test used to be called `test_fitter_never_splits_a_word`, and it
+    used to be right.
+
+    Hyphenation was built once before, in July, and lee threw it out twice. The
+    note from that day is blunt about it - *"DO NOT reintroduce hyphenation in
+    any form"* - and his own words were *"remove the hyphen thing, it's using
+    it too much, just make everything fit using line breaks."* His screenshot
+    showed **CHAPT-ER 2**, **KNEE-L.** and **VILLAINE-SS**.
+
+    On 2026-08-25 he sent four published English chapters and said *"try this
+    but i dont wanta buch of hypers everywhere"*, which is a new instruction
+    and supersedes the old one. But the old failure is the thing to design
+    against, and it had two causes, both now removed:
+
+    * **The breaks were not English.** There was no dictionary; a word was cut
+      wherever it fitted. `hyphen.py` uses Liang's patterns, so `chap-ter` is
+      the only place CHAPTER may break and KNEEL may not break at all - and
+      both are under `HYPHEN_MIN_WORD` anyway, so neither is even offered.
+      VILLAINESS breaks at `vil-lain-ess` and never at `villaine-ss`, which
+      would leave a two-letter stub.
+    * **Bigger always won.** The note names the mechanism exactly:
+      *"hyphenated layouts at large sizes were outscoring whole-word layouts
+      at smaller sizes"*. There was no toll. `HYPHEN_GAIN` is that toll, and
+      it was set by measuring how often four professional chapters actually
+      break a word - 1.8 lines in every 100.
+
+    So what is checked here is no longer "never", it is "only where English
+    does, and only when it pays". The three words from lee's screenshot are
+    checked by name, because they are the specification.
+    """
+    from mangatl import typeset as T
+
+    # The exact breaks lee objected to, and why each is impossible now.
+    assert T.hyphen_points("CHAPTER") == [], "CHAPT-ER is back"
+    assert T.hyphen_points("KNEEL") == [], "KNEE-L is back"
+    for p in T.hyphen_points("VILLAINESS"):
+        assert len("VILLAINESS") - p >= 3, "VILLAINE-SS is back"
+
+
+def test_and_a_word_that_english_cannot_split_is_still_never_split():
+    """The other half of the old test, which is still true and still load
+    bearing: a word with no break point comes through whole however badly it
+    fits, flagged rather than butchered."""
     import cv2
     from mangatl.typeset import TypesetConfig, fit_region
     from mangatl.models import TextRegion
 
-    font = _anime_ace()
-
-    # a narrow column where big sizes cannot hold the words - it must break
-    # lines and drop the size, never split a word
-    mask = np.zeros((520, 240), np.uint8)
-    cv2.rectangle(mask, (40, 30), (200, 490), 255, -1)
-    r = TextRegion(id=0, bbox=(40, 30, 160, 460), bubble_mask=mask,
-                   bubble_bbox=(40, 30, 160, 460),
-                   dst_text="NOW KNEEL BEFORE THE VILLAINESS")
-    lay = fit_region(r, TypesetConfig(font_path=font))
-    assert lay and lay.lines
-    assert not any(ln.endswith("-") for ln in lay.lines), \
-        f"introduced hyphens in {lay.lines}"
-    assert set(" ".join(lay.lines).split()) == set(r.dst_text.split()), \
-        "every word must arrive whole"
-
-    # a word genuinely wider than the bubble: still never split - it lays
-    # out flagged rather than hyphenated
+    font = _shipped_face()
     mask2 = np.zeros((300, 160), np.uint8)
     cv2.ellipse(mask2, (80, 150), (60, 120), 0, 0, 360, 255, -1)
     r2 = TextRegion(id=1, bbox=(20, 30, 120, 240), bubble_mask=mask2,
                     bubble_bbox=(20, 30, 120, 240),
-                    dst_text="INCOMPREHENSIBILITY")
+                    dst_text="AAAAAAAAAAAAAAAAAAA")
     lay2 = fit_region(r2, TypesetConfig(font_path=font))
     assert lay2 and lay2.lines
     assert all("-" not in ln for ln in lay2.lines), \
         f"introduced hyphens in {lay2.lines}"
+    assert "".join(lay2.lines) == r2.dst_text, lay2.lines
 
 
 def test_character_sheet_is_editable_from_settings():
@@ -3798,9 +3982,9 @@ def test_em_dash_is_synthesized_for_fonts_without_the_glyph():
     from mangatl.render import render_page
     from mangatl.models import Page, TextRegion
 
-    path = _anime_ace()
+    path = _face_without_em_dash()
     assert 0x2014 not in set(TTFont(path, lazy=True).getBestCmap().keys()), \
-        "fixture assumes AnimeAce has no em-dash"
+        "fixture assumes this face has no em-dash"
     assert not font_supports(path, "—")
 
     # the synthesized dash is clearly longer than a lone hyphen
@@ -3847,14 +4031,26 @@ def test_em_dash_is_a_borrowed_glyph_not_a_drawn_rectangle():
     donor = em_dash_donor()
     assert donor, "no Comic Sans-alike available to borrow an em-dash from"
 
-    path = _bundled("CCWildWords.ttf")
+    # A face WITHOUT the glyph, or there is nothing to synthesize and
+    # `em_dash_glyph` correctly returns None.
+    path = _face_without_em_dash()
     adv, top, mask = em_dash_glyph(path, 40)
 
-    # A borrowed outline has shaped ends. A rectangle's columns are identical,
-    # so this is what fails if the fallback bar ever comes back silently.
+    # A borrowed outline has shaped ends. The fallback bar is
+    # `Image.new("L", (w, thick), 255)` and is never resized, so EVERY column
+    # of it holds exactly the same ink - which is the thing being ruled out,
+    # and it is ruled out exactly rather than by a threshold.
+    #
+    # It used to be `cols[0] < 0.8 * mid`, and 0.8 was a number read off one
+    # rendering: at 40 in Gaegu the dash was two pixels thick and the ends came
+    # in at 0.68 of the middle. `px_for` opens that face at 44 rather than 40,
+    # the dash is three pixels thick, and the same taper measures 0.86 - the
+    # same shape sampled on a taller grid. A tolerance taken from one run's
+    # numbers is a guess about the next run's.
     cols = np.asarray(mask).astype(float).sum(axis=0)
     mid = cols[len(cols) // 2]
-    assert cols[0] < 0.8 * mid and cols[-1] < 0.8 * mid, list(cols)
+    assert cols.std() > 0, ("a flat bar, not a borrowed outline", list(cols))
+    assert cols[0] < 0.95 * mid and cols[-1] < 0.95 * mid, list(cols)
 
     # Weight matches the host hyphen's STROKE, not its bounding box: that
     # hyphen is a tilted wedge whose box is half again as tall as the stroke.
@@ -4029,9 +4225,14 @@ def test_ai_cleaner_wiring_and_cache():
         # Telea smear when it is refused, so one key for both meant that fixing
         # a wrong token changed nothing. See
         # claude/cleaning-was-a-refused-token-2026-07-30.md.
+        # ...and the ERASER, for the same reason: one deploy serves two of
+        # them now and they give two answers, so a key that cannot tell them
+        # apart hands back the one nobody asked for. See
+        # test_which_eraser_cleans_the_page.
         key = hashlib.sha1(img.tobytes() + mask.tobytes()
                            + p.settings["clean_url"].encode()
-                           + p.settings["clean_token"].encode()).hexdigest()
+                           + p.settings["clean_token"].encode()
+                           + ed.CLEAN_MODELS[0].encode()).hexdigest()
         want = np.full((40, 40, 3), 77, np.uint8)
         cv2.imwrite(os.path.join(cdir, key + ".png"), want)
         got = ed._ai_clean_call(p.settings["clean_url"], "t", cdir, img, mask)
@@ -4046,9 +4247,19 @@ def test_ai_cleaner_wiring_and_cache():
         shutil.rmtree(scratch("_tmp_ai"), ignore_errors=True)
 
 
-def test_neural_all_routes_flat_bubbles_through_the_model():
-    """With neural_all, even a flat white bubble goes to the model (its mask
-    reaches `neural`), instead of being stamped with the background colour."""
+def test_neural_all_keeps_the_flat_white_bubble_for_itself():
+    """It used to be the other way round, and this test said so: with
+    `neural_all` even a plain white bubble went to the model.
+
+    lee, having run a whole chapter that way and looked at a balloon the model
+    had left one speck of a kana in: *"look into making the local clenner do teh
+    white biexes because it did a bettr jib"*. On a white balloon the colour is
+    KNOWN, measured off the paper around the words, so the fill is exactly right
+    by construction, instant and free; a model is guessing at something that was
+    never in doubt, and a guess can leave a speck. "The whole page" now means
+    every area the local path cannot prove it has right. See
+    `test_the_mask_was_the_screentone.py`, where the same rule is stated from
+    the other side."""
     import cv2
     from mangatl.inpaint import inpaint_page
     from mangatl.models import Page, TextRegion
@@ -4071,8 +4282,8 @@ def test_neural_all_routes_flat_bubbles_through_the_model():
         seen["area"] = int((mk > 0).sum())
         return im
     inpaint_page(Page(image=img, regions=[r]), neural=fake_neural, neural_all=True)
-    assert seen.get("called") and seen["area"] > 100, \
-        "flat bubble should have reached the model under neural_all"
+    assert not seen.get("called"), \
+        "the model was asked about a plain white bubble"
 
 
 # ------------------------------------- "hard" means hard: what the model sees
@@ -4576,9 +4787,12 @@ def test_the_heal_brush_goes_through_the_ai_cleaner_when_one_is_set_up():
     was, editor.PROJECT = editor.PROJECT, p
     seen = {}
 
-    def spy(url, token, cache_dir, img, mask, strict=False):
+    # `model` is keyword-only on the real one, and a stand-in that cannot take
+    # it is a stand-in for a function that no longer exists.
+    def spy(url, token, cache_dir, img, mask, strict=False, *, model=""):
         seen["strict"] = strict
         seen["mask"] = mask.copy()
+        seen["model"] = model
         return np.full_like(img, 33)
 
     real, editor._ai_clean_call = editor._ai_clean_call, spy
@@ -4661,7 +4875,7 @@ def test_the_healed_spot_is_not_half_the_old_pixels_at_its_edge():
     p.settings["clean_token"] = "t"
     was, editor.PROJECT = editor.PROJECT, p
     real, editor._ai_clean_call = editor._ai_clean_call, \
-        (lambda url, token, cache_dir, img, mask, strict=False:
+        (lambda url, token, cache_dir, img, mask, strict=False, *, model="":
          np.zeros_like(img))
     srv, base = _heal_server(p)
     try:
@@ -4702,7 +4916,7 @@ def test_there_is_no_brush_left_that_avoids_the_model():
     was, editor.PROJECT = editor.PROJECT, p
     calls = []
 
-    def spy(url, token, cache_dir, img, mask, strict=False):
+    def spy(url, token, cache_dir, img, mask, strict=False, *, model=""):
         calls.append(strict)
         return np.full_like(img, 33)
 
@@ -4921,11 +5135,19 @@ def test_a_sound_effect_nobody_ever_measured_is_still_typeset():
     r.angle, r.sfx_len, r.sfx_wid = 0.0, 0.0, 0.0
     lay = fit_region(r, TypesetConfig(font_path=default_font_path()))
     assert lay.lines and lay.rotate == 0.0
-    # and they fill the box, which is all anybody ever knew about them. An
-    # unmeasured footprint read as a measurement of nothing typesets the
-    # effect at a size you would need to lean in to read. The word runs
-    # ACROSS, so the box's long side is the room it has to fill.
-    assert lay.frame[2] >= max(r.bbox[2], r.bbox[3]) * 0.8, (lay.frame, r.bbox)
+    # ...and they fill the box, which is all anybody ever knew about them. An
+    # unmeasured footprint read as a measurement of nothing typesets the effect
+    # at a size you would need to lean in to read.
+    #
+    # Its WIDTH, and not the longer of its two sides. This used to ask for 0.8
+    # of `max(w, h)`, which on a tall Japanese column is the HEIGHT - and
+    # letting a horizontal word run as far as a column is tall means hanging it
+    # out of both sides of that column. lee sent a crop of exactly that:
+    # *"make it fie exacly the size of the box, it shou only ever outside teh
+    # box if tehsfx would break teh minimun size for teh text"*. So it fills
+    # the width it is given and stays inside the box.
+    assert lay.frame[2] >= r.bbox[2] * 0.9, (lay.frame, r.bbox)
+    assert lay.frame[2] <= r.bbox[2] + 2, (lay.frame, r.bbox)
     assert lay.font_size >= 24, lay.font_size
 
 
@@ -5329,9 +5551,9 @@ def test_returning_to_the_edit_tab_puts_the_page_back_on_screen():
         ["node", os.path.join("tests", "ui", "tab_recentre.test.js")],
         cwd=root, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert "back on edit — refits: 1 recentres: true" in out.stdout, out.stdout
+    assert "back on edit - refits: 1 recentres: true" in out.stdout, out.stdout
     # Leaving does not disturb the view; only coming back restores it.
-    assert "leaving for results — refits: 0 recentres: 0" in out.stdout, out.stdout
+    assert "leaving for results - refits: 0 recentres: 0" in out.stdout, out.stdout
     assert "stage visible: block" in out.stdout, out.stdout
 
 
@@ -5401,6 +5623,52 @@ def test_the_page_list_follows_the_page_you_are_on():
     assert "ok   a rename in progress is not scrolled away from" in out.stdout
 
 
+def test_the_pages_too_long_to_read_are_marked_in_the_rail():
+    """lee: *"can you amke it so that teh pages that are tooo long have a red
+    heighlight on te side bar"*.
+
+    The warning on the Original view names them and stops at six ("+3 more"),
+    so on a 40-page chapter it was a count and not a list: nine names to read
+    off one panel and hunt down another. The rail marks them itself now, off
+    `isTallPage` - the same rule the warning uses, so a page cannot be named
+    in one and unmarked in the other."""
+    import os
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    root = str(PKG)
+    if not os.path.isdir(os.path.join(root, "node_modules", "jsdom")):
+        pytest.skip("jsdom not installed")
+    out = subprocess.run(
+        ["node", os.path.join("tests", "ui",
+                              "tall_pages_are_marked_in_the_rail.test.js")],
+        cwd=root, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "all good" in out.stdout, out.stdout
+    assert "FAIL" not in out.stdout, out.stdout
+    assert "ok   the rail and the warning agree on which pages" in out.stdout
+    assert "ok   no limit from the server marks nothing" in out.stdout
+
+
+def test_the_mark_is_drawn_beside_what_the_row_already_spends():
+    """A bar in its own layer, not a border or a background.
+
+    The row uses `border-color` for the page you are looking at and
+    `background` for one ticked into "do all", and a page can be tall AND
+    either of those - so a mark made out of either would be the one that
+    disappears exactly when it is wanted. It is `::before` in the row's left
+    padding, which is also why `.pg` carries `position:relative`."""
+    css = (PKG / "static" / "css" / "editor.css").read_text(encoding="utf-8")
+    assert ".pg{position:relative" in css
+    rule = css[css.index(".pg.tall::before{"):]
+    rule = rule[:rule.index("}")]
+    assert "position:absolute" in rule and "var(--bad)" in rule
+    assert "background:var(--bad)" in rule
+    # ...and it does not touch either of the two the row already spends.
+    assert "border" not in rule.replace("border-radius", "")
+
+
 def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
     """Page 8, bottom right: "PLEASE, LISTEN TO WHAT THIS CHILD HAS TO SAY."
 
@@ -5443,7 +5711,12 @@ def test_a_tall_narrow_balloon_is_typeset_to_its_own_ceiling():
                                       min_font=10, max_font=34))
     assert " ".join(lay.lines) == text, lay.lines
     assert lay.font_size >= 14, (lay.font_size, lay.lines)
-    assert lay.leading >= 1.20, lay.leading
+    # ...and inside the band, which came down off a measurement against the
+    # published chapter on 2026-08-27. This read `>= 1.20` when 1.20 was the
+    # FLOOR; it is the ceiling now and the fitter reaches for 1.00-1.10.
+    # See typeset.MAX_LEADING.
+    from mangatl.typeset import MIN_LEADING, MAX_LEADING
+    assert MIN_LEADING <= lay.leading <= MAX_LEADING, lay.leading
     ys = [y for _, y in lay.line_origins]
     rows = np.nonzero((r.bubble_mask > 0).any(axis=1))[0]
     fill = (max(ys) - min(ys) + lay.font_size) / float(rows[-1] - rows[0] + 1)
@@ -5590,7 +5863,7 @@ def test_a_cut_that_typesets_over_the_gap_between_two_balloons_loses():
     for r in regions:
         m = shares.get(r.id)
         lay = enforce_bounds(r, fit_region(r, cfg, m), cfg, mask=m)
-        assert " ".join(lay.lines) == r.dst_text, lay.lines
+        assert _unhyphenate(lay.lines) == r.dst_text, lay.lines
         path = lay.font_path or cfg.font_path
         asc, desc = _font(path, lay.font_size).getmetrics()
         for (cx, cy), line in zip(lay.line_origins, lay.lines):

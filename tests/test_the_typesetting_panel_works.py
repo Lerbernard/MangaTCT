@@ -205,7 +205,7 @@ def test_turning_the_gradient_off_turns_it_off(ed):
       onTypesetStyle(1);})()""")
     pg.wait_for_timeout(1500)
     assert pg.evaluate(
-        "document.querySelectorAll('#overlay .tl.grad').length") > 0
+        "document.querySelectorAll('#overlay .tf.grad').length") > 0
     # Checked AT ONCE. The round trip eventually writes the empty colour into
     # the override as well, at which point both readings agree and the bug is
     # invisible - the whole complaint is about what the page does in the
@@ -213,13 +213,13 @@ def test_turning_the_gradient_off_turns_it_off(ed):
     pg.evaluate("clearGradient(1)")
     pg.wait_for_timeout(120)
     assert pg.evaluate(
-        "document.querySelectorAll('#overlay .tl.grad').length") == 0, \
+        "document.querySelectorAll('#overlay .tf.grad').length") == 0, \
         "still drawn from the saved override"
     assert pg.evaluate("(regions.find(r=>r.id===1).layout_override||{}).fg2") \
         in ("#f48414",), "the override cleared too fast for this to prove it"
     pg.wait_for_timeout(1500)
     assert pg.evaluate(
-        "document.querySelectorAll('#overlay .tl.grad').length") == 0
+        "document.querySelectorAll('#overlay .tf.grad').length") == 0
     assert pg.evaluate("""(()=>{const el=document.querySelector('#overlay .tl');
         return el && getComputedStyle(el).color;})()""") != "rgba(0, 0, 0, 0)"
     assert not errs, errs[:2]
@@ -238,7 +238,7 @@ def test_the_outline_does_not_cover_the_gradient(ed):
       onTypesetStyle(1);})()""")
     pg.wait_for_timeout(1600)
     got = pg.evaluate("""(()=>{
-      const l=document.querySelector('#overlay .tl.grad');
+      const l=document.querySelector('#overlay .tf.grad').closest('.tl');
       if(!l) return 'no gradient line';
       const f=l.querySelector('.tf'), s=l.querySelector('.ts');
       if(!f) return 'no fill span';
@@ -255,6 +255,90 @@ def test_the_outline_does_not_cover_the_gradient(ed):
     assert not errs, errs[:2]
 
 
+def test_a_gradient_disables_the_plain_well_and_the_x_gives_it_back(ed):
+    """lee: *"wheni apply a gradient on teh oulibe or teh etxt itself it
+    should disable the regular box and reove it from text and only keep the
+    grediant and if i click teh x on gradient teh regular colo shoud come
+    back"*.
+
+    With both set, the panel offered two answers to one question, and the
+    two renderers each had to pick - which is where the letters' edges
+    disagreed. While a gradient is on, its plain well is greyed out and
+    unclickable; its VALUE is untouched, so the gradient's × alone brings
+    the old colour straight back."""
+    pg, _p, errs = ed
+    got = pg.evaluate("""(()=>{
+      const well=$('lyFg').closest('.colwell');
+      $('lyFg').value='#123456';
+      const before=well.classList.contains('welloff');
+      $('lyFg1').value='#0029ff'; $('lyFg2').value='#1eff00';
+      onTypesetStyle(1);
+      const during=well.classList.contains('welloff');
+      const clicks=getComputedStyle(well).pointerEvents;
+      clearGradient(1,'fg');
+      const after=well.classList.contains('welloff');
+      return {before, during, clicks, after,
+              kept:$('lyFg').value, g1:$('lyFg1').value};})()""")
+    assert not got["before"], "the well starts disabled with no gradient set"
+    assert got["during"], "setting a gradient leaves the plain well armed"
+    assert got["clicks"] == "none",         "the well is greyed but still takes clicks"
+    assert not got["after"], "the x did not give the plain well back"
+    assert got["kept"] == "#123456",         "disabling the well ate the colour standing in it - the x cannot "         "bring back what was thrown away"
+    assert got["g1"] == "", "the x left the gradient itself in place"
+    assert not errs, errs[:2]
+
+
+def test_the_export_draws_gradient_letters_in_ramp_colours():
+    """The other half of the same rule, on the export's side: with a
+    gradient set, the letters are DRAWN in the ramp's start colour before
+    the ramp is pasted over them - drawn in the plain colour, its dark edge
+    fringed the bright ramp at the glyph mask's antialiasing, and the
+    editor (which never paints the plain colour under a gradient) showed no
+    fringe. lee: *"that was what was causing teh inconsoistenties"*."""
+    import os
+    import mangatl
+    src = open(os.path.join(os.path.dirname(os.path.abspath(
+        mangatl.__file__)), "render.py"), encoding="utf-8").read()
+    assert "fill_ink" in src and "if (_has_g2 and fg[3]) else fg" in src, \
+        "the letters are drawn in the plain fill under a fill gradient again"
+    assert "edge_ink" in src and "if (_has_e2 and stroke > 0) else edge" in src, \
+        "the outline is drawn in the plain edge under its gradient again"
+    assert "fill=fill_ink" in src and "stroke_fill=edge_ink" in src, \
+        "the letters sheet is not drawn with the substituted pair"
+
+
+def test_one_glows_size_never_eats_the_others_colour(ed):
+    """lee: *"sometime when i increase outer glow it will yturn off teh
+    color of teh inerglow and visversa"*. The panel's displayed values used
+    to ride every save, so a readout could overwrite a choice. The
+    `panelShown` snapshot is the guard: only a field whose input no longer
+    matches what the panel put there is a person's answer."""
+    pg, _p, errs = ed
+    pg.evaluate("""(()=>{
+      const r=regions.find(x=>x.id===1);
+      r.layout_override=Object.assign({}, r.layout_override||{},
+        {glow:'#ff8000', glow_size:3, iglow:'#f5efe9', iglow_size:5,
+         locked:true});
+      renderList();})()""")
+    pg.wait_for_timeout(400)
+    for _ in range(3):
+        pg.evaluate("""(()=>{
+          const f=$('lyGlowS'); if(!f) return;
+          f.value=String((+f.value||0)+1);
+          onTypesetStyle(1);})()""")
+        pg.wait_for_timeout(800)
+        pg.evaluate("renderList()")
+        pg.wait_for_timeout(200)
+    got = pg.evaluate("""(()=>{
+      const r=regions.find(x=>x.id===1);
+      const ov=r.layout_override||{};
+      return JSON.stringify({ig:ov.iglow, g:ov.glow});})()""")
+    assert '"ig":"#f5efe9"' in got, \
+        "growing the outer glow ate the inner glow's colour: %r" % got
+    assert '"g":"#ff8000"' in got, got
+    assert not errs, errs[:2]
+
+
 def test_the_outer_glow_shows(ed):
     pg, _p, errs = ed
     pg.evaluate("""(()=>{
@@ -262,9 +346,17 @@ def test_the_outer_glow_shows(ed):
       document.getElementById('lyGlowS').value='10';
       onTypesetStyle(1);})()""")
     pg.wait_for_timeout(1500)
-    sh = pg.evaluate("""(()=>{const l=document.querySelector('#overlay .tl');
-        return l ? getComputedStyle(l).textShadow : '';})()""")
+    sh = pg.evaluate("""(()=>{
+        // the glow is its own span now, drawn the way the export draws it:
+        // the letters stroked fat in the glow colour, Gaussian-blurred.
+        // See drawText's `fx`.
+        const l=document.querySelector('#overlay .tl .tglow');
+        if(!l) return '';
+        const c=getComputedStyle(l);
+        return c.webkitTextStrokeColor+' / '+c.webkitTextStrokeWidth
+               +' / '+c.filter;})()""")
     assert "255, 45, 85" in sh, sh
+    assert "blur" in sh, sh
     assert not errs, errs[:2]
 
 
@@ -446,6 +538,25 @@ def test_the_picture_is_the_typesetting_and_nothing_else(tmp_path):
 
 # ------------------------------------ emptying a box, the way it is done now
 
+def _retype(pg, text):
+    """Replace the open editor's words BY TYPING, as a person does.
+
+    `editBox.innerText = ...` used to be the way, and the editor swap made
+    it a lie: the box is a ProseMirror view now, and writing into its DOM
+    behind its back changes the picture without changing the document - the
+    words come straight back, exactly as they would for no keystrokes at
+    all. Which is the general rule this suite keeps relearning: a harness
+    that does not use the real input path tests a path no user has.
+    """
+    pg.evaluate("(document.querySelector('#canvasEdit .ProseMirror')"
+                "||editBox).focus()")
+    pg.keyboard.press("Control+a")
+    if text:
+        pg.keyboard.type(text)
+    else:
+        pg.keyboard.press("Delete")
+
+
 def test_deleting_every_word_on_the_page_leaves_it_empty(ed):
     """lee: *"deleeting all teh etxt from a text box still dont just leave it,
     look into that and dont stop untill it works"*.
@@ -461,7 +572,7 @@ def test_deleting_every_word_on_the_page_leaves_it_empty(ed):
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
     assert pg.evaluate("editing") == 1, "the block did not open for typing"
-    pg.evaluate("editBox.innerText=''")
+    _retype(pg, "")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     assert _lines(pg) == [], _lines(pg)
@@ -476,7 +587,7 @@ def test_and_it_is_still_empty_when_the_page_comes_back(ed):
     was = pg.evaluate("regions.find(r=>r.id===1).layout.frame.slice()")
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
-    pg.evaluate("editBox.innerText=''")
+    _retype(pg, "")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     pg.evaluate("showPage(0)")
@@ -505,7 +616,7 @@ def test_deleting_the_words_is_in_the_history_and_can_be_undone(ed):
     assert _lines(pg) == ["look closely", "at this"], _lines(pg)
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
-    pg.evaluate("editBox.innerText=''")
+    _retype(pg, "")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     assert _lines(pg) == [], _lines(pg)
@@ -528,7 +639,7 @@ def test_an_ordinary_typesetting_edit_still_says_what_it_is(ed):
     pg, _p, errs = ed
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
-    pg.evaluate("editBox.innerText='SOMETHING ELSE'")
+    _retype(pg, "SOMETHING ELSE")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     top = pg.evaluate("hist.length ? hist[hist.length-1].label : ''")
@@ -553,7 +664,7 @@ def test_undo_puts_back_the_hand_edit_and_does_not_re_typeset(ed):
 
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
-    pg.evaluate("editBox.innerText=''")
+    _retype(pg, "")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     assert _lines(pg) == [], _lines(pg)
@@ -598,7 +709,7 @@ def test_a_blank_line_typed_on_the_page_survives(ed):
     pg, _p, errs = ed
     pg.evaluate("editOnCanvas(1)")
     pg.wait_for_timeout(500)
-    pg.evaluate("editBox.innerText='FIRST\\n\\nTHIRD'")
+    _retype(pg, "FIRST\n\nTHIRD")
     pg.evaluate("closeCanvasEdit(true)")
     pg.wait_for_timeout(2200)
     assert _lines(pg) == ["FIRST", "", "THIRD"], _lines(pg)
@@ -618,4 +729,86 @@ def test_clicking_a_block_and_clicking_away_is_still_not_an_edit(ed):
     assert _lines(pg) == ["look closely", "at this"], _lines(pg)
     assert not p.pages[0].regions[0].get("layout_override"), \
         "an untouched block was locked onto the hand-edit path"
+    assert not errs, errs[:2]
+
+
+def _reach(fx: str) -> float:
+    """How far an effect span's paint goes past the glyph, in px.
+
+    The span draws the letters stroked fat and blurred - the export's own
+    construction - plus a translate for a drop shadow: so the reach is half
+    the stroke (it is centred) plus the blur's sigma plus the offset.
+    """
+    import re as _re
+    out = 0.0
+    w = _re.search(r"stroke-width:\s*([\d.]+)px", fx)
+    if w:
+        out += float(w.group(1)) / 2
+    b = _re.search(r"blur\(([\d.]+)px\)", fx)
+    if b:
+        out += float(b.group(1))
+    for a, c in _re.findall(r"translate\(([-\d.]+)px[, ]+([-\d.]+)px", fx):
+        out += (float(a) ** 2 + float(c) ** 2) ** 0.5
+    return out
+
+
+def test_the_glow_size_changes_the_glow(ed):
+    """The number has to do something, and the value being edited has to
+    outrank the one on the record.
+
+    lee: *"the outer glow is tsill not changing size in teh editor"*. Every
+    NUMBER in the preview was read `ov.glow_size ?? st.glow_size` - the record
+    first, the live style second - while every COLOUR on the same rows was read
+    the other way round by `pick`. So a size that was on the record could not
+    be changed: the panel showed 20, the patch carried 20, the server answered
+    20, and the preview went on drawing the 6.
+
+    AND THE RECORD ALWAYS HAS ONE. `ov` is not just the saved override -
+    `styleOf` merges `layout_measured` under it, and the server writes the
+    AUTOMATIC halo's size there (`project._fill_auto_glow`). Measured over
+    lee's chapter, seventeen boxes carry a glow size and every one of them has
+    it from one of those two places. So this was not an edge case: on those
+    boxes the size was frozen at whatever was written down.
+
+    Asked of the drawing directly, with the two values deliberately different.
+    Going through `onTypesetStyle` would prove nothing, because the save that
+    follows it a moment later rewrites the record to agree.
+    """
+    pg, _p, errs = ed
+    sh = pg.evaluate("""(()=>{
+      const r=regions.find(x=>x.id===1);
+      r.style=Object.assign({}, r.style||{},
+                            {glow:'#ff2d55', glow_size:20});
+      r.layout_override=Object.assign({}, r.layout_override||{},
+                                      {glow:'#ff2d55', glow_size:6});
+      drawOverlay();
+      const l=document.querySelector('#overlay .tl .tglow');
+      if(!l) return '';
+      const c=getComputedStyle(l);
+      return 'stroke-width:'+c.webkitTextStrokeWidth+' '+c.filter;})()""")
+    reach = _reach(sh)
+    assert reach > 0, ("no glow drawn at all", sh)
+    assert reach > 12, ("the record's 6 won over the 20 being edited: "
+                        "the halo reaches %.1fpx" % reach, sh[:200])
+    assert not errs, errs[:2]
+
+
+def test_the_other_numbers_on_that_panel_move_too(ed):
+    """The same inversion was on every number in the preview - the two glow
+    sizes, both shadow numbers, the letter spacing, the opacity, the curve and
+    both gradient angles. Asked of one more of them, so a fix to `glow_size`
+    alone would not pass this file."""
+    pg, _p, errs = ed
+    sh = pg.evaluate("""(()=>{
+      const r=regions.find(x=>x.id===1);
+      r.style=Object.assign({}, r.style||{},
+                            {shadow:'#101010', sh_dist:18, sh_blur:0});
+      r.layout_override=Object.assign({}, r.layout_override||{},
+                                      {shadow:'#101010', sh_dist:2, sh_blur:0});
+      drawOverlay();
+      const l=document.querySelector('#overlay .tl .tshadow');
+      if(!l) return '';
+      const m=new DOMMatrix(getComputedStyle(l).transform);
+      return 'translate('+m.e+'px, '+m.f+'px)';})()""")
+    assert _reach(sh) > 8, ("the shadow stayed at the record's 2px", sh[:200])
     assert not errs, errs[:2]

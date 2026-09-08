@@ -14,13 +14,59 @@ had simply run out - a test suite that fails because of something that
 happened in a previous run is worse than no suite. Set at import, before
 anything reads it, and only as a DEFAULT so a test that wants to point
 somewhere of its own still can.
+
+And then it happened anyway, one level in. `gettempdir()` is the same path
+every time, so the fake home is not a fresh home - it is a home that has been
+accumulating since the first run on the machine. The purse in it went 1000 ->
+0 over **400 ledger entries, 396 of them `clean`**, and after that every test
+that presses Clean got HTTP 402 out of the app's own server. That is not the
+hosted cleaner refusing anything and not a flake; it is the previous run's
+spending, which is the exact thing the paragraph above says must not be able
+to happen. So the purse is emptied at the start of each run rather than
+inherited - but only when WE chose the path. A home somebody pointed at
+deliberately is theirs, and a suite that deletes a wallet it was handed is a
+worse bug than the one it is fixing.
 """
 import os
 import tempfile
+import time
+
+_OURS = "MANGATL_HOME" not in os.environ
+
+# When this worker started, so a test can ask whether anything in the purse is
+# older than the run it is part of. See `test_the_purse_the_suite_spends.py`.
+os.environ.setdefault("MANGATL_TEST_RUN_AT", str(int(time.time())))
 
 os.environ.setdefault("MANGATL_HOME", os.path.join(
     tempfile.gettempdir(),
     "mangatl-test-home-%s" % (os.environ.get("PYTEST_XDIST_WORKER") or "solo")))
+
+if _OURS:
+    try:
+        os.remove(os.path.join(os.environ["MANGATL_HOME"], "wallet.json"))
+    except OSError:
+        pass    # never written, or already gone. Either is a fresh purse.
+
+# ...and the same argument for the KEYS. `userdata.env_key` answers out of a
+# `.env`, and `editor.key_for` puts that answer ABOVE the project's own - so a
+# real `.env` on the machine running the suite would hand a live key to every
+# test that asserts a project has none, and a test asserting a project HAS a
+# particular key would pass for the wrong reason.
+#
+# Pointed at a path inside the same throwaway home rather than at nothing,
+# because "" falls back to `~/.mangatl/.env`, which is the file being avoided.
+# A test that wants a `.env` writes this one.
+os.environ.setdefault("MANGATL_ENV",
+                      os.path.join(os.environ["MANGATL_HOME"], "test.env"))
+for _n in ("MANGATL_ANTHROPIC_KEY", "MANGATL_GEMINI_KEY",
+           "MANGATL_OPENROUTER_KEY", "MANGATL_CLEAN_TOKEN"):
+    os.environ.pop(_n, None)     # the other half: our own names, exported
+
+if _OURS:
+    try:
+        os.remove(os.environ["MANGATL_ENV"])
+    except OSError:
+        pass    # a `.env` a previous run left behind is a key this one keeps
 
 import pytest  # noqa: E402
 

@@ -24,7 +24,7 @@ const w=dom.window;
 setTimeout(()=>{
   try{
     const got=w.arcPlaces(spec.line, 'X', spec.size, spec.lspace, spec.curve,
-                          spec.x, spec.y);
+                          spec.x, spec.y, spec.kind||'arch');
     console.log(JSON.stringify(got.map(p=>[+p.x.toFixed(3), +p.y.toFixed(3),
                                            +p.deg.toFixed(3), p.ch])));
     process.exit(0);

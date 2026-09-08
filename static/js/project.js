@@ -26,8 +26,82 @@ function growSynopsis(){
 }
 
 /* ---------------- project ---------------- */
+/* The number on the pill. `version.py` is the one source; the pill is the
+   one place a person sees it, and a support message that starts "1.0.0"
+   is a message that can be answered. A launcher-started editor also learns
+   here whether a newer version is waiting - it is installed on the next
+   start, so the pill says so and nothing else moves. */
+async function showVersion(){
+  const pill=document.querySelector('.brand .betapill');
+  if(!pill) return;
+  try{
+    const v=await api('/api/version');
+    _support=v.support||_support;
+    pill.textContent=(v.channel?v.channel+' ':'')+v.version;
+    pill.title='MangaTCT '+v.version+(v.channel?' ('+v.channel+')':'');
+    const u=v.update;
+    if(u&&u.available){
+      pill.title+='\n'+(u.state==='ready'
+        ?'Version '+u.available+' is ready and will install the next time you start MangaTCT.'
+        :'Version '+u.available+' is downloading.');
+      pill.classList.add('hasupdate');
+    }
+  }catch(e){}
+}
+
+/* ---------------- help ---------------- */
+let _support={};
+function openGuide(){
+  const u=(_support&&_support.guide)||'https://mangatctproject.web.app/tutorial';
+  window.open(u,'_blank','noopener');
+}
+function _diagLines(d){
+  const L=[];
+  L.push('MangaTCT '+d.version+(d.channel?' ('+d.channel+')':'')+(d.launcher?'  launcher '+d.launcher:''));
+  L.push('Python '+d.python+' on '+d.os);
+  if(d.machine) L.push(d.machine.trim());
+  const c=d.chapter||{};
+  L.push('chapter: '+(c.pages||0)+' pages, '+(c.medium||'?')+' from '+(c.source||'?')
+    +(c.routes&&c.routes.length?', routes '+c.routes.join('+'):'')
+    +(c.ocr?', reader '+c.ocr:''));
+  const m=c.models||{};
+  if(Object.keys(m).length) L.push('models: '+Object.entries(m).map(([k,v])=>k.replace('_model','')+'='+v).join(', '));
+  const k=d.keys_present||{};
+  L.push('keys present: '+Object.entries(k).map(([n,v])=>n+(v?' yes':' no')).join(', '));
+  if(d.log&&d.log.length){ L.push(''); L.push('--- last lines of the log ---'); L.push(...d.log); }
+  else { L.push(''); L.push('(no log file: started by hand, not by the launcher - copy the console window instead)'); }
+  return L.join('\n');
+}
+async function openHelp(){
+  const ta=$('diagText'); if(!ta) return;
+  ta.value='Gathering…';
+  try{
+    const d=await api('/api/diagnostics');
+    _support=d.support||_support;
+    ta.value=_diagLines(d);
+    const e=s=>(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const bits=[];
+    if(_support.discord) bits.push('<a class="btn" target="_blank" rel="noopener" href="'+e(_support.discord)+'">Ask on Discord</a>');
+    if(_support.email){
+      // mailto bodies are short by nature; the first lines are the ones
+      // that matter and the clipboard carries the rest.
+      const body=encodeURIComponent('What I did:\n\nWhat happened:\n\n'+ta.value.slice(0,1500));
+      bits.push('<a class="btn" href="mailto:'+e(_support.email)+'?subject='+encodeURIComponent('MangaTCT '+d.version+' problem')+'&body='+body+'">Email '+e(_support.email)+'</a>');
+    }
+    if(!bits.length) bits.push('<span class="muted">Copy the box and send it where you were told to.</span>');
+    $('helpLinks').innerHTML=bits.join(' &nbsp; ');
+  }catch(err){ ta.value='Could not gather the details: '+(err&&err.message||err); }
+}
+async function copyDiag(){
+  const ta=$('diagText'); if(!ta) return;
+  try{ await navigator.clipboard.writeText(ta.value); $('diagMsg').textContent='Copied.'; }
+  catch(e){ ta.select(); document.execCommand&&document.execCommand('copy'); $('diagMsg').textContent='Copied.'; }
+  setTimeout(()=>{ if($('diagMsg')) $('diagMsg').textContent=''; },2500);
+}
+
 async function loadProject(){
   proj=await api('/api/project');
+  showVersion();
   if($('title')) $('title').value=proj.context.title||'';
   $('synopsis').value=proj.context.synopsis||''; growSynopsis();
   charSheet={...(proj.context.characters||{})};
@@ -59,9 +133,12 @@ async function loadProject(){
                     ? proj.settings.source : _md.source;
   $('target').value=proj.settings.target||'en';
   if($('ocr_engine')) $('ocr_engine').value=proj.settings.ocr_engine||'auto';
-  // `ocr_detail` has no control anywhere any more: the reading is always a
-  // close-up per box. See `ocr.detail_for`.
+  // `ocr_detail` is four tabs again - see `syncDetailCards`. It was taken
+  // off the screen when the close-up per box won every accuracy score, and
+  // came back when the ledger showed what a close-up costs: one picture per
+  // BOX rather than one per page. See `ocr.DETAILS` and `coins.pictures`.
   syncReaderCards();
+  syncDetailCards();
   $('direction').value=(proj.settings.direction && proj.settings.direction!=='auto')
                        ? proj.settings.direction : _md.direction;
   // The detector menu, the "Text model path" and the two wrapper divs are
@@ -77,6 +154,16 @@ async function loadProject(){
   syncRoutes();
   // On unless it was turned off. Both boxes, the one in Settings and the one
   // on the File tab, are this same setting.
+  // Default OFF, and read as such: `!==false` would turn it on for every
+  // project.json written before it existed. See the note on `DEFAULT_ON`.
+  if($('retype_kinds'))
+    $('retype_kinds').checked = proj.settings.retype_kinds === true;
+  // Read text also saying what KIND each box is. Default OFF and read the same
+  // way, for the same reason: `!==false` would switch it on for every
+  // project.json written before it existed - and this one spends a request a
+  // page. lee: *"also make it off by defualt"*.
+  if($('label_kinds'))
+    $('label_kinds').checked = proj.settings.label_kinds === true;
   const recut=(proj.settings.restitch_strips!==false);
   if($('restitch_strips')) $('restitch_strips').checked=recut;
   if($('restitch_new')) $('restitch_new').checked=recut;
@@ -126,10 +213,23 @@ async function loadProject(){
   // in it means there is one and nothing has to be retyped to keep it.
   SERVICES.forEach(s=>{
     const el=$('key_'+s);
-    if(el) el.placeholder=proj.settings['key_'+s]==='set'?'(saved)':'not set';
+    if(!el) return;
+    const st=proj.settings['key_'+s];
+    // Three states, not two. "env" is not a saved key, it is the answer
+    // coming from somewhere this box cannot reach: `editor.key_for` reads the
+    // .env FIRST, so anything typed here would be saved and then ignored, and
+    // a box that says "(saved)" about a value nothing uses is worse than no
+    // box at all.
+    el.placeholder = st==='env' ? 'from your .env file'
+      : st==='set' ? '(saved)' : 'not set';
+    el.disabled = st==='env';
   });
-  if($('ai_clean')){
-    $('ai_clean').value=proj.settings.ai_clean||'off';
+  renderEnvKeys();
+  // Keyed on the URL box and not on a method menu, because there is no method
+  // menu: cleaning is the AI cleaner. `saveSettings` posts `clean_url`
+  // whenever that box exists, so a box nothing fills in is a box that saves an
+  // empty string over a real endpoint.
+  if($('clean_url')){
     $('clean_url').value=proj.settings.clean_url||'';
     // "(saved)" for anything non-empty is what hid this for a week: the
     // CHANGE-ME example out of the deploy file is non-empty, so a token that
@@ -137,10 +237,16 @@ async function loadProject(){
     // 401 to every single call. The placeholder state says so, in the field.
     const ts=proj.settings.clean_token;
     const tf=$('clean_token');
-    tf.placeholder = ts==='set' ? '(saved)'
+    tf.placeholder = ts==='env' ? 'from your .env file'
+      : ts==='set' ? '(saved)'
       : ts==='placeholder' ? 'still the CHANGE-ME example - paste your real token'
       : 'the token from your deploy file';
+    // Not `bad` when the file is answering: the CHANGE-ME example may well
+    // still be sitting in this chapter's project.json, and it is not the
+    // token being sent, so lighting the box red about it points at the wrong
+    // string entirely.
     tf.classList.toggle('bad', ts==='placeholder');
+    tf.disabled = ts==='env';
     toggleAiCfg();
   }
   renderPages();
@@ -253,8 +359,14 @@ function renderPages(){
       : `<button class="addbtn" onclick="addFiles()">+ Add pages</button>`) +
     `<button class="addbtn selbtn" onclick="selectAllPages(${allSel?'false':'true'})">
        ${allSel?'Deselect all':`Select all (${selCount}/${all})`}</button>` +
+    // `tall` is the red bar down the left of the row - a page Find text will
+    // get wrong before it gets it right. See `isTallPage` in pipeline.js,
+    // which is the one place that decides which pages those are; `typeof`
+    // because this file is parsed on screens where that one is not loaded.
     proj.pages.map(p=>`
-      <div class="pg ${p.index===cur?'on':''} ${selPages.has(p.name)?'sel':''}" draggable="true"
+      <div class="pg ${p.index===cur?'on':''} ${selPages.has(p.name)?'sel':''}${
+             (typeof isTallPage==='function' && isTallPage(p))?' tall':''
+           }" draggable="true"
            data-i="${p.index}"
            onclick="showPage(${p.index})"
            oncontextmenu="pgMenu(event,${p.index});return false"
@@ -268,7 +380,9 @@ function renderPages(){
                onclick="event.stopPropagation();togglePageSel(${p.index})"
                title="Tick to include in ‘do all’">
         ${pageDots(p)}
-        <span class="nm" title="${p.name}">${p.name}</span>
+        <span class="nm" title="${p.name}${
+          (typeof tallWhy==='function' && tallWhy(p))
+            ? ' — ' + tallWhy(p) : ''}">${p.name}</span>
         <span class="ct">${p.regions||''}</span>
         <span class="rm" title="Remove from editor"
               onclick="event.stopPropagation();removePage(${p.index})">&times;</span>
@@ -583,20 +697,127 @@ let FONTS=[];
 let RECENT_FONTS=[];
 /* Paths of the faces this person uploaded - the only ones with a remove. */
 let UPLOADED_FONTS=[];
-/* One answer, three lists. Every font endpoint returns all three so nothing
+/* {kind: path} - the face each kind gets when nothing has been chosen for it.
+   The last link of the chain, worked out by the server, because the table it
+   comes from is `typeset.DEFAULT_FONTS` and the file it names has to exist on
+   this machine. See `editor.shipped_kind_fonts`. */
+let KIND_DEFAULTS={};
+/* {path: cap-height / point size} and the reference the server scales to.
+   A POINT IS NOT A SIZE: Anton's capitals are 0.86 of its point size and Nanum
+   Pen Script's are 0.56, so "30pt" in one is a third taller than in the other.
+   `typeset.px_for` divides that out on the server and `emPx` does the same
+   here, or the preview and the page disagree about every block.
+   lee: *"teh typesetter shoud make both visulay the sam size not teh sma
+   efont number"*. */
+let FONT_CAPS={}, CAP_REF=0.69;
+/* {css family name: the file it was loaded from}. `typesetting.fontFam` invents
+   a name per face (`mlp0`, `mlp1`, ...) and hands that name to every measuring
+   and drawing site, so this is how a family gets back to the path whose cap
+   height the server measured. Written there, read here. */
+let FAM_PATH={};
+/* How tall this face's capitals are, as a fraction of the point size - the
+   browser's half of `typeset.cap_ratio`. Out-of-range or unmeasured means
+   DON'T SCALE THIS ONE, which is what `CAP_REF` returns. */
+function capFor(path){
+  const r=+FONT_CAPS[path];
+  return (r>=0.30 && r<=1.20) ? r : CAP_REF;
+}
+/* ...the same for a CSS family name, whichever of the two kinds it is.
+   `ml-<kind>` is the face a kind falls back to, and WHICH file that is
+   depends on the project's settings, so it is resolved live rather than
+   remembered - changing the bubble font has to change this answer. */
+function capOfFam(fam){
+  if(!fam) return CAP_REF;
+  const name=String(fam).split(',')[0].trim().replace(/^['"]|['"]$/g,'');
+  if(name.slice(0,3)==='ml-'){
+    const p=(typeof fontPathFor==='function')?fontPathFor(name.slice(3)):'';
+    return capFor(p);
+  }
+  return capFor(FAM_PATH[name]||'');
+}
+/* The pixel size to ASK a face for so its capitals come out the height the
+   nominal size promises - the browser's copy of `typeset.px_for`.
+
+   Only the FONT SIZE goes through here. Line pitch does not: the server sets
+   `line_h = size * leading` on the nominal size, so a converted leading would
+   put the browser's lines somewhere the page's lines are not. */
+function emPx(size, fam){
+  const s=+size;
+  // NaN fails `s>0`; Infinity passes it, and a size box is a text field.
+  if(!(s>0) || !isFinite(s)) return 1;
+  return Math.min(4000, s*CAP_REF/capOfFam(fam));
+}
+/* [[group, [[character, name], ...]], ...] - the marks that can go in a line.
+   Characters only; the pictures come from /marksample, because the shapes are
+   in `marks.py` and a copy of them here is the mistake `DEFAULT_FONTS`
+   already taught. */
+let MARK_LIB=[];
+/* True when the SERVER is older than this page.
+
+   The app is a long-running Python process and these files are static. Copying
+   a new version over the top replaces the pages the browser loads and leaves
+   the process running the code it started with, so the two can be different
+   builds until somebody restarts it.
+
+   lee sent a screenshot of Box types with "Project default" on all twelve
+   rows. That was this: his server predated `shipped_kind_fonts`, the answer
+   arrived with no `defaults` in it, and the panel had nothing to name a face
+   from - so it printed the one thing it says when it does not know, twelve
+   times, and looked like an answer.
+
+   Asked as "is the key THERE", not "is it empty". An empty answer is a server
+   that looked and found nothing; a missing key is a server that was never
+   asked the question. */
+let SERVER_STALE=false;
+/* One answer, four lists. Every font endpoint returns all of them so nothing
    can be redrawn from a half-updated picture. */
 function takeFonts(f){
   FONTS=f.fonts||[];
   RECENT_FONTS=f.recent||[];
   UPLOADED_FONTS=f.uploaded||[];
+  KIND_DEFAULTS=f.defaults||{};
+  FONT_CAPS=f.caps||{};
+  if(+f.cap_ref>0) CAP_REF=+f.cap_ref;
+  MARK_LIB=f.marks||[];
+  SERVER_STALE=!(f && Object.prototype.hasOwnProperty.call(f,'defaults'));
   if(typeof rebuildFontSelects==='function') rebuildFontSelects();
   if(typeof renderUploadedFonts==='function') renderUploadedFonts();
+  if(typeof renderCustomKinds==='function') renderCustomKinds();
+}
+/* Is this a face that can actually be typeset with - a path naming a file that
+   is on this machine right now?
+
+   The question the panel was never asking. A saved setting is just a string,
+   and lee's chapters carry `...\fonts\AnimeAce.ttf` on nine box types: a font
+   this app is no longer allowed to ship, whose file is gone. `font_for` on the
+   server skips a step whose file cannot be opened, and until now the browser
+   did not - so the panel printed the dead name and the page came out in
+   something else. */
+/* Two font paths that name the same file.
+
+   `===` was the whole of this and it is not enough. Windows paths are
+   case-insensitive and mix separators, so the same file reaches the browser
+   spelled two ways depending on which server call built the string - and the
+   panel comparing them exactly is how twelve rows came to read "Project
+   default" on lee's machine while working perfectly on Linux.
+
+   The server-side cause is fixed (see `find_fonts`), and this stays anyway:
+   the browser cannot know what filesystem it is looking at, and one honest
+   comparison here is cheaper than trusting every path-building site in the
+   app to agree forever. */
+function samePath(a,b){
+  if(!a || !b) return false;
+  const norm=s=>String(s).replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+  return norm(a)===norm(b);
+}
+function fontUsable(path){
+  return !!path && (FONTS||[]).some(f=>samePath(f.path,path));
 }
 /* The pickers show comic / manga typesetting fonts only (plus everything in
    the project's fonts/ folder). A font already chosen somewhere always stays
    listed, whatever it is. */
 function fontChoices(sel){
-  const L=(FONTS||[]).filter(f=>f.comic||f.bundled||f.path===sel);
+  const L=(FONTS||[]).filter(f=>f.comic||f.bundled||samePath(f.path,sel));
   return L.length ? L : (FONTS||[]);       // nothing comic installed? show all
 }
 /* Each font option carries the family on the option (so the custom dropdown
@@ -607,7 +828,7 @@ function _fesc(s){return String(s==null?'':s)
 function fontOptionHTML(f, sel){
   // No browser font-loading here - the preview is a server-rendered image
   // (see fontRowInner), so the option only needs its value and name.
-  return `<option value="${_fesc(f.path)}"${f.path===sel?' selected':''} `+
+  return `<option value="${_fesc(f.path)}"${samePath(f.path,sel)?' selected':''} `+
          `data-name="${_fesc(f.name)}">${_fesc(f.name)}</option>`;
 }
 function fontOptions(sel){
@@ -659,7 +880,7 @@ function fontWidget(sel){
    load. */
 function fontOptionList(list, cur){
   const recent=(RECENT_FONTS||[])
-    .map(p=>list.find(f=>f.path===p)).filter(Boolean);
+    .map(p=>list.find(f=>samePath(f.path,p))).filter(Boolean);
   const seen=new Set(recent.map(f=>f.path));
   const rest=list.filter(f=>!seen.has(f.path));
   if(!recent.length) return rest.map(f=>fontOptionHTML(f,cur)).join('');
@@ -683,10 +904,6 @@ function enhanceFontSelects(){
   document.querySelectorAll('select.fontsel').forEach(fontWidget);
 }
 let _fwTimer=null;
-function refreshFontWidgets(){
-  clearTimeout(_fwTimer);
-  _fwTimer=setTimeout(enhanceFontSelects, 60);
-}
 /* The inspector rebuilds its HTML on every render (region panel, typesetting
    panel, …). Whenever it does, wrap any font <select> that appeared - this
    covers the per-bubble font picker without threading a call through every
@@ -719,19 +936,40 @@ function rebuildFontSelects(){
 }
 function fontName(kind){
   const path=fontPathFor(kind);
-  const hit=FONTS.find(f=>f.path===path);
+  const hit=FONTS.find(f=>samePath(f.path,path));
   return hit?hit.name:(path.split(/[\\/]/).pop()||'default');
 }
-/* Which face a kind of box actually typesets in, following the same chain the
-   server does: the sub-type's own font, then its family's, then the project
-   default. */
+/* Which face a kind of box actually typesets in.
+
+   The SAME chain the server walks in `typeset.font_for`, and it has to stay
+   the same chain or this panel is a picture of something else. Two things were
+   missing and lee's screenshot showed both.
+
+   It stopped at the project's own font. Past that the server has
+   `DEFAULT_FONTS` - a face per kind, so sound effects come out in Bangers and
+   a whisper in Comic Neue Regular - and the browser had never heard of it, so
+   the three family rows fell through to the first entry in the font list and
+   printed `ComicNeue-Bold` as though somebody had chosen it.
+
+   And it took a saved path at its word. `font_for` SKIPS a step whose file
+   cannot be opened; this returned it. lee's chapters name
+   `...\fonts\AnimeAce.ttf` on nine box types - a font this app may no longer
+   ship, gone from his disk - so nine rows named a face the page would never
+   come out in.
+
+   `fontUsable` is the skip, `KIND_DEFAULTS` is the tail. */
 function fontPathFor(kind){
   const st=(proj&&proj.settings)||{};
   const per=st.fonts||{};
   const sub=((st.custom_kinds)||[]).find(k=>k&&k.key===kind);
-  if(sub && sub.font) return sub.font;
   const fam=(typeof familyOf==='function') ? familyOf(kind) : 'bubble';
-  return per[fam] || per[kind] || st.font || '';
+  const chain=[sub&&sub.font, per[kind], fam!==kind?per[fam]:null, st.font,
+               KIND_DEFAULTS[kind], KIND_DEFAULTS[fam]];
+  for(const p of chain) if(fontUsable(p)) return p;
+  // Nothing on the list is real. Better to name the last thing that was asked
+  // for than to name nothing - the row then says what the setting SAYS, and a
+  // person who has just deleted a font can see why it is not being used.
+  return (sub&&sub.font)||per[kind]||per[fam]||st.font||'';
 }
 /* The name of the face a box would typeset in if nothing were chosen for it.
 
@@ -774,8 +1012,9 @@ async function testCleaner(){
   out.className = 'help ' + (r.ok?'good':'warnbad');
 }
 function toggleAiCfg(){
-  const c=$('aicfg'); if(!c) return;
-  c.style.display=($('ai_clean').value==='off')?'none':'block';
+  // Always shown. It used to be hidden until the method menu said otherwise;
+  // there is no method menu and this is the cleaner's own setup.
+  const c=$('aicfg'); if(c) c.style.display='block';
 }
 /* Which picker each refused font came from, in words. */
 const FONT_SLOT={default:'speech bubbles', freefloat:'free-floating text',
@@ -812,7 +1051,11 @@ async function saveSettings(){
     direction:$('direction').value,
     // Carried through untouched: neither is edited here, and leaving them
     // out of the sheet would save the project with them missing.
-    ocr_detail:'',
+    // The reading detail is CARRIED, not read off a control: `pickDetail`
+    // has already written it, and a save that reads the screen instead would
+    // blank it on every other save - which is the exact bug the "Model file"
+    // box had. See `syncDetailCards`.
+    ocr_detail: proj.settings.ocr_detail || '',
     ocr_reader:(proj.settings.ocr_reader||'ai'),
     // `detector` is not read off a menu any more -- there is one detector and
     // the routes are the choice. It is still SENT, because `_detect_measured`
@@ -828,12 +1071,19 @@ async function saveSettings(){
     // here is how a selection would be wiped on the next save of any other
     // setting -- `$('animetext')` is null now, and `null ? ... : false` is
     // false, every time.
-    two_specialists:(currentRoute()==='two_specialists'),
-    manga_segmenter:(currentRoute()==='manga_segmenter'),
-    animetext:(currentRoute()==='animetext'),
+    webtoon_ko:routeFlag('webtoon_ko'),
+    webtoon_zh:routeFlag('webtoon_zh'),
+    two_specialists:routeFlag('two_specialists'),
+    manga_segmenter:routeFlag('manga_segmenter'),
+    animetext:routeFlag('animetext'),
     kind_from_text:!!proj.settings.kind_from_text,
     // Either box. The Settings page may not have been built yet - the File
     // tab is where a new chapter starts - so the one that exists speaks.
+    ...($('retype_kinds') ? {retype_kinds:$('retype_kinds').checked} : {}),
+    // Same shape, same reason: OMITTED when the box does not exist, so saving
+    // from a screen that has not been built cannot write an off - or an on -
+    // that nobody asked for.
+    ...($('label_kinds') ? {label_kinds:$('label_kinds').checked} : {}),
     restitch_strips:($('restitch_strips') ? $('restitch_strips').checked
                      : ($('restitch_new') ? $('restitch_new').checked : true)),
     strip_tall:(+($('strip_tall')||{}).value||3.5),
@@ -844,7 +1094,10 @@ async function saveSettings(){
       // not have been built yet. Only send what is really there.
       const el=$(k); if(el) o[k]=el.checked; return o;
     },{}),
-    ai_clean:($('ai_clean')?$('ai_clean').value:'off'),
+    // No menu writes this any more and every path that reads it still works,
+    // so it is stated here once: the AI cleaner, on the whole page.
+    ai_clean:'all',
+    clean_model:(proj.settings.clean_model||'anime-lama'),
     clean_url:($('clean_url')?$('clean_url').value:''),
     ...['ocr','translate','proofread'].reduce((o,k)=>{
       const v=id=>($(k+'_'+id)?$(k+'_'+id).value:'');
@@ -1050,13 +1303,6 @@ function updGlossNote(k,note){
   glossSheet[k]=glossValue(glossName(glossSheet[k]||k), note);
   renderGlossList(); saveSettings();
 }
-function updGloss(n,d){ glossSheet[n]=d.trim(); renderGlossList(); saveSettings(); }
-function renameGloss(oldName,newName){
-  newName=newName.trim();
-  if(!newName||newName===oldName){ renderGlossList(); return; }
-  glossSheet[newName]=glossSheet[oldName]; delete glossSheet[oldName];
-  renderGlossList(); saveSettings();
-}
 function delGloss(n){ delete glossSheet[n]; renderGlossList(); saveSettings(); }
 
 /* ---- the model box suggests what the key can actually use ----
@@ -1187,13 +1433,21 @@ function drawModels(step, names, priced){
   // A model with no maker in its name sits under every maker: it is the
   // direct service's own id and hiding it behind a filter it does not answer
   // to would make it unreachable.
+  // THE MAKER'S OWN TIER, ON THE ROW. lee: *"every chois that the use can
+  // make like teh ai , reader, detector shoud get one of those ratings"*.
+  //
+  // A menu row cannot carry a coloured chip or a tooltip of its own, so the
+  // word goes in the text and the explanation goes on the label above the
+  // menu - see `RATE_WORDS`. It is read off the NAME and says so there: it is
+  // a published fact about the model, not a measurement of this app's work.
+  const tier = m => '  · ' + rateOfModel(m);
   const shown = names.filter(m => !only || !vendorOf(m) || vendorOf(m) === only);
   for(const m of shown)
-    add(m, m + (priced && !priced.has(m) ? '  - not priced' : ''));
+    add(m, m + tier(m) + (priced && !priced.has(m) ? '  - not priced' : ''));
   // A model that is already set but not in the list - a local one, or an
   // entry a provider has retired since. It stays selectable, because taking
   // somebody's setting away without asking is worse than an odd-looking menu.
-  if(have && !shown.includes(have)) add(have, have + '  - as set');
+  if(have && !shown.includes(have)) add(have, have + tier(have) + '  - as set');
   // Nothing set and nothing offered - a provider that answered with an empty
   // list, or a key that has not been typed yet. Say so in the one place the
   // person is looking, rather than showing an empty menu they will click at.
@@ -1237,7 +1491,23 @@ const STORY_SWITCHES = ['story', 'learn_characters', 'learn_terms',
    before the setting existed is not switched off by `!!undefined`; and it is
    OMITTED from the save when its box does not exist, so saving from a screen
    that has not been built yet does not write an off nobody asked for. */
-const DEFAULT_ON = ['drop_symbol_only'];
+/* `label_kinds` - Read text saying what KIND each box is - was on this list
+   for about an hour. lee: *"also make it off by defualt"*. It is a plain
+   `.checked` switch now, which is what a default-OFF setting wants: an old
+   project with no key at all reads `!!undefined` and comes back off, which is
+   the answer. `editor.labels_boxes` asks it the same way. */
+/* `drop_empty` and `drop_read_twice` are here because they were RUNNING with
+   nowhere to turn them off. Both switches came off the settings page and the
+   passes behind them stayed - `editor.do_ocr` still reads both keys, both
+   still default on - so Read text went on deleting boxes with no way to stop
+   it. It cost a box: three readers over one chapter, and the one that gave up
+   on page 005 deleted a box that plainly reads 슈, permanently, for everybody
+   who read the chapter after it. A pass that removes somebody's work needs a
+   tick, and it needs the tick whether or not the pass is usually right. */
+/* ...and it stays on ONE line: `test_the_writing_no_mask_covered` reads this
+   list by taking the text up to the first newline, so wrapping it silently
+   hides everything after the wrap from that check. */
+const DEFAULT_ON = ['drop_symbol_only', 'drop_empty', 'drop_read_twice', 'clean_reread', 'keep_honorifics'];
 const ON_SWITCHES = [...STORY_SWITCHES, ...DEFAULT_ON];
 
 /* The two reader cards: which is lit, what the offline one is called in this
@@ -1264,12 +1534,121 @@ function syncReaderCards(){
       + 'the wrong box, but it invents dialogue when handed a painted sound.'
     : 'One box at a time. A general reader rather than a comics one, so '
       + 'stylised typesetting costs it more - but nothing leaves the machine.';
+  // The word, and it is a JUDGEMENT rather than a count - nobody has scored
+  // the two readers against each other on a chapter. The argument for it is
+  // the sentence already on the card, which is why the tooltip points at it
+  // instead of quoting a number that does not exist.
+  const rate = (c, word, tip) => {
+    const slot = c.querySelector('.rating');
+    if(!slot) return;
+    slot.innerHTML = '';
+    slot.appendChild(rate3(word, tip));
+  };
+  const ai = box.querySelector('.card[data-reader="ai"]');
+  const off = box.querySelector('.card[data-reader="offline"]');
+  if(ai) rate(ai, 'Great',
+    'A judgement, not a count. It reads each box with the rest of the page '
+    + 'behind it and it is the only one that reads painted sounds.');
+  if(off) rate(off, ja ? 'Good' : 'Fair', ja
+    ? 'A judgement, not a count. Level with the AI on dialogue; it invents '
+      + 'dialogue when handed a painted sound, and it sees one box at a time.'
+    : 'A judgement, not a count. A general reader rather than a comics one, '
+      + 'so stylised typesetting costs it more - and it sees one box at a '
+      + 'time. Nothing leaves the machine, which is the reason to pick it.');
 }
+
+/* WHICH ERASER: nothing to sync and nothing to pick - `editor.clean_model`
+   names the measured one. Two cards stood here, from when there was a choice
+   worth making; lee: *"...ad only ai and the card make this the deaflau
+   clenner"*. Why it was ever a list of two and not seven is in editor.html. */
 
 function pickReader(which){
   proj.settings.ocr_reader = which;
   syncReaderCards();
+  // ...and the detail row with it: only the AI reader is shown a page, so
+  // the question does not exist for the other one.
+  syncDetailCards();
   saveSettings();
+}
+
+/* HOW MUCH OF THE PAGE THE READER LOOKS AT, and what each answer costs.
+
+   Four tabs, cheapest first, drawn from `DETAIL_MODES` - which is the
+   browser's copy of `ocr.DETAILS` and carries the same four keys. lee:
+   *"bring back teh 1, 4 and 9 cut and make them tabs instad of drop down"*.
+
+   The price on each card is the thing that brought the choice back. A read
+   sends one picture per PIECE, except zoomed, which sends one per BOX - so a
+   ten-box page reads at ten pictures instead of one, and the difference on a
+   chapter is four times the bill. `coins.pictures` is where that arithmetic
+   lives; this only shows it. */
+const DETAIL_MODES = [
+  ['page',  'Whole page', '1 picture a page',
+   'The cheapest read there is, and the least able to make out small '
+   + 'vertical type.'],
+  ['auto',  '4 pieces', '4 pictures a page',
+   'Quartered, so each piece arrives near its own resolution.'],
+  ['high',  '9 pieces', '9 pictures a page',
+   'Finer still. Scored no better than 4 pieces and costs over twice as '
+   + 'much.'],
+  ['boxes', 'Zoomed per box', 'one picture a box',
+   'A close-up of every box - 96% of the dialogue agreed against 83% for '
+   + 'the cut-up page, and nothing filed under the wrong box. The dearest '
+   + 'by a long way.'],
+];
+
+function pickDetail(which){
+  proj.settings.ocr_detail = which;
+  syncDetailCards();
+  saveSettings();
+}
+
+function syncDetailCards(){
+  const box = $('detailCards');
+  if(!box) return;
+  // Only the AI reader is shown a page at all - the offline reader takes one
+  // box at a time and there is nothing to choose.
+  const ai = (proj.settings.ocr_reader || 'ai') === 'ai';
+  const lbl = $('detailLbl');
+  box.style.display = ai ? '' : 'none';
+  if(lbl) lbl.style.display = ai ? '' : 'none';
+  if(!ai) return;
+  const now = proj.settings.ocr_detail || 'boxes';
+  box.innerHTML = DETAIL_MODES.map(([k, name, cost, why]) =>
+    `<button type="button" class="card${k === now ? ' on' : ''}"` +
+    ` data-detail="${k}" onclick="pickDetail('${k}')">` +
+    `<b>${esc(name)}</b><i>${esc(cost)}</i>` +
+    `<span>${esc(why)}</span></button>`).join('');
+  syncZoomOnly(now);
+}
+
+/* The switches that only mean anything on a close-up.
+
+   Reading the page in pieces MISFILES text - 16 boxes of 225 at four pieces,
+   20 at nine, measured against manga-ocr on lee's chapter 3 - because the
+   model has to match what it read to a number drawn on the page. A close-up
+   has one box in it and nothing to match.
+
+   So a rule that changes a box's TYPE from the words read for it is only as
+   good as the filing, and on the cut-up modes it is not good enough to act
+   on. It greys out rather than disappearing: the setting keeps its value,
+   and picking zoomed again finds it where it was. lee: *"if teh user clcik
+   on 1,4,or 9 sissble teh settings that only works with zoomed in boxes"*. */
+function syncZoomOnly(detail){
+  const zoomed = (detail || 'boxes') === 'boxes';
+  ['retype_kinds'].forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    el.disabled = !zoomed;
+    const row = el.closest('label');
+    if(row){
+      row.classList.toggle('offx', !zoomed);
+      row.title = zoomed ? ''
+        : 'Only on a close-up per box. Read in pieces, a line can be filed '
+          + 'under the wrong box, and this changes a box\'s type from the '
+          + 'words filed under it.';
+    }
+  });
 }
 
 /* With no story kept there is nothing for the AI to fill in, so the three
@@ -1309,6 +1688,40 @@ function modelsStale(step){
    menu, halfway through a chapter. */
 const SERVICES = ['anthropic', 'gemini', 'openrouter'];
 const SERVICES_STEPS = ['ocr', 'translate', 'proofread'];
+
+/* The four secrets and what to CALL them on screen. `clean` is the odd one -
+   it is not an AI service and has its own box further down the settings - but
+   it lives in the same file for the same reason, so it is listed here.
+   lee: *"all the key i need to put ius claude gemini open router and
+   clenner"*. */
+const ENV_KEYS = [['anthropic','Claude'], ['gemini','Gemini'],
+                  ['openrouter','OpenRouter'], ['clean','Cleaner']];
+
+function renderEnvKeys(){
+  const box=$('envKeys');
+  if(!box) return;
+  const have=proj.env_keys||{};
+  const path=proj.env_path||'';
+  const e=s=>(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+  // Named one by one rather than as "3 of 4 keys found". A count tells you
+  // something is missing and not WHICH, and the whole point of this line is
+  // that a step failing at the provider should be explainable from the
+  // screen without opening the file.
+  const bits=ENV_KEYS.map(([k,label])=>
+    `<span class="envk ${have[k]?'on':'off'}">${e(label)} ${have[k]?'✓':'—'}</span>`);
+  box.innerHTML =
+    'Keys are read from <code>' + e(path) + '</code>, once for every chapter: '
+    + bits.join(' &nbsp; ')
+    + '<br>One <code>NAME=value</code> a line — <code>MANGATL_ANTHROPIC_KEY</code>, '
+    + '<code>MANGATL_GEMINI_KEY</code>, <code>MANGATL_OPENROUTER_KEY</code>, '
+    + '<code>MANGATL_CLEAN_TOKEN</code>. '
+    + 'The usual names work too (<code>ANTHROPIC_API_KEY</code>, '
+    + '<code>GEMINI_API_KEY</code>, <code>OPENROUTER_API_KEY</code>). '
+    + 'A <code>.env</code> beside the app itself is read as well, but this one '
+    + 'is the one to keep them in — copying a new build over the top cannot '
+    + 'take it away. '
+    + 'Save the file and reload this page.';
+}
 
 /* ------------------------------------------------- the AI company, per step
    lee: *"for te ai ... i just wan the ai compay and teh ai model"*, then
@@ -1353,6 +1766,35 @@ function syncCompany(step){
     co.appendChild(o);
   }
   co.value = now;
+
+  /* READ TEXT ONLY OFFERS MAKERS THAT CAN LOOK AT A PAGE.
+
+     lee, at this menu offering DeepSeek: *"for thsi only visin caplabel
+     models hsoud show up"*. Reading text off a page hands the model a
+     picture, so a maker with nothing that can be shown one has no model to
+     offer here at all - picking it lands on "No models - check the key for
+     this service", which reads as a broken key rather than as a maker that
+     does not do this job. Translate and proofread are text jobs and keep the
+     whole list.
+
+     WHICH makers those are comes from the server - `coins.blind_makers`,
+     read off the same `NO_SIGHT` that already filters the model menu. A list
+     written down here would be a menu still offering DeepSeek the day that
+     one changes.
+
+     Hidden AND disabled: `hidden` alone leaves the row reachable from the
+     keyboard in some browsers, and an option nobody can see is not a choice
+     anybody meant to make. The one it is actually SET to is never hidden -
+     taking a step's own maker off its menu is the "no model chosen" bug
+     above, arriving from the other side. */
+  const blind = step === 'ocr'
+    ? ((typeof proj !== 'undefined' && proj && proj.blind_makers) || []) : [];
+  for(const o of co.options){
+    const hide = blind.includes(o.value) && o.value !== now;
+    o.hidden = hide;
+    o.disabled = hide;
+    o.style.display = hide ? 'none' : '';   // `[hidden]` is only a UA rule
+  }
 }
 
 async function pickCompany(step){
@@ -1477,19 +1919,71 @@ function renderUploadedFonts(){
    A card whose weights are not on this machine is DISABLED rather than
    hidden, with the reason under the group. Hiding was right when each was a
    lone tick nobody could act on; here the cards beside it say what the
-   download would buy, so the missing one is worth showing greyed. */
-const ROUTES = ['two_specialists', 'manga_segmenter', 'animetext'];
+   download would buy, so the missing one is worth showing greyed.
 
+   WHICH FORMAT EACH WAS MEASURED ON, which is not a detail. lee: *"we to
+   find and use detector that are good for manwa and mnahua not the same ones
+   at teh manga"*. Every route but one was swept on Japanese manga fragments
+   and is guarded to them server-side (`Project.TWO_MEDIA`); the two webtoon
+   models are guarded the other way (`STRIP_MEDIA`). A card offered on a
+   format its route will refuse to run on is a card that silently does
+   nothing, so the list below is the same set of guards said once more, on
+   this side, where the buttons are.
+
+   It lives here rather than on the buttons because `currentRoute` is asked
+   with no settings page built - the File tab is where a chapter starts - and
+   an answer that depends on markup that may not exist is an answer that is
+   sometimes wrong. */
+const ROUTE_MEDIA = {
+  '':                ['manga', 'manhwa', 'manhua'],
+  webtoon_ko:        ['manhwa', 'manhua'],
+  webtoon_zh:        ['manhwa', 'manhua'],
+  two_specialists:   ['manga'],
+  manga_segmenter:   ['manga'],
+  animetext:         ['manga', 'manhwa', 'manhua'],
+};
+const ROUTES = ['webtoon_ko', 'webtoon_zh', 'two_specialists',
+                'manga_segmenter', 'animetext'];
+
+function routeMedium(){
+  return (typeof proj !== 'undefined' && proj && proj.settings
+          && proj.settings.medium) || 'manga';
+}
+
+/* Is this card on screen for the format being worked on? */
+function routeHere(name){
+  const on = ROUTE_MEDIA[name || ''];
+  return !on || on.indexOf(routeMedium()) >= 0;
+}
+
+/* THE PICKED ROUTE, OR THE FALLBACK, and a route this format does not offer
+   counts as the fallback. `webtoon_ko` ships ON - it is the default a manhwa
+   or a manhua should have, and there is no per-format defaults table to put
+   it in - so on a manga the flag is set and the route is guarded off, and
+   this is what stops the settings page lighting up a card that is not on it
+   and cannot run. The server reaches the same answer by the same route:
+   `webtoon_ko()` asks `why_not_webtoon_ko` asks the medium. */
 function currentRoute(){
   if(typeof proj === 'undefined' || !proj || !proj.settings) return '';
-  for(const k of ROUTES) if(proj.settings[k]) return k;
+  for(const k of ROUTES) if(proj.settings[k] && routeHere(k)) return k;
   return '';
+}
+
+/* What to SEND for one route key. A route this format does not offer is
+   passed through untouched rather than turned off: it is the other format's
+   answer, and a save on this screen is not a decision about that one. Turning
+   them off here is how picking Manga109 on a manga would quietly take the
+   webtoon default off a manhwa - the same project, switched over, with no
+   card lit and comic-text-detector running. */
+function routeFlag(k){
+  return routeHere(k) ? (currentRoute() === k)
+                      : !!(proj && proj.settings && proj.settings[k]);
 }
 
 function pickRoute(name){
   const st = (typeof proj !== 'undefined' && proj) ? proj[name] : null;
   if(name && (!st || !st.ready)) return;
-  for(const k of ROUTES) proj.settings[k] = (k === name);
+  for(const k of ROUTES) if(routeHere(k)) proj.settings[k] = (k === name);
   syncRoutes();
   saveSettings();
   /* AND THE CHECKPOINTS START LOADING NOW.
@@ -1504,13 +1998,23 @@ function pickRoute(name){
 
 function syncRoutes(){
   const wrap = $('routeCards'); if(!wrap) return;
-  const manga = (typeof proj !== 'undefined' && proj && proj.settings
-                 && proj.settings.medium === 'manga');
-  if(!manga){ wrap.style.display = 'none'; return; }
+  /* The group used to be hidden outright on anything but a manga, because
+     every route in it had been measured on manga alone and offering one on a
+     manhwa would have been offering a number nobody had counted. Two of them
+     were counted on a webtoon since, so the group is on for every format now
+     and the CARDS are what come and go. */
   wrap.style.display = '';
   const now = currentRoute();
   wrap.querySelectorAll('.card').forEach(function(c){
     const name = c.getAttribute('data-route');
+    const here = routeHere(name);
+    /* `style.display`, NOT the `hidden` attribute. `hidden` is a UA rule -
+       `[hidden]{display:none}` - and `.cards .card{display:flex}` is a class
+       selector, so the stylesheet wins and every card stays on screen. It
+       showed as all six cards at once on a manhwa, with the two that need
+       panels sitting there greyed and blank. */
+    c.style.display = here ? '' : 'none';
+    if(!here){ c.classList.remove('on'); return; }
     const st = name ? ((typeof proj !== 'undefined' && proj) ? proj[name] : null)
                     : {ready: true};
     const ready = !!(st && st.ready);
@@ -1542,6 +2046,104 @@ function syncRoutes(){
   rateRoutes();
 }
 
+/* ------------------------------ FAIR, GOOD, GREAT ------------------------
+
+   lee: *"remove teh blue bar and the number and create a new ratting system,
+   fair, good and great and every chois that the use can make like teh ai ,
+   reader, detector shoud get one of those ratings"*, and *"fair beigng the
+   worst and great being teh best"*.
+
+   THREE WORDS BECAUSE THE FOURTH DIGIT WAS A LIE. The detector cards carried a
+   bar and a percentage - 92, 96, 96, 95 - and a bar invites the comparison the
+   numbers cannot carry: the whole spread between best and worst is a third of
+   a mistake per page. A word says the size of the difference honestly.
+
+   AND BECAUSE ONLY ONE CHOICE HAD ONE. The reader and the model are choices
+   too, and they had nothing at all beside them, which reads as "nobody has an
+   opinion about this" rather than "nobody has counted this". They are not the
+   same kind of answer, so each word carries where it came from in its own
+   tooltip, and the three sources are told apart on purpose:
+
+   * the DETECTOR is counted - 226 hand-checked sites, missed and stray.
+   * the READER is a judgement, and its argument is the sentence already on
+     the card.
+   * the MODEL is read off the maker's OWN tier in its name. `lite`, `mini`
+     and `haiku` are what the makers call their small models and `opus` and
+     `pro` what they call their large ones; that is a published fact about the
+     model and not a measurement of anything this app does, and the tooltip
+     says exactly that.
+
+   A rating whose formula is a secret is a rating nobody can argue with, which
+   is the opposite of useful - so none of these three is a secret. */
+const RATE_WORDS = ['Fair', 'Good', 'Great'];
+
+/* How many places on a WEBTOON somebody has to translate, hand-checked the
+   same way the 226 manga ones were: every balloon and every caption on the 22
+   tiles of lee's own Korean chapter, counted off the four routes' boxes drawn
+   on the page.
+
+    route                 missed  junk  s/page
+    comic-text-detector        1     2     2.8
+    Webtoon balloons KO        1     0     2.8
+    Webtoon balloons ZH        5     1     2.8
+    AnimeText YOLO12-L         1     3     4.7
+
+   PAINTED SOUND EFFECTS ARE NOT IN IT, and that is the one thing to know
+   about this number. There were nine on the chapter; AnimeText found six,
+   comic-text-detector five, and the webtoon models none at all on their own.
+   Folding nine into thirty-three would have rated all four Fair and hidden
+   the difference that actually decides the card, so they are counted apart
+   and said out loud in the tooltip instead.
+
+   The webtoon routes borrow those boxes now - see `FILL` in detect/webtoon.py
+   - which is why their seconds went up and their miss count did not: what
+   they gained is a family this count never included. */
+const WEBTOON_SITES = 33;
+
+/* The chip, from a word and its reason. One place, so the three surfaces
+   cannot drift into three shapes. */
+function rate3(word, why){
+  const w = RATE_WORDS.includes(word) ? word : 'Good';
+  const s = document.createElement('b');
+  s.className = 'rate3 ' + w.toLowerCase();
+  s.textContent = w;
+  if(why) s.title = why;
+  return s;
+}
+
+/* A COUNTED score, out of 100. The thresholds are absolute rather than
+   relative to the best card on screen: a rating that moves when a new model
+   is added is a rating that told you something about the list rather than
+   about the thing. */
+function rateOfScore(pct){
+  return pct >= 95 ? 'Great' : pct >= 85 ? 'Good' : 'Fair';
+}
+
+/* THE MAKER'S OWN TIER, read off the name.
+
+   WORDS, NOT SUBSTRINGS. The first go matched `mini` anywhere in the id and
+   rated every Gemini model on earth Fair, because `gemini` has `mini` in it.
+   So the id is cut into words on anything that is not a letter or a digit and
+   the tier is a whole word among them - which also gets `claude-haiku-4-5`
+   and `anthropic/claude-haiku-4.5` to the same answer, and they are the same
+   model.
+
+   The small end is asked first, so `gemini-3.5-flash-lite` is caught by
+   `lite` and never reaches the middle. A name with no tier word in it -
+   `deepseek-chat`, somebody's local build - is called Good, which is the
+   honest answer for "no opinion" and not a compliment; the tooltip says the
+   name carries no tier. */
+const RATE_SMALL = ['lite', 'mini', 'nano', 'small', 'tiny', 'haiku'];
+const RATE_BIG = ['opus', 'fable', 'pro', 'max', 'ultra'];
+
+function rateOfModel(id){
+  const w = String(id || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // ...and a parameter count is a tier too: `llama-3-8b` is the small one.
+  if(w.some(t => RATE_SMALL.includes(t) || /^\d+b$/.test(t))) return 'Fair';
+  if(w.some(t => RATE_BIG.includes(t))) return 'Great';
+  return 'Good';
+}
+
 /* WHAT EACH CARD COSTS AND HOW GOOD IT IS.
 
    lee: *"also add time estimation and a quality rattoing on each box"*.
@@ -1560,11 +2162,22 @@ function rateRoutes(){
   const wrap = $('routeCards'); if(!wrap) return;
   const pages = (typeof proj !== 'undefined' && proj && proj.pages)
                  ? proj.pages.length : 0;
+  /* WHICH COUNT, which depends on what is being translated. The 226 sites
+     are 23 pages of Japanese manga; a webtoon was counted separately, on
+     lee's own Korean chapter, and the two answers are different enough that
+     showing either on the other format would be a made-up number. A card
+     shown on both carries both sets and picks here. */
+  const strip = ROUTE_MEDIA.webtoon_ko.indexOf(routeMedium()) >= 0;
+  const SITES = strip ? WEBTOON_SITES : 226;
   wrap.querySelectorAll('.card').forEach(function(c){
-    const sec = parseFloat(c.getAttribute('data-sec') || '0');
-    const missed = parseInt(c.getAttribute('data-missed') || '0', 10);
-    const junk = parseInt(c.getAttribute('data-junk') || '0', 10);
-    const score = Math.round(100 * (226 - missed - junk) / 226);
+    const g = k => c.getAttribute((strip ? 'data-w' : 'data-') + k);
+    // A card the format does not offer has no count for it either, and
+    // `syncRoutes` has already taken it off the screen.
+    if(g('missed') === null || g('missed') === '') return;
+    const sec = parseFloat(g('sec') || '0');
+    const missed = parseInt(g('missed') || '0', 10);
+    const junk = parseInt(g('junk') || '0', 10);
+    const score = Math.round(100 * (SITES - missed - junk) / SITES);
     const secs = sec * (pages || 0);
     const time = !pages ? sec.toFixed(1) + 's a page'
       : (secs < 90 ? Math.round(secs) + 's'
@@ -1572,15 +2185,20 @@ function rateRoutes(){
         + ' for ' + pages + ' page' + (pages === 1 ? '' : 's');
     const est = c.querySelector('.est');
     if(est) est.textContent = time;
-    const rate = c.querySelector('.rate');
-    if(rate){
-      rate.innerHTML = '<u style="width:' + score + '%"></u>';
-      rate.title = score + '/100 - ' + (226 - missed - junk)
-                 + ' of 226 hand-checked sites right: ' + missed
-                 + ' missed, ' + junk + ' stray.';
+    const slot = c.querySelector('.rating');
+    if(slot){
+      slot.innerHTML = '';
+      slot.appendChild(rate3(rateOfScore(score),
+        'Counted, not guessed: ' + (SITES - missed - junk)
+        + ' of ' + SITES + ' hand-checked '
+        + (strip ? 'balloons and captions on a Korean chapter'
+                 : 'sites on 23 pages of manga')
+        + ' right - ' + missed + ' missed, ' + junk + ' stray. '
+        + (strip ? 'Painted sound effects are counted apart: 6 on those '
+                 + 'pages, and no route on colour art finds them all. ' : '')
+        + 'Great is 95 in a hundred or better, '
+        + 'Good is 85, Fair is under that.'));
     }
-    const num = c.querySelector('.score');
-    if(num) num.textContent = score;
   });
 }
 

@@ -26,6 +26,16 @@ from http.server import ThreadingHTTPServer
 from mangatl import coins
 from where import PKG
 
+# The Claude these arithmetic tests price on. Sonnet 4 and not Sonnet 5,
+# since task #125: the 5 line thinks unasked - Anthropic: *"On Claude Opus 5,
+# Claude Sonnet 5 ... thinking is already on and needs no configuration"* -
+# and a test about the PAYLOAD half of a price wants a model whose output is
+# only the reply. Sonnet 4 is off the menu (`RETIRED`) but it is still priced,
+# at exactly Sonnet 5's rate, so every number these tests were written
+# against stays the number; it marks its cache like the rest of the family;
+# and it thinks only when asked, which nothing here does.
+PLAIN_CLAUDE = "claude-sonnet-4"
+
 
 @pytest.fixture(autouse=True)
 def purse(tmp_path, monkeypatch):
@@ -35,6 +45,29 @@ def purse(tmp_path, monkeypatch):
 
 
 # ------------------------------------------------------ a hundred to the dollar
+
+# The two things `usd_page` works out for itself, written once here so the
+# tests below can check the arithmetic without each repeating it - and
+# repeating it slightly differently.
+#
+# `sys_in` is COUNTED off the real prompt now rather than read out of the
+# shape (see `coins.sys_tokens`), and the reply has a source-character term as
+# well as a per-box one (see `Shape.per_src_char_out`). A test that still
+# reaches for `sh.sys_in` is testing the fallback, not the price.
+
+
+def _sys(step):
+    return coins.sys_tokens(step)
+
+
+def _reply(step, boxes, src=None):
+    sh = coins.SHAPES[step]
+    if src is None:
+        src = coins.SRC_CHARS_PER_BOX * boxes
+    # Exact, like `usd_page` - it does not round tokens, and a test that did
+    # would land a fraction of a token either side of the price it checks.
+    return sh.fixed_out + sh.per_box_out * boxes + sh.per_src_char_out * src
+
 
 def test_a_dollar_is_a_hundred_coins():
     """lee: *"$1 is 100 coins"*. Doubled, so a dollar of real cost is 200."""
@@ -122,13 +155,13 @@ def test_a_model_you_run_yourself_is_free():
     """Their own electricity, their own hardware, nothing bought from anyone."""
     for back in ("ollama", "llamacpp", "lmstudio"):
         assert coins.quote_page("translate", 9, "qwen2.5:14b", back) == 0
-    assert coins.quote_page("translate", 9, "claude-sonnet-5", "anthropic") > 0
+    assert coins.quote_page("translate", 9, PLAIN_CLAUDE, "anthropic") > 0
 
 
 def test_a_cached_prompt_is_priced_as_a_cached_prompt():
     """`translate.py` marks the system prompt for the cache on every page, so
     pricing it at full input rate charges for tokens nobody was billed for."""
-    r = coins.rate_for("claude-sonnet-5")
+    r = coins.rate_for(PLAIN_CLAUDE)
     assert r.cache_read == pytest.approx(r.inp * 0.10)
     assert r.usd(cached=1_000_000) == pytest.approx(r.inp / 10)
     assert r.usd(cached=1_000_000) < r.usd(tin=1_000_000)
@@ -149,8 +182,8 @@ def test_a_chapter_of_two_box_pages_costs_less_than_one_of_six_box_pages():
     actually buys, the difference is the whole difference.
     """
     for step in ("ocr", "translate", "proofread"):
-        two = coins.quote(step, [2] * 23, "claude-sonnet-5")
-        six = coins.quote(step, [6] * 23, "claude-sonnet-5")
+        two = coins.quote(step, [2] * 23, PLAIN_CLAUDE)
+        six = coins.quote(step, [6] * 23, PLAIN_CLAUDE)
         assert six > two, (step, two, six)
 
 
@@ -158,7 +191,7 @@ def test_every_extra_box_costs_the_same_as_the_last_one():
     """Not merely "more is dearer" - the price RISES WITH the boxes, evenly,
     because a box is a fixed lump of payload and a fixed lump of reply. A step
     that charged, say, the square of the count would pass the test above."""
-    q = [coins.quote("translate", [n] * 23, "claude-sonnet-5")
+    q = [coins.quote("translate", [n] * 23, PLAIN_CLAUDE)
          for n in range(1, 9)]
     steps = [b - a for a, b in zip(q, q[1:])]
     assert min(steps) > 0
@@ -197,7 +230,15 @@ def test_the_chapter_goes_with_every_page_of_a_translation():
                          chapter_boxes=0)
     big = coins.usd_page("translate", 9, "gemini-3.6-flash",
                          chapter_boxes=217)
-    assert big > one * 1.3, (one, big)
+    # The difference is exactly the context, at the input rate - checked
+    # against the shape rather than against a ratio, because a ratio moves
+    # whenever anything ELSE on the page is repriced and then says nothing
+    # about the term it was written to guard. It sat at 1.3 and the counted
+    # prompt took it to 1.29.
+    sh = coins.SHAPES["translate"]
+    r = coins.rate_for("gemini-3.6-flash")
+    assert big - one == pytest.approx(r.usd(tin=sh.chapter_in * 217)), (one, big)
+    assert sh.chapter_in > 0
     # ...and it is the CHAPTER that makes it dearer, not this page.
     assert coins.usd_page("translate", 9, "gemini-3.6-flash", chapter_boxes=900) \
         > big
@@ -207,28 +248,60 @@ def test_the_chapter_goes_with_every_page_of_a_translation():
             coins.usd_page(step, 9, "gemini-3.6-flash", chapter_boxes=900), step
 
 
-def test_translating_lees_chapter_costs_what_his_invoice_says():
-    """The one real number this whole file is calibrated against.
+def test_lees_invoice_is_the_read_and_the_translation_together():
+    """The one real number this file is calibrated against - and what it is
+    actually a number FOR.
 
-    23 pages, 213 boxes, Gemini 3.6 Flash, read off Google's own billing page:
-    **75,400 input and 44,870 output**, which at $1.50 and $7.50 the million is
-    **$0.4496**.
+    lee: *"before i had $0.502 of money spent and then i did the translation
+    and now i have $1.032, so it cost $0.508 to translate the chapter"*. 23
+    pages, 213 boxes, Gemini 3.6 Flash, read off Google's own billing page:
+    75,400 input and 44,870 output, **$0.4496**.
 
-    It is quoted with NO context, because that is what a full-chapter run
-    sends: every page is being translated, so there is nothing to be consistent
-    with that is not already in the run. Quoting it the whole chapter's boxes
-    anyway - which is what `max(boxes, chapter_boxes)` did - put about a
-    hundred thousand imaginary input tokens on this bill.
+    It was read as the price of TRANSLATING, and it is not. A balance on a
+    billing page is a delta over a window, and it catches every call in that
+    window - including the READ, which is the dearest step there is because it
+    sends the page as a picture. Fitting the translate step alone to it put
+    the read's image tokens into the translator's output, which is where the
+    1,689-tokens-a-page "thinking" figure came from and why it was nine times
+    what per-call metering later measured.
+
+    Read the way it was really produced - the read at one picture a page,
+    which is what the reader did then, plus the translation - it comes back at
+    1.2%, with nothing fitted to it:
+
+        ocr(page) 35 coins + translate 56 = 91 = $0.4550 against $0.4496
+
+    That is the whole of the arithmetic in this file agreeing with a real
+    invoice: rates, cache, image tokens, thinking per box, and the markup.
     """
     pages = [213 // 23] * 23
     pages[0] += 213 - sum(pages)
-    got = coins.quote("translate", pages, "gemini-3.6-flash", "", 0)
-    assumed = got / coins.COINS_PER_DOLLAR / coins.MARKUP
-    # Within a twelfth of the real invoice. Wider than that and the estimate
-    # is not calibrated, it is merely in the right decade - and since the
-    # estimate IS the price, being out by a quarter means charging a quarter
-    # too much or eating a quarter of the cost.
-    assert abs(assumed - 0.4496) <= 0.4496 / 12, (got, assumed)
+    read = coins.quote("ocr", pages, "gemini-3.6-flash", "", 0, None, (),
+                       "page")
+    tr = coins.quote("translate", pages, "gemini-3.6-flash", "", 0)
+    assumed = (read + tr) / coins.COINS_PER_DOLLAR / coins.MARKUP
+    assert abs(assumed - 0.4496) <= 0.4496 / 12, (read, tr, assumed)
+    # ...and reading it ZOOMED really is the dearer thing, which is the fact
+    # that brought the choice back onto the settings screen.
+    zoomed = coins.quote("ocr", pages, "gemini-3.6-flash", "", 0, None, (),
+                         "boxes")
+    assert zoomed > read * 3, (read, zoomed)
+
+
+def test_and_the_prompt_has_grown_since_that_invoice():
+    """The reason the test above has to hold the prompt still.
+
+    `sys_in` is not read for a price any more - `sys_tokens` counts the real
+    prompt - and this is what that fixed: the number in the table is less than
+    half of what `build_system` really comes to. Measured, not asserted at a
+    constant, so it keeps being true as the prompt keeps being edited.
+    """
+    counted = coins.sys_tokens("translate")
+    assert counted > coins.SHAPES["translate"].sys_in * 1.5, counted
+    # ...and it is over the cache floor, which is the other thing this number
+    # decides. Under it the prompt is never marked for the cache and is paid
+    # for in full on every page of a chapter.
+    assert counted > coins.CACHE_MIN_TOKENS
 
 
 def test_three_quarters_of_that_bill_was_the_model_thinking():
@@ -243,7 +316,7 @@ def test_three_quarters_of_that_bill_was_the_model_thinking():
     sh = coins.SHAPES["translate"]
     pages = [213 // 23] * 23
     pages[0] += 213 - sum(pages)
-    reply = sum(sh.per_box_out * n + sh.fixed_out for n in pages)
+    reply = sum(_reply("translate", n) for n in pages)
     reasoning = sh.think_out * len(pages)
     assert abs(reply + reasoning - 44_870) <= 44_870 / 12
     # ...and the reasoning really is the bulk of it.
@@ -266,19 +339,19 @@ def test_a_box_costs_what_a_box_puts_in_the_payload():
     that is not nine boxes long.
     """
     sh = coins.SHAPES["translate"]
-    r = coins.rate_for("claude-sonnet-5")
+    r = coins.rate_for(PLAIN_CLAUDE)
     for n in (1, 4, 11):
         # No context asked for is no context charged for. Nought means nought.
         want = r.usd(tin=sh.fixed_in + sh.per_box_in * n,
-                     cached=sh.sys_in,
-                     tout=sh.fixed_out + sh.per_box_out * n)
-        assert coins.usd_page("translate", n, "claude-sonnet-5") == want, n
+                     cached=_sys("translate"),
+                     tout=_reply("translate", n))
+        assert coins.usd_page("translate", n, PLAIN_CLAUDE) == want, n
         # ...and context, when there IS some, is charged for what was sent and
         # not for the page it was sent with.
         with_ctx = r.usd(tin=sh.fixed_in + sh.per_box_in * n + sh.chapter_in * 60,
-                         cached=sh.sys_in,
-                         tout=sh.fixed_out + sh.per_box_out * n)
-        assert coins.usd_page("translate", n, "claude-sonnet-5",
+                         cached=_sys("translate"),
+                         tout=_reply("translate", n))
+        assert coins.usd_page("translate", n, PLAIN_CLAUDE,
                               chapter_boxes=60) == with_ctx, n
     # ...and the two halves really are both in there.
     assert sh.per_box_in > 0 and sh.per_box_out > 0
@@ -288,15 +361,15 @@ def test_a_page_with_no_text_box_costs_nothing():
     """A splash page has nothing to send. Not a special case bolted on - it is
     what the arithmetic says, and a chapter is full of them."""
     for step in ("ocr", "translate", "proofread"):
-        assert coins.quote_page(step, 0, "claude-sonnet-5") == 0
+        assert coins.quote_page(step, 0, PLAIN_CLAUDE) == 0
 
 
 def test_a_whole_run_is_its_pages_added_up():
     """Added up as REAL cost and rounded at the end - the pages are what vary,
     the rounding happens once."""
     pages = (2, 6, 0, 9)
-    got = coins.quote("translate", pages, "claude-sonnet-5")
-    real = sum(coins.usd_page("translate", n, "claude-sonnet-5", "", sum(pages))
+    got = coins.quote("translate", pages, PLAIN_CLAUDE)
+    real = sum(coins.usd_page("translate", n, PLAIN_CLAUDE, "", sum(pages))
                for n in pages)
     assert got == coins.coins_for_usd(real) > 0
 
@@ -438,31 +511,31 @@ def test_a_reply_whose_usage_blows_up_still_does_not_raise():
             raise RuntimeError("provider changed the shape of this")
 
     assert coins.usage_of(Landmine()) == (0, 0, 0, 0)
-    assert coins.meter(Landmine(), "claude-sonnet-5") == 0
+    assert coins.meter(Landmine(), PLAIN_CLAUDE) == 0
 
 
 def test_what_is_charged_is_what_the_page_really_used():
     """The quote is an estimate; the charge is the tokens the provider
     reported. Metered here at exactly the shape the estimate assumes, so the
     two agree - which is the check that the estimate is honest."""
-    sh, r = coins.SHAPES["translate"], coins.rate_for("claude-sonnet-5")
+    sh, r = coins.SHAPES["translate"], coins.rate_for(PLAIN_CLAUDE)
     tin = sh.fixed_in + (sh.per_box_in + sh.chapter_in) * 9
-    tout = sh.per_box_out * 9
-    with coins.charging("translate", "003.png", "claude-sonnet-5") as bill:
-        coins.record(tin, tout, cached=sh.sys_in)
-    assert bill.coins == coins.quote_page("translate", 9, "claude-sonnet-5")
+    tout = int(round(_reply("translate", 9)))
+    with coins.charging("translate", "003.png", PLAIN_CLAUDE) as bill:
+        coins.record(tin, tout, cached=_sys("translate"))
+    assert bill.coins == coins.quote_page("translate", 9, PLAIN_CLAUDE)
     assert (bill.tin, bill.tout, bill.cached, bill.calls) == \
-        (tin, tout, sh.sys_in, 1)
+        (tin, tout, _sys("translate"), 1)
 
 
 def test_two_calls_on_one_page_are_one_bill():
     """A page read in four tiles is four calls and one charge."""
-    with coins.charging("ocr", "003.png", "claude-sonnet-5") as bill:
+    with coins.charging("ocr", "003.png", PLAIN_CLAUDE) as bill:
         for _ in range(4):
             coins.record(600, 40)
     assert bill.calls == 4
     assert bill.coins == coins.coins_for_usd(
-        coins.rate_for("claude-sonnet-5").usd(tin=2400, tout=160))
+        coins.rate_for(PLAIN_CLAUDE).usd(tin=2400, tout=160))
 
 
 def test_a_call_with_nothing_metering_is_not_charged_to_anybody():
@@ -474,9 +547,9 @@ def test_a_call_with_nothing_metering_is_not_charged_to_anybody():
 
 
 def test_a_nested_bill_does_not_charge_the_outer_one_twice():
-    with coins.charging("translate", "a.png", "claude-sonnet-5") as outer:
+    with coins.charging("translate", "a.png", PLAIN_CLAUDE) as outer:
         coins.record(100, 10)
-        with coins.charging("ocr", "a.png", "claude-sonnet-5") as inner:
+        with coins.charging("ocr", "a.png", PLAIN_CLAUDE) as inner:
             coins.record(100, 10)
         assert inner.coins > 0
         coins.record(100, 10)
@@ -516,7 +589,7 @@ def test_a_chapter_costs_about_what_it_really_costs():
     land near it. An order of magnitude out in either direction is a decimal
     point in a rate, and this is what catches it."""
     pages = [9] * 23
-    total = sum(coins.quote(s, pages, "claude-sonnet-5")
+    total = sum(coins.quote(s, pages, PLAIN_CLAUDE)
                 for s in ("ocr", "translate", "proofread"))
     total += coins.quote("clean", pages)
     usd = total / coins.COINS_PER_DOLLAR
@@ -551,7 +624,7 @@ def _box(k):
     return r
 
 
-def _project(tmp_path, boxes, model="claude-sonnet-5"):
+def _project(tmp_path, boxes, model=PLAIN_CLAUDE):
     """A chapter of pages with the given box counts."""
     import numpy as np
     cv2 = pytest.importorskip("cv2")
@@ -602,8 +675,14 @@ def test_the_editor_prices_a_run_off_the_boxes_on_its_pages(tmp_path):
     # ...and the whole chapter is its pages' real cost, rounded once - with no
     # context, because a run that is translating every page has nothing to be
     # consistent with that is not already in it.
+    # ...priced with the same two things `run_price` hands `coins.quote`: the
+    # SOURCE TEXT on each page (a one-character box does not come back the
+    # size of a real one) and the settings the system prompt is built from.
+    boxes = [2] * 12 + [6] * 12
+    srcs = [editor.page_src_chars(mixed, i) for i in range(24)]
     assert editor.quote_run(mixed, "translate", list(range(24))) == coins.quote(
-        "translate", [2] * 12 + [6] * 12, "claude-sonnet-5", "", 0)
+        "translate", boxes, PLAIN_CLAUDE, "", 0, srcs,
+        editor.prompt_key(mixed))
 
 
 def test_a_page_costs_what_the_chapter_around_it_costs_to_read(tmp_path):
@@ -652,14 +731,42 @@ def test_a_full_chapter_run_is_charged_no_context_because_it_sends_none(tmp_path
     whole = list(range(12))
     assert editor.run_context(p, whole) is None
     assert editor.context_boxes(p, "translate", whole) == 0
+    # Priced with the page's own source text and prompt settings - the two
+    # things `run_price` knows and a bare call to `quote` has to be told.
+    srcs = [editor.page_src_chars(p, i) for i in whole]
+    key = editor.prompt_key(p)
     assert editor.quote_run(p, "translate", whole) == coins.quote(
-        "translate", [9] * 12, "claude-sonnet-5", "anthropic", 0)
+        "translate", [9] * 12, PLAIN_CLAUDE, "anthropic", 0, srcs, key)
     # ...and a subset of the same chapter really does pay for its context, or
     # this test would pass on a price that had dropped the term entirely.
+    # A single page is priced off its REAL strings now (task #117), and the
+    # chapter context is IN those strings - so the check is made against the
+    # same counted arithmetic with the context stripped out of the payload,
+    # not against the shape. The tiny fixture rounds both into the same coin
+    # unless the pages carry real amounts of text, so they are fattened
+    # first.
+    for pg in p.pages:
+        for r in pg.regions:
+            r["src_text"] = (r.get("src_text") or "x") * 40
     part = [4]
     assert editor.context_boxes(p, "translate", part) > 0
-    assert editor.quote_run(p, "translate", part) > coins.quote(
-        "translate", [9], "claude-sonnet-5", "anthropic", 0)
+    with_ctx = editor._counted_page_price(
+        p, "translate", 4, 9, editor.page_src_chars(p, 4),
+        PLAIN_CLAUDE, "anthropic")
+    import json as _json
+    from mangatl import translate as T
+    page = p.materialize(4)
+    bare = T.build_payload(page, p.ctx, None)
+    user = (_json.dumps(bare, ensure_ascii=False, indent=1)
+            + "\n\n" + T.SCHEMA_HINT)
+    system = T.build_system(p.ctx.medium, p.ctx.target,
+                            getattr(p.ctx, "source", ""),
+                            getattr(p.ctx, "honorifics", True))
+    without = coins.quote_counted("translate", system, user, 9,
+                                  editor.page_src_chars(p, 4),
+                                  PLAIN_CLAUDE, "anthropic")
+    assert with_ctx > without, \
+        "the counted single-page price does not carry the chapter it sends"
 
 
 def test_only_translation_pays_for_context(tmp_path):
@@ -700,18 +807,23 @@ def test_the_free_steps_cost_nothing_in_the_editor_either(tmp_path):
         assert editor.quote_run(p, step, [0, 1]) == 0
         assert p.ctx.model == "left-exactly-as-it-was", step
     assert editor.quote_run(p, "translate", [0, 1]) > 0
-    assert p.ctx.model == "claude-sonnet-5"     # the step's own, from _project
+    assert p.ctx.model == PLAIN_CLAUDE     # the step's own, from _project
 
 
-def test_the_price_leaves_the_purse_when_the_run_starts(tmp_path):
+def test_the_hold_leaves_the_purse_when_the_run_starts(tmp_path):
     """lee: *"make teh edit remove the coins when the person click teh
-    button"*. The number on the button is the number that goes, at the moment
-    it is pressed - not a total that assembles itself over the next four
-    minutes while the count drifts down and nobody knows where it will land."""
+    button"* - and, later, the revamp he asked for: *"i want to get a very
+    good extimate"*. What leaves at the press is now the HOLD - the quote
+    plus its measured headroom (`coins.hold`, 1.25x) - so the run can never
+    outrun its own purse. What is kept at the end is the METER: the settle
+    puts the difference back, so an estimate can be wrong in either
+    direction without anyone being overcharged. Task #115/#116."""
     from mangatl import editor
     p = _project(tmp_path, [9] * 8)
     price = editor.quote_run(p, "translate", list(range(8)))
     assert price > 0
+    reserve = coins.hold(price)
+    assert reserve > price, "the hold carries no headroom"
     start = coins.balance()
     seen = []
 
@@ -722,9 +834,17 @@ def test_the_price_leaves_the_purse_when_the_run_starts(tmp_path):
 
     editor._run_one(p, {"label": "Translating", "indices": list(range(8)),
                         "fn": fn, "step": "translate"})
-    assert seen[0] == start - price
-    assert coins.balance() == start - price
-    assert p.job["spent"] == price
+    assert seen[0] == start - reserve, "the press takes the quote, not the hold"
+    metered = next(e for e in coins.ledger()
+                   if e["kind"] == "meter")["coins"]
+    final = min(metered, reserve)
+    assert coins.balance() == start - final, \
+        "the settle did not put the unused hold back"
+    assert p.job["spent"] == final
+    give = next((e for e in coins.ledger() if e["kind"] == "credit"), None)
+    if reserve > final:
+        assert give and give["coins"] == reserve - final
+        assert "settle" in give["what"]
 
 
 def test_cancelling_gives_back_the_pages_it_never_reached(tmp_path):
@@ -744,32 +864,45 @@ def test_cancelling_gives_back_the_pages_it_never_reached(tmp_path):
                         "fn": fn, "step": "translate"})
     assert p.job["cancelled"] is True
     assert p.job["done"] == 4
-    # Priced with the RUN's context - none, since the run was the whole chapter
-    # - and not with the context a fresh six-page run would send. The charge
-    # and the refund have to be worked out against the same number or they do
-    # not add back up, and the difference is silent.
-    back = coins.quote("translate", [9] * 6, "claude-sonnet-5", "anthropic", 0)
-    assert back > 0
-    assert coins.balance() == start - price + back
-    assert p.job["spent"] == price - back
+    # The settle needs no arithmetic about the unrun pages any more: calls
+    # that never happened were never metered, so their share of the hold
+    # comes back by construction. What the invariant is about is that the
+    # money adds up: what went out, what came back, and what the purse says.
+    reserve = coins.hold(price)
+    metered = next(e for e in coins.ledger()
+                   if e["kind"] == "meter")["coins"]
+    final = min(metered, reserve)
     back_line = next(e for e in coins.ledger() if e["kind"] == "credit")
-    assert "refund" in back_line["what"] and "6 pages" in back_line["what"]
-    assert back_line["coins"] == back
+    back = int(back_line["coins"])
+    assert back == reserve - final > 0
+    assert coins.balance() == start - final
+    assert p.job["spent"] == final
+    assert "settle" in back_line["what"]
+    assert "6 pages not run" in back_line["what"]
+    assert final < price, \
+        "four pages of ten metered at the whole run's price"
 
 
-def test_a_run_that_finishes_gives_nothing_back(tmp_path):
-    """It did all of it. A refund here would be the app paying people to use
-    it."""
+def test_a_finished_run_pays_its_meter_and_no_more(tmp_path):
+    """The old rule was "a finished run gives nothing back - the quote is the
+    price". The revamp lee asked for retires it: the meter is the price now,
+    the quote (plus headroom) is only what is HELD, and a finished run
+    settles down to what its calls really cost - capped at the hold, because
+    the settle never takes a second helping."""
     from mangatl import editor
     p = _project(tmp_path, [9] * 5)
     price = editor.quote_run(p, "translate", list(range(5)))
+    reserve = coins.hold(price)
     start = coins.balance()
     editor._run_one(p, {"label": "Translating", "indices": list(range(5)),
                         "fn": lambda i: coins.record(909, 252, cached=2010),
                         "step": "translate"})
-    assert coins.balance() == start - price
-    assert not [e for e in coins.ledger()
-                if e["kind"] == "credit" and "refund" in e["what"]]
+    metered = next(e for e in coins.ledger()
+                   if e["kind"] == "meter")["coins"]
+    final = min(metered, reserve)
+    assert coins.balance() == start - final
+    assert p.job["spent"] == final
+    assert final <= reserve
 
 
 def test_a_run_that_fell_over_gives_back_what_it_never_reached(tmp_path):
@@ -789,8 +922,14 @@ def test_a_run_that_fell_over_gives_back_what_it_never_reached(tmp_path):
                         "fn": blow_up, "step": "translate"})
     assert "hung up" in p.job["error"]
     assert p.job["done"] == 2
-    back = coins.quote("translate", [9] * 8, "claude-sonnet-5", "anthropic", 0)
-    assert coins.balance() == start - price + back > start - price
+    # The page that blew up had already bought its tokens before it fell
+    # over, so the meter honestly carries THREE pages of calls against two
+    # pages done - and the settle keeps the metered cost, not the done count.
+    reserve = coins.hold(price)
+    metered = next(e for e in coins.ledger()
+                   if e["kind"] == "meter")["coins"]
+    final = min(metered, reserve)
+    assert coins.balance() == start - final > start - reserve
 
 
 def test_a_run_nobody_can_pay_for_never_starts(tmp_path):
@@ -832,29 +971,31 @@ def test_the_endpoint_refuses_a_run_it_cannot_pay_for(tmp_path):
 
 
 def test_what_it_really_cost_is_recorded_beside_what_was_charged(tmp_path):
-    """Nobody is billed on it. The quote is the price and a promise kept is
-    worth more than a few coins either way - but a quote drifting away from
-    the truth is a thing to know about, and this is where it would show."""
+    """The meter line is the evidence the estimate learns from - and since
+    the settle, it is also the bill: `charged` on it is what the run finally
+    cost after the hold came back."""
     from mangatl import editor
     p = _project(tmp_path, [9] * 6)
-    sh, r = coins.SHAPES["translate"], coins.rate_for("claude-sonnet-5")
+    sh, r = coins.SHAPES["translate"], coins.rate_for(PLAIN_CLAUDE)
     # What a page of a FULL-chapter run really sends: no context, because
     # every page is in the run. The meter and the quote are fed the same
     # numbers, so a difference here is the estimate drifting and nothing else.
     tin = sh.fixed_in + sh.per_box_in * 9
-    tout = sh.per_box_out * 9
+    tout = int(round(_reply("translate", 9)))
     editor._run_one(p, {"label": "Translating", "indices": list(range(6)),
                         "fn": lambda i: coins.record(tin, tout,
-                                                     cached=sh.sys_in),
+                                                     cached=_sys("translate")),
                         "step": "translate"})
     assert p.job["cost"] > 0
     assert p.job["cost"] == editor.quote_run(p, "translate", list(range(6)))
-    # A ledger line that moves no money, beside the one that took the price.
-    top, paid = coins.ledger()[0], coins.ledger()[1]
-    assert top["kind"] == "meter" and paid["kind"] == "spend"
+    top = next(e for e in coins.ledger() if e["kind"] == "meter")
+    held = next(e for e in coins.ledger() if e["kind"] == "spend")
     assert (top["tin"], top["calls"]) == (tin * 6, 6)
-    assert top["coins"] == p.job["cost"] and top["charged"] == paid["coins"]
-    assert coins.balance() == coins.WELCOME - paid["coins"]
+    assert top["coins"] == p.job["cost"]
+    # the meter line says what was finally CHARGED and what was HELD
+    assert top["charged"] == p.job["spent"]
+    assert top["held"] == held["coins"] == coins.hold(top["quoted"])
+    assert coins.balance() == coins.WELCOME - p.job["spent"]
 
 
 def test_a_free_step_is_not_charged_and_records_nothing(tmp_path):
@@ -1045,7 +1186,7 @@ def test_the_purse_opens_and_says_what_the_chapter_costs(tmp_path):
             assert label in txt, label
         assert "8 text boxes" in txt          # 2 + 6, and it says which
         # The total is the four steps added up, off the same per-page prices.
-        assert str(sum(coins.quote(s, [2, 6], "claude-sonnet-5")
+        assert str(sum(coins.quote(s, [2, 6], PLAIN_CLAUDE)
                        for s in ("ocr", "translate", "proofread", "clean"))) \
             in txt
     _browser(check, p)
@@ -1532,23 +1673,72 @@ def test_a_thinking_model_is_priced_for_its_thinking(tmp_path):
     output bill was reasoning; a quote without it is a quote at a fifth."""
     with_ = coins.usd_page("translate", 9, "gemini-3.6-flash")
     sh, r = coins.SHAPES["translate"], coins.rate_for("gemini-3.6-flash")
-    without = r.usd(tin=sh.fixed_in + sh.per_box_in * 9 + sh.sys_in,
-                    tout=sh.per_box_out * 9)
-    # The difference is the reasoning, at the output rate, once per page.
-    assert with_ - without == pytest.approx(r.usd(tout=sh.think_out))
-    # ...and it is the bigger half of the page, not a rounding on it.
-    assert with_ > 2.5 * without, (without, with_)
+    without = r.usd(tin=sh.fixed_in + sh.per_box_in * 9 + _sys("translate"),
+                    tout=_reply("translate", 9))
+    # The difference is the reasoning, at the output rate - PER BOX, which is
+    # the shape the meter says it has. Flat per page fitted two runs on two
+    # model versions to 133 and 37 and agreed about nothing; per box they are
+    # 15 and 19. See `coins.THINK_PER_BOX`.
+    assert with_ - without == pytest.approx(
+        r.usd(tout=coins.think_tokens(sh, "gemini-3.6-flash", "", 9)))
+    # ...and it is a real term rather than a rounding: pricing it at nothing,
+    # which is the bug this guards, would make these two equal.
+    #
+    # It is NOT "the bigger half of the page" any more, and that claim is what
+    # this assertion used to make. It came from reading lee's billing-page
+    # delta as the translator's output when most of it was the READ's picture
+    # tokens - see the invoice test above. Metered per call, a 3.7 Flash page
+    # returns 440 output tokens all in, and the reasoning is about 15 a box.
+    assert with_ > without, (without, with_)
+    # ...and it grows with the BOXES, because a model reasons about the lines
+    # it was given. Flat per page is the shape this replaced.
+    thin = coins.usd_page("translate", 2, "gemini-3.6-flash")
+    fat = coins.usd_page("translate", 20, "gemini-3.6-flash")
+    sh2 = coins.SHAPES["translate"]
+    grew = (coins.think_tokens(sh2, "gemini-3.6-flash", "", 20)
+            - coins.think_tokens(sh2, "gemini-3.6-flash", "", 2))
+    assert grew > 0
+    assert fat - thin > r.usd(tout=grew) * 0.5, (thin, fat)
 
 
-def test_claude_is_not_charged_for_thinking_it_was_never_asked_to_do(tmp_path):
-    """No request in this app turns Claude's thinking on. Pricing it anyway
-    quoted Sonnet at seven times its real output cost."""
-    assert coins.thinks("claude-sonnet-5") is False
-    assert coins.thinks("claude-opus-5") is False
+def test_a_claude_that_is_not_asked_to_think_is_not_charged_for_it(tmp_path):
+    """No request in this app turns Claude's thinking on. On the 4 line that
+    means it is off, and pricing it anyway quoted Sonnet 4 at seven times its
+    real output cost."""
+    for m in ("claude-haiku-4-5", "claude-sonnet-4", "claude-opus-4"):
+        assert coins.thinks(m) is False, m
+    sh, r = coins.SHAPES["translate"], coins.rate_for(PLAIN_CLAUDE)
+    want = r.usd(tin=sh.fixed_in + sh.per_box_in * 9, cached=_sys("translate"),
+                 tout=_reply("translate", 9))
+    assert coins.usd_page("translate", 9, PLAIN_CLAUDE) == want
+
+
+def test_the_claude_5_line_thinks_whether_asked_or_not(tmp_path):
+    """Task #125. The sentence above was true until the 5 line. Anthropic:
+    *"On Claude Opus 5, Claude Sonnet 5, Claude Fable 5.1 ... thinking is
+    already on and needs no configuration"*, billed as output tokens and
+    reported nowhere. Measured on lee's 58-page manhwa: 19,576 output
+    tokens for a read Gemini answered in 3,110 - five sixths reasoning - and
+    a quote that had it at nothing let the run overshoot its hold by 49
+    coins."""
+    for m in ("claude-opus-5", "claude-sonnet-5", "claude-fable-5",
+              "anthropic/claude-opus-5"):
+        assert coins.thinks(m) is True, m
     sh, r = coins.SHAPES["translate"], coins.rate_for("claude-sonnet-5")
-    want = r.usd(tin=sh.fixed_in + sh.per_box_in * 9, cached=sh.sys_in,
-                 tout=sh.per_box_out * 9)
-    assert coins.usd_page("translate", 9, "claude-sonnet-5") == want
+    without = r.usd(tin=sh.fixed_in + sh.per_box_in * 9,
+                    cached=_sys("translate"), tout=_reply("translate", 9))
+    assert coins.usd_page("translate", 9, "claude-sonnet-5") > without
+    # ...and on a step where nothing switches it off, a thinking model is
+    # quoted for its thinking. The old `shape.think_out` gate switched
+    # reasoning off for every step but translate, whatever the model did.
+    assert coins.think_tokens(coins.SHAPES["proofread"], "claude-opus-5", "",
+                              10, "proofread") > 0
+    # ...and on the READ too, which is where it was found. The reader CAN
+    # turn it off (`READ_THINKING_OFF`, see `test_a_read_without_the_
+    # thinking.py`); lee measured both and kept it on, so the read is quoted
+    # with it. This assertion follows that list, whichever way it is set.
+    assert coins.thinks("claude-opus-5", "anthropic", "ocr") is \
+        (not coins.read_thinks_off("claude-opus-5"))
 
 
 def test_a_model_you_run_yourself_thinks_for_free():
@@ -1591,13 +1781,28 @@ def test_a_cache_is_only_priced_where_this_app_asks_for_one():
     on every Gemini chapter, and undercharging is the failure that does not
     announce itself."""
     sh = coins.SHAPES["translate"]
-    assert coins.cached_tokens(sh, "claude-sonnet-5") == sh.sys_in
+    assert coins.cached_tokens(sh, PLAIN_CLAUDE) == sh.sys_in
     assert coins.cached_tokens(sh, "anthropic/claude-sonnet-5") == sh.sys_in
     assert coins.cached_tokens(sh, "gemini-3.6-flash") == 0
     # Below the floor there is no cache to price, whoever the model is.
-    small = coins.SHAPES["ocr"]
-    assert small.sys_in < coins.CACHE_MIN_TOKENS
-    assert coins.cached_tokens(small, "claude-sonnet-5") == 0
+    #
+    # Asked of a shape MADE HERE, where it used to borrow `SHAPES["ocr"]`.
+    # That was the smallest prompt in the table until Read text learned to
+    # label boxes: the labeller's own prompt is over the floor and IS cached,
+    # so the shape stopped illustrating the rule and this went red for a reason
+    # that had nothing to do with the rule.
+    #
+    # A test that borrows a real value as an illustration breaks whenever that
+    # value moves for its own reasons - and the temptation each time is to
+    # reach for whichever entry is smallest today, which only sets the trap
+    # again. The claim is about the FLOOR, so the fixture is a shape under it.
+    small = coins.Shape(sys_in=coins.CACHE_MIN_TOKENS - 1, fixed_in=500,
+                        per_box_in=0, chapter_in=0, per_box_out=10)
+    assert coins.cached_tokens(small, PLAIN_CLAUDE) == 0
+    over = coins.Shape(sys_in=coins.CACHE_MIN_TOKENS, fixed_in=500,
+                       per_box_in=0, chapter_in=0, per_box_out=10)
+    assert coins.cached_tokens(over, PLAIN_CLAUDE) == over.sys_in, \
+        "the floor has to be the only thing deciding it"
 
 
 def test_a_slug_nobody_wrote_out_is_still_priced_by_its_maker():
@@ -1619,7 +1824,8 @@ def test_a_slug_nobody_wrote_out_is_still_priced_by_its_maker():
     sh = coins.SHAPES["translate"]
     assert coins.cached_tokens(sh, "anthropic/claude-opus-5") == sh.sys_in
     assert coins.thinks("google/gemini-3-pro") is True
-    assert coins.thinks("anthropic/claude-opus-5") is False
+    assert coins.thinks("anthropic/claude-opus-5") is True
+    assert coins.thinks("anthropic/claude-opus-4") is False
     # A slug cut at the LAST slash would be `gemini-3-pro` here too, so the
     # multi-segment case is what pins the rule.
     assert coins.vendor_free("meta/llama/3-70b") == "llama/3-70b"
@@ -1642,3 +1848,233 @@ def test_a_slug_priced_in_its_own_right_beats_its_makers_price(monkeypatch):
     assert coins.rate_for(slug) == dearer, \
         "the slug's own entry must win over the model it wraps"
     assert coins.rate_for(direct) != dearer, "...and only for the slug"
+
+
+# ------------------------------------------- the prompt is counted, not typed
+#
+# The whole reason this section exists: on 2026-08-31 `translate.sys_in` read
+# 2,086 against a real 4,600, and lee's chapter was quoted 18% short because of
+# it. The prompt had more than doubled while nobody was pricing it. These tests
+# ask the PROMPT, never a constant, so the same thing cannot happen twice.
+
+def test_the_counter_agrees_with_a_real_tokenizer():
+    """The rule, against the numbers it was fitted to.
+
+    Measured on lee's chapter with two independent tokenizers (o200k, and
+    Claude's own published one). Written down as the strings themselves rather
+    than as a token count, so this keeps checking the RULE rather than
+    checking that a number equals itself.
+    """
+    # English prose: about four characters to a token, one and a quarter
+    # tokens to a word.
+    prose = ("The copy editor on a professional typesetting team polishes "
+             "the script one page at a time, and fixes only what is wrong.")
+    assert 0.85 < coins.tokens(prose) / (len(prose) / 4.0) < 1.25, \
+        coins.tokens(prose)
+    # Japanese: about ONE token a character, not a quarter of one. Four
+    # characters to a token here would undercharge by more than three times,
+    # on every page of every chapter this app was built for.
+    ja = "これから本番、やっぱりグロウさんなんか嫌い、この地域の温泉には"
+    assert coins.tokens(ja) > len(ja) * 0.8, coins.tokens(ja)
+    assert coins.tokens(ja) > coins.tokens("x" * len(ja)) * 3
+    # ...and nothing raises on the shapes a caller can really pass.
+    for weird in ("", None, "   ", "{}", "\n\n", "♥★♪", "a" * 5000):
+        assert coins.tokens(weird) >= 0
+
+
+def test_the_system_prompts_are_counted_off_the_real_prompt():
+    """Not read out of `SHAPES`. Each one is built here, counted here, and
+    compared with what the price used - so an edit to a prompt moves the price
+    in the same commit, with nobody having to remember."""
+    from mangatl import translate as TR
+    for step, build in (
+            ("translate", lambda: TR.build_system("manga", "en", "", False)),
+            ("proofread", lambda: TR.build_proofread_system("manga", "en", "")),
+            ("ocr", lambda: TR.build_ocr_system(
+                TR.source_language("manga", "")))):
+        assert coins.sys_tokens(step) == coins.tokens(build()), step
+    # ...and the one that was wrong is now right: the real prompt, counted, is
+    # what the price uses.
+    assert coins.sys_tokens("translate") > 4000
+
+
+def test_a_longer_prompt_costs_more_the_moment_it_is_longer(monkeypatch):
+    """The property the old constants could not have. Lengthen the prompt and
+    the price moves, with no number anywhere to update."""
+    from mangatl import translate as TR
+    before = coins.usd_page("translate", 9, "gemini-3.6-flash")
+    real = TR.build_system
+    monkeypatch.setattr(TR, "build_system",
+                        lambda *a, **k: real(*a, **k) + " and also " * 400)
+    coins.sys_tokens.cache_clear()
+    after = coins.usd_page("translate", 9, "gemini-3.6-flash")
+    coins.sys_tokens.cache_clear()
+    assert after > before, (before, after)
+
+
+def test_a_build_that_cannot_read_the_prompt_still_has_a_price(monkeypatch):
+    """The fallback, and the only thing the numbers in `SHAPES` are still for.
+
+    A trimmed build, an import that is not there, a prompt builder that throws
+    - the price must still come out, because a price that raises is a button
+    nobody can press. A stale number beats no number.
+    """
+    def boom(*a, **k):
+        raise ImportError("no translate in this build")
+
+    monkeypatch.setitem(coins._SYS_BUILDERS, "translate", boom)
+    coins.sys_tokens.cache_clear()
+    try:
+        assert coins.sys_tokens("translate") == \
+            coins.SHAPES["translate"].sys_in
+        assert coins.usd_page("translate", 9, PLAIN_CLAUDE) > 0
+    finally:
+        monkeypatch.undo()
+        coins.sys_tokens.cache_clear()
+
+
+# ------------------------------------- the reply follows the words, not the boxes
+
+def test_a_long_line_costs_more_to_translate_than_a_short_one():
+    """A box holding a sentence does not come back the size of a box holding
+    one word, and a box count cannot see the difference. Measured over lee's
+    23 pages, adding this took the reply's error from 20.6% to 2.3%."""
+    short = coins.usd_page("translate", 9, PLAIN_CLAUDE, src_chars=20)
+    long_ = coins.usd_page("translate", 9, PLAIN_CLAUDE, src_chars=900)
+    assert long_ > short, (short, long_)
+    sh, r = coins.SHAPES["translate"], coins.rate_for(PLAIN_CLAUDE)
+    # ...by exactly the source-character term, at the output rate.
+    assert long_ - short == pytest.approx(
+        r.usd(tout=sh.per_src_char_out * (900 - 20)), abs=1e-9)
+
+
+def test_a_page_nobody_has_read_yet_is_priced_at_the_average():
+    """Zero source characters is not a free page - it is a page whose words
+    are not known yet, which is every page before Find text has run. It falls
+    back to what a box holds on average, which is what the price did before
+    any of this existed."""
+    unknown = coins.usd_page("translate", 9, PLAIN_CLAUDE, src_chars=0)
+    average = coins.usd_page("translate", 9, PLAIN_CLAUDE,
+                             src_chars=coins.SRC_CHARS_PER_BOX * 9)
+    assert unknown == average > 0
+
+
+def test_the_meter_line_records_the_words_as_well_as_the_boxes(tmp_path):
+    """`drift` compares a real bill against a prediction, and the prediction
+    now needs the source text. A meter line without it is compared against a
+    different number than the quote used, and the correction it produces is
+    the difference between two guesses."""
+    from mangatl import editor
+    p = _project(tmp_path, [9] * 4)
+    editor._run_one(p, {"label": "Translating", "indices": list(range(4)),
+                        "fn": lambda i: coins.record(900, 250, cached=4600),
+                        "step": "translate"})
+    line = coins.ledger()[0]
+    assert line["kind"] == "meter"
+    assert line["src"] == sum(editor.page_src_chars(p, i) for i in range(4))
+    # ...and an OLD line, written before this existed, still reads: it falls
+    # back to the same average the quote it is compared against used.
+    assert coins.predicted("translate", 36, 4, 0, PLAIN_CLAUDE,
+                           "anthropic", False, 0) == \
+        coins.predicted("translate", 36, 4, 0, PLAIN_CLAUDE,
+                        "anthropic", False,
+                        coins.SRC_CHARS_PER_BOX * 36)
+
+
+# ----------------------------------------- the reader sends PICTURES, and how
+#
+# The biggest single number in a read, and the one the estimate was most wrong
+# about. `fixed_in` carried the page image as 1,747 tokens A PAGE; the reader
+# sends one picture per BOX when it reads zoomed, so a ten-box page sends ten.
+# Measured against 138 real runs off lee's own ledger the read was being
+# charged at 0.28x of what it cost.
+
+def test_a_read_is_priced_by_the_pictures_it_sends():
+    """One a page, four, nine, or one per box - and the price follows,
+    because the pictures ARE the cost of a read."""
+    assert coins.pictures("page", 10) == 1
+    assert coins.pictures("auto", 10) == 4
+    assert coins.pictures("high", 10) == 9
+    assert coins.pictures("boxes", 10) == 10
+    # nothing chosen reads as zoomed, which is what the reader really does
+    assert coins.pictures("", 10) == 10
+    # ...and a mode nobody has heard of does not silently cost nothing
+    assert coins.pictures("nonsense", 10) == 10
+
+
+def test_reading_zoomed_costs_more_than_reading_the_whole_page():
+    """The fact that brought the choice back onto the settings screen. lee:
+    *"so teh ing increasing the price was teh zoom in images right?"* - it
+    was, and on a ten-box page it is ten pictures against one."""
+    whole = coins.usd_page("ocr", 10, "gemini-3.7-flash", "google",
+                           detail="page")
+    quarters = coins.usd_page("ocr", 10, "gemini-3.7-flash", "google",
+                              detail="auto")
+    zoomed = coins.usd_page("ocr", 10, "gemini-3.7-flash", "google",
+                            detail="boxes")
+    assert whole < quarters < zoomed, (whole, quarters, zoomed)
+    # the difference really is the pictures, at the input rate
+    r = coins.rate_for("gemini-3.7-flash", "google")
+    step = coins.image_tokens("gemini-3.7-flash", "google")
+    assert quarters - whole == pytest.approx(r.usd(tin=3 * step), abs=1e-9)
+    assert zoomed - whole == pytest.approx(r.usd(tin=9 * step), abs=1e-9)
+
+
+def test_a_picture_costs_what_its_provider_charges_for_one():
+    """Google tiles an image into 768px squares at 258 tokens each, so a crop
+    capped at `ocr.MAX_SIDE` is 3x3 = 2,322; Anthropic charges about width x
+    height / 750. Measured off the ledger at 2,479 and 1,127 a picture."""
+    assert coins.image_tokens("gemini-3.7-flash", "google") > \
+        coins.image_tokens("claude-opus-5", "anthropic")
+    # ...through the vendor prefix, or the same model bought through
+    # OpenRouter is priced as an unknown
+    assert coins.image_tokens("google/gemini-3.7-flash", "openrouter") == \
+        coins.image_tokens("gemini-3.7-flash", "google")
+    # a model you run yourself is not buying pictures from anybody
+    assert coins.image_tokens("gemini-3.7-flash", "ollama") == 0
+    # and only the reader sends any
+    assert coins.SHAPES["ocr"].pictures is True
+    for step in ("translate", "proofread", "label"):
+        assert coins.SHAPES[step].pictures is False, step
+
+
+def test_the_reader_and_the_price_read_one_list():
+    """A mode the price has never heard of, or that means something different
+    on each side, is a bill nobody can check."""
+    from mangatl.ocr import DETAILS, detail_for
+    assert set(DETAILS) == {"page", "auto", "high", "boxes"}
+    for k in DETAILS:
+        assert detail_for("manga", k) == k
+    assert detail_for("manga") == "boxes"
+    assert detail_for("manga", "nonsense") == "boxes"
+
+
+# --------------------------------------------- and thinking is per box now
+
+def test_thinking_is_priced_per_box_and_not_per_page():
+    """Two runs on two model versions, thinking taken as what is left after
+    the visible reply: per page they are 133 and 37 and agree about nothing;
+    per box they are 15 and 19. A model reasons about the lines it was
+    given."""
+    sh = coins.SHAPES["translate"]
+    two = coins.think_tokens(sh, "gemini-3.7-flash", "", 2)
+    ten = coins.think_tokens(sh, "gemini-3.7-flash", "", 10)
+    assert ten == pytest.approx(5 * two), (two, ten)
+    assert two > 0
+    # ...and a model that is never asked to think is charged nothing for it
+    assert coins.think_tokens(sh, PLAIN_CLAUDE, "", 10) == 0
+    # nor is one you run yourself
+    assert coins.think_tokens(sh, "gemini-3.7-flash", "ollama", 10) == 0
+    # an unpriced thinker still costs something rather than nothing
+    assert coins.think_tokens(sh, "gemini-9-ultra", "", 10) > 0
+
+
+def test_the_drift_clamp_can_say_what_the_meter_said():
+    """It was (0.5, 2.0), and lee's own ledger said the reader was charging a
+    third of its cost - a number that clamp cannot express, so the correction
+    pinned itself and stayed wrong. Still tight upward, because charging MORE
+    than the shape says is the direction that takes somebody's money."""
+    lo, hi = coins.DRIFT_CLAMP
+    assert lo <= 0.3, lo
+    assert hi >= 2.0
+    assert lo < 1.0 < hi

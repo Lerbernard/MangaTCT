@@ -93,8 +93,10 @@ def test_the_payload_carries_the_link_on_a_sound_effect_too():
     """The rule needs the data. Regions are listed with their link whatever
     their kind - it is the PROOFREAD payload that leaves sound effects out,
     and that one is not about links."""
-    at = TR.index('"src_char_count": len(r.src_text),')
-    near = TR[at - 400:at + 700]
+    # anchored on the words themselves, because the two length numbers that
+    # used to sit here are gone - see `test_the_line_has_to_fit`
+    at = TR.index('"text": r.src_text,')
+    near = TR[at:at + 2000]
     assert '"link"' in near
     assert 'if r.src_text.strip()' in near, \
         "every region with words in it, sound effects included"

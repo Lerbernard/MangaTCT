@@ -2,9 +2,17 @@
 
 **The lines were long.** Median English came back at 2.5x the Korean by
 character count, and page 006 at 2.6x: 110 characters of English in a bubble
-that held 42 of Korean. That is not a wrong translation, it is six-point type
-- the fitter has to put it somewhere. The request already carried
-`src_char_count` per region and nothing told the model what to do with it.
+that held 42 of Korean. The answer at the time was a budget - `src_char_count`
+with a rule to aim under 1.6 times it, and later `fits_chars` off the balloon
+itself.
+
+**Both budgets are gone**, and this file keeps the record of why they went.
+lee: *"i wan the most accurate transaltion no matter the leght of the of it so
+i dont want to shrink or expand teh translation to fit anythng"*. Six-point
+type is a price he will pay; a line that has had a qualifier cut out of it to
+fit is not. What replaced the budget is one rule saying length is not the
+model's problem, and one note - `too_long`, taken at the project's FLOOR - for
+the only case the typesetter cannot solve by setting smaller.
 
 **Two em dashes** that the prompt forbids in as many words, both from Korean
 with no dash in it anywhere: "Legend of the Dragon 7—a game that earned the
@@ -28,18 +36,23 @@ def _flat(medium="manhwa"):
     return re.sub(r"\s+", " ", T.build_system(medium, "en", "Korean"))
 
 
-def test_the_prompt_gives_the_line_a_budget():
+def test_the_prompt_gives_the_line_no_budget_at_all():
     sys = _flat()
-    assert "src_char_count" in sys
-    assert "1.6 times" in sys
+    assert "src_char_count" not in sys
+    assert "1.6 times" not in sys
+    assert "LENGTH IS NOT A CONSTRAINT ON YOU" in sys
 
 
-def test_and_shows_what_cutting_one_looks_like():
-    """A rule with no example is a rule that gets read as a preference."""
-    assert "Nearly 90% of Arsilan is already gone." in _flat()
+def test_and_the_example_of_cutting_one_went_with_the_rule():
+    """"Nearly 90% of Arsilan is already gone." was there to show what cutting
+    a line looks like. Showing it now would teach the behaviour the rule above
+    forbids - an example outlives the sentence around it."""
+    assert "Nearly 90% of Arsilan is already gone." not in _flat()
 
 
-def test_the_region_still_carries_its_own_count():
+def test_the_region_carries_no_count_either():
+    """The rule went and the number went with it. A budget in the payload with
+    nothing said about it is still a budget."""
     from mangatl.models import Page, TextRegion
     r = TextRegion(id=0, bbox=(0, 0, 40, 40), text_mask=None, bubble_mask=None,
                    bubble_bbox=(0, 0, 40, 40), kind="bubble")
@@ -47,7 +60,8 @@ def test_the_region_still_carries_its_own_count():
     p = Page(image=None, source_path="t.png")
     p.regions = [r]
     got = T.build_payload(p, T.SeriesContext())["regions"][0]
-    assert got["src_char_count"] == len(r.src_text)
+    assert "src_char_count" not in got and "fits_chars" not in got
+    assert got["text"] == r.src_text, "the words themselves still travel"
 
 
 # ------------------------------------------------------------- the dashes

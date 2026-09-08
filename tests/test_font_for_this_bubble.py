@@ -25,6 +25,7 @@ while a field has focus is deferred until that field blurs - and:
   released by nothing else leaves the panel dead for the rest of the session.
 """
 import shutil
+import time
 import threading
 
 import numpy as np
@@ -195,4 +196,128 @@ def test_nothing_of_the_old_widget_is_left_on_the_page(panel):
         window.dispatchEvent(new Event('scroll', {bubbles:true}));
         return document.querySelectorAll('.fsel').length;})()""")
     assert left == 0, f"{left} of the old widgets are still on the page"
+    assert not errs, errs[:2]
+
+
+# ------------------------------- and it reaches the page, not just the box
+
+def _pick(pg, want, p=None):
+    """Choose a face, and WAIT FOR THE SERVER rather than for a stopwatch.
+
+    Picking one starts a debounce and then a round trip; a fixed sleep is a
+    guess about a machine's load, and the first version of this asserted after
+    900ms and failed on a busy box while the product was working. Waiting for
+    the thing being asserted is not a loosening.
+
+    ...and the thing being asserted is the LAYOUT, not only the override. The
+    server stores the override and then lays the block out again from it, and
+    this reads the live project object from another thread - so there is a
+    window, a few milliseconds wide on an idle machine and far wider on a
+    loaded one, where the override already names the new face and the layout
+    still names the old one. Waiting for the first and asserting the second is
+    waiting for the wrong thing: it went red in batch 3 of a full run and
+    passed alone every time.
+    """
+    opts = pg.evaluate("""[...document.getElementById('lyFont').options]
+        .map(o=>o.value).filter(Boolean)""")
+    hit = next((o for o in opts if want in o), None)
+    assert hit, (want, opts[:6])
+    pg.focus("#lyFont")
+    pg.select_option("#lyFont", hit)
+    if p is None:
+        pg.wait_for_timeout(1200)
+        return hit
+    for _ in range(200):
+        r = p.pages[0].regions[0]
+        if ((r.get("layout_override") or {}).get("font") == hit
+                and (r.get("layout") or {}).get("font") == hit):
+            break
+        browserpool.settled(pg)
+        time.sleep(0.05)
+    return hit
+
+
+def test_the_face_reaches_the_stored_layout_and_not_only_the_menu(panel):
+    """lee: *"chaneg teh font in teh side bar in after it been typeset is not
+    working"*.
+
+    The test above proved the `<select>` keeps the value it was given, which
+    is a statement about the widget and not about the typesetting. What was
+    never checked is the thing he was looking at: does the PAGE come out in
+    that face?
+
+    Four places have to agree, and each of them has been wrong at least once:
+    the override the panel saves, the layout the server recomputes from it,
+    the `font_path` on that layout - which is what `render_page` draws with -
+    and the copy the browser holds and previews from.
+    """
+    pg, p, errs = panel
+    hit = _pick(pg, "Anton", p)
+    r = p.pages[0].regions[0]
+    assert (r.get("layout_override") or {}).get("font") == hit, \
+        "the panel did not save it"
+    assert (r.get("layout") or {}).get("font") == hit, \
+        "the server recomputed the layout in the old face"
+    assert pg.evaluate(
+        "(()=>{const x=regions.find(y=>y.id===1);"
+        "return (x.layout&&x.layout.font)||''})()") == hit, \
+        "the browser is previewing the old face"
+    assert not errs, errs[:2]
+
+
+@pytest.fixture()
+def sfx_panel(tmp_path):
+    """The same page with the block typed as a SOUND EFFECT from the start.
+
+    Not the bubble fixture with its kind changed and the page reloaded: that
+    is two variables in one test, and when it failed there was no telling
+    whether the sound effect or the reload was to blame.
+    """
+    from http.server import ThreadingHTTPServer
+    from mangatl import editor
+
+    p = _project(str(tmp_path / "fx"))
+    p.pages[0].regions[0]["kind"] = "sfx"
+    p.pages[0].regions[0]["dst_text"] = "CRASH"
+    editor.do_typeset(p, 0)
+    was, editor.PROJECT = editor.PROJECT, p
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), editor.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % srv.server_address[1]
+    if not browserpool.available():
+        srv.shutdown(); srv.server_close(); editor.PROJECT = was
+        pytest.skip('chromium unavailable')
+    with browserpool.session() as br:
+        pg = br.new_page(viewport={"width": 1500, "height": 950})
+        errs = []
+        pg.on("pageerror", lambda e: errs.append(str(e)))
+        pg.goto(base + "/", wait_until="load")
+        browserpool.ready(pg)
+        pg.evaluate("setTab('edit'); setView('typeset')")
+        browserpool.settled(pg)
+        pg.evaluate("select(1)")
+        pg.wait_for_timeout(600)
+        try:
+            yield pg, p, errs
+        finally:
+            srv.shutdown(); srv.server_close(); editor.PROJECT = was
+
+
+def test_and_on_a_sound_effect_too(sfx_panel):
+    """Sound effects take a different road through the fitter - laid out
+    letter by letter along an axis of their own by `fit_sfx_region`, which
+    resolves its own face. It reached for `cfg.font_path` directly once and
+    quietly ignored the sound-effect font.
+
+    The two halves are asserted separately, so a failure says WHICH half:
+    whether the panel saved the choice, or whether the server rebuilt the
+    layout without it."""
+    pg, p, errs = sfx_panel
+    hit = _pick(pg, "Bangers", p)
+    r = p.pages[0].regions[0]
+    assert (r.get("layout_override") or {}).get("font") == hit, \
+        ("the panel did not save it", (r.get("layout_override") or {}).get("font"))
+    assert (r.get("layout") or {}).get("font") == hit, \
+        ("a sound effect ignored the face it was given",
+         (r.get("layout") or {}).get("font"))
     assert not errs, errs[:2]

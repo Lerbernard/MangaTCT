@@ -100,6 +100,7 @@ async function newChapter(){
   sel=null; cur=0; lastExportDir=''; setRegions([]);
   $('results').innerHTML='';
   await loadProject();
+  pkAfterReset();
   if(typeof refreshExports==='function') await refreshExports();
   staged=[]; renderStaged();
   $('pkmsg').textContent='';
@@ -140,6 +141,7 @@ async function closeProject(){
   sel=null; cur=0; lastExportDir=''; setRegions([]);
   $('results').innerHTML='';
   await loadProject();
+  pkAfterReset();
   if(typeof refreshExports==='function') await refreshExports();
   staged=[]; renderStaged();
   $('pkmsg').textContent='';
@@ -190,8 +192,22 @@ function mediumChosen(which){
   if($(id('source')))    $(id('source')).value    = d.source;
   if($(id('direction'))) $(id('direction')).value = d.direction;
   if(p) mediumHint();
-  else if(typeof saveSettings==='function') saveSettings();
+  else{
+    /* The new format has to be in `proj.settings` BEFORE the save, not after
+       the reply: `routeFlag` asks which cards this format offers, and asking
+       it with the old format is how switching to manhwa would have written
+       the manga's answer for the manhwa's cards. */
+    if(typeof proj!=='undefined' && proj && proj.settings)
+      proj.settings.medium = $(id('medium')).value;
+    if(typeof saveSettings==='function') saveSettings();
+  }
   stripSettings();
+  /* ...AND THE DETECTOR CARDS, which are not the same four on a manga as on
+     a strip - see `ROUTE_MEDIA`. Without this the group only redraws on a
+     load, so switching a project to manhwa left the two cards that need
+     panels on screen and the two webtoon ones off it, both wrong, until the
+     page was reopened. */
+  if(typeof syncRoutes==='function') syncRoutes();
 }
 
 /* The formats that are DELIVERED as one long strip - the same set as
@@ -287,8 +303,6 @@ function openSettingsDlg(){
     setSettingsTab(lit.dataset.sec);
   if(typeof setTab==='function') setTab('settings');
 }
-function openMangaDlg(){ if(typeof setTab==='function') setTab('manga'); }
-function closeSettingsDlg(){ if(typeof setTab==='function') setTab('edit'); }
 function fillCkFont(){
   const el=$('ckFont'); if(!el) return;
   const cur=el.value;
@@ -351,6 +365,95 @@ function renderCkLimit(){
       : `${FAMILY_LABELS[fam]} has its ${SUBS_PER_FAMILY} - remove one, or pick another main type.`;
   }
 }
+/* The options for one row of Box types, with a blank at the top naming the
+   face this row would ACTUALLY typeset in.
+
+   `chosen` is what the settings say and `kind` is the row. The blank is
+   selected whenever what the settings say is not a font we can use - which
+   covers a row nobody has chosen for, and a row naming a file that is not on
+   this machine any more.
+
+   That second case is why this is a function. lee sent a screenshot of this
+   panel with nine rows reading `AnimeAce.ttf` and `CCWildWords.ttf` - two
+   faces the app may no longer ship, deleted from his fonts folder - while the
+   pages themselves came out in Comic Neue and Bangers. The panel was printing
+   a saved string. A row that names a face the page will not use is worse than
+   a row that says nothing, because it is an answer and it is wrong.
+
+   Nothing is written back. The dead path stays in the settings until somebody
+   picks something, so putting the font back where the app can find it brings
+   the old choice with it - see `fonts/LICENSES.md`.
+
+   THE FACE NAME AND NOTHING ELSE goes in the option. The first version put
+   "— AnimeAce.ttf is missing" after it, and the select is 280px: every row
+   came out reading "ComicNeue-Regular — AnimeAce.ttf is mis", which says less
+   than saying nothing and buries the answer the row exists to give. What is
+   missing is said once, above the list, where there is room to say it - and on
+   the row as a tooltip. */
+function _missingFont(chosen){
+  return String(chosen||'').split(/[\\/]/).pop();
+}
+function ckFontOptions(kind, chosen){
+  const live = (typeof fontUsable==='function') && fontUsable(chosen);
+  const name = (typeof inheritedFontLabel==='function')
+                 ? inheritedFontLabel(kind) : 'Project default';
+  return `<option value=""${live?'':' selected'}
+            data-name="${_fesc(name)}">${_fesc(name)}</option>`
+       + fontOptionList(fontChoices(live?chosen:''), live?chosen:'');
+}
+/* What to hang on the row when the font it was given is not installed. */
+function ckFontTitle(chosen){
+  if(!chosen || ((typeof fontUsable==='function') && fontUsable(chosen)))
+    return '';
+  return ` title="${_fesc(_missingFont(chosen))} is not installed, so this `
+       + `box type is using the face shown instead."`;
+}
+
+/* THE ROW, DRAWN IN ITS OWN FACE. lee: *"can youu show the font for every box
+   trype"*.
+
+   A name is not a face. Twelve rows reading `ComicNeue-Bold` and twelve rows
+   reading twelve different names look equally like an answer, and neither
+   tells you what the page is going to come out looking like - which is the
+   only question this panel exists to answer.
+
+   The picture is the TYPE'S OWN LABEL, not the word "sample". "Burst / shout"
+   drawn in the face bursts and shouts are set in needs no legend and no
+   second column: the row is the specimen.
+
+   Server-rendered, through `/fontsample`, for the reason the dropdowns use
+   it - browser font loading was unreliable across setups, and this way the
+   picture comes off the actual file with the actual typesetter's own PIL.
+   `fontPathFor` is the same chain `typeset.font_for` walks, so the specimen
+   is the face the page will really use rather than the string in the
+   settings.
+
+   A SAMPLE PER ROW IS AN HTTP REQUEST PER ROW, which is why the font
+   dropdowns have none: four hundred of them jammed the sidebar. Twelve is not
+   four hundred, rows that share a face share a URL and therefore the browser's
+   cache, and the server holds the last 600 renders in memory. */
+function ckSample(kind, label){
+  const path = (typeof fontPathFor==='function') ? fontPathFor(kind) : '';
+  if(!path || !((typeof fontUsable==='function') && fontUsable(path)))
+    // Nothing to draw it in. The row's tooltip and the line above the list
+    // both say what is missing; this says it where the picture would be, so
+    // the gap is an answer rather than a blank.
+    return `<div class="cksamp gone">${_fesc(_missingFont(path))
+             || 'No face this app can open'}</div>`;
+  const face = (typeof fontName==='function' && fontName(kind)) || '';
+  const t = String(label || 'Sample').slice(0, 24);
+  // NOT `loading="lazy"`. The settings screen is built before it is shown, so
+  // lazy meant every picture arrived after the section did - and a panel whose
+  // twelve rows pop in one at a time reads as a panel that is still deciding.
+  // Twelve small PNGs, most of them the same URL, is not a lazy-loading
+  // problem.
+  return `<div class="cksamp"><img`
+       + ` alt="${_fesc(t)}, in ${_fesc(face)}"`
+       + ` title="${_fesc(face)}"`
+       + ` src="/fontsample?p=${encodeURIComponent(path)}`
+       + `&t=${encodeURIComponent(t)}"></div>`;
+}
+
 function renderCustomKinds(){
   const el=$('ckList'); if(!el) return;
   el.innerHTML = KIND_FAMILIES.map(f=>{
@@ -367,13 +470,13 @@ function renderCustomKinds(){
       `<div class="row ckrow ckdef" style="align-items:center">
          <span class="swatch fixed" style="background:${KIND_COLORS[f]}"></span>
          <span class="cknm ckfix">${_fesc(DEFAULT_LABELS[f])}</span>
-         <select class="fontsel ckft" style="flex:1"
+         <select class="fontsel ckft" style="flex:1"${ckFontTitle(fcur)}
                  onchange="setFamilyFont('${f}', this.value)">
-           ${fontOptionList(fontChoices(fcur), fcur)}
+           ${ckFontOptions(f, fcur)}
          </select>
          <button class="danger ckpad" tabindex="-1" aria-hidden="true"
                  disabled>&times;</button>
-       </div>`
+       </div>` + ckSample(f, DEFAULT_LABELS[f])
     ].concat(subs.map(k=>`
       <div class="row ckrow" style="align-items:center">
         <span class="swatch" title="Change the colour"
@@ -381,22 +484,57 @@ function renderCustomKinds(){
               onclick="cycleKindColor('${k.key}')"></span>
         <input class="cknm" value="${_fesc(k.label||'')}"
                onchange="renameKind('${k.key}', this.value)">
-        <select class="fontsel ckft" style="flex:1"
+        <select class="fontsel ckft" style="flex:1"${ckFontTitle(k.font||'')}
                 onchange="setKindFont('${k.key}', this.value)">
-          <!-- A sub-type with no face of its own typesets in its family's, and
-               the row says WHICH - it used to show the first font in the list
-               as though it had been chosen. lee: *"it shoud just say the
-               font, do that for all of the spot fonts are used"*. -->
-          <option value=""${k.font?'':' selected'}
-            data-name="${_fesc(inheritedFontLabel(f))}"
-            >${_fesc(inheritedFontLabel(f))}</option>
-          ${fontOptionList(fontChoices(k.font||''), k.font||'')}
+          <!-- A sub-type with no face of its own typesets in the one it
+               inherits, and the row says WHICH - it used to show the first
+               font in the list as though it had been chosen. lee: *"it shoud
+               just say the font, do that for all of the spot fonts are used"*.
+               Asked of the SUB-TYPE and not of its family, because the two can
+               differ now: a whisper with nothing set does not come out in the
+               speech face, it comes out in the whisper default. -->
+          ${ckFontOptions(k.key, k.font||'')}
         </select>
         <button class="danger" title="Remove" onclick="delCustomKind('${k.key}')">&times;</button>
-      </div>`));
+      </div>` + ckSample(k.key, k.label || '')));
     return `<div class="ckfam"><h4 class="ckfamh">${_fesc(FAMILY_LABELS[f])}</h4>`+
            rows.join('')+`</div>`;
   }).join('');
+  // ...and ONE line, above the list, for the fonts that are named in the
+  // settings and not installed.
+  //
+  // It is here rather than on the rows because there is no room on a row: the
+  // picker is 280px and the face name fills it. Nine rows each saying "—
+  // AnimeAce.ttf is mis" is nine truncated warnings and no answers. One
+  // sentence with the names in it says more and costs a line.
+  //
+  // Said at all because the alternative is a panel that quietly overrules
+  // somebody: lee chose Anime Ace on nine box types, the app is not using it,
+  // and a row that shows the face it fell back to and nothing else looks like
+  // it agreed with him.
+  const missing=[...new Set(
+    [...KIND_FAMILIES.map(f=>(proj.settings.fonts||{})[f]
+                             || (f==='bubble'?proj.settings.font:'')),
+     ...(proj.settings.custom_kinds||[]).map(k=>k.font)]
+    .filter(p=>p && !fontUsable(p)).map(_missingFont))];
+  if(missing.length)
+    el.insertAdjacentHTML('afterbegin',
+      `<div class="help ckgone">${_fesc(missing.join(', '))} `
+      + `${missing.length>1?'are':'is'} not installed, so the box types set to `
+      + `${missing.length>1?'them':'it'} are using the faces shown below. `
+      + `Add ${missing.length>1?'them':'it'} under Fonts to get `
+      + `${missing.length>1?'those choices':'that choice'} back.</div>`);
+  // ...and the case where this panel cannot answer AT ALL, which it used to
+  // paper over. See `SERVER_STALE`: the app is a long-running process and
+  // these pages are files, so a copy-over leaves the two on different builds
+  // until it is restarted. Without this the rows all read "Project default",
+  // which is what the panel says when it does not know - twelve times, looking
+  // exactly like an answer. lee had to ask what was wrong with them.
+  if(typeof SERVER_STALE!=='undefined' && SERVER_STALE)
+    el.insertAdjacentHTML('afterbegin',
+      `<div class="help ckgone">This page is newer than the app that is `
+      + `running. Restart the app to see which face each box type uses - `
+      + `until then these rows cannot say.</div>`);
   renderCkFamilies(); renderCkSwatches(); renderCkLimit();
   // The font pickers in the rows are the same widget as everywhere else.
   if(typeof fontWidget==='function')
@@ -416,12 +554,20 @@ function setFamilyFont(fam, path){
     const el=$('font_'+fam); if(el) el.value=path||'';
   }
   saveSettings();
+  renderCustomKinds();
   if(typeof showPage==='function' && typeof cur!=='undefined') showPage(cur);
 }
 function setKindFont(key, path){
   const k=(proj.settings.custom_kinds||[]).find(x=>x.key===key); if(!k) return;
   k.font=path||'';
   saveSettings();
+  // ...AND REDRAW. Neither of these used to, which was invisible while a row
+  // could only ever show its own saved string - the widget you had just picked
+  // from had already changed what it said. It stopped being invisible when the
+  // rows began reporting the face that will really be used: setting one family
+  // font changes what every un-set sub-type under it says, and clearing a dead
+  // one has to take the "is missing" note off with it.
+  renderCustomKinds();
   if(typeof showPage==='function' && typeof cur!=='undefined') showPage(cur);
 }
 function addCustomKind(){
@@ -547,6 +693,7 @@ async function adoptProject(pending){
   if(!j || j.error) return tctpSay((j&&j.error)||'Could not open it.', true);
   // Everything on screen was about the chapter that is no longer open.
   await loadProject();
+  pkAfterReset();
   if(typeof refreshExports==='function') await refreshExports();
   renderPages();
   if(proj.pages.length) showPage(0);
@@ -644,11 +791,6 @@ function filterFontOptions(sel,q){
   if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
   if(typeof fontWidget==='function') fontWidget(sel);
 }
-function filterAllFontSels(q){
-  ['font','font_freefloat','font_sfx','font_narration','ckFont']
-    .forEach(id=>filterFontOptions($(id), q));
-}
-
 async function savePickerChoices(){
   await api('/api/settings','POST',{settings:{
     medium:$('pkMedium').value, target:$('pkTarget').value,
@@ -706,8 +848,6 @@ function showPicker(on){
   // has just been filled in.
   if(on) stripSettings();
 }
-function changeChapter(){showPicker(true);}
-
 /* ---- Add pages is two screens ----
 
    lee: *"Change the add pages so it's 2 pages, add the pages , next, add json,
@@ -751,12 +891,49 @@ function pkFillContext(){
   if(!t || !s || !proj || !proj.context) return;
   t.value = proj.context.title || '';
   s.value = proj.context.synopsis || '';
+  // THE BOXES ARE A VIEW, so they are re-read whenever the project under them
+  // changes - and the change that matters is the one that empties it.
+  //
+  // Starting a chapter resets the project, which drops the story's own
+  // content (`editor`'s /api/reset builds a fresh `SeriesContext` carrying
+  // only the configuration). These two boxes went on holding the LAST
+  // chapter's title and synopsis, because nothing refilled them - and then
+  // `pkSaveContext` did exactly what it is meant to do: it found the boxes
+  // saying one thing and the project saying another, and wrote the boxes
+  // back. The synopsis the reset had just cleared was restored by the step
+  // that shows it.
+  //
+  // lee, uploading a new chapter with the last one's synopsis in front of
+  // him: *"im oploading a new chapter thsi should not be there"*, and then
+  // *"its here to and a new project"* - the settings screen showing it too,
+  // which is what says the value had reached the SERVER rather than being
+  // left on screen.
+  //
+  // `pkAfterReset` below is the other half: this function only runs when the
+  // step is shown, and a reset can happen while it is already on screen.
   // Only a box that has been FILLED from the project may be saved back to it.
   // Two empty boxes are "this step was never shown" until they have been, and
   // writing those over a synopsis the project already had would lose it.
   pkFillContext.primed = true;
   pkContextTyped();
 }
+/* The project was just emptied under these boxes: show that.
+
+   Called wherever `/api/reset` is, after the reload that follows it, so the
+   step-2 boxes say what the project now says - which is nothing. Without it
+   the boxes keep the last chapter's words and `pkSaveContext` puts them
+   back; with it they are blank, and blank against a blank project is the one
+   case that function already refuses to save. */
+function pkAfterReset(){
+  const t=$('pkStoryTitle'), s=$('pkStorySynopsis');
+  if(t) t.value='';
+  if(s) s.value='';
+  // ...and NOT primed. A box nobody has filled from the project is a box
+  // nobody may save to it - the rule `pkFillContext` set up, and the reason
+  // it is set up is this exact moment.
+  pkFillContext.primed = false;
+}
+
 /* Writing one is adding one. Done was shut until a FILE had been imported,
    which was right when a file was the only way to answer this step; with
    somewhere to type, refusing the button to somebody who has just written a
@@ -888,6 +1065,9 @@ async function _uploadFiles(fileList, append){
     // was exported to. Without it those two followed the new chapter around.
     await api('/api/reset','POST',{keep_settings:true});
     await savePickerChoices();
+    // The project has just been emptied; the story boxes must stop saying
+    // what the last chapter said. See `pkAfterReset`.
+    pkAfterReset();
     if(typeof refreshExports==='function') await refreshExports();
   }
   let done=0, firstNew=null, failed=[];
@@ -1114,3 +1294,19 @@ function dressNumbers(root){
     soon(()=>{ queued = false; run(); });
   }).observe(document.body, {childList:true, subtree:true});
 })();
+
+
+/* The recommended-fonts page used to be drawn here, from `FONT_PICKS`. It is
+   a page of the WEBSITE now - `site/fonts.html`, generated from the same
+   `fontpicks.PICKS` by `site/build_fonts.py`. lee: *"move teh fonts tab into
+   the front end website not the app"*.
+
+   He is right about where it belongs, and the reason is what the page IS:
+   everything else in this editor acts on the chapter you have open, and that
+   page acts on nothing. It is read once before you start and again when a
+   series wants a different voice, which is a thing you want without a project
+   loaded and want to be able to send to whoever you work with.
+
+   `fontpicks` has not left the app. The picker still reads it - a face this
+   app recommends is a face the picker must offer, or the page sends somebody
+   to download something the app then hides. See `editor._recommended_families`. */

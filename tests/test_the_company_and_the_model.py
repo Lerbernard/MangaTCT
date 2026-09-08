@@ -111,6 +111,79 @@ def test_there_are_no_key_boxes_left_on_the_page():
     assert "def key_for(" in src, "reading them is unchanged"
 
 
+# ------------------------------------------- and Read text asks it of sighted
+#
+# lee, at a Read text menu offering DeepSeek: *"for thsi only visin caplabel
+# models hsoud show up"*. The MODEL menu was already filtered - `coins.offered`
+# and `editor.model_menu` both ask `sees` when the step is ocr - and the
+# COMPANY menu above it was not, so the way to a dead end was still one click
+# from the top of the panel.
+
+
+def test_the_makers_with_no_eyes_are_named_by_the_server():
+    """Off `sees`, so `NO_SIGHT` stays the only list of blind models."""
+    from mangatl import coins
+    assert coins.blind_makers() == ["deepseek"]
+
+
+def test_a_maker_with_one_sighted_model_stays():
+    """Qwen's range is mixed - 3.7 Max is text-only, Flash and Plus read a
+    page - and a maker is only blind when ALL of it is."""
+    from mangatl import coins
+    assert "qwen" not in coins.blind_makers()
+    assert not coins.sees("qwen/qwen3.7-max")
+    assert coins.sees("qwen/qwen3.7-flash")
+
+
+def test_every_row_of_the_menu_is_a_maker_the_table_knows():
+    """The join between a menu row and the price table. A row nothing matches
+    can never be found blind, which is the failure this pairing exists to
+    stop - so the two lists are checked against each other."""
+    from mangatl import coins
+    at = HTML.index('id="ocr_company"')
+    menu = HTML[at:HTML.index("</select>", at)]
+    rows = set(re.findall(r'<option value="([^"]+)"', menu))
+    assert rows == set(coins.MAKER_MODELS)
+    for maker, pre in coins.MAKER_MODELS.items():
+        assert any(m.startswith(pre) for m in coins.RATES), maker
+
+
+def test_the_answer_travels_with_the_project():
+    """Sent rather than written into the browser, for the same reason
+    `tall_aspect` is: a second copy of the list is a menu still offering a
+    blind maker the day the first one changes."""
+    src = (PKG / "project.py").read_text(encoding="utf-8")
+    assert '"blind_makers": _coins.blind_makers()' in src
+    assert "proj.blind_makers" in PJS
+
+
+def test_only_read_text_drops_them():
+    """Translate and proofread are text jobs: every maker still reads."""
+    body = PJS.split("function syncCompany(step)", 1)[1].split("\n}\n", 1)[0]
+    assert "step === 'ocr'" in body
+    assert "blind.includes(o.value)" in body
+    for step in ("translate", "proofread"):
+        at = HTML.index(f'id="{step}_company"')
+        assert 'value="deepseek"' in HTML[at:HTML.index("</select>", at)], step
+
+
+def test_a_hidden_row_cannot_be_chosen_from_the_keyboard():
+    """`hidden` alone still leaves the option reachable with the arrow keys in
+    some browsers, and `[hidden]` is only a UA rule - one author `display`
+    beats it. All three, or the row is only half gone."""
+    body = PJS.split("function syncCompany(step)", 1)[1].split("\n}\n", 1)[0]
+    for said in ("o.hidden = hide", "o.disabled = hide", "o.style.display"):
+        assert said in body, said
+
+
+def test_the_maker_a_step_is_actually_on_is_never_hidden():
+    """Taking a step's own maker off its menu is the "no model chosen" bug
+    two tests up, arriving from the other side: the menu would read empty for
+    a project that has an answer."""
+    body = PJS.split("function syncCompany(step)", 1)[1].split("\n}\n", 1)[0]
+    assert "o.value !== now" in body
+
+
 def test_the_button_strips_are_gone_again():
     """lee tried them and asked for the menus back: *"im not liking the
     button back to drop downs pls"*."""

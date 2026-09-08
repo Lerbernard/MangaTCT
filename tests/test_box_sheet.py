@@ -153,14 +153,26 @@ def test_a_line_split_across_two_balloons_is_joined_by_a_connector():
     assert not np.array_equal(joined[mid[0], mid[1]], img[mid[0], mid[1]])
 
 
-def test_two_sections_of_one_balloon_are_not_also_wired_together():
-    """The group frame already says they are one thing; a connector across the
-    balloon says it twice and draws a line over the art lee asked to keep."""
+def test_two_sections_of_one_balloon_are_wired_together_as_well():
+    """They used to be the one linked pair with no connector - "the group
+    frame already says they are one thing" - and then the frame went, twice
+    asked for: lee, *"hide teh big box afterware it dosnt need to be
+    visibel"*. Nothing took over saying it.
+
+    On screen it was worse than nothing: `.box.section` forces the dashes back
+    on so it beats `.box.linked`'s solid border, so a linked pair of sections
+    was drawn exactly like two unrelated boxes. lee: *"the link is not
+    showing"*. The line is the only thing left that can say it."""
     img = _page()
     one = render.box_sheet(img, [dict(A, link=2, box_group=3),
                                  dict(B, link=2, box_group=3)])
     none = render.box_sheet(img, [dict(A, box_group=3), dict(B, box_group=3)])
-    assert np.array_equal(one, none)
+    assert not np.array_equal(one, none), "the link has to show"
+    # ...and it is the same connector an ungrouped pair gets, drawn across
+    # the middle of the page where nothing else does.
+    mid = np.s_[110:130], np.s_[150:180]
+    assert not np.array_equal(one[mid[0], mid[1]], img[mid[0], mid[1]])
+    assert np.array_equal(none[mid[0], mid[1]], img[mid[0], mid[1]])
 
 
 def test_a_sub_type_is_drawn_in_the_shade_it_was_given():

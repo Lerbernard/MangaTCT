@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MangaTCT - translate, clean, typeset</title>
+<title>MangaTCT Beta - translate, clean, typeset</title>
 <meta name="description" content="A manga, manhwa and manhua translation
  editor. Finds the text, reads it, translates it, cleans the page and typesets
  it - and hands you every one of those decisions.">
@@ -125,6 +125,13 @@ header{position:sticky;top:0;z-index:60;background:var(--bg);
    space meant to sit between the mark and the name was also splitting the
    name in half. */
 .brand .wm{display:flex;align-items:flex-end;gap:0}
+/* THE APP IS IN BETA and says so wherever it says its own name.
+   lee: "make the app be in beta ... mae ecrything say beta". One small pill
+   beside the wordmark, the same one the editor's header wears. */
+.brand .betapill{font:700 9px/1 system-ui;letter-spacing:.08em;
+  font-style:normal;color:#0f1218;background:#ffc400;border-radius:7px;
+  padding:2.5px 5px 2px;margin-left:7px;align-self:center;
+  text-transform:uppercase}
 .brand b{font-size:25px;line-height:.82}
 .brand i{font-size:25px;line-height:.82;color:var(--accent);font-style:normal}
 .hd nav{margin-left:auto;display:flex;gap:8px;font-size:14px;
@@ -335,12 +342,15 @@ details p{color:var(--dim);margin:10px 0 0 23px;max-width:78ch}
 footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
  font-size:14px;background:var(--bg2)}
 .foot{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+/* The footer links. They replaced a placeholder chip, so every one of them
+   goes somewhere real - and the two that depend on doors lee has not built
+   yet are drawn by `contact_links` only once they exist. */
+.footlinks{display:flex;gap:16px;flex-wrap:wrap}
+.footlinks a{color:var(--dim);text-decoration:none;border-bottom:1px solid transparent}
+.footlinks a:hover{color:var(--fg);border-bottom-color:var(--accent)}
 .foot .brand b,.foot .brand i{font-size:20px}
 .built{margin-left:auto;color:var(--dim2)}
 .built b{color:var(--fg);font-weight:650}
-.todo{background:#241f08;border:1px dashed #6b5a12;color:#e8d48a;
- padding:2px 7px;border-radius:5px;font-size:12px}
-
 @media(max-width:980px){
  .walk{grid-template-columns:1fr;gap:24px}
  .walk .rail{position:static}
@@ -373,7 +383,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <circle cx="3" cy="3" r=".95" fill="#0f1218" opacity=".45"/>
   </pattern>
   <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
-</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
   <nav>
     <a href="#how">How it works</a>
     <a href="#formats">Manga | manhwa | manhua</a>
@@ -381,10 +391,12 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <a href="#compare">Compare</a>
     <a href="#credits">Coins</a>
     <a href="tutorial.html">Guide</a>
+    <a href="fonts.html">Fonts</a>
     <a href="pricing.html">Pricing</a>
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
-  <a class="btn" href="signin.html">Sign in</a>
+  <a class="btn ghost" href="signin.html">Sign in</a>
+  <a class="btn" href="download.html">Download</a>
 </div></header>
 
 <a id="top"></a>
@@ -397,12 +409,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   and sets the English back into the balloon. Then it hands you all of it:
   every line, every block, every bubble, down to the outline colour.</p>
   <div class="cta">
-    <a class="btn" href="#credits">Start free - you get credits to try it</a>
+    <a class="btn" href="download.html">Download for Windows - free</a>
     <a class="btn ghost" href="#how">See it work</a>
   </div>
-  <p class="note">Free credits on signup, no card. Finding text, cleaning and
+  <p class="note">Version 1.0.0 (beta) - it updates
+  itself. Free credits on signup, no card. Finding text, cleaning and
   typesetting run on your own machine and cost nothing.</p>
-  <div class="heroshot"><div class="slot" style="aspect-ratio:16 / 10"><span class="sn">ui-hero-real.jpg</span><span class="sw">The workspace on a finished chapter, the whole window</span></div></div>
+  <div class="heroshot"><img src="assets/ui-hero-real.jpg" alt="The MangaTCT workspace: a chapter typeset in English, with the seven steps across the top and the cleaning panel on the right" loading="lazy"></div>
   <div class="stats">
     <span class="stat"><b>3</b><span>formats, end to end</span></span>
     <span class="stat"><b>7</b><span>steps, run in any order</span></span>
@@ -416,10 +429,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <h2 class="rise">A raw page in. A typeset page out.</h2>
   <p class="lead rise">One file, both ends of the pipeline. Pull the handle
   across.</p>
-  <div class="rise" style="margin:30px 0 0"><div class="slot tall" style="aspect-ratio:3 / 2"><span class="sn">ba-before.jpg + ba-after.jpg</span><span class="sw">One page, twice - the raw scan and the finished export, same size and same crop. Drop both in and this becomes a slider you drag.</span></div></div>
+  <div class="rise" style="margin:30px 0 0"><div class="ba" id="ba"><img class="ba-a" src="assets/ba-before.jpg" alt="The raw page"><div class="ba-b"><img src="assets/ba-after.jpg" alt="The same page, cleaned and typeset in English"></div><div class="ba-h" aria-hidden="true"><i></i></div><input type="range" min="0" max="100" value="52" step="0.1" aria-label="Reveal the typeset page"></div></div>
   <div class="balabels"><span>Raw</span><span>Typeset</span></div>
   <div class="clips rise" style="margin-top:36px">
-    <div class="clip"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">clip-pipeline.gif</span><span class="sw">A short loop of one page going raw to cleaned to typeset</span></div>
+    <div class="clip"><img src="assets/clip-pipeline.gif" alt="The three stages cycling: raw, cleaned, typeset" loading="lazy">
       <h4>The three stages</h4>
       <p>Find and read, clean, typeset. Each stage is a step you can run, undo
       and run again on one page or the whole chapter.</p></div>
@@ -446,18 +459,20 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     </ol></div>
     <div><div class="grp"><p class="gname">Translation</p><div class="gsteps"><article class="step" data-step="1"><b>1</b><h4>Find text</h4><p>Every block of writing on the page, boxed. comic-text-detector runs on your machine - no upload, no cost.</p></article><article class="step" data-step="2"><b>2</b><h4>Read text</h4><p>The Japanese, Korean or Chinese out of each box. Whole page in one request, or the page cut up for the small print.</p></article><article class="step" data-step="3"><b>3</b><h4>Translate</h4><p>Every box on the page in one go, with the synopsis, the character sheet and the glossary in front of it - so honorifics and names stay the same on page 39 as on page 1.</p></article><article class="step" data-step="4"><b>4</b><h4>Proofread <span class="opt">optional</span></h4><p>A second pass, only if you want one. It reads the page as a page: pronouns with no owner, a name one letter off the sheet, a line that does not answer the one before it. It writes a report you can read, and it changes nothing without you. Skip it and everything else works exactly the same.</p></article></div></div><div class="grp"><p class="gname">Image</p><div class="gsteps"><article class="step" data-step="5"><b>5</b><h4>Clean</h4><p>The Japanese comes off. Flat fill, tone copy, or the AI cleaner for the hard bits. Every bubble tells you which it used.</p></article><article class="step" data-step="6"><b>6</b><h4>Typeset</h4><p>The English goes in. Line breaks first, then size - never a hyphen, never a cut sentence, never a word split.</p></article></div></div><div class="grp"><p class="gname">Out</p><div class="gsteps"><article class="step" data-step="7"><b>7</b><h4>Export</h4><p>The finished pages. Or the cleaned plates. Or a sheet with every box numbered, for someone else to typeset.</p></article></div></div></div>
   </div>
-  <div class="rise" style="margin-top:40px"><figure class="shot "><div class="slot" style="aspect-ratio:21 / 4"><span class="sn">ui-steps-real.jpg</span><span class="sw">The step bar with every step reading 23 of 23</span></div><figcaption>A real chapter, six steps done, twenty-three pages each.</figcaption></figure></div>
+  <div class="rise" style="margin-top:40px"><figure class="shot "><img src="assets/ui-steps-real.jpg" alt="The seven-step bar on a finished chapter" loading="lazy"><figcaption>A real chapter: six of the seven steps done on every page of it.</figcaption></figure></div>
 </div></section>
 
 <section class="band" id="formats"><div class="wrap">
-  <p class="kicker">Three formats</p>
+  <p class="kicker">Three formats, two jobs</p>
   <h2 class="rise">Manga, manhwa and manhua - what changes between them.</h2>
   <p class="lead rise" style="margin-bottom:30px">All three are supported end
-  to end. They are not the same job, though, and a tool that pretends they are
-  is a tool that hands you a Korean chapter numbered backwards. Here is what
-  actually differs - including the parts that are still rough.</p>
-  <div class="tabs rise" role="tablist" id="fmttabs"><button class="tb" role="tab" aria-selected="true" aria-controls="f-manga" id="t-manga">Manga<span>Japanese</span></button><button class="tb" role="tab" aria-selected="false" aria-controls="f-manhwa" id="t-manhwa">Manhwa<span>Korean</span></button><button class="tb" role="tab" aria-selected="false" aria-controls="f-manhua" id="t-manhua">Manhua<span>Chinese</span></button></div>
-  <div class="rise" id="fmtpanels"><section class="pan" role="tabpanel" id="f-manga" aria-labelledby="t-manga"><div class="two pantop"><div><h3>Manga <span class="mut">| Japanese</span></h3><p class="panlead">The format the rest of it was built around.</p><p class="chips"><span class="chip">Japanese</span><span class="chip">Right to left</span></p><p class="sub good">What it does well</p><dl><dt>Reading order runs right to left, panel by panel</dt><dd>Boxes are ordered inside their panel first, and the cut is found by measuring the gutter - including slanted ones, which is most of an action page. Drag a row and the whole chapter renumbers.</dd><dt>Read locally by manga-ocr, no key and no upload</dt><dd>It installs with the app and it is the strongest reader there is for Japanese comic typesetting. Or point Read text at a vision model instead - that works for all three formats.</dd><dt>Honorifics survive, or come off - your call</dt><dd>-san, -sama, -kun, -chan, -senpai. And the chapter audit catches one welded onto a name where it should not be.</dd><dt>Two spellings of a name never become two people</dt><dd>The name check folds Japanese romanisation - Glow and Glou, ou and oh and oo, l and r - so a drift on page 12 is caught against page 1.</dd><dt>Sound effects are set as words, not as kana</dt><dd>However the original ink ran down the page, the English goes in as one horizontal word - the way a typesetter would draw it.</dd></dl></div><div><figure class="shot pan-img" style="margin-bottom:26px"><div class="slot" style="aspect-ratio:16 / 10"><span class="sn">fmt-manga.jpg</span><span class="sw">A Japanese page in the editor with the numbered boxes on, showing the right-to-left order</span></div></figure><div class="roughbox"><p class="sub rough">Where it is rough</p><dl><dt>Vertical Japanese in a narrow column is where the fitter works hardest</dt><dd>It is handled - free text gets its own fit, and a block is allowed to run past its box rather than shrink below the legible minimum - but it is the case that produces the most corrections.</dd></dl></div></div></div></section><section class="pan" role="tabpanel" id="f-manhwa" aria-labelledby="t-manhwa" hidden><div class="two pantop"><div><h3>Manhwa <span class="mut">| Korean</span></h3><p class="panlead">Webtoon strips get cut into pages before anything else runs.</p><p class="chips"><span class="chip">Korean</span><span class="chip">Left to right</span></p><p class="sub good">What it does well</p><dl><dt>A strip uploaded as tiles is re-cut into pages, on upload</dt><dd>Six or more images of identical width and identical height is a sliced strip, and it is re-cut at the gutters into pages about three and a half times as tall as they are wide. This exists for webtoons and has no manga equivalent.</dd><dt>Every cut is a gutter, never through the artwork</dt><dd>The cut goes to the gutter NEAREST the target, not the first one past it. Where the window holds none, the page runs on to the next gutter there is, past the height limit if that is what it takes, and you are told which pages ran over.</dd><dt>Your tiles are kept, never deleted</dt><dd>They move into a folder beside the chapter. And nothing is re-cut on a chapter you have already started work on.</dd><dt>Speech levels reach the model</dt><dd>해요체, 해체 and 합쇼체, and 오빠 / 언니 / 선배 - the register notes go into the prompt with the page, so politeness is not flattened into one English voice.</dd><dt>Left to right, and it is a setting</dt><dd>Direction follows the format by default and you can override it per chapter.</dd></dl></div><div><figure class="shot pan-img" style="margin-bottom:26px"><div class="slot" style="aspect-ratio:16 / 10"><span class="sn">fmt-manhwa.jpg</span><span class="sw">A Korean webtoon chapter after the strip was re-cut - the page list down the side showing the new pages</span></div></figure><div class="roughbox"><p class="sub rough">Where it is rough</p><dl><dt>The local Korean reader is an extra install</dt><dd>Korean and Chinese are read locally by easyocr, which does not come with the app: <code>pip install easyocr</code>. Or point Read text at a vision model and skip it entirely - that path needs nothing installed.</dd><dt>The reading prompt still carries Japanese instructions</dt><dd>Rules about furigana and small kana are sent with a Korean page too. Harmless in practice, and honestly just not written yet.</dd><dt>The name and honorific audit knows Japanese suffixes only</dt><dd>-ssi, -nim and 오빠 are handled by the translator and NOT by the check that runs afterwards, so a drift in a romanised Korean name is not caught for you.</dd><dt>Export is one file per page</dt><dd>Nothing stitches the strip back into one long image. You get the pages the re-cut made.</dd></dl></div></div></div></section><section class="pan" role="tabpanel" id="f-manhua" aria-labelledby="t-manhua" hidden><div class="two pantop"><div><h3>Manhua <span class="mut">| Chinese</span></h3><p class="panlead">Simplified out of the box; traditional through a vision model.</p><p class="chips"><span class="chip">Chinese</span><span class="chip">Left to right</span></p><p class="sub good">What it does well</p><dl><dt>Simplified Chinese read locally, traditional through a model</dt><dd>The local reader is set to simplified. A vision model reads either, and needs nothing installed.</dd><dt>Register carried by word choice, not by a suffix</dt><dd>哥, 姐, 前辈 and the classical phrasing that marks a formal voice go into the prompt as notes about Chinese specifically.</dd><dt>The same strip handling as manhwa</dt><dd>A tiled upload is re-cut into pages at the gutters, tiles kept, forced cuts reported.</dd><dt>Left to right, and it is a setting</dt><dd>Same as manhwa: the format sets it, you can override it.</dd></dl></div><div><figure class="shot pan-img" style="margin-bottom:26px"><div class="slot" style="aspect-ratio:16 / 10"><span class="sn">fmt-manhua.jpg</span><span class="sw">A Chinese page mid-chapter, ideally one with a dense caption box, in the Translation view</span></div></figure><div class="roughbox"><p class="sub rough">Where it is rough</p><dl><dt>The local Chinese reader is an extra install</dt><dd>Same easyocr as Korean - <code>pip install easyocr</code>, or use a vision model.</dd><dt>The reading prompt still carries Japanese instructions</dt><dd>Same as manhwa. It works; it is not written for hanzi.</dd><dt>The name audit knows Japanese suffixes only</dt><dd>-ge and -jie are translated properly and are not checked afterwards.</dd></dl></div></div></div></section></div>
+  to end. Manga is a different job from the other two - a tool that pretends
+  otherwise hands you a Korean chapter numbered backwards. Manhwa and manhua
+  are the same job in two languages, and they share a tab here because they
+  share a code path in the app. Here is what actually differs - including the
+  parts that are still rough.</p>
+  <div class="tabs rise" role="tablist" id="fmttabs"><button class="tb" role="tab" aria-selected="true" aria-controls="f-manga" id="t-manga">Manga<span>Japanese</span></button><button class="tb" role="tab" aria-selected="false" aria-controls="f-webtoon" id="t-webtoon">Manhwa &amp; manhua<span>Korean &middot; Chinese</span></button></div>
+  <div class="rise" id="fmtpanels"><section class="pan" role="tabpanel" id="f-manga" aria-labelledby="t-manga"><div class="two pantop"><div><h3>Manga <span class="mut">| Japanese</span></h3><p class="panlead">The format the rest of it was built around.</p><p class="chips"><span class="chip">Japanese</span><span class="chip">Right to left</span></p><p class="sub good">What it does well</p><dl><dt>Reading order runs right to left, panel by panel</dt><dd>Boxes are ordered inside their panel first, and the cut is found by measuring the gutter - including slanted ones, which is most of an action page. Drag a row and the whole chapter renumbers.</dd><dt>Read locally by manga-ocr, no key and no upload</dt><dd>It installs with the app and it is the strongest reader there is for Japanese comic typesetting. Or point Read text at a vision model instead - that works for all three formats.</dd><dt>Honorifics survive, or come off - your call</dt><dd>-san, -sama, -kun, -chan, -senpai. And the chapter audit catches one welded onto a name where it should not be.</dd><dt>Two spellings of a name never become two people</dt><dd>The name check folds Japanese romanisation - Glow and Glou, ou and oh and oo, l and r - so a drift on page 12 is caught against page 1.</dd><dt>Sound effects are set as words, not as kana</dt><dd>However the original ink ran down the page, the English goes in as one horizontal word - the way a typesetter would draw it.</dd></dl></div><div><figure class="shot pan-img" style="margin-bottom:26px"><img src="assets/fmt-manga.jpg" alt="Manga in the editor" loading="lazy"><figcaption>A Japanese page, every block numbered in reading order - right to left, panel by panel.</figcaption></figure><div class="roughbox"><p class="sub rough">Where it is rough</p><dl><dt>Vertical Japanese in a narrow column is where the fitter works hardest</dt><dd>It is handled - free text gets its own fit, and a block is allowed to run past its box rather than shrink below the legible minimum - but it is the case that produces the most corrections.</dd></dl></div></div></div></section><section class="pan" role="tabpanel" id="f-webtoon" aria-labelledby="t-webtoon" hidden><div class="two pantop"><div><h3>Manhwa &amp; manhua <span class="mut">| Korean &middot; Chinese</span></h3><p class="panlead">One route, two languages. Webtoon strips are cut into pages before anything else runs.</p><p class="chips"><span class="chip">Korean &middot; Chinese</span><span class="chip">Left to right</span></p><p class="sub good">What it does well</p><dl><dt>A strip uploaded as tiles is re-cut into pages, on upload</dt><dd>Six or more images of identical width and identical height is a sliced strip, and it is re-cut at the gutters into pages about three and a half times as tall as they are wide. This exists for webtoons and has no manga equivalent.</dd><dt>Every cut is a gutter, never through the artwork</dt><dd>The cut goes to the gutter NEAREST the target, not the first one past it. Where the window holds none, the page runs on to the next gutter there is, past the height limit if that is what it takes, and you are told which pages ran over.</dd><dt>Your tiles are kept, never deleted</dt><dd>They move into a folder beside the chapter. And nothing is re-cut on a chapter you have already started work on.</dd><dt>Register reaches the model, in both languages</dt><dd>Korean: 해요체, 해체 and 합쇼체, and 오빠 / 언니 / 선배. Chinese: 哥, 姐, 前辈 and the classical phrasing that marks a formal voice. The register notes go into the prompt with the page, so politeness is not flattened into one English voice.</dd><dt>Simplified Chinese read locally, traditional through a model</dt><dd>The local reader is set to simplified. A vision model reads either, and needs nothing installed.</dd><dt>Left to right, and it is a setting</dt><dd>Direction follows the format by default and you can override it per chapter.</dd></dl></div><div><figure class="shot pan-img" style="margin-bottom:26px"><img src="assets/fmt-manhwa.jpg" alt="A Korean webtoon chapter in the editor" loading="lazy"><figcaption>Korean. The eight pages down the side are the ones the app cut for itself out of twelve machine-sliced files.</figcaption></figure><figure class="shot pan-img" style="margin-bottom:26px"><img src="assets/fmt-manhua.jpg" alt="A Chinese manhua chapter in the editor" loading="lazy"><figcaption>Chinese, same route, same screen: 41 pages found, all three kinds of block on this one.</figcaption></figure><div class="roughbox"><p class="sub rough">Where it is rough</p><dl><dt>Chinese has had one chapter, Korean has had many</dt><dd>One code path with the language swapped, and both ends of it have now been run on real pages: several Korean chapters, and one 41-page manhua - 86 blocks found, 63 balloons, 21 sound effects, and the single page with no writing on it correctly given no boxes. That is a chapter, not a body of evidence. The Korean side has had far more of both our attention and our measurements, and where the two differ it is the Chinese one that is less proven.</dd><dt>The local Korean and Chinese reader is an extra install</dt><dd>Both are read locally by easyocr, which does not come with the app: <code>pip install easyocr</code>. Or point Read text at a vision model and skip it entirely - that path needs nothing installed.</dd><dt>The reading prompt still carries Japanese instructions</dt><dd>Rules about furigana and small kana are sent with a Korean or Chinese page too. Harmless in practice, and honestly just not written yet.</dd><dt>The name and honorific audit knows Japanese suffixes only</dt><dd>-ssi, -nim, 오빠, -ge and -jie are handled by the translator and NOT by the check that runs afterwards, so a drift in a romanised Korean or Chinese name is not caught for you.</dd><dt>Export is one file per page</dt><dd>Nothing stitches the strip back into one long image. You get the pages the re-cut made.</dd></dl></div></div></div></section></div>
   <p class="note" style="margin-top:30px">Everything AFTER the words is the
   same for all three: cleaning, fitting, typesetting, the effects and the
   export do not know which format they are working on, and that is deliberate.
@@ -468,7 +483,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="kicker">The screens</p>
   <h2 class="rise">Four tabs, and only one of them is ever in your way.</h2>
   <div class="tabs rise" role="tablist" id="scrtabs" style="margin-top:24px"><button class="tb" role="tab" aria-selected="true" aria-controls="s-0" id="st-0">File</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-1" id="st-1">Workspace</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-2" id="st-2">Results</button><button class="tb" role="tab" aria-selected="false" aria-controls="s-3" id="st-3">Settings</button></div>
-  <div class="rise"><section class="pan" role="tabpanel" id="s-0" aria-labelledby="st-0"><div class="two tight"><div><h3>File</h3><p class="mut">Open a chapter, add pages, reorder them. One screen, one job.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-pages.jpg</span><span class="sw">The File tab with a chapter open and its pages listed</span></div></figure></div></section><section class="pan" role="tabpanel" id="s-1" aria-labelledby="st-1" hidden><div class="two tight"><div><h3>Workspace</h3><p class="mut">The page. Boxes on the left of the split, typesetting on the right, every tool down the rail. This is where the work happens.</p></div><figure class="shot"><img src="assets/ui-translation-real.jpg" alt="Workspace tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-2" aria-labelledby="st-2" hidden><div class="two tight"><div><h3>Results</h3><p class="mut">The proofread report and the chapter audit - what the second pass found, page by page, with the original beside it.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-results-real.jpg</span><span class="sw">The Results tab showing the proofread report on your own chapter</span></div></figure></div></section><section class="pan" role="tabpanel" id="s-3" aria-labelledby="st-3" hidden><div class="two tight"><div><h3>Settings</h3><p class="mut">Fonts, box types, languages, models, cleaning. Per chapter, and remembered.</p></div><figure class="shot"><img src="assets/ui-settings-fonts-real.jpg" alt="Settings tab" loading="lazy"></figure></div></section></div>
+  <div class="rise"><section class="pan" role="tabpanel" id="s-0" aria-labelledby="st-0"><div class="two tight"><div><h3>File</h3><p class="mut">Open a chapter, add pages, reorder them. One screen, one job.</p></div><figure class="shot"><img src="assets/ui-pages.jpg" alt="File tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-1" aria-labelledby="st-1" hidden><div class="two tight"><div><h3>Workspace</h3><p class="mut">The page. Boxes on the left of the split, typesetting on the right, every tool down the rail. This is where the work happens.</p></div><figure class="shot"><img src="assets/ui-translation-real.jpg" alt="Workspace tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-2" aria-labelledby="st-2" hidden><div class="two tight"><div><h3>Results</h3><p class="mut">The proofread report and the chapter audit - what the second pass found, page by page, with the original beside it.</p></div><figure class="shot"><img src="assets/ui-results-real.jpg" alt="Results tab" loading="lazy"></figure></div></section><section class="pan" role="tabpanel" id="s-3" aria-labelledby="st-3" hidden><div class="two tight"><div><h3>Settings</h3><p class="mut">Fonts, box types, languages, models, cleaning. Per chapter, and remembered.</p></div><figure class="shot"><img src="assets/ui-settings-fonts-real.jpg" alt="Settings tab" loading="lazy"></figure></div></section></div>
 </div></section>
 
 <section class="band" id="control"><div class="wrap">
@@ -477,8 +492,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="lead rise">This is the part most tools skip. Everything the pipeline
   decided is a value you can see and change, on the page, without leaving the
   editor and without starting again.</p>
-  <div style="margin-top:30px"><div class="ctl rise"><div class="ctltx"><h3>Every line, on the page</h3><p>The text list is the translation: one row per piece of source text, what it says and what it will say, and how sure the reader was. Open a row and both are fields - retype either. Change what kind of box it is, split it in two, or link it to the bubble it carries on into.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-row-real.jpg</span><span class="sw">An open text row with both languages showing</span></div></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every block, letter by letter</h3><p>Font, size, rotation, curve, line gap, letter gap, caps. Text colour, outline colour, both as gradients. Shadow, outer glow, inner glow. Per block - not per page, not per chapter.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-typesetting.jpg</span><span class="sw">The typesetting rail with one block selected</span></div></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every bubble, cleaned your way</h3><p>The page says which route cleaned each bubble - filled flat, tone copied, locally, by the AI - so you can see what it did before you trust it. Or drop in your own cleaned plate and skip the step.</p></div><figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-clean-real.jpg</span><span class="sw">The cleaning panel showing the route per bubble</span></div></figure></div></div>
-  <div class="rise" style="margin-top:38px"><figure class="shot "><div class="slot" style="aspect-ratio:16 / 9"><span class="sn">ui-typesetting-full.jpg</span><span class="sw">The workspace with a block selected and the typesetting rail open</span></div><figcaption>One block picked, and every control that applies to it.</figcaption></figure></div>
+  <div style="margin-top:30px"><div class="ctl rise"><div class="ctltx"><h3>Every line, on the page</h3><p>The text list is the translation: one row per piece of source text, what it says and what it will say, and how sure the reader was. Open a row and both are fields - retype either. Change what kind of box it is, split it in two, or link it to the bubble it carries on into.</p></div><figure class="shot"><img src="assets/ui-row-real.jpg" alt="Every line, on the page" loading="lazy"></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every block, letter by letter</h3><p>Font, size, rotation, curve, line gap, letter gap, caps. Text colour, outline colour, both as gradients. Shadow, outer glow, inner glow. Per block - not per page, not per chapter.</p></div><figure class="shot"><img src="assets/ui-typesetting.jpg" alt="Every block, letter by letter" loading="lazy"></figure></div><div class="ctl rise"><div class="ctltx"><h3>Every bubble, cleaned your way</h3><p>The page says which route cleaned each bubble - filled flat, tone copied, locally, by the AI - so you can see what it did before you trust it. Or drop in your own cleaned plate and skip the step.</p></div><figure class="shot"><img src="assets/ui-clean-real.jpg" alt="Every bubble, cleaned your way" loading="lazy"></figure></div></div>
+  <div class="rise" style="margin-top:38px"><figure class="shot "><img src="assets/ui-typesetting-full.jpg" alt="The whole workspace with one block selected and the typesetting panel open" loading="lazy"><figcaption>One block picked, and every control that applies to it.</figcaption></figure></div>
 </div></section>
 
 <section class="band" id="rules"><div class="wrap">
@@ -488,8 +503,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   is not saving you work - it is hiding work you now have to find.</p>
   <div class="grid g3 rise" style="margin-top:28px"><article class="rule"><h4>The whole translation goes in.</h4><p>Never reworded to fit, never trimmed, never split across two boxes. The fitter changes the line breaks and the size, and that is all it is allowed to change.</p></article><article class="rule"><h4>No hyphens.</h4><p>It will not break a word to make it fit. A dash the author typed - S-S-S-SORRY!! - is a different thing and survives exactly as written.</p></article><article class="rule"><h4>Your font, and only your font.</h4><p>It will not quietly swap a character for one your face happens to have, and it will not hand a line to a different family. If your font is short of a glyph, the box says so.</p></article><article class="rule"><h4>It never overwrites good work with nothing.</h4><p>If a re-run cannot typeset a bubble - a bad font, an empty mask - the typesetting already on the page stays. A blank bubble is never an answer.</p></article><article class="rule"><h4>A box you drew is yours.</h4><p>Draw a text box and it is independent: no detection behind it, not in the translation list, not counted as text to translate. Uploading a new translation does not sweep it away.</p></article><article class="rule"><h4>Nothing is uploaded that you did not send.</h4><p>Finding text, cleaning and typesetting run locally. Reading and translating go to whichever model you point them at - including one on your own machine.</p></article></div>
   <div class="grid g2 rise" style="margin-top:30px">
-    <figure class="shot "><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">cmp-substitutes.jpg</span><span class="sw">One page typeset twice: substitution off, then on</span></div><figcaption>Your font, and only your font. Left: the switch off - the character your face cannot draw is KEPT and the box is flagged by name. Right: the switch on, if you want it.</figcaption></figure>
-    <figure class="shot "><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">cmp-spill.jpg</span><span class="sw">The same effect at the minimum size, boxed and spilling</span></div><figcaption>Outside text and sound effects sit on artwork, not on paper. Rather than shrink under the legible minimum they are set at it and allowed to run past the box - the way a typesetter would.</figcaption></figure>
+    <figure class="shot "><img src="assets/cmp-substitutes.jpg" alt="The same page typeset twice, with glyph substitution off and on" loading="lazy"><figcaption>Your font, and only your font. Left: the switch off - the character your face cannot draw is KEPT and the box is flagged by name. Right: the switch on, if you want it.</figcaption></figure>
+    <figure class="shot "><img src="assets/cmp-spill.jpg" alt="A sound effect typeset inside its box, and again spilling out of it" loading="lazy"><figcaption>Outside text and sound effects sit on artwork, not on paper. Rather than shrink under the legible minimum they are set at it and allowed to run past the box - the way a typesetter would.</figcaption></figure>
   </div>
 </div></section>
 
@@ -513,7 +528,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
       and room to type underneath. Fill in as much as you like, upload it back,
       and whatever is in it wins.</p>
     </div>
-    <figure class="shot"><div class="slot" style="aspect-ratio:4 / 3"><span class="sn">ui-settings-models-real.jpg</span><span class="sw">Settings ▸ the model for each step, with the three services and the API keys block</span></div></figure>
+    <figure class="shot"><img src="assets/ui-settings-models-real.jpg" alt="Per-step model settings" loading="lazy"></figure>
   </div>
   <h3 class="rise" style="margin-top:44px">What you can point them at</h3>
   <p class="lead rise">Six, from about a penny a chapter to about four dollars.
@@ -535,7 +550,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   way to fix what it got wrong. This sits in the middle on purpose.</p>
   <div class="tblwrap rise" style="margin-top:28px"><table>
     <thead><tr><th></th><th>By hand in Photoshop</th>
-      <th>One-click auto-translate</th><th class="me">MangaTCT</th></tr></thead>
+      <th>One-click auto-translate</th><th class="me">MangaTCT (beta)</th></tr></thead>
     <tbody><tr><th>Detection, reading and translation</th><td>by hand, box by box</td><td>one pass, whole chapter</td><td class="me">one pass, whole chapter</td></tr><tr><th>Where the English goes</th><td>you place every block</td><td>you place every block</td><td class="me">fitted, then you correct it</td></tr><tr><th>Change one bubble's font</th><td>yes</td><td>yes</td><td class="me">yes</td></tr><tr><th>Gradients, glow, curve, rotation per block</th><td>yes</td><td>yes</td><td class="me">yes</td></tr><tr><th>Draw, clone, heal and erase on the page</th><td>yes</td><td>yes</td><td class="me">yes</td></tr><tr><th>Reading order enforced across the chapter</th><td>you track it</td><td>you track it</td><td class="me">numbered, and re-numbered when you drag</td></tr><tr><th>Glossary and character sheet applied to every page</th><td>you remember</td><td>you remember</td><td class="me">carried into every request</td></tr><tr><th>Runs the model you choose, or none at all</th><td>no model</td><td>fixed</td><td class="me">per step, including local</td></tr><tr><th>Translate it entirely by hand</th><td>yes</td><td>no</td><td class="me">yes - a labelled file out, filled in, back</td></tr><tr><th>Webtoon strips cut into pages</th><td>you cut them</td><td>rarely</td><td class="me">on upload, at the gutters</td></tr><tr><th>Your own cleaned pages</th><td>they are yours</td><td>rarely</td><td class="me">drop them in</td></tr></tbody>
   </table></div>
   <p class="note" style="margin-top:14px">The middle column describes the
@@ -562,9 +577,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
       never cost credits.</p></div>
   </div>
   <div class="cta" style="margin-top:28px">
-    <a class="btn" href="#" data-fill="signup">Create an account</a>
-    <a class="btn ghost" href="#" data-fill="contact">Talk to us</a>
-    <span class="todo">both links need a URL</span>
+    <a class="btn" href="signin.html">Create an account</a>
+    <a class="btn ghost" href="download.html">Download the app</a>
+    
   </div>
 </div></section>
 
@@ -584,9 +599,18 @@ footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <circle cx="3" cy="3" r=".95" fill="#0f1218" opacity=".45"/>
   </pattern>
   <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
-</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
-  <span>Translate | clean | typeset.</span>
-  <span class="todo">footer links go here</span>
+</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
+  <span>Translate | clean | typeset. v1.0.0</span>
+  <nav class="footlinks">
+    <a href="download.html">Download</a>
+    <a href="tutorial.html">Guide</a>
+    <a href="fonts.html">Fonts</a>
+    <a href="pricing.html">Coins</a>
+    <a href="account.html">Account</a>
+    <a href="https://github.com/Lerbernard/MangaTCT" target="_blank" rel="noopener">Source (GPL-3.0)</a>
+    
+    
+  </nav>
   <span class="built">Built by <b>LMB Technology</b></span>
 </div></footer>
 

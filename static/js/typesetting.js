@@ -20,11 +20,233 @@ function pick(st, ov, key){
   return v || '';
 }
 
+/* The same question for a NUMBER, and it has to be asked in the same order.
+
+   `pick` reads the live style first and the saved override second, because
+   the live style is what you are editing right now. Every number on the panel
+   used to be read the other way round - `ov.glow_size ?? st.glow_size` - so a
+   size that had ever been saved could never be changed again: you typed 20,
+   the panel said 20, the patch carried 20, the server answered 20, and the
+   preview went on drawing the 6 in the saved override. Colours changed as you
+   typed and numbers did not, on the same row of the same panel.
+
+   lee: *"the outer glow is tsill not changing size in teh editor"*.
+
+   `''` counts as "not said" and falls through, which is what an emptied field
+   sends; a real 0 does not, because 0 is an answer. */
+function num(st, ov, key, dflt){
+  const v = (st||{})[key] ?? (ov||{})[key];
+  const n = (v === '' || v === null || v === undefined) ? NaN : +v;
+  return isNaN(n) ? dflt : n;
+}
+
+/* A colour that draws nothing.
+
+   Two spellings reach this side: `rgba(...,0)`, which is what the server's
+   `_css_rgba` sends the preview, and `#rrggbb00`, which is what the picker's
+   "no fill" swatch writes (`render.NO_FILL`) and what `assign_colours` hands
+   back for it. Both mean the same thing and both have to be recognised, or
+   half the app thinks a block is empty and the other half draws it solid. */
+function noInk(c){
+  c=(c||'').trim();
+  return /rgba\([^)]*,\s*0(\.0+)?\)\s*$/.test(c) || /^#[0-9a-f]{6}00$/i.test(c);
+}
+
+/* THE FILL AND THE RIM, WORKED OUT ONCE.
+
+   Three places need this pair - the drawing, the box you type in, and the
+   ring round the box you type in - and they each had their own copy. They
+   disagreed: the drawing read `ov.fg` first and the editor read `st.fg`, so
+   clicking a block whose ink was MEASURED changed its colour on the way in.
+   lee: *"fix teh issue of when i clcik a box and teh text color change it
+   shodu always be teh same"*.
+
+   Same rule as `render.colours_for` + `render._hollow_colours` on the server:
+   a hollow block has no fill and its rim is the ink. */
+function inkPair(r, L, ss){
+  const st=r.style||{}, ov=styleOf(r);
+  // Level 1 alone - what a PERSON set. `render.hand_style` is the same list
+  // on the other side, and hollow may overrule the automatic choice for the
+  // fill and the rim but never a hand one.
+  //
+  // `ss` is a SPAN's style - part of the text restyled by itself - and it
+  // outranks everything: within its own characters it is the hand edit.
+  const hand=r.layout_override||{};
+  // THE LIVE STYLE FIRST, the saved override second - `pick`'s order, and
+  // for `pick`'s reason: `r.style` is the panel as it stands right now and
+  // `layout_override` is the last answer the SERVER wrote. These two lines
+  // were the one place that read them the other way round, so a colour
+  // picked on a block that had ever been saved kept painting the old one
+  // until the round trip came back and rewrote the override - measured at
+  // 660ms against a 4ms redraw, and forever when the request never landed.
+  // lee: *"changing the color of teh etxt take a long time now"*, *"the
+  // color doesnt change until i change page and go back or reload"*.
+  const inkc=(ss&&ss.fg)||pick(st,ov,'fg')||L.fg||'#000';
+  const hollow=!!ov.hollow;
+  const fill=hollow?'rgba(0,0,0,0)':inkc;
+  // ...and an outline set by hand wins too, for on a hollow block the outline
+  // is all there is. lee: *"teh outline color donet do anything even thoug
+  // teh outline is what is left"*. The ink is the fallback, not the rule: an
+  // AUTOMATIC edge is a halo, and a hollow letter drawn in a halo colour is
+  // nothing on the page at all.
+  const set=(ss&&ss.edge)||hand.edge||'';
+  const rim=hollow?((set && !noInk(set))?set:inkc)
+                  :((ss&&ss.edge)||pick(st,ov,'edge')||L.edge||'#fff');
+  const sw=Math.max(0,((ss&&ss.stroke)??st.stroke??L.stroke??1))*scale;
+  return {fill, rim, sw, hole:noInk(fill)};
+}
+
+/* The character ranges of a block that carry their own style - lee:
+   *"allow teh user to modify spesifuica part of a text box"*. Offsets index
+   the flat text of the laid-out lines joined with newlines, the same
+   convention `render._spans_of` reads. */
+function spansOf(r, L){
+  const raw=(r.layout_override||{}).spans;
+  if(!Array.isArray(raw) || !raw.length) return null;
+  const n=(L.lines||[]).reduce((a,l)=>a+l.length,0)
+        + Math.max(0,(L.lines||[]).length-1);
+  const out=[];
+  raw.slice(0,200).forEach(sp=>{
+    if(!sp || typeof sp!=='object') return;
+    const s0=Math.max(0, sp.s|0), e0=Math.min(n, sp.e|0);
+    const st=sp.st;
+    if(e0>s0 && st && typeof st==='object' && Object.keys(st).length)
+      out.push([s0, e0, st]);
+  });
+  return out.length?out:null;
+}
+
+/* One line's text divided into runs of constant effective style:
+   [{c0, c1, ss}] with ss null for the block's own style. `base` is the
+   line's offset into the flat text. */
+function lineRuns(line, base, spans){
+  const runs=[];
+  let runS=0, cur=null, curKey='';
+  const keyAt=i=>{
+    let st=null;
+    for(const [s0,e0,sst] of spans)
+      if(s0<=base+i && base+i<e0) st=Object.assign(st||{}, sst);
+    return [st, st?JSON.stringify(st):''];
+  };
+  let [curSt, ck]=keyAt(0); cur=curSt; curKey=ck;
+  for(let i=1;i<=line.length;i++){
+    const [st2,k2]=(i<line.length)?keyAt(i):[null,'\0end'];
+    if(k2===curKey) continue;
+    runs.push({c0:runS, c1:i, ss:cur});
+    runS=i; cur=st2; curKey=k2;
+  }
+  return runs;
+}
+
+/* A LETTERFORM THAT IS ONLY A LINE, drawn the way the exporter draws it.
+
+   This is the one part of the preview that is not CSS, and the reason is
+   exact: PIL's `stroke_width` grows OUTWARD from the glyph, and
+   `-webkit-text-stroke` is CENTRED on it. On a block with a fill the inner
+   half is covered and nobody can tell; on a block with nothing inside it the
+   inner half IS the hole, and at six pixels on 54pt letters it closes the
+   letter. CSS has no way to take a glyph body out of a stroke - there is no
+   Porter-Duff in `mix-blend-mode` and no inner shadow for text.
+
+   SVG has masks, so: stroke at TWICE the width, mask out the glyph body, and
+   what is left is the outward half alone. That is the shape the page gets.
+
+   The three passes, in the order they are painted:
+
+   * the OUTER glow - the same trick, stroked wider still and masked to the
+     paper outside the letters, then blurred, which is `render_page`'s "the
+     ring is grown and blurred and then cut back to the paper outside";
+   * the INNER glow - stroked wider and masked to the glyph body instead, so
+     the light falls into the hole. This is the half the CSS preview could not
+     draw at all, and the reason the note by `igc` used to say the two
+     deliberately part;
+   * the rim itself, on top of both.
+
+   Sizing: the box is the text's own width and a line box's height, measured
+   through the same canvas every other measurement in this file goes through,
+   and the SVG is the only child of a host that is already centred on the
+   line's origin - so the text's middle lands where PIL's `anchor="mm"` puts
+   it. `overflow: visible` because the glow reaches past the box on purpose. */
+let hollowN = 0;
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+function hollowInk(txt, fam, size, ls, sw, colour, glow, iglow){
+  const px = emPx(size, fam);
+  const w = Math.max(1, textW(fam, size, txt) + ls * Math.max(0, txt.length - 1));
+  const h = Math.max(1, px * 1.35);
+  const pad = Math.ceil(sw * 2 + (glow ? glow.px * 2.5 : 0) + 4);
+  const svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('class', 'thollow');
+  svg.setAttribute('width', w.toFixed(1));
+  svg.setAttribute('height', h.toFixed(1));
+  svg.style.overflow = 'visible';
+  svg.style.display = 'block';
+  const uid = 'hk' + (++hollowN);
+
+  const at = (fill, stroke, width) => {
+    const t = document.createElementNS(SVGNS, 'text');
+    t.setAttribute('x', (w / 2).toFixed(2));
+    t.setAttribute('y', (h / 2).toFixed(2));
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('dominant-baseline', 'central');
+    t.setAttribute('font-family', fam + ',sans-serif');
+    t.setAttribute('font-size', px.toFixed(2));
+    if(ls) t.setAttribute('letter-spacing', ls.toFixed(2));
+    t.setAttribute('fill', fill);
+    if(stroke){
+      t.setAttribute('stroke', stroke);
+      t.setAttribute('stroke-width', width.toFixed(2));
+      t.setAttribute('stroke-linejoin', 'round');
+    }
+    t.textContent = txt;
+    return t;
+  };
+  // A mask that is the page MINUS the letters (`out`), and one that is the
+  // letters alone (`in`). Every pass below is cut to one of the two.
+  const defs = document.createElementNS(SVGNS, 'defs');
+  const box = {x: (-pad).toFixed(1), y: (-pad).toFixed(1),
+               width: (w + pad * 2).toFixed(1),
+               height: (h + pad * 2).toFixed(1)};
+  for(const ground of ['#fff', '#000']){
+    const m = document.createElementNS(SVGNS, 'mask');
+    m.setAttribute('id', uid + (ground === '#fff' ? 'out' : 'in'));
+    m.setAttribute('maskUnits', 'userSpaceOnUse');
+    for(const k in box) m.setAttribute(k, box[k]);
+    const bg = document.createElementNS(SVGNS, 'rect');
+    for(const k in box) bg.setAttribute(k, box[k]);
+    bg.setAttribute('fill', ground);
+    m.appendChild(bg);
+    m.appendChild(at(ground === '#fff' ? '#000' : '#fff', null, 0));
+    defs.appendChild(m);
+  }
+  svg.appendChild(defs);
+
+  const soft = (g, mask, grow) => {
+    const t = at('none', g.colour, (sw + grow) * 2);
+    t.setAttribute('mask', `url(#${uid}${mask})`);
+    // A CSS blur radius is about twice a Gaussian sigma, and `render_page`
+    // blurs its ring by roughly half the size - so half of the size here.
+    t.style.filter = `blur(${Math.max(0.4, g.px * 0.5).toFixed(1)}px)`;
+    svg.appendChild(t);
+  };
+  if(glow) soft(glow, 'out', glow.px);
+  if(iglow) soft(iglow, 'in', iglow.px);
+
+  const rim = at('none', colour, sw * 2);
+  rim.setAttribute('mask', `url(#${uid}out)`);
+  svg.appendChild(rim);
+  return svg;
+}
+
 function fontFam(path, kind){
   if(!path) return `'ml-${kind||'bubble'}'`;
   if(!fontFams[path]){
     const fam='mlp'+Object.keys(fontFams).length;
     fontFams[path]=fam;
+    // ...and the way back. A measuring site carries a family name and nothing
+    // else, and `capOfFam` needs the FILE to look up the cap height the server
+    // measured. See `project.FAM_PATH`.
+    if(typeof FAM_PATH==='object' && FAM_PATH) FAM_PATH[fam]=path;
     const url=`url("/fontfile?p=${encodeURIComponent(path)}")`;
     // once the face is available the canvas typesetting repaints in it (the
     // font DROPDOWNS use server-rendered images, so they need no refresh)
@@ -58,9 +280,34 @@ function fontFam(path, kind){
 
    Kept in step with the Python by `test_the_two_arcs_agree`, which runs both
    over the same line and compares every letter's place. */
-function arcPlaces(line, fam, size, lspace, curve, x, y){
+function arcPlaces(line, fam, size, lspace, curve, x, y, kind){
   const w=[...line].map(ch=>textW(fam,size,ch));
   const total=w.reduce((a,b)=>a+b,0)+lspace*Math.max(0,line.length-1);
+  kind=kind||'arch';
+  if(kind==='wave'||kind==='rise'){
+    // `curve` is the STEEPEST slope in degrees (capped short of vertical);
+    // a wave is one S along the line, a rise is a straight slant with the
+    // letters kept upright. The same arithmetic is in `render.arc_places`,
+    // and a test compares the two, kind by kind.
+    const dg=Math.max(-75,Math.min(75,+curve||0));
+    if(total<=0 || Math.abs(dg)<1e-4) return [];
+    const slope0=Math.tan(dg*Math.PI/180);
+    const out=[]; let s=-total/2;
+    [...line].forEach((ch,i)=>{
+      const u=s+w[i]/2, t=(u+total/2)/total;
+      let cy=y, deg=0;
+      if(kind==='wave'){
+        const A=total*slope0/(2*Math.PI);
+        cy=y-A*Math.sin(2*Math.PI*t);
+        deg=Math.atan(-slope0*Math.cos(2*Math.PI*t))*180/Math.PI;
+      } else {
+        cy=y-u*slope0;
+      }
+      out.push({x:x+u, y:cy, deg:deg, ch:ch, adv:w[i]});
+      s+=w[i]+lspace;
+    });
+    return out;
+  }
   const ang=curve*Math.PI/180;
   if(total<=0 || Math.abs(ang)<1e-4) return [];
   const R=total/ang;
@@ -75,14 +322,343 @@ function arcPlaces(line, fam, size, lspace, curve, x, y){
   return out;
 }
 
+/* ONE STYLE, WORKED OUT ONCE - the block's own, or the block's with a
+   SPAN's overlay on top, which is how part of the text wears its own
+   colours and effects (lee: *"allow teh user to modify spesifuica part of
+   a text box"*). A span's value wins over everything, exactly as
+   `render._ink_layer` reads it. Used by `drawText` and by the box you
+   type into, so the two can never disagree about what a run wears. */
+function runStyle(r, L, ss){
+      const st=r.style||{}, ov=styleOf(r);
+      const pk=(key)=>{const v=ss?ss[key]:undefined;
+        return (v===undefined||v===null||v==='')?pick(st,ov,key):String(v);};
+      const nm=(key,dflt)=>{const v=ss?ss[key]:undefined;
+        const n=(v===''||v===null||v===undefined)?NaN:+v;
+        return isNaN(n)?num(st,ov,key,dflt):n;};
+      const {fill:fg, rim:edge, sw, hole}=inkPair(r,L,ss);
+      const shc=pk('shadow');
+      const shOn=/^#[0-9a-f]{6}$/i.test(shc);
+      const shD=nm('sh_dist',2)*scale*0.707;
+      const shB=nm('sh_blur',3)*scale;
+      // the layout as the last word for the glows, which is where an
+      // AUTOMATIC halo arrives (`render.auto_glow`) - a glow somebody chose,
+      // or turned off, wins above; eight digits count (an automatic halo has
+      // an alpha under full) and `noInk` is where "off" is asked.
+      const glc=pk('glow') || (L.glow||'');
+      const glOn=/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(glc) && !noInk(glc);
+      const glS=nm('glow_size',(+L.glow_size||6))*scale;
+      const igc=pk('iglow') || (L.iglow||'');
+      const igOn=/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(igc) && !noInk(igc);
+      const igS=nm('iglow_size',(+L.iglow_size||5))*scale;
+      // EVERY SHADOW AND GLOW ON SPANS OF THEIR OWN, at the bottom of the
+      // stack, drawn the way the EXPORT draws them: the letters STROKED FAT
+      // (`-webkit-text-stroke` = PIL `stroke_width`) and GAUSSIAN BLURRED
+      // (`filter: blur()`, whose length is a standard deviation, PIL's own
+      // unit). `text-shadow` is inherited and rings of copies are
+      // uncalibratable - both designs died measured. Bottom-up, in the
+      // export's compositing order: the shadow, then the glow over it.
+      const fx=[];
+      if(shOn){
+        // `render_page`: `draw_line(..., fill=shcol, stroke_width=stroke,
+        // stroke_fill=shcol)` then `GaussianBlur(blur)`.
+        fx.push({cls:'tshadow', colour:shc, strokePx:2*sw,
+                 dx:shD, dy:shD, blur:shB, passes:1});
+      }
+      if(glOn && !hole){
+        // the silhouette grown by `stroke + spread`, blurred by 0.55 of the
+        // size - a CHOSEN glow composited twice, an AUTOMATIC one once.
+        const spread=Math.max(1, Math.round(glS));
+        const ga=(glc.length===9)?parseInt(glc.slice(7,9),16):255;
+        fx.push({cls:'tglow', colour:glc, strokePx:2*(sw+spread),
+                 dx:0, dy:0, blur:glS*0.55, passes:(ga>=255)?2:1});
+      }
+      const g2v=pk('fg2');
+      const grad=/^#[0-9a-f]{6}$/i.test(g2v);
+      const g1v=pk('fg1');
+      const gFrom=/^#[0-9a-f]{6}$/i.test(g1v)?g1v:fg;
+      const gang=nm('grad_angle',0);
+      // ...and the same three for the ring round the letters.
+      const e2v=pk('edge2');
+      const egrad=/^#[0-9a-f]{6}$/i.test(e2v) && sw>0;
+      const e1v=pk('edge1');
+      const eFrom=/^#[0-9a-f]{6}$/i.test(e1v)?e1v:edge;
+      const eang=nm('edge_angle',0);
+      // THE METRICS OF THIS RUN - the face it is set in and how big.
+      //
+      // A span may now carry these, which is the one thing that makes a run
+      // take up a different amount of room from its neighbours. lee: *"the
+      // changing size and fonts happens to teh whole etxt box instead fo
+      // just the selevcted text"*. `font_size` is the NOMINAL size, the
+      // number the panel shows and the server stores; `emPx` turns it into
+      // the pixel size the face is asked for.
+      const fam=fontFam((ss&&ss.font)||ov.font||st.font||L.font, r.kind);
+      const fsz=((ss&&ss.font_size)?+ss.font_size:0)
+                || num(st,ov,'font_size',L.font_size||14);
+      const size=fsz*scale;
+      // THE RUN'S OWN TRANSPARENCY - a range may carry one, and its value
+      // REPLACES the block's for its own characters, exactly as every
+      // other range key does. 0-100, the number the panel's slider shows.
+      const op=Math.max(0,Math.min(100,nm('opacity',100)));
+      return {fg,edge,sw,hole,fx,glOn,glc,glS,igOn,igc,igS,
+              grad,gFrom,g2v,gang,egrad,eFrom,e2v,eang,fam,size,op};
+}
+
+/* THERE ARE NO BANDS.
+
+   Three functions used to live here - `mixedMetrics`, `inkReach` and
+   `styleCuts` - and between them they implemented the other way of drawing
+   a line that carries spans: paint the WHOLE line once per style, then cut
+   the copies into vertical bands at the glyph boundaries so that each copy
+   shows only over the characters that wear its style.
+
+   The cut was taken off the browser's own typesetting (a `Range` over an
+   invisible sizer span) rather than off a canvas, and that fixed a real
+   two-pixel error; but the model itself is wrong at any precision. A
+   letter's ink is not inside its advance box - the diagonal of an A
+   overhangs both ways, and a heavy sound-effect face overhangs a long way -
+   so a vertical cut ANYWHERE near the boundary slices through the ink of
+   the glyph beside it, and the letter comes out with a hard seam down it,
+   half in one colour and half in the other. lee photographed it twice and
+   then named the whole thing in one line: *"it shoud apply to the letter it
+   self and not a box behiod teh letter"*. A band IS a box behind the
+   letter.
+
+   So every span goes down the flow path now - run after run, each drawn as
+   its own letters, sharing one baseline - which is what `drawText`,
+   `editInkMirror` and `render.flow_runs` all do, and the only thing they
+   do. Nothing is clipped, so a colour can only ever land on the characters
+   that carry it. */
+
+/* ONE RUN OF TEXT, INKED. The five layers, in the order the exporter
+   composites them: the shadow and glow passes underneath, then the
+   outline, then the fill, then the inner glow.
+
+   This was written TWICE - `inked` inside `drawText` for the page, and
+   `stack` inside `editInkMirror` for the box you type into - 146 lines
+   saying one thing in two spellings, with the positioning expressed as
+   classes on one side and inline styles on the other. Every change to how
+   ink is drawn had to be made in both, and the times it was only made in
+   one are exactly the times the page and the box disagreed. lee has
+   reported that disagreement in four different shapes.
+
+   `ctx` is the little the two callers really differ by:
+     fam, size, ls   the block's face and metrics, for the hollow rim
+     fill            whether to paint the fill at all. The mirror leaves it
+                     to the box's own text when the block has no ranges -
+                     the box is only transparent once a range takes over.
+
+   The host needs the `ink` class; the CSS for these five lives there. */
+function inkRun(host, txt, S, ctx){
+  const fam=ctx.fam, size=ctx.size, ls=ctx.ls;
+  // the shadow and glow spans, FIRST, so everything else paints over
+  // them - and never by inheritance, which is what once repainted a
+  // red shadow on every span above them
+  S.fx.forEach(f=>{
+    for(let pass=0; pass<f.passes; pass++){
+      const e=document.createElement('span');
+      // a hollow block's letters are drawn centred in their SVG, so
+      // its effects are centred the same way or they fall off the glyphs
+      const centred=(S.hole && S.sw>0);
+      e.className='tsh '+f.cls+(centred?' tshc':'');
+      e.textContent=txt;
+      e.style.cssText=
+        (f.strokePx>0?`-webkit-text-stroke:${f.strokePx.toFixed(1)}px `+
+                      `${f.colour};`:'')+
+        `-webkit-text-fill-color:${f.colour};color:${f.colour};`+
+        (f.blur>0?`filter:blur(${f.blur.toFixed(1)}px);`:'')+
+        (centred
+          ?`transform:translate(calc(-50% + ${f.dx.toFixed(1)}px),`+
+           `calc(-50% + ${f.dy.toFixed(1)}px));`
+          :((f.dx||f.dy)
+            ?`transform:translate(${f.dx.toFixed(1)}px,`+
+             `${f.dy.toFixed(1)}px);`:''));
+      host.appendChild(e);
+    }
+  });
+  if(S.hole && S.sw>0){
+    // NOTHING INSIDE, SO THE RIM IS DRAWN IN SVG AND NOT IN CSS. PIL
+    // grows `stroke_width` OUTWARD; a CSS stroke is CENTRED, and with
+    // nothing behind it the inward half closes the letter. SVG has
+    // masks: stroke at TWICE the width, take the glyph body out, and the
+    // outward half alone remains - the shape PIL draws. See `hollowInk`,
+    // and the glow/inner glow ride its masks too.
+    host.appendChild(hollowInk(txt, fam, size, ls, S.sw, S.edge,
+                               S.glOn?{colour:S.glc, px:S.glS}:null,
+                               S.igOn?{colour:S.igc, px:S.igS}:null));
+    return;
+  }
+  let front=null;
+  if(S.sw>0){
+    // A real stroke behind a clean fill: the outline only grows OUTWARD
+    // from the letters. With an outline GRADIENT there are EDGE_BANDS of
+    // these, each a solid stroke in its own step of the ramp - CSS has no
+    // gradient for a text stroke, and sixteen steps join under two grey
+    // levels on a full-length ramp. See `paintEdgeGradient`.
+    const back=document.createElement('span');
+    back.className='ts';
+    back.textContent=txt;
+    back.style.webkitTextStroke=`${2*S.sw}px ${S.edge}`;
+    if(S.egrad){
+      back.classList.add('egrad');
+      back.dataset.e1=S.eFrom; back.dataset.e2=S.e2v;
+      back.dataset.eang=S.eang; back.dataset.esw=(2*S.sw).toFixed(1);
+    }
+    host.appendChild(back);
+  }
+  if(ctx.fill!==false){
+    front=document.createElement('span');
+    front.className='tf';
+    front.textContent=txt;
+    host.appendChild(front);
+    // the fill's own colour or its gradient - painted ON the fill span,
+    // over the outline, exactly as the exporter composites it. An inline
+    // colour would beat the gradient class's transparent fill, so a
+    // gradient-wearing span gets no inline colour at all.
+    if(S.grad){
+      front.classList.add('grad');
+      front.dataset.g1=S.gFrom; front.dataset.g2=S.g2v;
+      front.dataset.gang=S.gang;
+    }else{
+      front.style.color=S.fg;
+      front.style.webkitTextFillColor=S.fg;
+    }
+  }
+  if(S.igOn && !S.hole){
+    // Inner glow: no CSS for light inside a letter, so a soft rim ON the
+    // edge - the one place the preview and the page deliberately part. A
+    // hollow block's is already inside `hollowInk`'s masks.
+    const e=document.createElement('span');
+    e.className='tg';
+    e.textContent=txt;
+    e.style.webkitTextStroke=
+      `${Math.max(1,S.igS*0.5).toFixed(1)}px ${S.igc}`;
+    e.style.webkitTextFillColor='transparent';
+    e.style.filter=`blur(${Math.max(0.5,S.igS*0.3).toFixed(1)}px)`;
+    host.appendChild(e);
+  }
+}
+
+/* THE RAMPS - a fill gradient and an outline gradient, painted across the
+   WHOLE BLOCK rather than per letter, so the fade runs unbroken from one
+   side of the words to the other.
+
+   Pulled out of `drawText` so the mirror under the caret can call it too.
+   It could not before: the box's own copy of the ink wrote a per-run
+   `linear-gradient` inline, which is a different fade from the block-wide
+   one the page and the export draw - so a gradient looked one way while
+   you typed and another the moment you clicked away, and an OUTLINE
+   gradient did not show in the box at all. One function, both places. */
+/* WHERE AN ELEMENT SITS INSIDE THE BLOCK, as a centre point.
+
+   Two shapes have to answer this: a line on the page, which is pulled back
+   by half its own size (`translate(-50%,-50%)`), so its `offsetLeft` IS its
+   centre; and a row in the mirror, which is an ordinary flow box whose
+   offset is its top left. The offsets are accumulated up to the group
+   either way, because a RUN's are measured from its line and not from the
+   block - which is what made the ramp on a resized word start from the
+   line's left edge and jump at the word. */
+function centreIn(g, el, centred){
+  let x=0, y=0, n=el;
+  while(n && n!==g){ x+=n.offsetLeft; y+=n.offsetTop; n=n.offsetParent; }
+  x+=el.offsetWidth/2; y+=el.offsetHeight/2;
+  const tl=centred && el.closest && el.closest('.tl');
+  if(tl){ x-=tl.offsetWidth/2; y-=tl.offsetHeight/2; }
+  return {x:x, y:y};
+}
+
+/* THE RAMPS - a fill gradient and an outline gradient, painted across the
+   WHOLE BLOCK rather than per letter, so the fade runs unbroken from one
+   side of the words to the other.
+
+   Pulled out of `drawText` so the mirror under the caret can call it too.
+   It could not before: the box's own copy of the ink wrote a per-run
+   `linear-gradient` inline, which is a different fade from the block-wide
+   one the page and the export draw - so a gradient looked one way while
+   you typed and another the moment you clicked away, and an OUTLINE
+   gradient did not show in the box at all. One function, both places.
+
+   `centred` says which of the two shapes the caller has: the page's lines
+   are centred on their origins, the mirror's rows are not. */
+function paintRamps(g, size, fam, centred){
+  // Each gradient-wearing fill span carries its colours and angle in data
+  // attributes; the ramp spans the union of the block's lines, offset per
+  // element so the fade runs unbroken - and padded past the em box,
+  // because ink overhangs it and a background stops at the element's box
+  // (lee's "!", *"the gradient is still broke at teh corner"*).
+  const gtfs=[...g.querySelectorAll('.tf.grad')];
+  if(gtfs.length){
+    const gpad=Math.ceil(emPx(size,fam)*0.6);
+    const hostOf=(tf)=>tf.closest('.tc')||tf.closest('.trunf')
+      ||tf.closest('.trun')||tf.closest('.tl')||tf.closest('.ink')
+      ||tf.parentElement;
+    // ONE RAMP PER STYLE, spanning that style's OWN letters - which is
+    // exactly what the export does (`render._ink_layer` fades over the
+    // bbox of the style's own mask). A block-wide gradient still fades
+    // block-wide: every line carries the same colours, so the group is
+    // the whole block. A RANGE's gradient fades across the RANGE: its
+    // group is its own runs. It used to fade across the whole block
+    // whoever carried it, so a selected middle word showed only the
+    // middle blend of the ramp - lee: *"gradient ... still universal"* -
+    // while the exported page faded it edge to edge across the word.
+    const groups=new Map();
+    gtfs.forEach(tf=>{
+      const k=(tf.dataset.g1||'')+'|'+(tf.dataset.g2||'')+'|'
+              +(tf.dataset.gang||0);
+      if(!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(tf);
+    });
+    groups.forEach(list=>{
+      let bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;
+      list.forEach(tf=>{
+        const el=hostOf(tf);
+        const c=centreIn(g, el, centred);
+        const w=el.offsetWidth,h=el.offsetHeight;
+        bx0=Math.min(bx0,c.x-w/2); by0=Math.min(by0,c.y-h/2);
+        bx1=Math.max(bx1,c.x+w/2); by1=Math.max(by1,c.y+h/2);
+      });
+      list.forEach(tf=>{
+        const ga=+tf.dataset.gang||0;
+        const rad=ga*Math.PI/180;
+        const tx=Math.sin(rad), ty=Math.cos(rad);
+        const ps=[bx0*tx+by0*ty, bx1*tx+by0*ty, bx0*tx+by1*ty, bx1*tx+by1*ty];
+        const pmin=Math.min(...ps), pmax=Math.max(...ps);
+        // App angle: 0 = top to bottom, clockwise. CSS points the other way
+        // round, hence the 180-a.
+        const css=((180-ga)%360+360)%360;
+        const padj=gpad*(Math.abs(tx)+Math.abs(ty));
+        const el=hostOf(tf);
+        const w=el.offsetWidth,h=el.offsetHeight;
+        const Lg=Math.abs(w*tx)+Math.abs(h*ty);
+        const c=centreIn(g, el, centred);
+        const pS=c.x*tx+c.y*ty-Lg/2;
+        tf.style.padding=`${gpad}px`;
+        tf.style.margin=`0 -${gpad}px`;
+        tf.style.backgroundImage=`linear-gradient(${css}deg,`+
+          `${tf.dataset.g1} ${(pmin-pS+padj).toFixed(1)}px,`+
+          `${tf.dataset.g2} ${(pmax-pS+padj).toFixed(1)}px)`;
+      });
+    });
+  }
+  paintEdgeGradient(g);
+}
+
 function drawText(){
   const o=$('overlay');
+  // THE ONE CHOKE POINT. Every redraw of the typesetting is a moment the page
+  // may have changed - an edit, a zoom, a selection, a page turn - so the
+  // exported page goes off the screen here and is asked for again a moment
+  // later, once. Guarded because this file loads before that one.
+  if(typeof exactOff === 'function') exactOff();
   // every redraw is also the moment the page's typesetting can have appeared or
   // gone, so the switch that hides it follows along here
   if(typeof syncTextToggle==='function') syncTextToggle();
   o.innerHTML='';
   o.classList.toggle('on', inText());
-  if(!inText()){ drawFrame(); return; }   // also puts the frame away
+  if(!inText()){
+    drawFrame();
+    if(typeof exactSoon === 'function') exactSoon();
+    return;                              // also puts the frame away
+  }
   regions.forEach(r=>{
     const L=r.layout;
     if(!L||!L.lines) return;
@@ -102,48 +678,33 @@ function drawText(){
     }
     const org=layoutOrigins(r,L);
     const st=r.style||{};
-    const ov=r.layout_override||{};
-    const fg=ov.fg||st.fg||L.fg||'#000';
-    const edge=ov.edge||st.edge||L.edge||'#fff';
+    // `styleOf`, not the override alone: the MEASURED style lives in its own
+    // field now (`layout_measured`) and the preview has to read the same two
+    // in the same order the exporter does. See `render.style_of`.
+    const ov=styleOf(r);
+    // WRITING DRAWN AS AN OUTLINE has no fill, and the line is the ink.
+    //
+    // `inkstyle` measures both off the original page and leaves `hollow` and
+    // the ink colour in `layout_measured`; the exporter reads them in
+    // `render._hollow_colours`. This is the same rule on this side, and it
+    // has to be here rather than left to the colours the server sends: the
+    // fill below prefers `ov.fg`, which IS that measured ink colour, so a
+    // hollow block would have come out solid in the preview and outlined on
+    // the exported page.
     const size=L.font_size*scale;
-    const sv=(st.stroke??L.stroke??1);
-    const sw=Math.max(0,sv)*scale;
     const fam=fontFam(ov.font||st.font||L.font, r.kind);
-    const ls=(+(ov.lspace??st.lspace)||0)*scale;
-    const shc=pick(st,ov,'shadow');
-    const shOn=/^#[0-9a-f]{6}$/i.test(shc);
-    const shD=(+(ov.sh_dist??st.sh_dist??2))*scale*0.707;
-    const shB=(+(ov.sh_blur??st.sh_blur??3))*scale;
-    // Outer glow. CSS blur is much weaker than a Gaussian of the same radius,
-    // so the halo is stacked at three rising radii - which is also how the
-    // exporter builds it (spread, blur, then composite the halo twice).
-    const glc=pick(st,ov,'glow');
-    const glOn=/^#[0-9a-f]{6}$/i.test(glc);
-    const glS=(+(ov.glow_size??st.glow_size??6))*scale;
-    // Inner glow. There is no CSS for light inside a letter, so the preview
-    // shows it as a soft rim ON the edge - half of it falls where the export
-    // puts all of it. It reads as the same effect at the same strength; the
-    // exported page is the exact one. The only place the two deliberately part.
-    const igc=pick(st,ov,'iglow');
-    const igOn=/^#[0-9a-f]{6}$/i.test(igc);
-    const igS=(+(ov.iglow_size??st.iglow_size??5))*scale;
-    const opv=+(ov.opacity??st.opacity??100);
+    const ls=num(st,ov,'lspace',0)*scale;
+    const opv=num(st,ov,'opacity',100);
     const op=Math.max(0,Math.min(100,isNaN(opv)?100:opv))/100;
-    const crv=+(ov.curve??st.curve??0)||0;
+    const crv=num(st,ov,'curve',0);
+    const ckd=pick(st,ov,'curve_kind')||'arch';
     if(editing===r.id) return;              // being typed into right now
     const rot=+(L.rotate||0);
     const fr=frameOf(r);
-    const g2v=pick(st,ov,'fg2');
-    const grad=/^#[0-9a-f]{6}$/i.test(g2v);
-    const g1v=pick(st,ov,'fg1');
-    const gFrom=/^#[0-9a-f]{6}$/i.test(g1v)?g1v:fg;
-    const gang=+(ov.grad_angle??st.grad_angle??0)||0;
-    // ...and the same three for the ring round the letters.
-    const e2v=pick(st,ov,'edge2');
-    const egrad=/^#[0-9a-f]{6}$/i.test(e2v) && sw>0;
-    const e1v=pick(st,ov,'edge1');
-    const eFrom=/^#[0-9a-f]{6}$/i.test(e1v)?e1v:edge;
-    const eang=+(ov.edge_angle??st.edge_angle??0)||0;
+    const styFor=(ss)=>runStyle(r, L, ss);
+    const bs=styFor(null);
+    const spans=spansOf(r,L);
+    const flatBase=[]; {let fo=0; L.lines.forEach(l=>{flatBase.push(fo); fo+=l.length+1;});}
     // One group per block, sized to the text's frame (plus slack so
     // overhanging lines keep their paint) and rotated as a whole about its
     // centre - the same thing the exporter does.
@@ -155,142 +716,113 @@ function drawText(){
       `width:${fr[2]*scale+2*P}px;height:${fr[3]*scale+2*P}px;`+
       (rot?`transform:rotate(${-rot}deg);`:'')+
       // Transparency belongs to the whole block, exactly as it does in the
-      // export, where it scales one layer's alpha after everything is drawn.
-      (op<1?`opacity:${op};`:'');
+      // export, where it scales one layer's alpha after everything is
+      // drawn - UNLESS the block carries spans, because a range may have a
+      // transparency of its own that REPLACES the block's over its own
+      // characters. Then every run wears its own effective number (the
+      // range's, or the block's where no range says otherwise) and the
+      // group stays opaque, exactly as the export fades style by style.
+      (op<1 && !spans?`opacity:${op};`:'');
+    // one letter (or one run's copy of the line), inked in one style
+    // one run, inked - the same function the mirror under the caret
+    // draws with, so the page and the box cannot drift apart
+    const inked=(host,txt,S)=>inkRun(host, txt, S,
+                                     {fam:fam, size:size, ls:ls});
     L.lines.forEach((line,k)=>{
       const d=document.createElement('div');
-      d.className='tl'+(crv?' tlcurve':'');
+      d.className='tl ink'+(crv?' tlcurve':'');
       d.dataset.id=r.id;
-      // A curved line is not one text node: every letter has its own place on
-      // the arc and its own turn, so it gets its own span. The line div stops
-      // being the thing that is positioned and becomes the container the
-      // letters are positioned inside - same arithmetic as `render.arc_places`.
+      // A curved line is not one text node: every letter has its own place
+      // on the arc and its own turn, so it gets its own span - which is
+      // also how part of a curved line wears a span's style: letter by
+      // letter, no clipping needed.
       d.style.cssText=(crv?`left:0;top:0;transform:none;`
                           :`left:${org[k][0]*scale-gx}px;top:${org[k][1]*scale-gy}px;`)+
-        `font-family:${fam},sans-serif;font-size:${size}px;`+
-        (()=>{const sh=[];
-          if(shOn) sh.push(`${shD.toFixed(1)}px ${shD.toFixed(1)}px `+
-                           `${shB.toFixed(1)}px ${shc}`);
-          if(glOn) for(const m of [0.5,1,1.7]) sh.push(`0 0 ${(glS*m).toFixed(1)}px ${glc}`);
-          return sh.length?`text-shadow:${sh.join(',')};`:'';})()+
+        `font-family:${fam},sans-serif;font-size:${emPx(size,fam).toFixed(2)}px;`+
         (ls?`letter-spacing:${ls}px;`+
             // CSS adds a trailing gap after the last letter; nudge back so
             // the glyphs themselves stay centred, matching the export
             `transform:translate(calc(-50% + ${ls/2}px),-50%);`:'')+
-        // The gradient is painted on the FILL span, not on the line.
-        //
-        // It used to be a background on the line div, clipped to its text -
-        // and the outline span is a CHILD of that div, so it was painted over
-        // the background and swallowed the whole gradient at any width above
-        // a hairline. lee: *"the outline obsucures the gradient"*. Painting
-        // the fill itself puts the colour back where it belongs: on top of
-        // the outline, exactly as the exporter composites it.
-        `color:${fg};`;
-      if(grad) d.classList.add('grad');
-      // one letter, outlined the same way a whole line is
-      const inked=(host,txt)=>{
-        if(sw>0){
-          // A real stroke behind a clean fill: the outline only grows OUTWARD
-          // from the letters, however thick it is. (text-shadow copies the
-          // whole word around instead, which fell apart at large widths.)
-          //
-          // With an outline GRADIENT there are EDGE_BANDS of these instead of
-          // one, each a solid stroke in its own step of the ramp and each
-          // clipped to its own slab across the block. CSS has no gradient for
-          // a text stroke - `background-clip:text` paints the fill area and
-          // leaves the stroke the colour it was given, which is measurable and
-          // was measured - so a stepped ramp is the honest approximation. The
-          // exported page draws it as a true gradient through the ring's own
-          // mask; this is the preview, and at sixteen steps the join between
-          // one step and the next is under two grey levels on a full-length
-          // red-to-blue ramp.
-          const back=document.createElement('span');
-          back.className='ts';
-          back.textContent=txt;
-          back.style.webkitTextStroke=`${2*sw}px ${edge}`;
-          if(egrad) back.classList.add('egrad');
-          const front=document.createElement('span');
-          front.className='tf';
-          front.textContent=txt;
-          host.appendChild(back); host.appendChild(front);
-        } else {
-          const front=document.createElement('span');
-          front.className='tf';
-          front.textContent=txt;
-          host.appendChild(front);
-        }
+        `color:${bs.fg};`;
+      const styCache={};
+      const styOfChar=(i)=>{
+        if(!spans) return bs;
+        let sst=null;
+        for(const [s0,e0,x] of spans)
+          if(s0<=flatBase[k]+i && flatBase[k]+i<e0)
+            sst=Object.assign(sst||{}, x);
+        if(!sst) return bs;
+        const kk=JSON.stringify(sst);
+        return styCache[kk]||(styCache[kk]=styFor(sst));
       };
       if(crv){
         arcPlaces(line, fam, size, ls, crv,
-                  org[k][0]*scale-gx, org[k][1]*scale-gy).forEach(p=>{
+                  org[k][0]*scale-gx, org[k][1]*scale-gy, ckd).forEach((p,idx)=>{
           if(!p.ch.trim()) return;
           const sp=document.createElement('span');
           sp.className='tc';
+          const Sc=styOfChar(idx);
           sp.style.cssText=`left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;`+
+            (spans && Sc.op<100?`opacity:${(Sc.op/100).toFixed(3)};`:'')+
             `transform:translate(-50%,-50%) rotate(${p.deg.toFixed(2)}deg)`;
-          inked(sp, p.ch);
-          if(grad) sp.classList.add('grad');
+          inked(sp, p.ch, Sc);
           d.appendChild(sp);
         });
       } else {
-        inked(d, line);
-      }
-      if(igOn){
-        // a soft rim on the letter's edge - see the note where igc is read
-        const rim=(host,txt)=>{
-          const e=document.createElement('span');
-          e.className='tg';
-          e.textContent=txt;
-          e.style.webkitTextStroke=`${Math.max(1,igS*0.5).toFixed(1)}px ${igc}`;
-          e.style.webkitTextFillColor='transparent';
-          e.style.filter=`blur(${Math.max(0.5,igS*0.3).toFixed(1)}px)`;
-          host.appendChild(e);
-        };
-        if(crv) [...d.children].forEach(sp=>rim(sp, sp.textContent));
-        else rim(d, line);
+        const runs=spans?lineRuns(line, flatBase[k], spans):null;
+        const rsty=runs?runs.map(run=>run.ss?styFor(run.ss):bs):[];
+        if(!runs || (runs.length===1 && !runs[0].ss)){
+          if(spans && bs.op<100) d.style.opacity=(bs.op/100).toFixed(3);
+          inked(d, line, bs);
+        } else {
+          // PART OF THE LINE IN ITS OWN STYLE, SET RUN BY RUN.
+          //
+          // There used to be a second way of drawing this - paint the WHOLE
+          // line once per style and cut the copies into vertical bands at
+          // the glyph ADVANCES - and it was used for every span that did
+          // not change the metrics.
+          //
+          // It cannot work. A letter's ink is not inside its advance box:
+          // the diagonal of an A overhangs both ways and a heavy
+          // sound-effect face overhangs a long way, so a vertical cut at
+          // the advance boundary slices through the neighbouring glyph.
+          // The letter comes out with a hard seam down it, half in one
+          // colour and half in the other. lee photographed it twice and
+          // then named it: *"it shoud apply to the letter it self and not
+          // a box behiod teh letter"*. A band IS a box behind the letter.
+          //
+          // So: run after run, each drawn as its own letters, sharing one
+          // baseline. `align-items:baseline` is the whole rule on this
+          // side; the exporter accumulates the same x for the same runs
+          // (`render.flow_runs`). Nothing is clipped, so a colour can only
+          // land on the characters that carry it.
+          d.style.display='flex';
+          d.style.alignItems='baseline';
+          d.style.justifyContent='center';
+          d.dataset.flow='1';
+          runs.forEach((run,i)=>{
+            const S=rsty[i];
+            const w=document.createElement('span');
+            w.className='trunf';
+            w.dataset.c0=run.c0; w.dataset.c1=run.c1;
+            w.style.cssText='position:relative;display:inline-block;'+
+              'white-space:pre;line-height:1;overflow:visible;'+
+              `font-family:${S.fam},sans-serif;`+
+              `font-size:${emPx(S.size,S.fam).toFixed(2)}px;`+
+              (S.op<100?`opacity:${(S.op/100).toFixed(3)};`:'')+
+              `color:${S.fg};`;
+            inked(w, line.slice(run.c0, run.c1), S);
+            d.appendChild(w);
+          });
+        }
       }
       g.appendChild(d);
     });
     o.appendChild(g);
-    if(grad){
-      // Each line paints its own slice of one shared gradient. The stops
-      // are given in pixels along the gradient axis, offset per line, so
-      // the fade runs unbroken across the whole block. (Painting one
-      // background on the group and clipping through the children sounds
-      // simpler but Chromium won't clip through transformed layers.)
-      const rad=gang*Math.PI/180;
-      const tx=Math.sin(rad), ty=Math.cos(rad);
-      // For a curved block the painted things are the letters, not the
-      // lines: they are positioned the same way (centred on a point), so the
-      // same arithmetic works on either.
-      const cs=[...g.querySelectorAll('.tc')];
-      const els=cs.length?cs:[...g.children];
-      let bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;
-      els.forEach(el=>{
-        const w=el.offsetWidth,h=el.offsetHeight;
-        const x0=el.offsetLeft-w/2,y0=el.offsetTop-h/2;
-        bx0=Math.min(bx0,x0); by0=Math.min(by0,y0);
-        bx1=Math.max(bx1,x0+w); by1=Math.max(by1,y0+h);
-      });
-      const ps=[bx0*tx+by0*ty, bx1*tx+by0*ty, bx0*tx+by1*ty, bx1*tx+by1*ty];
-      const pmin=Math.min(...ps), pmax=Math.max(...ps);
-      // App angle: 0 = top to bottom, clockwise from there. CSS points the
-      // other way round, hence the 180-a.
-      const css=((180-gang)%360+360)%360;
-      els.forEach(el=>{
-        const w=el.offsetWidth,h=el.offsetHeight;
-        const Lg=Math.abs(w*tx)+Math.abs(h*ty);
-        const pS=el.offsetLeft*tx+el.offsetTop*ty-Lg/2;
-        // measured on the placed element, painted on the fill inside it
-        const paint=el.querySelector('.tf')||el;
-        paint.style.backgroundImage=`linear-gradient(${css}deg,`+
-          `${gFrom} ${(pmin-pS).toFixed(1)}px,`+
-          `${g2v} ${(pmax-pS).toFixed(1)}px)`;
-      });
-    }
-    if(egrad) paintEdgeGradient(g, eFrom, e2v, eang, 2*sw);
+    paintRamps(g, size, fam, true);
   });
   drawFrame();
+  if(typeof exactSoon === 'function') exactSoon();
 }
 
 /* ---------------- editing text on the page ---------------- */
@@ -298,6 +830,18 @@ let editing=null, editBox=null;
 // The wording the editor opened on. Closing only writes anything back when
 // the person actually changed it - see closeCanvasEdit.
 let editWas=null;
+// ...and the whole hand-edit state as it stood when the box was OPENED.
+// The editor writes the wording into `layout_override` on every keystroke
+// (`syncFromTextbox`) - that is what keeps the mirror and the ranges live -
+// so by the time the box closes, the region carries the edit already, and a
+// snapshot taken at close is a snapshot OF the edit. Which is exactly the
+// bug lee reported once before: *"its not in the history so i cant undo the
+// delete"*. What undo must put back is captured here, at the open.
+let editBefore=null;
+// When the side panel or the marks dialog was last pressed. The box closes
+// on losing focus, and every control over there steals focus when it is
+// really clicked - so a press that landed on the panel is not a click-out.
+let panelDownAt=0;
 
 function frameOf(r){
   const f=r.layout&&r.layout.frame;
@@ -321,7 +865,7 @@ function derivedFrame(r){
     const [x,y,w,h]=r.bubble_bbox||r.bbox;
     return [x,y,w,h];
   }
-  const ov=r.layout_override||{};
+  const ov=styleOf(r);
   const fam=fontFam(ov.font||L.font||'', r.kind);   // same face drawText uses
   const lh=L.font_size*(L.leading||1.12);
   let wid=0;
@@ -363,7 +907,16 @@ $('stage').addEventListener('mousedown',e=>{
   // killed the marquee, lasso, wand and fill anywhere near typesetting.
   if(typeof selTool!=='undefined' && (selTool||xf)) return;
   if(e.target.closest('#tframe')) return;         // handles look after themselves
-  if(e.target.id==='canvasEdit') return;          // already typing in it
+  // ...and INSIDE it, not just ON it. A box laid out in runs - part of
+  // its text in another face or another size - has the press land on a
+  // run's span, not on the box; an identity check missed that, so the
+  // stage took the click, called `preventDefault`, and the browser never
+  // started a selection. lee: *"when theere 2 tetx with difent font in a
+  // box i cant select any part of teh text aymore and none of teh edit
+  // lick chnaging size works on that box"* - the second half follows from
+  // the first, because every range tool needs a range. `closest`, the way
+  // the `#tframe` guard two lines up has always done it.
+  if(e.target.closest && e.target.closest('#canvasEdit')) return;
   const p=pt(e);
   const id=frameAt(p.x/scale, p.y/scale);
   if(id===null){
@@ -417,7 +970,10 @@ $('stage').addEventListener('dblclick',e=>{
   if(paintArmed()) return;
   if(typeof zoomTool!=='undefined' && zoomTool) return;
   if(typeof selTool!=='undefined' && (selTool||xf)) return;
-  if(e.target.id==='canvasEdit') return;   // let it select a word, as Word does
+  // inside it, not just on it - see the mousedown guard. A double-click
+  // on a run's span must still select that word rather than reopen the
+  // editor on the block.
+  if(e.target.closest && e.target.closest('#canvasEdit')) return;
   const p=pt(e);
   const id=frameAt(p.x/scale, p.y/scale);
   if(id!==null && editing!==id){
@@ -426,6 +982,40 @@ $('stage').addEventListener('dblclick',e=>{
     editOnCanvas(id);
   }
 });
+
+/* WHICH CHARACTERS ARE SELECTED in the box you type into.
+
+   All of this used to be written by hand: offsets counted by walking the
+   contenteditable, an `editSel` variable kept alive across panel clicks
+   because the browser throws its own selection away when focus moves, and
+   a `selectionchange` listener with two guards deciding whether a collapse
+   was a real click-out or a colour well stealing focus.
+
+   The editor keeps its selection in its own state now, so none of that is
+   needed: clicking a well cannot lose a range that was never the
+   browser's to lose. `textbox.js` converts between the editor's positions
+   and the app's flat offsets, and this is the whole of what is left. */
+function editRange(){
+  if(editing===null || typeof tbSelection!=='function') return null;
+  return tbSelection();
+}
+
+/* The panel turns to face whatever is selected - span-capable fields show
+   the range's values, blank where the range disagrees with itself. Called
+   by the editor when its selection moves. */
+function editSelectionMoved(){
+  const r=regions.find(x=>x.id===editing);
+  if(r && typeof editInkMirror==='function') editInkMirror(editBox, r);
+  if(typeof renderInspector==='function') renderInspector();
+  if(typeof snapshotTypesetPanel==='function') snapshotTypesetPanel();
+  if(typeof gradientOwnsTheWell==='function') gradientOwnsTheWell();
+}
+
+document.addEventListener('pointerdown',(ev)=>{
+  const t=ev.target;
+  panelDownAt = (t && t.closest && (t.closest('#side')||t.closest('#markdlg')))
+                ? performance.now() : 0;
+},true);
 
 function editOnCanvas(id){
   const r=regions.find(x=>x.id===id);
@@ -445,44 +1035,129 @@ function editOnCanvas(id){
   const size=L.font_size*scale;
   const st=r.style||{};
 
-  // A contenteditable rather than a textarea, because a textarea pins its
-  // text to the top while the page centres it - so the words visibly jumped
-  // upward as soon as the editor opened.
+  // A DIV that the editor mounts into, rather than a contenteditable we
+  // drive ourselves. It keeps the id, the geometry and the class every
+  // other part of the app already looks for; what changed is who owns the
+  // document and the selection inside it. See `textbox.js`.
   const ta=document.createElement('div');
   ta.id='canvasEdit';
-  ta.setAttribute('contenteditable','plaintext-only');
-  if(ta.contentEditable!=='plaintext-only') ta.setAttribute('contenteditable','true');
-  ta.textContent=(L.lines||[]).join('\n');
-  editWas=(L.lines||[]).join('\n');
   ta.style.cssText=
     `position:absolute;text-align:center;white-space:pre;`+
     `display:flex;flex-direction:column;justify-content:center;`+
     `background:transparent;border:none;outline:none;`+
     `z-index:40;text-transform:none;overflow:visible`;
-  placeEditor(ta, r);
+  editWas=(L.lines||[]).join('\n');
+  editBefore={ov:JSON.parse(JSON.stringify(r.layout_override||{})),
+              text:r.dst_text,
+              lines:(L.lines||[]).slice(),
+              frame:(L.frame||[]).slice()};
   $('stage').appendChild(ta);
-  editBox=ta;
-  drawText();
-
-  ta.focus();
-  const sel2=window.getSelection(), rng=document.createRange();
-  rng.selectNodeContents(ta); rng.collapse(false);      // caret at the end
-  sel2.removeAllRanges(); sel2.addRange(rng);
 
   let t=null;
-  ta.addEventListener('input',()=>{
-    clearTimeout(t);
-    t=setTimeout(()=>{
-      const lines=editLines(ta);
-      if(lines.length) livePreview(id,Object.assign(currentPatch(r),{lines}));
-    },200);
+  // NO RED SQUIGGLE UNDER THE TYPESETTING - every word in here is a sound
+  // effect, a name or a line the copy editor has been over, and the
+  // browser's dictionary knows none of them. lee: *"remove teh red
+  // spellcheck on teh box"*. The attributes go on the editor's own element
+  // (see `tbMount`), together with the three that stop a phone keyboard
+  // rewriting anything on the way in.
+  tbMount(ta, r, {
+    changed(){
+      // The wording moved. The RANGES move with it by themselves now -
+      // that is the editor's job and `remapSpans` is gone - so all that is
+      // left here is to write the block down and redraw it.
+      syncFromTextbox(r);
+      editInkMirror(ta, r);
+      placeEditor(ta, r);
+      clearTimeout(t);
+      t=setTimeout(()=>{
+        const lines=tbLines();
+        if(lines.length) livePreview(id,Object.assign(currentPatch(r),{lines}));
+      },200);
+    },
+    selected(){ editSelectionMoved(); },
+    escape(){ closeCanvasEdit(false); },
+    commit(){ closeCanvasEdit(true); }
   });
-  ta.addEventListener('keydown',e=>{
-    e.stopPropagation();                       // page shortcuts stay off
-    if(e.key==='Escape'){e.preventDefault();closeCanvasEdit(false);}
-    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();closeCanvasEdit(true);}
+  placeEditor(ta, r);
+  // ...and again now it is on the page, because a box laid out in runs is
+  // widened to fit them and that can only be measured once it has a layout
+  placeEditor(ta, r);
+  editBox=ta;
+  drawText();
+  tbFocus();
+
+  // Page shortcuts stay off while somebody is typing. Escape and
+  // Ctrl+Enter are the editor's own keymap (`tbMount`), so they are not
+  // repeated here.
+  ta.addEventListener('keydown',e=>{ e.stopPropagation(); });
+  // Blur closes the editor - EXCEPT when the focus went to the side panel
+  // or the special-characters dialog. Every control there steals focus when
+  // really clicked (a colour well, a stepper, a mark tile), so "click
+  // anything on the side bar" would close the box mid-edit - the synthetic
+  // tests never caught it because a dispatched event moves no focus. Two
+  // signs are checked because neither alone covers it: where the focus
+  // LANDED (relatedTarget - null for the native colour dialog and for
+  // clicks on non-focusable labels) and where the last pointer went DOWN.
+  //
+  // The RANGE no longer needs protecting here. It lives in the editor's
+  // state, not in the browser's selection, so a well that steals focus
+  // cannot take it away.
+  ta.addEventListener('focusout',(e)=>{
+    const to=e.relatedTarget;
+    if(to && to.closest && (to.closest('#side')||to.closest('#markdlg')))
+      return;
+    if(to && ta.contains(to)) return;
+    if(typeof panelDownAt!=='undefined'
+       && performance.now()-panelDownAt < 700) return;
+    closeCanvasEdit(true);
   });
-  ta.addEventListener('blur',()=>closeCanvasEdit(true));
+}
+
+/* The block, written down from the editor: the lines it holds and the
+   ranges inside it, in the app's own shape and the app's own offsets.
+   Called on every change, so `r.layout` and `r.layout_override` are never
+   more than one keystroke behind what is on screen - which is what the
+   overlay, the mirror and the save all read. */
+function syncFromTextbox(r){
+  if(!r || typeof tbLines!=='function' || !tbIsOpen()) return;
+  const lines=tbLines();
+  const spans=tbSpans();
+  if(r.layout) r.layout.lines=lines;
+  const ov=Object.assign({}, r.layout_override||{}, {lines:lines,
+                                                     locked:true});
+  if(spans.length) ov.spans=spans; else delete ov.spans;
+  r.layout_override=ov;
+}
+
+
+/* How wide the widest line in the box actually is, when the box is laid
+   out in runs. Measured off the ROW ELEMENTS the browser has already laid
+   out - `scrollWidth` is their content, overflow included - so no font
+   measuring is repeated and no canvas can disagree with it. 0 for a plain
+   box, which is every box that has not had a size or a face put on part of
+   its text. */
+function runWidthOf(ta, r){
+  if(!ta) return 0;
+  // The editor mounts its own element inside the box, so the ROWS are the
+  // paragraphs wherever they are - one level down when the editor is
+  // there, at the top when it is not.
+  const rows=[...ta.querySelectorAll('p')];
+  const list=rows.length?rows:[...ta.children];
+  let w=0;
+  list.forEach(d=>{
+    // the RUNS, added up - not the row's own width, which is whatever the
+    // box is and would make this measurement chase its own tail
+    const kids=[...d.children];
+    let s=0;
+    if(kids.length) kids.forEach(c=>{ s+=c.getBoundingClientRect().width; });
+    else {
+      const rg=document.createRange();
+      rg.selectNodeContents(d);
+      s=rg.getBoundingClientRect().width;
+    }
+    w=Math.max(w, s);
+  });
+  return w;
 }
 
 /* Keeps the editor sitting exactly on the frame - at creation, and again on
@@ -492,65 +1167,298 @@ function placeEditor(ta, r){
   const L=r.layout, st=r.style||{};
   const [fx,fy,fw,fh]=frameOf(r);
   const size=L.font_size*scale;
-  ta.style.left=(fx*scale)+'px';
+  // A BLOCK WITH RUNS IN IT CAN BE WIDER THAN ITS FRAME. The frame was
+  // fitted at the block's own size, and one word made bigger runs past it.
+  // A `pre` line that overflows its block is laid out from the LEFT EDGE
+  // rather than centred - the browser will not start an overflowing line
+  // outside its container - so the box's letters, and the caret with them,
+  // sat to the right of the ink. Widening the box round the same centre
+  // line is the fix, and the mirror takes its geometry from the box, so
+  // both move together. lee's rule is that the box no longer resizes the
+  // TEXT (`resizeFlags`); this is the box making room for it.
+  let bw=fw*scale;
+  const wide=runWidthOf(ta, r);
+  const cx=(fx+fw/2)*scale;
+  if(wide>bw) bw=Math.ceil(wide)+2;
+  ta.style.left=(cx-bw/2)+'px';
   // anchored on the frame's centre line, so an added line grows it both ways
   ta.style.top=((fy+fh/2)*scale)+'px';
-  ta.style.width=(fw*scale)+'px';
+  ta.style.width=bw+'px';
   ta.style.minHeight=(fh*scale)+'px';
-  const ov=r.layout_override||{};
-  ta.style.fontFamily=fontFam(ov.font||st.font||L.font, r.kind)+',sans-serif';
-  ta.style.fontSize=size+'px';
+  const ov=styleOf(r);
+  const efam=fontFam(ov.font||st.font||L.font, r.kind);
+  ta.style.fontFamily=efam+',sans-serif';
+  // The size the FACE is asked for is converted; the line pitch is not. The
+  // server's `line_h` is the nominal size times the leading, so converting
+  // both would have opened the editor with its lines off the page's lines.
+  ta.style.fontSize=emPx(size, efam).toFixed(2)+'px';
   ta.style.lineHeight=((L.leading||1.12)*size)+'px';
-  const ls=(+(ov.lspace??st.lspace)||0)*scale;
+  const ls=num(st,ov,'lspace',0)*scale;
   ta.style.letterSpacing=ls?ls+'px':'';
   // centre the glyphs, not the glyphs+trailing gap - matches the render
   ta.style.paddingLeft=ls?ls+'px':'';
-  ta.style.color=st.fg||L.fg||'#000';
-  ta.style.caretColor=st.fg||L.fg||'#000';
-  ta.style.textShadow=editShadow(r,L,size);
+  // THE COLOUR THE PAGE IS DRAWN IN, WHATEVER THAT IS.
+  //
+  // It used to borrow: with no fill it typed in the RIM's colour instead, so
+  // that there was something to see. That made a block you had emptied on
+  // purpose turn solid the moment you clicked it and hollow again the moment
+  // you clicked away - and worse, it read `st.fg` while the drawing reads
+  // `ov.fg` first, so a block whose ink was MEASURED changed colour on the
+  // way in even when it had a fill.
+  // lee: *"fix teh issue of when i clcik a box and teh text color change it
+  // shodu always be teh same"*.
+  //
+  // `inkPair` is the one rule now. Where there is nothing inside the letters
+  // the editor draws them the way the page does - a real stroke on the
+  // outline with the artwork showing through - which `-webkit-text-stroke`
+  // does correctly for exactly this case: there is no fill for it to eat.
+  // The caret takes the rim's colour so it can still be found.
+  const {fill, rim, sw, hole}=inkPair(r,L);
+  // NOT a centred stroke any more. `-webkit-text-stroke` grows half of its
+  // width INWARD, and with nothing behind it that half is the letter's own
+  // see-through middle - so clicking a hollow block filled its letters with
+  // the rim's colour, usually white. lee: *"when i clcik a transparent box,
+  // it ussly get a white fill"*. The rim is drawn by `editInkMirror` now -
+  // the same masked SVG the page itself uses - and the box keeps only the
+  // caret.
+  ta.style.webkitTextStroke='';
+  ta.style.color=hole?'transparent':fill;
+  ta.style.caretColor=hole?rim:fill;
+  // A FILL GRADIENT STAYS WHEN YOU CLICK. The box used to type in the flat
+  // base colour, so the gradient vanished the moment the block was clicked
+  // and came back on click-out. lee: *"some of teh affcets dont stay when i
+  // clcik on it"*. One ramp across the whole box - the page runs its ramp
+  // over the ink's box, so the two agree to within the em slack.
+  const g2v=pick(st,ov,'fg2');
+  const grad=!hole && /^#[0-9a-f]{6}$/i.test(g2v);
+  if(grad){
+    const g1v=pick(st,ov,'fg1');
+    const gFrom=/^#[0-9a-f]{6}$/i.test(g1v)?g1v:fill;
+    const css=((180-num(st,ov,'grad_angle',0))%360+360)%360;
+    ta.style.backgroundImage=`linear-gradient(${css}deg, ${gFrom}, ${g2v})`;
+    ta.style.webkitBackgroundClip='text';
+    ta.style.backgroundClip='text';
+  }else{
+    ta.style.backgroundImage='';
+    ta.style.webkitBackgroundClip='';
+    ta.style.backgroundClip='';
+  }
+  // ...and when PART of the text wears its own style, the box shows
+  // nothing at all: one plaintext contenteditable cannot wear two colours,
+  // so the mirror under it draws the fill run by run and the box keeps
+  // only the caret.
+  const rspans=(r.layout_override||{}).spans;
+  const wys=Array.isArray(rspans)&&rspans.length>0;
+  if(wys){
+    ta.style.color='transparent';
+    ta.style.backgroundImage='';
+    ta.style.webkitBackgroundClip='';
+    ta.style.backgroundClip='';
+  }
+  ta.style.webkitTextFillColor=(hole||grad||wys)?'transparent':'';
+  // no text-shadow on the box at all: every effect lives in the mirror
+  // under it, where the layering is the page's own
+  ta.style.textShadow='';
   // and typing into a faded block looks faded, like everything else about it
-  const opv=+(ov.opacity??st.opacity??100);
+  const opv=num(st,ov,'opacity',100);
   ta.style.opacity=(isNaN(opv)?100:Math.max(0,Math.min(100,opv)))/100;
   ta.style.transformOrigin='center center';
   ta.style.transform='translateY(-50%)'+
     (+(L.rotate||0) ? ` rotate(${-(+L.rotate)}deg)` : '');
+  // LAST, once every property it copies is in place - called earlier it
+  // mirrored a box that had no transform yet and sat half a frame low
+  editInkMirror(ta, r);
 }
 
-function editShadow(r,L,sizePx){
-  // the same outline AND drop shadow the page is typeset with, so typing
-  // looks like the result - the shadow used to be left out here, which made
-  // it vanish the moment the text box opened and pop back on click-out
-  const st=r.style||{}, ov=r.layout_override||{};
-  const edge=ov.edge||st.edge||L.edge||'#fff';
-  const sv=(st.stroke??L.stroke??1);
-  const sw=Math.max(0,sv)*scale;
-  const parts=[];
-  if(sw>0)
-    parts.push(...[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
-      .map(([a,b])=>`${a*sw}px ${b*sw}px 0 ${edge}`));
-  const shc=pick(st,ov,'shadow');
-  if(/^#[0-9a-f]{6}$/i.test(shc)){
-    const shD=(+(ov.sh_dist??st.sh_dist??2))*scale*0.707;
-    const shB=(+(ov.sh_blur??st.sh_blur??3))*scale;
-    // listed last so it paints BEHIND the outline, matching the page
-    parts.push(`${shD.toFixed(1)}px ${shD.toFixed(1)}px ${shB.toFixed(1)}px ${shc}`);
+/* EVERYTHING BUT THE FILL, UNDER THE BOX YOU TYPE IN - and, when part of
+   the text wears its own style, THE FILL AS WELL.
+
+   The box you type in is ONE element, and one element cannot layer: its
+   text-shadows paint OVER its background, a centred stroke on a hollow
+   block filled the letters with the rim's colour, and one plaintext
+   contenteditable cannot show two colours at once. So the editor is
+   layered the way the page is: a non-editable MIRROR sits right under the
+   box - same frame, same face, same line pitch - and carries everything
+   that paints around or under the letters, built by the same `runStyle`
+   the page itself draws with. On a block whose text carries SPANS the
+   mirror draws the fill too, run by run, and the box above goes fully
+   transparent: what you see while typing is the page, with a caret on it.
+   The selected range wears a soft band, so it survives the panel taking
+   the browser's own selection away. Rebuilt on every keystroke, locally:
+   no server round-trip, no lag. */
+function editInkMirror(ta, r){
+  const L=r&&r.layout;
+  const m0=ta._rim;
+  if(!L){ if(m0){m0.remove(); ta._rim=null;} return; }
+  const st=r.style||{}, ov=styleOf(r);
+  const lines=editLines(ta);
+  const flat=lines.join('\n');
+  let spans=null;
+  const rawSp=(r.layout_override||{}).spans;
+  if(Array.isArray(rawSp)&&rawSp.length){
+    spans=[];
+    rawSp.forEach(sp=>{
+      const s0=Math.max(0,sp.s|0), e0=Math.min(flat.length,sp.e|0);
+      if(e0>s0&&sp.st&&Object.keys(sp.st).length) spans.push([s0,e0,sp.st]);
+    });
+    if(!spans.length) spans=null;
   }
-  const glc=pick(st,ov,'glow');
-  if(/^#[0-9a-f]{6}$/i.test(glc)){
-    const glS=(+(ov.glow_size??st.glow_size??6))*scale;
-    for(const m of [0.5,1,1.7]) parts.push(`0 0 ${(glS*m).toFixed(1)}px ${glc}`);
+  const bs=runStyle(r, L, null);
+  const wys=!!spans;                 // the mirror draws the fill too
+  const _rng=(typeof editRange==='function') ? editRange() : null;
+  const hasSel=!!_rng;
+  const bare=!wys && !hasSel && !bs.fx.length && !(bs.sw>0) && !bs.igOn;
+  if(bare){ if(m0){m0.remove(); ta._rim=null;} return; }
+  let m=m0;
+  if(!m){
+    m=document.createElement('div');
+    m.id='canvasEditRim';
+    $('stage').appendChild(m);
+    ta._rim=m;
   }
-  return parts.length ? parts.join(',') : 'none';
+  const size=L.font_size*scale;
+  const fam=fontFam(ov.font||st.font||L.font, r.kind);
+  const ls=num(st,ov,'lspace',0)*scale;
+  const lh=((L.leading||1.12)*size);
+  // the box's own geometry, one property at a time - the mirror must sit
+  // exactly under it or the ink parts from the caret
+  m.style.cssText='position:absolute;text-align:center;white-space:pre;'+
+    'display:flex;flex-direction:column;justify-content:center;'+
+    'pointer-events:none;z-index:39;'+
+    `left:${ta.style.left};top:${ta.style.top};width:${ta.style.width};`+
+    `min-height:${ta.style.minHeight};opacity:${ta.style.opacity||1};`+
+    `font-family:${fam},sans-serif;`+
+    `font-size:${emPx(size,fam).toFixed(2)}px;`+
+    (ls?`letter-spacing:${ls}px;padding-left:${ls}px;`:'')+
+    `transform:${ta.style.transform||'none'};`+
+    'transform-origin:center center';
+  m.textContent='';
+  /* One run, inked - by the SAME function the page draws with. This used
+     to be a second implementation called `stack`, with the positioning
+     written inline instead of in classes: five layers, two spellings, and
+     every divergence between the page and the box came out of the gap.
+
+     `fill` is the one real difference. With no ranges on the block the
+     box's own text is still showing through, so the mirror must not paint
+     a second copy of the fill over it; the moment a range takes over, the
+     box goes transparent and the mirror owns the fill too. */
+  const stack=(holder, line, S)=>inkRun(holder, line, S,
+    {fam:fam, size:size, ls:ls, fill:wys});
+  let off=0;
+  lines.forEach((line,k)=>{
+    const d=document.createElement('div');
+    // `ink`, because the five layers under it are the page's own and their
+    // CSS is scoped to that class - see `inkRun`
+    d.className='ink';
+    d.style.cssText=`height:${lh}px;display:flex;align-items:center;`+
+      'justify-content:center;overflow:visible';
+    if(!line.length){ m.appendChild(d); off+=1; return; }
+    const w=document.createElement('span');
+    w.style.cssText='position:relative;display:inline-block;'+
+      'white-space:pre;overflow:visible';
+    // THE IN-FLOW SIZER: real metrics, no ink. It gives the wrapper the
+    // width and height of the line, so that the absolutely-positioned ink
+    // of an UNSPANNED line has something to sit on top of. A spanned line
+    // removes it: those runs are in flow themselves and size the wrapper
+    // between them, and a sizer left in front of them would push every one
+    // of them a whole run to the right.
+    const base=document.createElement('span');
+    base.className='tz';
+    base.textContent=line;
+    base.style.cssText='position:relative;color:transparent;'+
+      '-webkit-text-fill-color:transparent';
+    w.appendChild(base);
+    // THE SELECTION IS THE BROWSER'S TO DRAW.
+    //
+    // A band used to be drawn here, by hand. It existed because clicking a
+    // colour well threw the browser's own selection away and something had
+    // to show what was still selected - and the editor holds the selection
+    // in its own state now, so that reason is gone.
+    //
+    // It was never right either. Placed by measurement, and standing as
+    // tall as the tallest RUN rather than as tall as the letters, it came
+    // out as an amber slab across the middle of a sound effect. lee sent a
+    // picture of it: *"this is still hapeening use any mean to fix it i
+    // want it GONE"*.
+    //
+    // The browser puts a highlight exactly on the glyphs it is
+    // highlighting, for nothing, and cannot be off by a pixel. See
+    // `#canvasEdit::selection`.
+    const runs=spans?lineRuns(line, off, spans)
+                    :[{c0:0, c1:line.length, ss:null}];
+    const rsty=runs.map(run=>run.ss?runStyle(r, L, run.ss):bs);
+    if(runs.length>1 || (runs[0] && runs[0].ss)){
+      // RUN BY RUN, always - the same flow `drawText` lays out and the
+      // exporter paints. There are no bands any more: a band is a box
+      // behind the letter, and a vertical cut at a glyph advance slices
+      // through the ink of the letter beside it. The transparent sizer
+      // goes with them; nothing is clipped, so nothing needs measuring.
+      base.remove();
+      d.dataset.flow='1';
+      runs.forEach((run,i)=>{
+        const S=rsty[i];
+        const holder=document.createElement('span');
+        holder.className='trunf';
+        holder.dataset.c0=run.c0; holder.dataset.c1=run.c1;
+        holder.style.cssText='position:relative;display:inline-block;'+
+          'white-space:pre;line-height:1;overflow:visible;'+
+          `font-family:${S.fam},sans-serif;`+
+          `font-size:${emPx(S.size,S.fam).toFixed(2)}px;`+
+          // the run's own transparency, as the page draws it
+          (S.op<100?`opacity:${(S.op/100).toFixed(3)};`:'');
+        // NO SIZER HERE. The fill span is an IN-FLOW element - that is
+        // how a run comes to be the width of its own letters - so a sizer
+        // in front of it pushes it one whole run to the right, and what
+        // you see is the outline in the right place with the colour on
+        // the next letter along. lee: *"the color sliping to other
+        // letter"*, and his own reading of it was right: *"the letter
+        // themselft are not getting coloed ... teh text is going out of
+        // teh bound"*. The ink sizes the run, exactly as it does on the
+        // page (`drawText`'s flow branch has never had a sizer either).
+        stack(holder, line.slice(run.c0, run.c1), S);
+        w.appendChild(holder);
+      });
+    } else {
+      runs.forEach((run,i)=>{
+        const S=rsty[i];
+        // ALWAYS a holder of its own, even for a single run. `w` already
+        // carries the invisible sizer in flow, and the fill span is an
+        // in-flow element too - dropped straight into `w` it lands AFTER
+        // the sizer instead of on top of it, and every letter is drawn
+        // twice, side by side. That is what lee photographed: *"the color
+        // sliping to other letter"* - a second copy of the words, offset
+        // by the width of the first.
+        const holder=document.createElement('span');
+        holder.className='trun';
+        holder.style.cssText='position:absolute;inset:0;overflow:visible';
+        w.appendChild(holder);
+        stack(holder, line, S);
+      });
+    }
+    d.appendChild(w);
+    m.appendChild(d);
+    off+=line.length+1;
+  });
+  // the gradients are the block's, not each run's - the same ramp
+  // the page paints, so a fade cannot look one way while you type and
+  // another the moment you click away. `false`: the mirror's rows are
+  // ordinary flow boxes, not lines centred on their origins.
+  paintRamps(m, size, fam, false);
 }
 
-/* What is in the on-page editor right now, line for line.
-
-   It used to trim every line and drop the empty ones, which threw away a
-   blank line typed between two paragraphs and an indent typed at the front -
-   the same rule the panel's line box abandoned rounds ago. Trailing blanks go,
-   because those are only where the cursor was left. */
+/* The lines in the box, as the app counts them. Asked of the EDITOR when
+   one is open - it holds the document, and reading `innerText` back out of
+   the DOM it rendered is asking the picture what the words were. The DOM
+   path is kept for the moment before the editor is mounted and for any
+   caller that still has only an element. */
 function editLines(el){
-  const ls=(el.innerText||'').replace(/\u00a0/g,' ').split('\n');
+  if(typeof tbIsOpen==='function' && tbIsOpen()
+     && (!el || el===editBox)){
+    const ls=tbLines().slice();
+    while(ls.length && !ls[ls.length-1].trim()) ls.pop();
+    return ls;
+  }
+  const ls=((el&&el.innerText)||'').replace(/\u00a0/g,' ').split('\n');
   while(ls.length && !ls[ls.length-1].trim()) ls.pop();
   return ls;
 }
@@ -558,9 +1466,14 @@ function editLines(el){
 function closeCanvasEdit(commit){
   if(!editBox) return;
   const id=editing, ta=editBox, lines=editLines(ta);
-  const was=editWas;
-  editing=null; editBox=null; editWas=null;
+  const spans=(typeof tbSpans==='function' && tbIsOpen()) ? tbSpans() : null;
+  const was=editWas, before0=editBefore;
+  editing=null; editBox=null; editWas=null; editBefore=null;
+  if(typeof tbUnmount==='function') tbUnmount();
+  if(typeof renderInspector==='function') renderInspector();
+  if(typeof snapshotTypesetPanel==='function') snapshotTypesetPanel();
   ta.remove();
+  if(ta._rim){ try{ ta._rim.remove(); }catch(e){} ta._rim=null; }
   const r=regions.find(x=>x.id===id);
   // Clicking a block and clicking away is not an edit. It used to save
   // anyway, and saving locks the block onto the hand-edit path - which
@@ -574,16 +1487,26 @@ function closeCanvasEdit(commit){
   // all of it is the most deliberate edit there is.
   // lee: *"deleeting all teh etxt from a text box still dont just leave it"*.
   if(r&&commit){
-    // What to put back, captured BEFORE the edit is written into the region.
-    // `saveTypesetting` snapshots `r.layout_override` for its undo, and by the
-    // time it reads it the next two lines have already replaced it - so the
-    // undo restored the edit and pressing it did nothing.
-    // lee: *"the text is deleting and teh empty box stay but its not in the
-    // history so i cant undo the delete"*.
-    const before={ov:JSON.parse(JSON.stringify(r.layout_override||{})),
-                  text:r.dst_text};
+    // What to put back: the words, ranges, frame and translation as they
+    // stood when the box was OPENED - captured then, because the editor
+    // writes every keystroke into the region as it goes (`syncFromTextbox`),
+    // so by now the region holds the edit itself. Snapshotting here is how
+    // the undo came to restore the edit and do nothing (lee: *"its not in
+    // the history so i cant undo the delete"*). `saveTypesetting` builds
+    // the undo from these plus its own save body, so everything else on
+    // the panel - a size set moments before the box opened, still saving
+    // when it did - survives the undo untouched.
+    const before=before0||{ov:JSON.parse(JSON.stringify(r.layout_override||{})),
+                           text:r.dst_text,
+                           lines:(r.layout&&r.layout.lines||[]).slice(),
+                           frame:(r.layout&&r.layout.frame||[]).slice()};
     r.layout.lines=lines;
-    r.layout_override=Object.assign({},r.layout_override,{lines,locked:true});
+    const ov=Object.assign({},r.layout_override,{lines,locked:true});
+    // ...and the ranges as the editor last held them. They moved with the
+    // words while it was open, so this is the answer, not the copy the
+    // region was carrying before the edit.
+    if(spans){ if(spans.length) ov.spans=spans; else delete ov.spans; }
+    r.layout_override=ov;
     const f=$('lyLines'); if(f) f.value=lines.join('\n');
     // Send the lines explicitly. currentPatch reads the side panel, which
     // still held the old wording - that is why typed changes sometimes
@@ -614,36 +1537,58 @@ function _mixHex(a, b, t){
   return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t)
     .toString(16).padStart(2,'0')).join('');
 }
-function paintEdgeGradient(g, from, to, angle, strokePx){
+function paintEdgeGradient(g){
   const rings=[...g.querySelectorAll('.ts.egrad')];
   if(!rings.length) return;
-  const rad=angle*Math.PI/180;
-  const tx=Math.sin(rad), ty=Math.cos(rad);
-  // Every ring's own box, in the group's coordinates. `.ts` sits at the top
-  // left of its host, and the host is what is centred - so the host is what
-  // carries the position.
+  // Every ring's own box, in the group's coordinates. The positioned thing
+  // is the line div (or the arc letter) the ring sits inside - a ring in a
+  // run wrapper is one level deeper, so climb.
   const boxOf=el=>{
-    const h=el.parentElement;
+    const h=el.closest('.tc')||el.closest('.tl')||el.parentElement;
+    // A ring with no positioned host has no box to contribute. It happens
+    // while a block is being rebuilt - `drawText` replaces the group, and a
+    // repaint queued against the old one finds its rings detached - and it
+    // used to throw here, which killed the whole ramp and left the outline
+    // painted in one flat colour.
+    if(!h) return null;
     const w=h.offsetWidth, ht=h.offsetHeight;
     return {x:h.offsetLeft-w/2, y:h.offsetTop-ht/2, w, h:ht};
   };
-  let pmin=1e9, pmax=-1e9;
+  // the ramp spans the union of ALL the block's rings, per angle - the
+  // export's `_gradient_image` runs across the whole ring bbox the same way
+  const boundsFor=(tx,ty)=>{
+    let pmin=1e9, pmax=-1e9;
+    rings.forEach(el=>{
+      const b=boxOf(el);
+      if(!b) return;
+      [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]]
+        .forEach(([x,y])=>{ const p=x*tx+y*ty;
+          pmin=Math.min(pmin,p); pmax=Math.max(pmax,p); });
+    });
+    return [pmin, pmax];
+  };
   rings.forEach(el=>{
+    const from=el.dataset.e1, to=el.dataset.e2;
+    const angle=+el.dataset.eang||0;
+    const strokePx=parseFloat(el.dataset.esw)||2;
+    const rad=angle*Math.PI/180;
+    const tx=Math.sin(rad), ty=Math.cos(rad);
+    const [pmin,pmax]=boundsFor(tx,ty);
+    const span=Math.max(1e-6, pmax-pmin);
     const b=boxOf(el);
-    [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]]
-      .forEach(([x,y])=>{ const p=x*tx+y*ty;
-        pmin=Math.min(pmin,p); pmax=Math.max(pmax,p); });
-  });
-  const span=Math.max(1e-6, pmax-pmin);
-  rings.forEach(el=>{
-    const b=boxOf(el);
+    if(!b) return;                     // detached mid-rebuild - see boxOf
     const base=b.x*tx+b.y*ty;          // projection of the ring's own origin
     const BIG=(b.w+b.h)*2+200;
     const parent=el.parentElement;
     const frag=document.createDocumentFragment();
     for(let k=0;k<EDGE_BANDS;k++){
-      const lo=pmin+span*k/EDGE_BANDS-base;
-      const hi=pmin+span*(k+1)/EDGE_BANDS-base;
+      // The first and last slab run on to infinity, because the ink runs on
+      // past the box (the leaning "!" that lost its outline at the corner);
+      // and every slab starts half a pixel inside its neighbour, or the
+      // antialiased seam between two clip paths shows the page through the
+      // outline once per band.
+      const lo=pmin+span*k/EDGE_BANDS-base-(k===0?BIG:0.5);
+      const hi=pmin+span*(k+1)/EDGE_BANDS-base+(k===EDGE_BANDS-1?BIG:0);
       // A slab is a quad: its centre line, pushed out sideways far enough to
       // cover the box whichever way the ramp runs.
       const mid=(lo+hi)/2, half=(hi-lo)/2;

@@ -355,9 +355,30 @@ def test_a_box_without_the_switch_is_cleaned_to_the_same_pixels():
 
 # --- the second step -------------------------------------------------------
 
-def test_the_gold_survives_the_first_step_and_not_the_second():
-    """The whole point, end to end and with nobody asking for anything."""
-    img = _gold_on_cream()
+def test_the_first_step_takes_the_gold_now():
+    """It did not when this file was written, and that was the whole reason
+    for a second step. The first step read ink at a FIXED LEVEL - `gray <= 128`
+    - and gold on cream runs 150 to 190, so it went straight past it.
+
+    It does not read a fixed level any more. It reads the box's own ground and
+    calls what stands off it writing, and gold is 60 levels off cream. See
+    `inpaint._off_the_ground`. Both of this file's gold fixtures, on cream and
+    on navy, now come out of step one with nothing left."""
+    was = I.second_pass
+    I.second_pass = lambda *a, **k: []
+    try:
+        for make in (_gold_on_cream, _gold_on_navy):
+            img = make()
+            _, one = _one(img, (10, 30, 400, 70))
+            assert _left(img, one, (10, 30, 400, 70)) < 0.35, make.__name__
+    finally:
+        I.second_pass = was
+
+
+def test_and_what_is_left_for_the_second_step_is_the_ground_it_cannot_model():
+    """Which is the honest domain of it now: a gradient, screentone, artwork -
+    the grounds no level can describe, where step one declines to guess."""
+    img = _dark_on_a_gradient()
     box = (10, 30, 400, 70)
     was = I.second_pass
     I.second_pass = lambda *a, **k: []
@@ -366,8 +387,8 @@ def test_the_gold_survives_the_first_step_and_not_the_second():
     finally:
         I.second_pass = was
     _, two = _one(img, box)
-    assert _left(img, one, box) > 0.9, \
-        "the first step is supposed to be blind to this — fixture drifted"
+    assert _left(img, one, box) > 0.5, \
+        "the first step is supposed to leave most of this — fixture drifted"
     assert _left(img, two, box) < 0.35, _left(img, two, box)
 
 
@@ -398,7 +419,7 @@ def test_a_box_that_came_out_clean_is_never_looked_at_again():
 
 
 def test_and_one_that_did_not_is(proj_free=None):
-    img = _gold_on_cream()
+    img = _dark_on_a_gradient()
     p, _ = _one(img)
     assert p.clean_stats.get("second pass") == 1, p.clean_stats
 
@@ -406,10 +427,10 @@ def test_and_one_that_did_not_is(proj_free=None):
 def test_the_report_says_how_many_needed_it():
     """Every argument about this cleaning has been settled by looking at the
     page and guessing. The count is the answer."""
-    # On cream, because the fixture navy plate is flat enough that the
-    # ORDINARY clean already takes it - which is the second step doing exactly
-    # what it should and staying out of the way.
-    img = _gold_on_cream()
+    # On the gradient, because both gold plates are flat enough that step one
+    # now takes them outright - which is the second step doing exactly what it
+    # should and staying out of the way.
+    img = _dark_on_a_gradient()
     p, _ = _one(img)
     assert "second pass" in p.clean_stats
     assert p.regions[0].clean_route.endswith("+ second"), \
@@ -433,7 +454,7 @@ def test_a_sound_effect_gets_the_second_step_too():
     Measured over lee's effects: eight better, none worse, and 019 went to 12%.
     """
     from mangatl.project import region_from_record
-    img = _gold_on_cream()
+    img = _dark_on_a_gradient()
     rec = {"id": 0, "bbox": [10, 30, 400, 70], "bubble_bbox": None,
            "polygon": [], "kind": "sfx", "order": 0, "src_text": "a"}
     r = region_from_record(rec, img)
@@ -441,7 +462,15 @@ def test_a_sound_effect_gets_the_second_step_too():
     p = Page(image=img.copy(), source_path="t.png")
     p.regions = [r]
     out = I.inpaint_page(p, neural=None)
-    assert p.clean_stats.get("second pass") == 1, p.clean_stats
+    # ...and which step does it is no longer the promise. Step one reads the
+    # box's own ground now, so on every fixture in this file - gold on cream,
+    # gold on navy, dark on a gradient - the effect comes off in step one and
+    # the second is never reached. What is owed to lee is that IT COMES OFF:
+    # *"try to fix thses in their own part of the clenner"*, with the gold
+    # effect on page 019 standing after both steps at 87% of its writing left.
+    # The rule this test is named for is still in `second_pass` for the day a
+    # box reaches it, and `test_and_is_not_clipped_to_its_own_ink_to_do_it`
+    # is what holds it there.
     assert _left(img, out, (10, 30, 400, 70)) < 0.4
 
 
@@ -485,7 +514,7 @@ def test_the_second_step_asks_the_model_where_there_is_one():
     pass should have had, on the page as it ARRIVED rather than on its own
     first answer.
     """
-    img = _gold_on_cream()
+    img = _dark_on_a_gradient()
     seen = {}
 
     def model(sub, mask):
@@ -637,11 +666,14 @@ def test_a_median_is_not_painted_over_hatching():
 
 
 def test_but_it_is_over_paper():
-    """The guard is about texture and not about size. The same second step on a
-    plain background still runs - this is what keeps lee's chapter working."""
+    """The guard is about texture and not about size, and the way to say that
+    now is the other way round: on plain paper there is nothing for the second
+    step to do, because the first one measured the ground and took the writing
+    off it. A box that comes out of step one clean is never looked at again."""
     img = _gold_on_cream()
     p, out = _one(img)
-    assert p.clean_stats.get("second pass") == 1, p.clean_stats
+    assert not p.clean_stats.get("second pass"), p.clean_stats
+    assert _left(img, out, (10, 30, 400, 70)) < 0.35
 
 
 def test_a_model_may_paint_over_texture_because_it_rebuilds_it():
@@ -675,9 +707,14 @@ def test_writing_the_first_step_already_took_off_is_not_texture_either():
     p = Page(image=img.copy(), source_path="t.png")
     p.regions = [r]
     out = I.inpaint_page(p, neural=None)
-    assert p.clean_stats.get("second pass") == 1, \
-        f"the words the first step removed were counted as texture: {p.clean_stats}"
-    assert _left(img, out, box) < 0.35, "and the gold is still standing"
+    # Step ONE takes it now, and the second step never runs, because this is a
+    # plain bubble and `_all_of_it` does not need to recognise gold as writing:
+    # the cream is a known colour and the gold is not it. What the second step
+    # is for is a box whose ground CANNOT be measured; that is where the grain
+    # refusal used to send it back with the words still on.
+    assert not p.clean_stats.get("second pass"), p.clean_stats
+    assert p.clean_stats.get("flat fill") == 1, p.clean_stats
+    assert _left(img, out, box) < 0.05, "the gold is still standing"
 
 
 def test_the_grain_is_measured_around_the_writing_and_not_through_it():

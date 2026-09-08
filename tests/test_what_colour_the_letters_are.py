@@ -198,6 +198,129 @@ def test_a_ring_round_the_letters_is_reported():
     assert got["stroke"] >= 2, got
 
 
+def _grey(v):
+    return np.array([v, v, v], float)
+
+
+def test_a_white_keyline_on_artwork_is_a_ring_and_not_a_glow():
+    """The case that never once fired on a real chapter.
+
+    Black type with a white keyline round it, on artwork, is the
+    commonest sound-effect treatment there is - it is how an effect reads over
+    a picture. Measured across lee's 23 pages BEFORE this: zero outlines found
+    and nineteen "glows", most of them reported as near-white, which is what a
+    white keyline looks like to a routine that is measuring a decay. lee:
+    *"also make sure the ai checks for ouline or outer glow, this one has
+    white outline"*.
+
+    The rings are HIS, read off the pages named. Testing the rule on the
+    numbers a real page gave beats testing it on a picture built to produce
+    them - the first two attempts at such a picture came out as a glow, and
+    were arguing with `glyph_ink` rather than with the rule under test.
+    """
+    from mangatl.inkstyle import ring_band
+    for name, rings, beyond in (
+            ("001.jpg #20 ザァァ", [144, 249, 246, 225, 196], 191),
+            ("014.jpg #26 ギョロ", [127, 243, 240, 178, 153], 153),
+            ("023.jpg #6  ガクッ", [130, 249, 246, 220, 200], 200)):
+        band = ring_band([_grey(v) for v in rings], _grey(beyond))
+        assert len(band) >= 2, (name, rings, beyond, band)
+        assert all(x[0] > 200 for x in band), (name, band)
+
+
+def test_the_blended_rim_is_not_the_thing_the_ring_is_compared_against():
+    """The bug itself, stated as the arithmetic that produced it.
+
+    Ring 1 is the anti-aliased rim of the glyph: black type on a white keyline
+    blends to a mid grey. It was `band[0]`, so every later ring was measured
+    for flatness against a smudge - 249 against 144 is 105 apart and
+    `EDGE_FLAT` is 20, so the walk broke at ring 2 on every effect on every
+    page.
+    """
+    from mangatl.inkstyle import ring_band, EDGE_FLAT
+    rings = [_grey(v) for v in (144, 249, 246, 225, 196)]
+    assert abs(249 - 144) > EDGE_FLAT, "the fixture no longer poses the problem"
+    assert len(ring_band(rings, _grey(191))) == 2
+
+
+def test_and_its_step_is_not_used_either():
+    """The second half. How far a blend sits off the settled paper is a fact
+    about the ARTWORK, not about the writing: 014.jpg #26 has a white keyline
+    at 243 on artwork at 153, and its rim sits 26 off - under `EDGE_STEP`, so
+    the walk used to stop before it reached the ring it was looking for."""
+    from mangatl.inkstyle import ring_band, EDGE_STEP
+    assert abs(127 - 153) < EDGE_STEP, "the fixture no longer poses the problem"
+    band = ring_band([_grey(v) for v in (127, 243, 240, 178, 153)], _grey(153))
+    assert len(band) == 2, band
+
+
+def test_ordinary_writing_is_still_not_outlined():
+    """And by the honest test rather than by an accident of the rim: plain
+    black on white has a ring 2 that IS the paper and steps nothing at all."""
+    from mangatl.inkstyle import ring_band
+    assert ring_band([_grey(v) for v in (215, 253, 255, 255, 255)],
+                     _grey(255)) == []
+
+
+def test_a_keyline_too_faint_to_see_is_left_alone():
+    """003.jpg #15: a white keyline at 248 on paper at 226. Twenty-two apart
+    is not something a reader can see, and typesetting a hard white ring where
+    the page has almost nothing is inventing one."""
+    from mangatl.inkstyle import ring_band
+    assert ring_band([_grey(v) for v in (128, 248, 250, 248, 233)],
+                     _grey(226)) == []
+
+
+def test_and_a_black_keyline_round_white_letters_is_read_too():
+    """Nothing in the measurement has a polarity. Page 003's ぶっ is white
+    type on a black panel with a black rim round it, and it comes back the
+    same way the white ones do."""
+    from mangatl.inkstyle import ring_band
+    band = ring_band([_grey(v) for v in (140, 6, 8, 90, 150)], _grey(150))
+    assert len(band) == 2, band
+    assert all(x[0] < 40 for x in band), band
+
+
+def test_the_keyline_is_measured_and_not_counted():
+    """`ring_band` counts RINGS and stops at four, because past that you are
+    measuring artwork rather than writing. That makes it a fine detector and a
+    poor ruler: every keyline in lee's chapter came back as 2 whatever it
+    really was, and the typesetting drew 2. lee: *"can you also get teh ai to
+    tell you how big the outline is or just add more outline its to
+    sma[ll]"*.
+
+    So the WIDTH is measured with a distance transform over the band, which
+    has no cap - and at the 75th percentile, not the median, which is the one
+    difference from the hollow rim and the whole of why the count read low. A
+    keyline is pinched where two strokes run close together and full width on
+    the outside of the word; the median sits in the pinches, the p75 is the
+    outer edge, and the outer edge is the outline a reader sees.
+
+    Measured on lee's page 001: median x2 = 2.0, p75 x2 = 4.0, max x2 = 11.6.
+    """
+    from mangatl.inkstyle import ring_width
+    img = np.full((200, 400, 3), 191, np.uint8)
+    ink = np.zeros((200, 400), np.uint8)
+    _letters(ink, 255)
+    grown = cv2.dilate(ink, np.ones((11, 11), np.uint8))
+    img[(grown > 0) & (ink == 0)] = (249, 249, 249)
+    got = ring_width(img, ink > 0, np.array([249.0, 249.0, 249.0]), 2)
+    assert got > 2, ("the ruler is still the ring count", got)
+    assert 3 <= got <= 8, got
+
+
+def test_the_ring_count_is_the_floor_and_never_the_other_way():
+    """The rings are a count of what was definitely there, so the measurement
+    may only ever find a keyline WIDER than them - never narrower. A band it
+    cannot read at all falls back to the count."""
+    from mangatl.inkstyle import ring_width
+    img = np.full((60, 60, 3), 200, np.uint8)
+    ink = np.zeros((60, 60), np.uint8)
+    ink[20:40, 20:40] = 255
+    # nothing on the page is anywhere near this colour
+    assert ring_width(img, ink > 0, np.array([12.0, 250.0, 3.0]), 3) == 3
+
+
 def test_a_soft_falloff_is_not_a_ring():
     """A glow. The bands step away from the paper exactly as an outline's do,
     and the difference is that they never settle - 029's blue sound effects
@@ -274,13 +397,21 @@ def test_a_page_is_measured_box_by_box():
     _letters(img, (32, 16, 200), rows=1, cols=4, x0=40, y0=120)
     p = _page(img, [(20, 20, 360, 60), (20, 100, 360, 60)])
     assert S.measure_page(p) == 2
-    assert p.regions[0].layout_override["fg"] == "#000000"
-    assert p.regions[1].layout_override["fg"] == "#C81020"
+    assert p.regions[0].layout_measured["fg"] == "#000000"
+    assert p.regions[1].layout_measured["fg"] == "#C81020"
 
 
 def test_a_colour_somebody_chose_is_never_overwritten():
-    """It fills in blanks. A person who set the sound effects yellow does not
-    want them measured back to grey on the next re-read."""
+    """A person who set the sound effects yellow does not want them measured
+    back to grey on the next re-read.
+
+    It used to hold by NOT WRITING - the measurement went into
+    `layout_override` beside the hand corrections and had to step round
+    whatever was already there. Now the two are separate fields and the
+    measurement writes freely into its own; what holds instead is the ranking
+    in `render.style_of`, where a hand choice wins. The guarantee is the same
+    and it no longer depends on one function's manners.
+    """
     img = np.full((200, 400, 3), 255, np.uint8)
     _letters(img, (0, 0, 0), rows=1, cols=4, x0=40, y0=40)
     p = _page(img, [(20, 20, 360, 60)])
@@ -288,6 +419,11 @@ def test_a_colour_somebody_chose_is_never_overwritten():
     S.measure_page(p)
     assert p.regions[0].layout_override["fg"] == "#FFCC00"
     assert p.regions[0].layout_override["font"] == "Bangers"
+    assert p.regions[0].layout_measured["fg"] == "#000000", \
+        "the measurement still happened; it just went somewhere of its own"
+    from mangatl import render as _R
+    assert _R.style_of(p.regions[0])["fg"] == "#FFCC00", \
+        "and the colour somebody chose is the one that gets drawn"
 
 
 def test_a_page_with_no_regions_is_not_an_error():
@@ -314,8 +450,8 @@ def test_two_boxes_that_overlap_do_not_measure_each_other():
         rs.append(r)
     p.regions = rs
     S.measure_page(p)
-    assert p.regions[0].layout_override["fg"] == "#000000"
-    assert p.regions[1].layout_override["fg"] == "#C81020"
+    assert p.regions[0].layout_measured["fg"] == "#000000"
+    assert p.regions[1].layout_measured["fg"] == "#C81020"
 
 
 # ------------------------------------------------- ...and it runs at the read
@@ -624,6 +760,6 @@ def test_two_pages_read_in_one_run_share_a_black():
     pa, pb = _page(a, [(20, 20, 360, 60)]), _page(b, [(20, 20, 360, 60)])
     S.measure_page(pa, seen)
     S.measure_page(pb, seen)
-    assert pa.regions[0].layout_override["fg"] == \
-        pb.regions[0].layout_override["fg"], (pa.regions[0].layout_override,
-                                              pb.regions[0].layout_override)
+    assert pa.regions[0].layout_measured["fg"] == \
+        pb.regions[0].layout_measured["fg"], (pa.regions[0].layout_measured,
+                                              pb.regions[0].layout_measured)

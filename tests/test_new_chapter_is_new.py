@@ -141,3 +141,63 @@ def test_the_answer_is_not_worked_out_twice_for_one_file(proj):
     finally:
         builtins.open = real
     assert reads["n"] == 0, reads
+
+
+# --------------------------------- the last chapter's story is not this one's
+
+def test_a_new_chapter_does_not_inherit_the_last_ones_synopsis(tmp_path):
+    """lee, uploading a new chapter with the last one's synopsis in front of
+    him: *"im oploading a new chapter thsi should not be there"*, and then
+    *"its here to and a new project"* - the settings screen showing it as
+    well, which is what says the value had reached the SERVER rather than
+    being left on a stale screen.
+
+    The server side was already right: `/api/reset` builds a fresh
+    `SeriesContext` carrying only the configuration - honorifics, medium,
+    target, source, backend, key - and drops the story's own content. The
+    round trip is what put it back. Step 2 of the picker holds a VIEW of the
+    title and synopsis, filled from the project when the step is shown; a
+    reset under those boxes left them saying what the last chapter said, and
+    `pkSaveContext` then did exactly its job - it found the boxes disagreeing
+    with the project and wrote the boxes back.
+
+    Both halves are pinned here: the reset really clears it, and the browser
+    has a hook to stop the boxes restoring it. The end-to-end proof is the
+    jsdom-free probe in the session notes; this is the guard that survives.
+    """
+    from mangatl.project import SeriesContext
+    from where import PKG
+
+    p = Project(None, str(tmp_path / "out"))
+    p.ctx.synopsis = "LAST CHAPTER: a saint, a maid, and a lot of water."
+    p.ctx.title = "Last Chapter"
+    p.ctx.glossary = {"성녀": "saint"}
+    p.settings["medium"] = "manhwa"
+    p.save()
+
+    # what /api/reset does, in the same order and with the same arguments
+    old = p.ctx
+    p.clear()
+    p.ctx = SeriesContext(
+        honorifics=old.honorifics, medium=old.medium, target=old.target,
+        source=old.source, backend=old.backend, base_url=old.base_url,
+        model=old.model, api_key=old.api_key)
+    p.save()
+    assert not p.ctx.synopsis, "the reset kept the last chapter's synopsis"
+    assert not p.ctx.title
+    assert not p.ctx.glossary, "and its glossary"
+    # ...and the configuration it is right to keep is still there
+    assert p.ctx.medium == old.medium and p.ctx.target == old.target
+
+    # THE BROWSER'S HALF. The boxes are a view of the project, so something
+    # has to tell them the project underneath them was just emptied - or
+    # `pkSaveContext` writes the old words back the moment the step closes.
+    js = (PKG / "static" / "js" / "project-io.js").read_text(encoding="utf-8")
+    assert "function pkAfterReset" in js, "nothing clears the story boxes"
+    body = js[js.index("function pkAfterReset"):]
+    body = body[:body.index("\n}") + 2]
+    assert "primed = false" in body, \
+        "the boxes are cleared but still allowed to save themselves back"
+    # every place the project is reset calls it
+    assert js.count("pkAfterReset()") >= 3, \
+        "a reset path that does not tell the story boxes about it"

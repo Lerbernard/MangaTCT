@@ -5,6 +5,17 @@
 /* Each stroke is a layer, as in an image editor: it can be selected in the
    list, hidden, or deleted on its own. Layers live per page, in this session. */
 let brush=false, painting=null, picking=false, eraser=false;
+/* THE REGION ERASER: a brush that brings the ORIGINAL SCAN back.
+   The ordinary eraser rubs out PAINT and stops at the plate, so under it is
+   still a cleaned page. This one goes one layer further down and puts the
+   scan itself back - the Japanese, the artwork the cleaner guessed at, the
+   tone it smeared - wherever you paint. lee: *"make a region erreser tool
+   that allow the user to use an erraser on the regions taht weere clened to
+   revelal the original page undernea it"*.
+   It is the per-box eye (`skip_clean`) with a brush instead of a checkbox:
+   the same "put the original pixels back here", chosen by hand and by the
+   pixel rather than a whole region at a time. */
+let unclean=false;
 /* Shapes: a rectangle, an ellipse or a straight line, drawn as an ordinary
    paint layer so everything that already works for a brush stroke works for
    them too - the layer list, the eye, delete, undo, the selection fence, the
@@ -27,7 +38,8 @@ let shapeEdit=false;
    exactly how a new tool ends up half-wired: the shape tool drew nothing at
    all until this became one function. */
 function paintArmed(){
-  return !!(brush || stamp || heal || eraser || shapeKind || shapeEdit);
+  return !!(brush || stamp || heal || eraser || unclean
+            || shapeKind || shapeEdit);
 }
 let layers=[], layerSel=null, layerSeq=1;
 /* Two families of paint layers, shown in separate panels: 'drawing' (brush,
@@ -247,6 +259,65 @@ function toggleEraser(on){
   paintToolUI();
 }
 
+/* What "hide boxes" was set to before this tool borrowed it. `null` means the
+   tool has not borrowed it, which is also what makes arming twice harmless. */
+let boxPrefBeforeUnclean=null;
+function boxesRedraw(){
+  if(typeof drawBoxes==='function') drawBoxes();
+  if(typeof renderLegend==='function') renderLegend();
+}
+
+/* Arming it. Modelled on `toggleEraser` line for line, because it IS an
+   eraser as far as the screen is concerned - same size, hardness and opacity
+   rows, same soft round cursor. What differs is one layer down. */
+function toggleUnclean(on){
+  unclean = (on===undefined) ? !unclean : !!on;
+  if(unclean){
+    disarmTools('unclean');
+    loadScanSnapshot();
+    // NOTHING OF THIS TOOL IS DRAWN ON THE PAGE. The clone stamp leaves a
+    // source mark and a ring behind - a dashed green circle with a dot in it
+    // - and they are only cleared when the STAMP is put away, so arming
+    // something else while one was on screen left it sitting there. This is a
+    // brush: the ring under the pointer is the whole of its UI. lee, with a
+    // crop of the leftover: *"the erreser for teh clnner ui shoud [be] teh
+    // sma as teh other erreser not a seperate erraser taht stay on the board
+    // it shoud be lnked with teh cursur"*.
+    hideCloneMark(); hideClonePrev(); clonePrevSnap=null;
+    // ...and the boxes come back, because what this erases is a REGION and
+    // you cannot aim at one you cannot see. lee: *"also ckicling teh tool
+    // shoud unhide boxes automaticaly"*.
+    //
+    // BORROWED, NOT TAKEN. Whatever the setting was is put back the moment the
+    // tool is put down, so the boxes do not follow you into the next tool.
+    // lee: *"unslecting the tool or click something elso sjodu turn off teh
+    // boxes"*. Its own variable and not `boxPrefBeforeText`: that one is
+    // already holding the preference from before the VIEW was entered, and two
+    // borrowers sharing one pocket is how a setting comes back wrong.
+    const hb=$('hideboxes');
+    if(hb && boxPrefBeforeUnclean===null){
+      boxPrefBeforeUnclean = hb.checked;
+      hb.checked = false;
+      boxesRedraw();
+    }
+  } else {
+    const hb=$('hideboxes');
+    if(hb && boxPrefBeforeUnclean!==null){
+      hb.checked = boxPrefBeforeUnclean;
+      boxPrefBeforeUnclean = null;
+      boxesRedraw();
+    }
+  }
+  ensureCanvas(); ensureCursor();
+  $('paint').style.pointerEvents = paintArmed() ? 'auto' : 'none';
+  $('canvasWrap').classList.toggle('painting', paintArmed());
+  $('paint').style.cursor = shapeKind ? 'crosshair'
+    : (brush||stamp||heal||eraser||unclean) ? 'none' : '';
+  if(!brush&&!heal&&!eraser&&!unclean)
+    $('brushCursor')&&($('brushCursor').style.display='none');
+  paintToolUI();
+}
+
 function cloneMark(x,y){
   let m=$('cloneMark');
   if(!m){
@@ -317,6 +388,40 @@ function cloneSnapshot(){
   return c;
 }
 
+/* THE SCAN, as a canvas, for the region eraser to sample.
+
+   `cloneSnapshot` above freezes what is ON SCREEN - the plate and the strokes
+   so far. This is the other picture entirely: the page as it arrived, before
+   anything was erased. It is fetched rather than read off the DOM because the
+   Edit view is showing the PLATE; the scan is a second image and the server
+   already serves it at /img/{i} for the Translation view.
+
+   Held for one page and dropped on the next, and the fetch is started when the
+   tool is armed rather than when the first stroke lands - a brush that does
+   nothing for the first half second because a PNG is in flight is a brush
+   somebody presses twice. */
+let _scanSnap=null, _scanFor=null, _scanBusy=false;
+function scanSnapshot(){
+  return (_scanFor === cur) ? _scanSnap : null;
+}
+function loadScanSnapshot(){
+  if(_scanFor === cur || _scanBusy) return;
+  const want = cur;
+  _scanBusy = true;
+  const im = new Image();
+  im.crossOrigin = 'anonymous';
+  im.onload = ()=>{
+    _scanBusy = false;
+    if(want !== cur) return;            // page changed while it loaded
+    const c = document.createElement('canvas');
+    c.width = im.naturalWidth; c.height = im.naturalHeight;
+    c.getContext('2d').drawImage(im, 0, 0);
+    _scanSnap = c; _scanFor = want;
+  };
+  im.onerror = ()=>{ _scanBusy = false; };
+  im.src = pageUrl(want, 'original');
+}
+
 /* Everything you can see on the page, in one canvas: the plate, the paint
    under the typesetting, and the paint OVER it.
 
@@ -338,7 +443,13 @@ function flatSnapshot(){
 }
 
 function stopBrush(){ brush=false; stamp=false; heal=false; picking=false;
-  eraser=false; const eb=$('eraserBtn'); if(eb) eb.classList.remove('pri');
+  eraser=false; unclean=false;
+  // ...and give the boxes back if the region eraser borrowed them. This is the
+  // put-everything-away path and it sets the flags directly, so the restore in
+  // `toggleUnclean` never runs from here.
+  {const hb=$('hideboxes');
+   if(hb && boxPrefBeforeUnclean!==null){
+     hb.checked=boxPrefBeforeUnclean; boxPrefBeforeUnclean=null; boxesRedraw();}} const eb=$('eraserBtn'); if(eb) eb.classList.remove('pri');
   shapeKind=null;
   shapeEdit=false;
   const sb=$('shapeEditBtn'); if(sb) sb.classList.remove('pri');
@@ -393,9 +504,22 @@ function ensureCanvas(){
     });
   }
   const img=$('img');
-  // Only touch the bitmap when the size really changed - setting width
-  // clears a canvas, and that was quietly erasing strokes.
-  if(c.width!==img.naturalWidth || c.height!==img.naturalHeight){
+  // A PICTURE THAT IS STILL LOADING HAS NO SIZE, AND IS NOT A NEW SIZE.
+  //
+  // Committing a shape reloads the page image so the composite shows, and
+  // for the moment between the src changing and the bytes arriving
+  // `naturalWidth` is 0. Adopting that set the canvas to 0x0, and the
+  // `repaintAll` below then threw out of `compositeLive` - `drawImage` will
+  // not take a zero-sized canvas - which left `toggleShape` half-run: the
+  // shape was armed but the line that gives the canvas the mouse never ran.
+  //
+  // So the FIRST shape drawn worked and every one after it did nothing at
+  // all, which is what four tests in the paint suite have been failing on.
+  // Nothing about the drawing was wrong; the tool was simply deaf.
+  if(img && img.naturalWidth > 0 && img.naturalHeight > 0
+     && (c.width!==img.naturalWidth || c.height!==img.naturalHeight)){
+    // Only touch the bitmap when the size really changed - setting width
+    // clears a canvas, and that was quietly erasing strokes.
     c.width=img.naturalWidth; c.height=img.naturalHeight;
     repaintAll();
   }
@@ -485,6 +609,26 @@ function paintDown(e){
     drawStroke(painting);
     return;
   }
+  if(unclean){
+    if(e.button!==0) return;
+    e.preventDefault(); e.stopPropagation();
+    const snap=scanSnapshot();
+    if(!snap){ loadScanSnapshot();
+               toast('Fetching the original page - try again in a moment.');
+               return; }
+    // A clone stamp with no offset and the SCAN as its source. Everything a
+    // clone stroke already does - the soft tip, the live preview, freezing to
+    // a patch on mouseup, the layer list, undo, the saved overlay - is exactly
+    // what this needs, so it is that, aimed somewhere else.
+    painting={id:layerSeq++, type:'clone', col:'#8a8f98', unclean:true,
+              sz:bSz(),
+              op:(+($('brushOp')&&$('brushOp').value)||100)/100,
+              hard:(+($('brushHard')?$('brushHard').value:100))/100,
+              off:{dx:0,dy:0}, snap:snap,
+              pts:[canvasPt(e)], visible:true};
+    drawStroke(painting);
+    return;
+  }
   if(eraser){
     if(e.button!==0) return;
     e.preventDefault(); e.stopPropagation();
@@ -515,8 +659,13 @@ function extendStroke(p){
   }
   painting.pts.push(p);
   drawStroke(painting);
-  // the ring shows where the pixels are being copied FROM
-  if(painting.type==='clone'){
+  // The ring shows where the pixels are being copied FROM, and THAT IS ONLY A
+  // QUESTION FOR THE STAMP. The region eraser is a clone stroke with no offset
+  // - it samples the scan at the very spot it is painting - so a "copied from"
+  // mark for it is a green circle drawn under the cursor saying "here", left
+  // sitting on the artwork the moment the stroke ends. lee, with a crop of one:
+  // *"also it shoud not leave this behind it shod lway be with teh cusur"*.
+  if(painting.type==='clone' && !painting.unclean){
     cloneMark(p.x+painting.off.dx, p.y+painting.off.dy);
     const ring=$('cloneRing');
     if(ring){ ring.style.left=(p.x*scale)+'px'; ring.style.top=(p.y*scale)+'px'; }
@@ -610,7 +759,8 @@ function finishStroke(){
       x0,y0,cc.width,cc.height, 0,0,cc.width,cc.height);
     const png=cc.toDataURL('image/png');
     const rep={id:painting.id, type:'patch', col:'#8a8f98', sz:painting.sz,
-               group:'retouch', label:'Clone',
+               group:'retouch',
+               label:painting.unclean ? 'Original' : 'Clone',
                x:x0, y:y0, png, img:null, op:painting.op,
                pts:painting.pts, visible:true};
     const im=new Image();
@@ -641,6 +791,9 @@ function finishStroke(){
   if(stamp){
     if(cloneSrc) cloneMark(cloneSrc.x, cloneSrc.y);
     refreshCloneSnap();
+  } else {
+    // Nothing that is not the stamp leaves furniture on the page.
+    hideCloneMark(); hideClonePrev();
   }
 }
 function paintMove(e){
@@ -797,7 +950,11 @@ function strokeBuf(st){
 function compositeLive(st){
   const c=$('paint'), m=c.getContext('2d');
   m.clearRect(0,0,c.width,c.height);
-  m.drawImage(underOnScreen(),0,0);
+  // ...and belt as well as braces: a zero-sized source throws, and a redraw
+  // that throws takes the arming of whatever tool asked for it with it. See
+  // `ensureCanvas`, which is where the zero came from.
+  const under=underOnScreen();
+  if(under && under.width && under.height) m.drawImage(under,0,0);
   if(st&&st.buf){
     // inside a selection, the live preview clips like the finished stroke will
     const src=(typeof selClipLive==='function' && selClipLive(st.buf)) || st.buf;
@@ -1100,11 +1257,6 @@ async function finalizeHeal(st){
 
 function undoPaintLast(){ if(!layers.length) return;
   layers.pop(); layerSel=null; repaintAll(); renderLayers(); queueSync(); }
-function undoStroke(){
-  if(!layers.length) return;
-  record('paint-undo', 'Brush stroke removed', null);
-  undoPaintLast();
-}
 /* A locked layer is left alone: it cannot be restacked, deleted, picked up by
    the transform, or recoloured. The eye still works - hiding something is not
    changing it - and the lock itself is one click away.

@@ -30,6 +30,38 @@ MARK_INNER = MARK.split(">", 1)[1].rsplit("</svg>", 1)[0]
 WANTED = []
 
 
+def app_version():
+    """`__version__`, `CHANNEL` and `SUPPORT` from `../version.py`, read by
+    path rather than imported: the site builds in CI with nothing installed,
+    and the number on the page has to be the number in the app or it is a
+    lie."""
+    ns = {}
+    with open(os.path.join(os.path.dirname(HERE), "version.py"), encoding="utf-8") as f:
+        exec(compile(f.read(), "version.py", "exec"), ns)
+    return ns["__version__"], ns.get("CHANNEL", ""), ns.get("SUPPORT", {})
+
+
+VERSION, CHANNEL, SUPPORT = app_version()
+#: The project's own repository. Releases live on it and `manifest.json`
+#: sits on its main branch - lee: *"we alredy have a github repo, we dont
+#: need a newone"*. One place, and it is also where the GPL source offer
+#: points.
+RELEASES = "https://github.com/Lerbernard/MangaTCT"
+
+
+def contact_links(cls="btn ghost"):
+    """The doors that exist. A door SUPPORT leaves empty is not drawn at
+    all - a button to nowhere is exactly what the yellow `todo` chips were
+    marking, and drawing one is not an improvement on marking one."""
+    out = []
+    if SUPPORT.get("discord"):
+        out.append(f'<a class="{cls}" href="{SUPPORT["discord"]}" target="_blank" '
+                   f'rel="noopener">Ask on Discord</a>')
+    if SUPPORT.get("email"):
+        out.append(f'<a class="{cls}" href="mailto:{SUPPORT["email"]}">Email us</a>')
+    return "".join(out)
+
+
 def mark(size):
     return (f'<svg class="mk" viewBox="0 0 64 64" width="{size}" height="{size}" '
             f'aria-hidden="true">{MARK_INNER}</svg>')
@@ -121,13 +153,16 @@ STEPS = [
 FORMATS = [
     {
         "id": "manga",
+        "media": ["manga"],
         "tab": "Manga",
         "lang": "Japanese",
         "dir": "Right to left",
         "line": "The format the rest of it was built around.",
-        "img": "fmt-manga.jpg",
-        "want": "A Japanese page in the editor with the numbered boxes on, "
-                "showing the right-to-left order",
+        "imgs": [{"file": "fmt-manga.jpg",
+                  "want": "A Japanese page in the editor with the numbered "
+                          "boxes on, showing the right-to-left order",
+                  "cap": "A Japanese page, every block numbered in reading "
+                         "order - right to left, panel by panel."}],
         "good": [
             ("Reading order runs right to left, panel by panel",
              "Boxes are ordered inside their panel first, and the cut is found "
@@ -158,92 +193,108 @@ FORMATS = [
         ],
     },
     {
-        "id": "manhwa",
-        "tab": "Manhwa",
-        "lang": "Korean",
+        # ONE PANEL FOR BOTH, and it is the code that decided that rather
+        # than a missing screenshot.
+        #
+        # lee: *"so for the mnahua just skip it or jys lump in mnhwa and
+        # manhua as one"*. Read out of the app: `STRIP_MEDIA` is the set
+        # `{manhwa, manhua}`; `MEDIA` gives both `rtl: False`; `LANG_ENGINE`
+        # sends both to easyocr; `BIG_SFX_BY_MEDIUM` overrides manga alone
+        # and lets manhua keep the webtoon number. The only thing that
+        # actually differs is the language and which of the two webtoon
+        # balloon models is the default - and either card can be picked on
+        # either format.
+        #
+        # Three tabs claimed a distinction the app does not make, and the
+        # old manhua panel said so itself: three of its four strengths and
+        # all three of its rough edges read "the same as manhwa". What is
+        # genuinely Chinese is kept below; what was repetition is gone.
+        "id": "webtoon",
+        "media": ["manhwa", "manhua"],
+        "tab": "Manhwa &amp; manhua",
+        "lang": "Korean &middot; Chinese",
         "dir": "Left to right",
-        "line": "Webtoon strips get cut into pages before anything else runs.",
-        "img": "fmt-manhwa.jpg",
-        "want": "A Korean webtoon chapter after the strip was re-cut - the "
-                "page list down the side showing the new pages",
+        # Two pictures, one panel. The claim this panel makes is "one route,
+        # two languages", and two chapters side by side is the only way to
+        # SHOW that rather than assert it - a Korean chapter the app cut into
+        # pages itself, and a Chinese one it found the text on.
+        "imgs": [
+            {"file": "fmt-manhwa.jpg",
+             "want": "A Korean webtoon chapter after the strip was re-cut - "
+                     "the page list down the side showing the new pages",
+             "alt": "A Korean webtoon chapter in the editor",
+             "cap": "Korean. The eight pages down the side are the ones the "
+                    "app cut for itself out of twelve machine-sliced files."},
+            {"file": "fmt-manhua.jpg",
+             "want": "A Chinese page mid-chapter, ideally one with a dense "
+                     "caption box, in the Translation view",
+             "alt": "A Chinese manhua chapter in the editor",
+             "cap": "Chinese, same route, same screen: 41 pages found, all "
+                    "three kinds of block on this one."},
+        ],
+        "line": "One route, two languages. Webtoon strips are cut into pages "
+                "before anything else runs.",
         "good": [
             ("A strip uploaded as tiles is re-cut into pages, on upload",
              "Six or more images of identical width and identical height is a "
              "sliced strip, and it is re-cut at the gutters into pages about "
-             "three and a half times as tall as they are wide. This exists for "
-             "webtoons and has no manga equivalent."),
+             "three and a half times as tall as they are wide. This exists "
+             "for webtoons and has no manga equivalent."),
             ("Every cut is a gutter, never through the artwork",
              "The cut goes to the gutter NEAREST the target, not the first one "
              "past it. Where the window holds none, the page runs on to the "
              "next gutter there is, past the height limit if that is what it "
              "takes, and you are told which pages ran over."),
             ("Your tiles are kept, never deleted",
-             "They move into a folder beside the chapter. And nothing is re-cut "
-             "on a chapter you have already started work on."),
-            ("Speech levels reach the model",
-             "해요체, 해체 and 합쇼체, and 오빠 / 언니 / 선배 - the register "
-             "notes go into the prompt with the page, so politeness is not "
-             "flattened into one English voice."),
+             "They move into a folder beside the chapter. And nothing is "
+             "re-cut on a chapter you have already started work on."),
+            ("Register reaches the model, in both languages",
+             "Korean: \ud574\uc694\uccb4, \ud574\uccb4 and \ud569\uc1fc\uccb4, and "
+             "\uc624\ube60 / \uc5b8\ub2c8 / \uc120\ubc30. Chinese: \u54e5, \u59d0, \u524d\u8f88 and the "
+             "classical phrasing that marks a formal voice. The register notes "
+             "go into the prompt with the page, so politeness is not flattened "
+             "into one English voice."),
+            ("Simplified Chinese read locally, traditional through a model",
+             "The local reader is set to simplified. A vision model reads "
+             "either, and needs nothing installed."),
             ("Left to right, and it is a setting",
              "Direction follows the format by default and you can override it "
              "per chapter."),
         ],
         "rough": [
-            ("The local Korean reader is an extra install",
-             "Korean and Chinese are read locally by easyocr, which does not "
-             "come with the app: <code>pip install easyocr</code>. Or point "
-             "Read text at a vision model and skip it entirely - that path "
-             "needs nothing installed."),
+            ("Chinese has had one chapter, Korean has had many",
+             "One code path with the language swapped, and both ends of it "
+             "have now been run on real pages: several Korean chapters, and "
+             "one 41-page manhua - 86 blocks found, 63 balloons, 21 sound "
+             "effects, and the single page with no writing on it correctly "
+             "given no boxes. That is a chapter, not a body of evidence. The "
+             "Korean side has had far more of both our attention and our "
+             "measurements, and where the two differ it is the Chinese one "
+             "that is less proven."),
+            ("The local Korean and Chinese reader is an extra install",
+             "Both are read locally by easyocr, which does not come with the "
+             "app: <code>pip install easyocr</code>. Or point Read text at a "
+             "vision model and skip it entirely - that path needs nothing "
+             "installed."),
             ("The reading prompt still carries Japanese instructions",
-             "Rules about furigana and small kana are sent with a Korean page "
-             "too. Harmless in practice, and honestly just not written yet."),
+             "Rules about furigana and small kana are sent with a Korean or "
+             "Chinese page too. Harmless in practice, and honestly just not "
+             "written yet."),
             ("The name and honorific audit knows Japanese suffixes only",
-             "-ssi, -nim and 오빠 are handled by the translator and NOT by the "
-             "check that runs afterwards, so a drift in a romanised Korean "
-             "name is not caught for you."),
+             "-ssi, -nim, \uc624\ube60, -ge and -jie are handled by the translator "
+             "and NOT by the check that runs afterwards, so a drift in a "
+             "romanised Korean or Chinese name is not caught for you."),
             ("Export is one file per page",
              "Nothing stitches the strip back into one long image. You get the "
              "pages the re-cut made."),
-        ],
-    },
-    {
-        "id": "manhua",
-        "tab": "Manhua",
-        "lang": "Chinese",
-        "dir": "Left to right",
-        "line": "Simplified out of the box; traditional through a vision model.",
-        "img": "fmt-manhua.jpg",
-        "want": "A Chinese page mid-chapter, ideally one with a dense "
-                "caption box, in the Translation view",
-        "good": [
-            ("Simplified Chinese read locally, traditional through a model",
-             "The local reader is set to simplified. A vision model reads "
-             "either, and needs nothing installed."),
-            ("Register carried by word choice, not by a suffix",
-             "哥, 姐, 前辈 and the classical phrasing that marks a formal "
-             "voice go into the prompt as notes about Chinese specifically."),
-            ("The same strip handling as manhwa",
-             "A tiled upload is re-cut into pages at the gutters, tiles kept, "
-             "forced cuts reported."),
-            ("Left to right, and it is a setting",
-             "Same as manhwa: the format sets it, you can override it."),
-        ],
-        "rough": [
-            ("The local Chinese reader is an extra install",
-             "Same easyocr as Korean - <code>pip install easyocr</code>, or "
-             "use a vision model."),
-            ("The reading prompt still carries Japanese instructions",
-             "Same as manhwa. It works; it is not written for hanzi."),
-            ("The name audit knows Japanese suffixes only",
-             "-ge and -jie are translated properly and are not checked "
-             "afterwards."),
         ],
     },
 ]
 
 TABS = [
     ("File", "Open a chapter, add pages, reorder them. One screen, one job.",
-     "ui-pages.jpg", "The File tab with a chapter open and its pages listed"),
+     "ui-pages.jpg", "The File screen: what the chapter is, what it is "
+     "written in, and where the pages come from"),
     ("Workspace", "The page. Boxes on the left of the split, typesetting on "
      "the right, every tool down the rail. This is where the work happens.",
      "ui-translation-real.jpg", "The workspace on a real page"),
@@ -386,10 +437,15 @@ def build():
         f'<p class="sub good">What it does well</p><dl>'
         + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in f["good"])
         + "</dl></div>"
-        f'<div><figure class="shot pan-img" style="margin-bottom:26px">'
-        f'{slot(f["img"], f["tab"] + " in the editor", f["want"], "16 / 10")}'
-        f"</figure>"
-        f'<div class="roughbox"><p class="sub rough">Where it is rough</p><dl>'
+        f'<div>'
+        # `pic`, not `i` - the outer comprehension is already using `i` for
+        # the tab index, and shadowing it here hides every panel but the first.
+        + "".join(
+            f'<figure class="shot pan-img" style="margin-bottom:26px">'
+            f'{slot(pic["file"], pic.get("alt") or f["tab"] + " in the editor", pic["want"], "16 / 10")}'
+            f'<figcaption>{pic["cap"]}</figcaption></figure>'
+            for pic in f["imgs"])
+        + '<div class="roughbox"><p class="sub rough">Where it is rough</p><dl>'
         + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in f["rough"])
         + "</dl></div></div></div></section>"
         for i, f in enumerate(FORMATS))
@@ -449,7 +505,7 @@ def build():
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MangaTCT - translate, clean, typeset</title>
+<title>MangaTCT Beta - translate, clean, typeset</title>
 <meta name="description" content="A manga, manhwa and manhua translation
  editor. Finds the text, reads it, translates it, cleans the page and typesets
  it - and hands you every one of those decisions.">
@@ -572,6 +628,13 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
    space meant to sit between the mark and the name was also splitting the
    name in half. */
 .brand .wm{{display:flex;align-items:flex-end;gap:0}}
+/* THE APP IS IN BETA and says so wherever it says its own name.
+   lee: "make the app be in beta ... mae ecrything say beta". One small pill
+   beside the wordmark, the same one the editor's header wears. */
+.brand .betapill{{font:700 9px/1 system-ui;letter-spacing:.08em;
+  font-style:normal;color:#0f1218;background:#ffc400;border-radius:7px;
+  padding:2.5px 5px 2px;margin-left:7px;align-self:center;
+  text-transform:uppercase}}
 .brand b{{font-size:25px;line-height:.82}}
 .brand i{{font-size:25px;line-height:.82;color:var(--accent);font-style:normal}}
 .hd nav{{margin-left:auto;display:flex;gap:8px;font-size:14px;
@@ -782,12 +845,15 @@ details p{{color:var(--dim);margin:10px 0 0 23px;max-width:78ch}}
 footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
  font-size:14px;background:var(--bg2)}}
 .foot{{display:flex;gap:22px;flex-wrap:wrap;align-items:center}}
+/* The footer links. They replaced a placeholder chip, so every one of them
+   goes somewhere real - and the two that depend on doors lee has not built
+   yet are drawn by `contact_links` only once they exist. */
+.footlinks{{display:flex;gap:16px;flex-wrap:wrap}}
+.footlinks a{{color:var(--dim);text-decoration:none;border-bottom:1px solid transparent}}
+.footlinks a:hover{{color:var(--fg);border-bottom-color:var(--accent)}}
 .foot .brand b,.foot .brand i{{font-size:20px}}
 .built{{margin-left:auto;color:var(--dim2)}}
 .built b{{color:var(--fg);font-weight:650}}
-.todo{{background:#241f08;border:1px dashed #6b5a12;color:#e8d48a;
- padding:2px 7px;border-radius:5px;font-size:12px}}
-
 @media(max-width:980px){{
  .walk{{grid-template-columns:1fr;gap:24px}}
  .walk .rail{{position:static}}
@@ -811,7 +877,7 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
 </style>
 
 <header><div class="wrap hd">
-  <a class="brand" href="#top">{mark(28)}<span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <a class="brand" href="#top">{mark(28)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
   <nav>
     <a href="#how">How it works</a>
     <a href="#formats">Manga | manhwa | manhua</a>
@@ -819,10 +885,12 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <a href="#compare">Compare</a>
     <a href="#credits">Coins</a>
     <a href="tutorial.html">Guide</a>
+    <a href="fonts.html">Fonts</a>
     <a href="pricing.html">Pricing</a>
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
-  <a class="btn" href="signin.html">Sign in</a>
+  <a class="btn ghost" href="signin.html">Sign in</a>
+  <a class="btn" href="download.html">Download</a>
 </div></header>
 
 <a id="top"></a>
@@ -835,10 +903,11 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   and sets the English back into the balloon. Then it hands you all of it:
   every line, every block, every bubble, down to the outline colour.</p>
   <div class="cta">
-    <a class="btn" href="#credits">Start free - you get credits to try it</a>
+    <a class="btn" href="download.html">Download for Windows - free</a>
     <a class="btn ghost" href="#how">See it work</a>
   </div>
-  <p class="note">Free credits on signup, no card. Finding text, cleaning and
+  <p class="note">Version {VERSION}{" (" + CHANNEL + ")" if CHANNEL else ""} - it updates
+  itself. Free credits on signup, no card. Finding text, cleaning and
   typesetting run on your own machine and cost nothing.</p>
   <div class="heroshot">{slot('ui-hero-real.jpg',
     'The MangaTCT workspace: a chapter typeset in English, with the seven '
@@ -896,17 +965,19 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   </div>
   <div class="rise" style="margin-top:40px">{shot('ui-steps-real.jpg',
     'The seven-step bar on a finished chapter',
-    'A real chapter, six steps done, twenty-three pages each.',
+    'A real chapter: six of the seven steps done on every page of it.',
     'The step bar with every step reading 23 of 23', '21 / 4')}</div>
 </div></section>
 
 <section class="band" id="formats"><div class="wrap">
-  <p class="kicker">Three formats</p>
+  <p class="kicker">Three formats, two jobs</p>
   <h2 class="rise">Manga, manhwa and manhua - what changes between them.</h2>
   <p class="lead rise" style="margin-bottom:30px">All three are supported end
-  to end. They are not the same job, though, and a tool that pretends they are
-  is a tool that hands you a Korean chapter numbered backwards. Here is what
-  actually differs - including the parts that are still rough.</p>
+  to end. Manga is a different job from the other two - a tool that pretends
+  otherwise hands you a Korean chapter numbered backwards. Manhwa and manhua
+  are the same job in two languages, and they share a tab here because they
+  share a code path in the app. Here is what actually differs - including the
+  parts that are still rough.</p>
   <div class="tabs rise" role="tablist" id="fmttabs">{fmt_tabs}</div>
   <div class="rise" id="fmtpanels">{fmt_panels}</div>
   <p class="note" style="margin-top:30px">Everything AFTER the words is the
@@ -1007,7 +1078,7 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   way to fix what it got wrong. This sits in the middle on purpose.</p>
   <div class="tblwrap rise" style="margin-top:28px"><table>
     <thead><tr><th></th><th>By hand in Photoshop</th>
-      <th>One-click auto-translate</th><th class="me">MangaTCT</th></tr></thead>
+      <th>One-click auto-translate</th><th class="me">MangaTCT (beta)</th></tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
   <p class="note" style="margin-top:14px">The middle column describes the
@@ -1034,9 +1105,9 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
       never cost credits.</p></div>
   </div>
   <div class="cta" style="margin-top:28px">
-    <a class="btn" href="#" data-fill="signup">Create an account</a>
-    <a class="btn ghost" href="#" data-fill="contact">Talk to us</a>
-    <span class="todo">both links need a URL</span>
+    <a class="btn" href="signin.html">Create an account</a>
+    <a class="btn ghost" href="download.html">Download the app</a>
+    {contact_links()}
   </div>
 </div></section>
 
@@ -1047,9 +1118,18 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
 </div></section>
 
 <footer><div class="wrap foot">
-  <a class="brand" href="#top">{mark(22)}<span class="wm"><b>Manga</b><i>TCT</i></span></a>
-  <span>Translate | clean | typeset.</span>
-  <span class="todo">footer links go here</span>
+  <a class="brand" href="#top">{mark(22)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
+  <span>Translate | clean | typeset. v{VERSION}</span>
+  <nav class="footlinks">
+    <a href="download.html">Download</a>
+    <a href="tutorial.html">Guide</a>
+    <a href="fonts.html">Fonts</a>
+    <a href="pricing.html">Coins</a>
+    <a href="account.html">Account</a>
+    <a href="{RELEASES}" target="_blank" rel="noopener">Source (GPL-3.0)</a>
+    {('<a href="' + SUPPORT["discord"] + '" target="_blank" rel="noopener">Discord</a>') if SUPPORT.get("discord") else ""}
+    {('<a href="mailto:' + SUPPORT["email"] + '">' + SUPPORT["email"] + '</a>') if SUPPORT.get("email") else ""}
+  </nav>
   <span class="built">Built by <b>LMB Technology</b></span>
 </div></footer>
 

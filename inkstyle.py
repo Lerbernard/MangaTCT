@@ -128,6 +128,46 @@ SHADOW_MAX = 10          # the furthest offset worth looking for
 # in the middle of that gap.
 SNAP = 8
 
+# ---- writing that is drawn as an OUTLINE rather than filled in
+#
+# lee, with the page open: *"for the stratch sfx it not even close"*. のびー on
+# page 006 is a big thin hand-drawn effect - a hollow letterform with a rim
+# about two pixels thick on a box 218 tall - and the app set STRETCH in a
+# heavy face with a FOURTEEN pixel outline, because the outline width was a
+# fixed fraction of the point size (`render._ink_colours`, `font_size // 7`)
+# and had nothing to do with the page.
+#
+# So it is measured, which is what he chose when I put the two ways to him -
+# the same call he made about colour, and for the same reason `inkstyle`
+# exists at all: a model normalises what it is unsure of and cannot tell you
+# how sure it was, and a measurement comes with the evidence attached.
+#
+# HOLLOW is decided by the paper the ink encloses. Flood the block from its
+# border: paper that the flood cannot reach is paper inside a letterform. On
+# のびー that is 21% of the box against 9.5% of ink - the counters are more
+# than twice the ink that draws them. On solid writing there is almost
+# nothing: the enclosed paper is the eye of an あ and the middle of a ロ.
+HOLLOW_RATIO = 1.0       # enclosed paper must be at least this much of the ink
+HOLLOW_MIN = 200         # ...and at least this many pixels, or it is noise
+
+# The rim's own width, as the distance transform sees it: every ink pixel
+# labelled with its distance to the nearest edge, so the median doubled is the
+# typical stroke. Measured on のびー: median 1.0, so a 2px rim.
+#
+# IN PIXELS, and that is the whole of what was wrong the first time. It was
+# kept as a fraction of the writing's height, on the reasoning that the English
+# is set at a different size - which gave STRETCH a rim of 1px where のびー has
+# 2, because our letters are less than half the height of his. Proportionally
+# identical, and visibly half as thick on the same sheet of paper.
+#
+# lee, looking at it: *"i like b a lot but if you could get it to match the
+# ouline and bordee size it would be perfect"*. A PEN HAS A WIDTH. The artist
+# drew both the big effect and the small one with the same nib, and the line
+# it leaves does not scale with how large the letters are - so the measurement
+# does not either.
+RIM_MIN = 1              # thinner than this cannot be drawn
+RIM_MAX = 24             # thicker than this is not a rim, it is a letterform
+
 
 def _hex(bgr) -> str:
     b, g, r = (int(round(float(c))) for c in bgr[:3])
@@ -194,6 +234,107 @@ def glyph_ink(img, block, paper) -> np.ndarray:
     return marked
 
 
+# How wide the keyline round the letters actually is.
+#
+# `ring_band` counts RINGS, and it stops at `EDGE_MAX` because past four rings
+# out you are measuring the artwork rather than the writing. That makes it a
+# fine detector and a poor ruler: every keyline in lee's chapter came back as
+# 2, whatever it really was, and the typesetting drew 2. lee: *"can you also
+# get teh ai to tell you how big the outline is or just add more outline its
+# to snma[ll]"*.
+#
+# Measured instead, the same way the hollow rim is - the distance transform
+# over the band, which has no cap. And at the 75th percentile rather than the
+# median, which is the one difference from the rim and the whole of why the
+# ring count read low:
+#
+#     001.jpg #20   median x2  2.0     p75 x2  4.0     max x2  11.6
+#     023.jpg #6    median x2  2.0     p75 x2  4.0     max x2  12.4
+#
+# A keyline is PINCHED between two strokes that run close together and full
+# width on the outside of the word. The median sits in the pinches; the p75 is
+# the outer edge, which is the part a reader sees as the outline. The max is a
+# corner where three edges meet and is nobody's idea of the width.
+RING_MAX = 12            # past this it is a fill, not a line round the letters
+RING_NEAR = 13           # how far out to look for the band, in pixels
+RING_TOL = 28            # how close to the measured colour still counts as it
+
+
+def ring_width(img, ink, colour, rings: int) -> int:
+    """The keyline's width in pixels, or the ring count if it cannot be read.
+
+    `rings` is `ring_band`'s answer and is the floor: this only ever finds a
+    keyline WIDER than the rings walked, never narrower, because the rings are
+    a count of what was definitely there.
+    """
+    try:
+        want = np.asarray(colour, np.float64)
+        near = cv2.dilate(ink.astype(np.uint8),
+                          np.ones((RING_NEAR, RING_NEAR), np.uint8)) > 0
+        band = (np.abs(img.astype(np.float64) - want).max(2) < RING_TOL)
+        band = (band & near & (~ink.astype(bool))).astype(np.uint8)
+        if int(band.sum()) < 100:
+            return int(rings)
+        dt = cv2.distanceTransform(band, cv2.DIST_L2, 5)
+        vals = dt[dt > 0]
+        if not vals.size:
+            return int(rings)
+        wide = int(round(2.0 * float(np.percentile(vals, 75))))
+        return int(max(rings, min(RING_MAX, wide)))
+    except Exception:
+        return int(rings)
+
+
+def ring_band(cols, beyond) -> list:
+    """The rings that make up an outline, given each ring's colour.
+
+    `cols` is ring 1 outward, `None` where a ring had too few pixels to
+    measure; `beyond` is the settled colour past all of them. Returns the
+    rings that are the outline - empty, or one entry per ring - and the caller
+    calls it an outline at two or more.
+
+    Its own function because the RULE is the thing that was wrong, and a rule
+    is worth being able to test on the numbers a real page gave rather than on
+    a picture built to produce them.
+
+    **RING 1 IS NOT PART OF THE BAND**, and leaving it in is what stopped this
+    finding a single outline in lee's whole chapter. It is the anti-aliased
+    rim of the glyph, and on every letter ever printed it is a BLEND - black
+    type on a white keyline blends to a mid grey around 130. The flatness test
+    compared every later ring against `band[0]`, which was that blend:
+
+        001.jpg #20   ring 1 = 144, ring 2 = 249, ring 3 = 246, beyond = 191
+
+    249 against 144 is 105 apart, `EDGE_FLAT` is 20, and the loop broke at
+    ring 2 every single time. Measured over his 23 pages: ZERO outlines found
+    and 19 "glows", most of them reported as near-white - which is what a
+    white keyline looks like to a routine measuring a decay. lee: *"also make
+    sure the ai checks for ouline or outer glow, this one has white outline"*.
+
+    Its STEP is not used either, and that is the second half. How far a blend
+    sits off the settled paper is a fact about the artwork rather than about
+    the writing: 014.jpg #26 has a white keyline at 243 on artwork at 153, and
+    its blended rim sits 26 off - under `EDGE_STEP`, so the walk stopped
+    before it ever reached the ring it was looking for.
+
+    Ordinary writing is still ruled out, and by the honest test rather than by
+    an accident of the rim: its ring 2 IS the paper and steps nothing at all.
+    """
+    band = []
+    for d, c in enumerate(cols[:EDGE_MAX + 1], 1):
+        if c is None:
+            break
+        if d == 1:
+            continue                     # the blended rim: not evidence
+        c = np.asarray(c, np.float64)
+        if float(np.abs(c - beyond).max()) < EDGE_STEP:
+            break
+        if band and float(np.abs(c - band[0]).max()) > EDGE_FLAT:
+            break                        # a falloff, not a ring
+        band.append(c)
+    return band
+
+
 def measure_region(img, block) -> dict:
     """What the writing in `block` is painted with. {} when it cannot tell.
 
@@ -249,29 +390,82 @@ def measure_region(img, block) -> dict:
     ink_rings = _rings(ink.astype(np.uint8) * 255, EDGE_MAX + 6)
     beyond = _far(img, ink_rings, EDGE_MAX + 1, EDGE_MAX + 6)
     if beyond is not None:
-        wide, band = 0, []
-        for d in range(1, EDGE_MAX + 1):
-            b = ink_rings[d - 1]
-            if b.sum() < 20:
-                break
-            c = np.median(img[b], 0)
-            # Ring 1 is the anti-aliased rim of the glyph, and on every
-            # letter ever printed it is a blend that steps a long way off the
-            # paper - white on black blends to mid-grey, which is 175. It is
-            # never evidence on its own, and `wide >= 2` below is what says so.
-            if float(np.abs(c - beyond).max()) < EDGE_STEP:
-                break
-            if band and float(np.abs(c - band[0]).max()) > EDGE_FLAT:
-                break                    # a falloff, not a ring
-            wide = d
-            band.append(c)
-        if wide >= 2:
-            style["edge"] = _hex(np.median(np.stack(band), 0))
-            style["stroke"] = int(wide)
+        cols = []
+        for b in ink_rings[:EDGE_MAX + 1]:
+            cols.append(np.median(img[b], 0) if b.sum() >= 20 else None)
+        band = ring_band(cols, beyond)
+        if len(band) >= 2:
+            col = np.median(np.stack(band), 0)
+            style["edge"] = _hex(col)
+            style["stroke"] = ring_width(img, ink, col, len(band))
         else:
             style.update(_glow(img, ink_rings, beyond))
     style.update(_shadow(img, ink, paper))
+    style.update(_outline(ink, paper, style.get("fg", "")))
     return style
+
+
+def _outline(ink: np.ndarray, paper, fg: str) -> dict:
+    """Writing drawn as a hollow outline, and how thick that outline is.
+
+    Two numbers and they are separate questions. `hollow` is whether the
+    letterform is a rim round paper rather than a filled shape; `weight` is
+    how thick that rim is, as a fraction of the writing's height, so it still
+    means something at whatever size the English is set.
+
+    Returned only together. A weight without the hollow finding is the width
+    of a brush stroke, which is a fact about the FACE and not about an
+    outline - using it as one would put a two-pixel halo round ordinary
+    dialogue and call it a measurement.
+    """
+    m = ink.astype(np.uint8)
+    if int(m.sum()) < HOLLOW_MIN:
+        return {}
+    ys, xs = np.nonzero(m)
+    top, bot = int(ys.min()), int(ys.max())
+    height = float(bot - top + 1)
+    if height < 8:
+        return {}
+
+    # Paper the ink encloses: flood in from a border of empty pixels, so
+    # anything left unreached is inside a letterform. The pad guarantees the
+    # flood a way round writing that touches the edge of the crop.
+    pad = np.zeros((m.shape[0] + 2, m.shape[1] + 2), np.uint8)
+    pad[1:-1, 1:-1] = m
+    flood = pad.copy()
+    cv2.floodFill(flood, np.zeros((pad.shape[0] + 2, pad.shape[1] + 2),
+                                  np.uint8), (0, 0), 1)
+    enclosed = int(((flood == 0) & (pad == 0)).sum())
+    if enclosed < HOLLOW_MIN or enclosed < HOLLOW_RATIO * int(m.sum()):
+        return {}
+
+    # The rim's width: every ink pixel's distance to the nearest edge of the
+    # ink, doubled at the MEDIAN.
+    #
+    # On a clean band of width w the distances run evenly from 0 to w/2, so
+    # the median doubled is w/2 and not w - it under-reads a thick ring, and a
+    # 90th percentile would track a synthetic one almost exactly. It is still
+    # the median here, because the block being measured is not a clean band:
+    # it is a rectangle of PAGE, and on page 006 that rectangle holds a leg,
+    # hatching and screentone as well as のびー. The high percentiles measure
+    # the artwork. The median measures the writing, and on the one case there
+    # is a right answer for it gives 2 against a rim that is 2.
+    #
+    # Under-reading is also the safe direction: too thin is a line, too thick
+    # is the blob this whole finding exists to stop being.
+    dt = cv2.distanceTransform(pad, cv2.DIST_L2, 5)
+    vals = dt[dt > 0]
+    if not vals.size:
+        return {}
+    rim = int(round(2.0 * float(np.median(vals))))
+    if not (RIM_MIN <= rim <= RIM_MAX):
+        return {}
+    # TWO FACTS AND NO COLOURS. That the writing is hollow, and how thick its
+    # rim is in pixels. It does not touch `fg` or `edge`: a hollow letter has
+    # nothing inside it, and writing the paper down as a fill makes an opaque
+    # white shape of something the artwork shows through. What to DRAW is
+    # `render`\'s question - see `_hollow_fill` and `_measured_width` there.
+    return {"hollow": True, "rim": rim}
 
 
 def _glow(img, rings, beyond) -> dict:
@@ -436,12 +630,17 @@ def measure_page(page, seen: dict | None = None) -> int:
         for k in ("fg", "fg1", "fg2", "edge", "glow", "shadow"):
             if k in got:
                 got[k] = _snap(seen, got[k])
-        ov = dict(getattr(r, "layout_override", None) or {})
-        fresh = {k: v for k, v in got.items()
-                 if ov.get(k) in (None, "", 0)}
-        if not fresh:
-            continue
-        ov.update(fresh)
-        r.layout_override = ov
+        # Into `layout_measured`, which belongs to this function and to
+        # nothing else. It used to go into `layout_override`, and had to
+        # tiptoe round whatever was already there, because a hand correction
+        # lives in that field too. Two different things in one place with
+        # nothing to tell them apart - and pressing Typeset, which empties the
+        # hand corrections as it should, emptied this along with them. See
+        # `models.TextRegion.layout_measured`.
+        #
+        # Written straight over rather than merged: this is what the artwork
+        # says, it says the same thing every time, and a hand correction beats
+        # it where it is read rather than by getting in first.
+        r.layout_measured = dict(got)
         done += 1
     return done

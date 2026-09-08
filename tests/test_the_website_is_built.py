@@ -73,12 +73,22 @@ def test_a_broken_picture_stops_the_build(tmp_path, monkeypatch, capsys):
 
 
 def test_the_build_says_what_is_still_wanted():
-    """The list of shots lee has yet to take is an answer the build GIVES, not
-    a list somebody keeps by hand beside it."""
+    """The list of shots still to take is an answer the build GIVES, not a
+    list somebody keeps by hand beside it.
+
+    The list is EMPTY today - every slot on the page is filled - so what is
+    asserted is the mechanism and the emptiness, separately. This used to
+    read `assert b.WANTED`, which was fine while there were holes and became
+    a test demanding that the page stay unfinished.
+    """
     b = _build()
     b.WANTED.clear()
     b.build()
-    assert b.WANTED
+    assert b.WANTED == [], "every slot is filled; nothing is a labelled hole"
+    # ...and the mechanism still works, asked of a name that is not there.
+    hole = b.slot("not-taken-yet.jpg", "alt", "what to photograph")
+    assert "<img" not in hole and "not-taken-yet.jpg" in hole
+    assert ("not-taken-yet.jpg", "what to photograph") in b.WANTED
     src = (SITE / "build.py").read_text(encoding="utf-8")
     assert "raise SystemExit(1 if broken else 0)" in src, \
         "a broken reference has to reach the exit code"

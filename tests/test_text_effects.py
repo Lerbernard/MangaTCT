@@ -121,16 +121,37 @@ def test_no_glow_colour_means_no_glow_at_all():
 
 
 def test_a_glow_is_not_a_shadow_with_no_offset():
-    """The distinction the implementation exists for: a blurred silhouette that
-    was never spread stays under the outline and never shows."""
+    """The distinction the implementation exists for: a glow is SPREAD before
+    it is blurred, so it reaches past the outline; a blurred silhouette that
+    was never spread stays close to the letters.
+
+    Measured as REACH - how far from the glyph the light gets - and not only
+    as a count of lit pixels. The count alone was a proxy for the same thing
+    and it stopped being one on 2026-09-03: fixing the dark fringe (blur the
+    MASK, not the coloured picture) also stopped both effects washing towards
+    black as they faded, so the shadow now holds its colour over its whole
+    falloff and lights more pixels than it used to. That is the correct
+    behaviour and it moved the ratio, which is exactly what a proxy does when
+    the thing it stands in for has not changed - the reach is unmoved.
+    """
     glow = _draw(dict(BASE, glow="#ffc400", glow_size=10))
     shadow = _draw(dict(BASE, shadow="#ffc400", sh_dist=0, sh_blur=10))
     inside = _glyph_mask()
     plain = _draw(BASE)
-    lit = lambda im: int((((np.abs(plain.astype(int) - im.astype(int))
-                            .sum(2)) > 20) & ~inside).sum())
-    assert lit(glow) > lit(shadow) * 1.5, \
-        f"glow {lit(glow)} vs offsetless shadow {lit(shadow)}"
+    away = cv2.distanceTransform((~inside).astype(np.uint8), cv2.DIST_L2, 3)
+
+    def reach(im):
+        on = ((np.abs(plain.astype(int) - im.astype(int)).sum(2) > 20)
+              & ~inside)
+        assert on.sum(), "nothing lit at all"
+        return float(np.percentile(away[on], 99)), int(on.sum())
+
+    g_far, g_lit = reach(glow)
+    s_far, s_lit = reach(shadow)
+    assert g_far > s_far + 2.0, \
+        f"glow reaches {g_far:.1f}px, offsetless shadow {s_far:.1f}px"
+    assert g_lit > s_lit * 1.25, \
+        f"glow {g_lit} vs offsetless shadow {s_lit}"
 
 
 # ---------------------------------------------------------------- inner glow
@@ -386,7 +407,8 @@ def test_the_preview_shows_the_same_three_effects():
         cwd=root, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stdout + out.stderr
     assert "group opacity: 0.6" in out.stdout, out.stdout
-    assert "glow stops: 3" in out.stdout, out.stdout
+    assert "glow passes: 2" in out.stdout, out.stdout
+    assert "glow stroked and blurred: true" in out.stdout, out.stdout
     assert "glow has no offset: true" in out.stdout, out.stdout
     assert "inner rim: true true true" in out.stdout, out.stdout
     assert "rim text matches: true" in out.stdout, out.stdout
@@ -395,7 +417,11 @@ def test_the_preview_shows_the_same_three_effects():
     assert ('patch: {"glow":"#ffc400","glow_size":8,"iglow":"#ff3b30",'
             '"iglow_size":6,"opacity":60}') in out.stdout, out.stdout
     assert "opacity zero: 0" in out.stdout, out.stdout
-    assert 'cleared: {"g":"","i":"","gl":"off","il":"off"}' in out.stdout, out.stdout
+    # The glow's x writes an explicit "none" now (NO_FILL) - an EMPTY glow
+    # field means "nobody has said" and the automatic halo comes back, so
+    # off has to be a colour that is not there. See `clearGlow`.
+    assert 'cleared: {"g":"#00000000","i":"","gl":"none","il":"off"}' \
+        in out.stdout, out.stdout
     assert ('plain: {"shadow":"none","rim":false,"op":"1"}') in out.stdout, \
         out.stdout
 
@@ -451,3 +477,57 @@ def test_the_built_stepper_is_inside_the_box():
     btn = btn[:btn.index("}")]
     assert "position:absolute" in btn
     assert "right:1px" in btn
+
+
+def test_a_glow_leaves_no_dark_fringe_round_its_edge():
+    """A WHITE glow on mid-grey artwork must not be ringed in grey.
+
+    lee, with a crop of his exported EEEEK! page: *"this is the ionly issue i
+    have with teh exported chpater its on outer glow isusie"* - a soft dark
+    band tracing the whole outside of a white halo, on the exported page and
+    never in the editor.
+
+    The halo used to be stamped in its colour onto a transparent sheet and the
+    SHEET blurred, and a transparent sheet is transparent BLACK: PIL's Gaussian
+    runs over every channel as it stands, so at the halo's edge the colour
+    blended towards that hidden black while the alpha faded, and a grey ring
+    composited onto the page - twice, since a chosen glow goes on twice. A
+    browser blurs premultiplied and showed nothing, which is what made it look
+    like an export-only fault. The shape is blurred as a mask now and married
+    to one flat coat of the colour, so there is no black to pick up.
+
+    Measured where it can only be the fringe: mid-grey paper, outside both the
+    letters and the solid part of the halo.
+    """
+    art = 200
+    img = np.full((H, W, 3), art, np.uint8)
+    ink = np.zeros((H, W), np.uint8)
+    cv2.rectangle(ink, (60, 90), (W - 60, 160), 255, -1)
+    r = TextRegion(id=0, bbox=(60, 90, W - 120, 70), kind="bubble",
+                   text_mask=ink)
+    r.dst_text, r.order = TEXT, 0
+    r.layout_override = {"fg": "#111111", "edge": "#ffffff", "stroke": 3,
+                         "glow": "#ffffff", "glow_size": 8}
+    page = Page(image=img, source_path="fx")
+    page.regions = [r]
+    page.clean_plate = img.copy()
+    cfg = TypesetConfig(font_path=default_font_path())
+    cfg.min_font, cfg.max_font = 22, 40
+    typeset_page(page, cfg)
+    out = render.render_page(page, cfg)
+
+    g = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+    halo = (g > 245).astype(np.uint8)
+    letters = (g < 120).astype(np.uint8)
+    assert halo.sum() and letters.sum(), "nothing drawn to measure"
+    # paper near the halo, clear of the halo itself and of the letters
+    zone = ((cv2.dilate(halo, np.ones((31, 31), np.uint8)) > 0)
+            & (cv2.dilate(halo, np.ones((3, 3), np.uint8)) == 0)
+            & (cv2.dilate(letters, np.ones((9, 9), np.uint8)) == 0))
+    assert zone.sum() > 200, "no paper left round the halo to measure"
+    vals = g[zone]
+    # A white glow can only LIGHTEN mid-grey paper. Anything darker than the
+    # artwork out here is the fringe, and there is no such thing now.
+    assert int(vals.min()) >= art - 4, (
+        "a dark fringe rings the glow: darkest %d against artwork %d"
+        % (int(vals.min()), art))

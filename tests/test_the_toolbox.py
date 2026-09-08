@@ -79,8 +79,15 @@ def ed(tmp_path):
 
 
 def _slots(pg):
-    return pg.evaluate(
+    """The sections, in order, once each. Every tool has its own button now, so
+    a slot appears as many times as it has tools."""
+    seen = pg.evaluate(
         "[...document.querySelectorAll('#toolbox .tbtn')].map(b=>b.dataset.slot)")
+    out = []
+    for s in seen:
+        if not out or out[-1] != s:
+            out.append(s)
+    return out
 
 
 def _right_click(pg, slot):
@@ -95,17 +102,29 @@ def _right_click(pg, slot):
 
 def test_every_tool_is_in_it(ed):
     pg, _p, errs = ed
-    # `boxsel` picks BOXES and sits above `select`, which picks pixels for the
-    # brush. Two slots because they are two jobs -- lee: *"add annew seclet
-    # tool that alloww me to dran a scquer on the boxs"*.
-    assert _slots(pg) == ["move", "boxsel", "select", "text", "paint", "fill",
+    # `boxsel` is NOT here. It picks BOXES, and boxes are managed on the
+    # Translation view, where this strip is not up at all - lee: *"i wasnt you
+    # tpo make teh select tool only be usable on the translation tab"*. The
+    # legend row over there carries it, off the same `boxSel` state.
+    assert _slots(pg) == ["move", "select", "text", "paint", "fill",
                           "retouch", "shape", "pick", "view"]
     tools = pg.evaluate("TOOLBOX.flatMap(g=>g.tools.map(t=>t.k))")
-    for want in ("xf", "boxsel", "rect", "lasso", "wand", "addtext", "brush",
+    assert "boxsel" not in tools
+    for want in ("xf", "rect", "lasso", "wand", "addtext", "brush",
                  "eraser",
-                 "fill", "stamp", "heal", "shrect", "shcirc",
+                 "fill", "stamp", "heal", "unclean", "shrect", "shcirc",
                  "shline", "eyedrop", "hand", "zoomin", "zoomout"):
         assert want in tools, want
+
+
+def test_select_boxes_is_on_the_translation_view_instead(ed):
+    """Nothing was lost by taking it off the strip: the legend row above the
+    page carries the same button, wired to the same toggle."""
+    pg, _p, errs = ed
+    js = (PKG / "static" / "js" / "panels.js").read_text(encoding="utf-8")
+    assert "toggleBoxSelect()" in js and "Select boxes" in js
+    assert pg.evaluate("typeof toggleBoxSelect") == "function"
+    assert not errs, errs[:2]
     assert not errs, errs[:2]
 
 
@@ -174,104 +193,69 @@ def test_only_one_slot_is_lit_at_a_time(ed):
     assert not errs, errs[:2]
 
 
-# ----------------------------------------------------------------- the folders
+# ---------------------------------------------------------------- the sections
 
-def test_a_slot_with_several_tools_says_so(ed):
+def test_every_tool_has_its_own_button(ed):
+    """They used to share: marquee, lasso and wand behind one button, the rest
+    a right-click away. lee: *"for the tools i want you to remove tye subfolder
+    thing and make them all visivle and seperated bya small bar and kind make
+    each their own sectiosn ianted of the subfolder"*."""
     pg, _p, errs = ed
-    marked = pg.evaluate("""[...document.querySelectorAll('#toolbox .tbtn')]
-        .filter(b=>b.querySelector('.tbmore')).map(b=>b.dataset.slot)""")
-    # "move" joined them when the transform gained a second tool: the same
-    # box with its corners already loose (Ctrl+T). "text" joined them for a
-    # turn, when a draw-a-sound-effect tool went in beside the text box, and
-    # left again when lee said he did not want one - *"i dont want a button i
-    # wan to be able to clcik 3"*, and 3 already did it.
-    assert set(marked) == {"move", "select", "paint", "retouch", "shape",
-                           "view"}
+    on_strip = pg.evaluate(
+        "[...document.querySelectorAll('#toolbox .tbtn')].map(b=>b.dataset.tool)")
+    declared = pg.evaluate("TOOLBOX.flatMap(g=>g.tools.map(t=>t.k))")
+    assert on_strip == declared, (on_strip, declared)
     assert not errs, errs[:2]
 
 
-def test_right_clicking_one_offers_the_rest(ed):
-    """Retouch held three: the clone stamp and two healing brushes. It holds
-    two now - lee: *"remoev teh regualr healing brush, its ass"* - and the one
-    that survives is simply "Healing brush", because there is no longer a
-    second one for a name to tell it apart from."""
+def test_the_sections_are_separated_by_a_bar(ed):
+    """One rule between each pair of sections, and none at either end."""
     pg, _p, errs = ed
-    _right_click(pg, "retouch")
-    rows = pg.evaluate(
-        "[...document.querySelectorAll('#tbflyout .tbrow span')].map(s=>s.textContent)")
-    assert rows == ["Clone stamp", "Healing brush"]
+    kids = pg.evaluate("""[...document.getElementById('toolbox').children]
+        .map(e=>e.classList.contains('tbsep')?'|':e.dataset.slot)""")
+    groups = pg.evaluate("TOOLBOX.map(g=>g.slot)")
+    assert kids[0] != "|" and kids[-1] != "|", kids
+    assert kids.count("|") == len(groups) - 1, kids
+    # ...and every rule falls where the slot changes, not inside one.
+    for i, k in enumerate(kids):
+        if k == "|":
+            assert kids[i - 1] != kids[i + 1], kids
     assert not errs, errs[:2]
 
 
-def test_picking_one_out_of_the_flyout_arms_it_and_the_slot_keeps_it(ed):
+def test_there_is_nothing_left_to_open(ed):
+    """No corner marks, no flyout, no press-and-hold, and a right-click on the
+    strip does not conjure one."""
     pg, _p, errs = ed
-    _right_click(pg, "retouch")
-    pg.evaluate("document.querySelectorAll('#tbflyout .tbrow')[1].click()")
-    pg.wait_for_timeout(500)
-    assert pg.evaluate("heal") is True
     assert pg.evaluate(
-        "document.querySelector('.tbtn[data-slot=retouch]').dataset.tool") == "heal"
-    assert pg.evaluate("!document.getElementById('tbflyout')"), "it stayed open"
-    # ...and the slot remembers it: putting the tool away and clicking the
-    # slot again brings back the one you chose, not the first in the list
-    pg.evaluate("stopBrush()")
-    pg.wait_for_timeout(300)
-    assert pg.evaluate(
-        "document.querySelector('.tbtn[data-slot=retouch]').dataset.tool") == "heal"
-    assert not errs, errs[:2]
-
-
-def test_a_slot_with_one_tool_has_no_flyout(ed):
-    """`text` and `view` are the one-tool slots. `text` stopped being one for a
-    turn, when a sound-effect tool went in beside it, and is one again - which
-    is why this test finds its slot by counting rather than naming one."""
-    pg, _p, errs = ed
-    only = pg.evaluate("""[...document.querySelectorAll('#toolbox .tbtn')]
-        .filter(b=>!b.querySelector('.tbmore')).map(b=>b.dataset.slot)""")
-    assert only, "every slot has a flyout; this test has nothing to measure"
-    _right_click(pg, only[0])
-    assert pg.evaluate("!document.getElementById('tbflyout')")
-    assert not errs, errs[:2]
-
-
-def test_the_text_slot_holds_one_tool_and_no_sound_effect_one(ed):
-    """A sound-effect tool lived here and lee did not want it. What is left is
-    the text box, with no flyout to go looking behind."""
-    pg, _p, errs = ed
-    _right_click(pg, "text")
-    assert pg.evaluate("!document.getElementById('tbflyout')")
-    lit = pg.evaluate(
-        "document.querySelector('.tbtn[data-slot=\"text\"]').title")
-    assert lit == "Add a text box", lit
-    assert not errs, errs[:2]
-
-
-def test_escape_and_a_click_away_put_the_flyout_back(ed):
-    pg, _p, errs = ed
-    _right_click(pg, "shape")
-    assert pg.evaluate("!!document.getElementById('tbflyout')")
-    pg.keyboard.press("Escape")
+        "!document.querySelector('#toolbox .tbmore')"), "a corner mark survives"
+    _right_click(pg, "select")
     pg.wait_for_timeout(250)
     assert pg.evaluate("!document.getElementById('tbflyout')")
-    _right_click(pg, "shape")
-    assert pg.evaluate("!!document.getElementById('tbflyout')")
-    pg.mouse.click(900, 500)
-    pg.wait_for_timeout(250)
-    assert pg.evaluate("!document.getElementById('tbflyout')")
+    js = (PKG / "static" / "js" / "toolbar.js").read_text(encoding="utf-8")
+    assert "function tbFlyout(" not in js and "tbmore" not in js
     assert not errs, errs[:2]
 
 
-def test_a_flyout_never_opens_off_the_bottom_of_the_window(ed):
-    """It is fixed to the viewport beside a button that can be anywhere down a
-    long strip - measured, because a menu you have to scroll the window to see
-    is a menu that is not there."""
+def test_the_text_section_holds_one_tool_and_no_sound_effect_one(ed):
+    """A sound-effect tool lived here and lee did not want it."""
     pg, _p, errs = ed
-    _right_click(pg, "view")            # the last slot, at the bottom
-    box = pg.evaluate("""(()=>{const r=document.getElementById('tbflyout')
-        .getBoundingClientRect();
-        return {top:r.top, bottom:r.bottom, h:innerHeight};})()""")
-    assert box["top"] >= 4, box
-    assert box["bottom"] <= box["h"] - 4, box
+    names = pg.evaluate("""[...document.querySelectorAll(
+        '#toolbox .tbtn[data-slot=\"text\"]')].map(b=>b.title)""")
+    assert names == ["Add a text box"], names
+    assert not errs, errs[:2]
+
+
+def test_the_whole_strip_is_reachable_without_scrolling_past_it(ed):
+    """Seventeen buttons instead of ten, so the strip is taller. It may scroll
+    - it is `overflow-y:auto` - but every button has to be inside it."""
+    pg, _p, errs = ed
+    bad = pg.evaluate("""(()=>{const el=document.getElementById('toolbox');
+        const r=el.getBoundingClientRect();
+        return [...el.querySelectorAll('.tbtn')].filter(b=>{
+          const q=b.getBoundingClientRect();
+          return q.left < r.left-1 || q.right > r.right+1;}).length;})()""")
+    assert bad == 0, "%d buttons hang outside the strip" % bad
     assert not errs, errs[:2]
 
 
@@ -285,7 +269,10 @@ def test_every_tool_has_an_icon(ed):
     drawn = pg.evaluate(
         "[...document.querySelectorAll('#toolbox .tbtn svg path')]"
         ".filter(p=>(p.getAttribute('d')||'').length>10).length")
-    assert drawn == len(_slots(pg)), drawn
+    # One drawn icon per BUTTON, and there is a button per tool now rather
+    # than one per section.
+    assert drawn == pg.evaluate(
+        "TOOLBOX.reduce((n,g)=>n+g.tools.length,0)"), drawn
     assert not errs, errs[:2]
 
 

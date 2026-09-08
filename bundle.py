@@ -63,7 +63,6 @@ import zipfile
 FORMAT = 1
 
 EXT = ".tctp"                 # the chapter
-SERIES_EXT = ".tct"           # the settings and the story bible
 MANIFEST = "mangatct.json"
 STATE = "project.json"
 
@@ -80,6 +79,26 @@ PAGE_FILES = (("path", "input"),
 
 
 FONTS = "fonts"
+
+#: The CLEANED PAGES, one per page index.
+#:
+#: The two caches were left out on the rule that a bundle is what you cannot
+#: rebuild - and a plate is rebuildable, so out it went. That rule missed what
+#: rebuilding one COSTS. An AI clean is coins and minutes a page; a local one
+#: is minutes. lee, opening a chapter he had cleaned: *"teh clened pages didnt
+#: survive teh closinga and opeing a tctp file"*, and then the half that names
+#: the fault exactly - *"the manual fixes survide butr teh automated one
+#: didnt"*. His hand-cleaned plates and his paint were carried; the cleaner's
+#: own work was thrown away and silently re-run.
+#:
+#: Kept by PAGE INDEX and not by the name the cache uses. That name is a hash
+#: of everything that identifies a plate - the scan, the boxes, the eraser,
+#: the token, the cleaner's version - and two of those (the hand-cleaned
+#: plate's path, and the token when it comes from a different machine's
+#: `.env`) are not the same on the machine that opens the file. So the plate
+#: travels under a name that cannot go stale, and the app re-keys it into its
+#: own cache on the way in: see `editor._adopt`.
+PLATES = "plates"
 
 
 def map_fonts(state: dict, fn) -> dict:
@@ -113,8 +132,28 @@ def map_fonts(state: dict, fn) -> dict:
             r = dict(r)
             for key in ("layout", "layout_override"):
                 block = r.get(key)
-                if isinstance(block, dict) and block.get("font"):
-                    r[key] = {**block, "font": fn(block["font"])}
+                if not isinstance(block, dict):
+                    continue
+                if block.get("font"):
+                    block = {**block, "font": fn(block["font"])}
+                # ...AND A RANGE INSIDE THE BOX. Part of the text can be set
+                # in a face of its own now (`layout_override.spans`), which
+                # is one more place a font file is named and the newest one:
+                # a chapter with a word in an uploaded face travelled with
+                # the face left behind, and opened with that word in
+                # whatever the default was. Same failure as a custom kind's
+                # font and the same fix.
+                spans = block.get("spans")
+                if isinstance(spans, list) and any(
+                        isinstance(sp, dict) and (sp.get("st") or {}).get("font")
+                        for sp in spans):
+                    block = {**block, "spans": [
+                        ({**sp, "st": {**sp["st"],
+                                       "font": fn(sp["st"]["font"])}}
+                         if isinstance(sp, dict)
+                         and (sp.get("st") or {}).get("font") else sp)
+                        for sp in spans]}
+                r[key] = block
             regions.append(r)
         pg["regions"] = regions
         pages.append(pg)
@@ -161,19 +200,66 @@ def _abs(rel: str, root: str) -> str:
     return os.path.join(root, *parts) if parts else ""
 
 
-def state_for_bundle(state: dict, root: str) -> dict:
-    """The project state with every path written the way a bundle holds it."""
+def pack_pages(state: dict, root: str) -> tuple[dict, dict]:
+    """The state with every page path rewritten, AND the files to carry.
+
+    THE FILES A BUNDLE CARRIES ARE THE FILES THE STATE NAMES.
+
+    They used to be whatever happened to be lying under `input/`, `paint/`
+    and `custom_clean/`, on the assumption that a page always lives in the
+    project's own upload folder. Two ordinary chapters break it:
+
+    * **A folder used in place.** `use_folder` points the project at pages
+      where they already are and copies nothing (that is the whole point of
+      it) - so `input/` is empty and the bundle came out with a manifest, a
+      project.json and NOT ONE PAGE.
+    * **A re-cut webtoon whose tiles came from somebody else's folder.**
+      The stitched pages are written to `<project>/strip/`, which is not a
+      carried folder, with exactly the same result. Manhwa and manhua are
+      the formats that arrive that way.
+
+    Both were silent: the file wrote, the zip opened, and the chapter came
+    back with every box, every translation and no artwork.
+
+    So the pages are collected BY NAME, from wherever they really are, and
+    the folder walks in `write` stay on top of that for anything the state
+    does not name (the `input/tiles/` slices, for one).
+
+    Returns `(state, {name inside the bundle: real path})`.
+    """
     out = dict(state)
     out["input_dir"] = "input"
+    grabbed: dict[str, str] = {}
     pages = []
     for pg in state.get("pages") or []:
         pg = dict(pg)
         for field, folder in PAGE_FILES:
-            if pg.get(field):
-                pg[field] = _rel(str(pg[field]), root, folder)
+            if not pg.get(field):
+                continue
+            real = os.path.abspath(os.path.expanduser(str(pg[field])))
+            name = _rel(str(pg[field]), root, folder)
+            if os.path.isfile(real):
+                # Two pages of the same name from different folders - which
+                # is what re-cutting a chapter over another one leaves, and
+                # what two source folders give straight away. Keep both:
+                # the page that wants the second is not the page that wants
+                # the first. Same rule as the faces below.
+                n = 2
+                while grabbed.get(name, real) != real:
+                    head, tail = posixpath.split(name)
+                    stem, ext = posixpath.splitext(tail)
+                    name = posixpath.join(head, "%s-%d%s" % (stem, n, ext))
+                    n += 1
+                grabbed[name] = real
+            pg[field] = name
         pages.append(pg)
     out["pages"] = pages
-    return out
+    return out, grabbed
+
+
+def state_for_bundle(state: dict, root: str) -> dict:
+    """The project state with every path written the way a bundle holds it."""
+    return pack_pages(state, root)[0]
 
 
 def state_from_bundle(state: dict, root: str) -> dict:
@@ -191,12 +277,44 @@ def state_from_bundle(state: dict, root: str) -> dict:
     return out
 
 
-def write(state: dict, root: str) -> bytes:
+def without_secrets(state: dict) -> dict:
+    """`state` with every API key and token taken out of the settings.
+
+    A `.tctp` is the file you HAND SOMEBODY - that is what it is for - and a
+    project's settings hold the Claude, Gemini, OpenRouter and cleaner
+    credentials. They went into the zip in the clear, so sharing a chapter
+    shared whatever those keys can spend.
+
+    Taking them out costs the person who made the bundle nothing: keys live in
+    `~/.mangatl/.env` and that file BEATS whatever a chapter has saved in it
+    (see `test_one_file_holds_the_keys`), so your own bundle opens on your own
+    machine with your own keys exactly as before. What changes is that
+    somebody else's copy arrives with none.
+    """
+    s = state.get("settings")
+    if not isinstance(s, dict):
+        return state
+    from .project import secret_keys
+    gone = [k for k in secret_keys(s) if s.get(k)]
+    if not gone:
+        return state
+    out = dict(state)
+    out["settings"] = {k: ("" if k in gone else v) for k, v in s.items()}
+    return out
+
+
+def write(state: dict, root: str, plates: dict | None = None) -> bytes:
     """A `.tctp` for the project whose folder is `root`.
 
     Deflated, because a project.json is most of a megabyte of very repetitive
     JSON. The PNGs in it are already compressed and simply pass through.
+
+    `plates` is `{page index: the cleaned plate's file}` - see `PLATES`. The
+    caller works them out because the cache's naming belongs to `editor`, and
+    a bundle that had to import it would be a bundle that could not be read
+    without the whole app.
     """
+    state = without_secrets(state)
     faces: dict[str, str] = {}          # name inside the bundle -> real path
 
     def take(path: str) -> str:
@@ -217,14 +335,33 @@ def write(state: dict, root: str) -> bytes:
         faces[name] = real
         return posixpath.join(FONTS, name)
 
-    packed = map_fonts(state_for_bundle(state, root), take)
+    state, grabbed = pack_pages(state, root)
+    packed = map_fonts(state, take)
     buf = io.BytesIO()
+    written: set[str] = set()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        from .version import __version__
         z.writestr(MANIFEST, json.dumps(
-            {"mangatct": FORMAT, "kind": "project"}, ensure_ascii=False))
+            {"mangatct": FORMAT, "kind": "project", "app": __version__},
+            ensure_ascii=False))
         z.writestr(STATE, json.dumps(packed, ensure_ascii=False))
         for name, real in sorted(faces.items()):
             z.write(real, posixpath.join(FONTS, name))
+        # The pages, the hand-cleaned plates and the paint, from wherever
+        # they actually are. See `pack_pages`.
+        for name, real in sorted(grabbed.items()):
+            z.write(real, name)
+            written.add(name)
+        # The cleaner's own work, one plate per page. See `PLATES`.
+        for idx, real in sorted((plates or {}).items()):
+            try:
+                if real and os.path.isfile(real):
+                    z.write(real, posixpath.join(PLATES, "%d.png" % int(idx)))
+            except (OSError, TypeError, ValueError):
+                continue
+        # ...and whatever else is in the carried folders that nothing names -
+        # `input/tiles/`, the slices a webtoon arrived as, being the one that
+        # matters. A page already taken above is not written twice.
         for folder in CARRIED:
             d = os.path.join(root, folder)
             if not os.path.isdir(d):
@@ -233,7 +370,11 @@ def write(state: dict, root: str) -> bytes:
                 for fn in sorted(files):
                     full = os.path.join(dirpath, fn)
                     inside = os.path.relpath(full, d).replace("\\", "/")
-                    z.write(full, posixpath.join(folder, inside))
+                    at = posixpath.join(folder, inside)
+                    if at in written:
+                        continue
+                    z.write(full, at)
+                    written.add(at)
     return buf.getvalue()
 
 
@@ -273,13 +414,13 @@ def read(data: bytes, root: str) -> dict:
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         state = json.loads(z.read(STATE))
         os.makedirs(root, exist_ok=True)
-        for folder in CARRIED + ("plate_cache", "ai_clean_cache"):
+        for folder in CARRIED + (PLATES, "plate_cache", "ai_clean_cache"):
             shutil.rmtree(os.path.join(root, folder), ignore_errors=True)
         for info in z.infolist():
             if info.is_dir():
                 continue
             top = info.filename.replace("\\", "/").split("/")[0]
-            if top not in CARRIED:
+            if top not in CARRIED and top != PLATES:
                 continue                     # the manifest and the state
             dest = _abs(info.filename, root)
             if not dest:
@@ -289,6 +430,32 @@ def read(data: bytes, root: str) -> dict:
                 shutil.copyfileobj(src, out)
         state = map_fonts(state, lambda ref: _install_font(z, ref))
     return state_from_bundle(state, root)
+
+
+def carried_plates(root: str) -> dict:
+    """`{page index: the plate the bundle carried}`, waiting to be re-keyed.
+
+    Read out of `<root>/plates`, where `read` puts them. The caller moves
+    each one into the plate cache under the name THIS machine's stamp gives
+    it and then calls `forget_plates`; see `editor._adopt` and `PLATES`.
+    """
+    d = os.path.join(root, PLATES)
+    out = {}
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return out
+    for fn in names:
+        stem, ext = os.path.splitext(fn)
+        if ext.lower() != ".png" or not stem.isdigit():
+            continue
+        out[int(stem)] = os.path.join(d, fn)
+    return out
+
+
+def forget_plates(root: str) -> None:
+    """Drop the staging folder once its plates have been taken in."""
+    shutil.rmtree(os.path.join(root, PLATES), ignore_errors=True)
 
 
 def _install_font(z: zipfile.ZipFile, ref: str) -> str:

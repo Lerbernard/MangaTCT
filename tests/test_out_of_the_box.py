@@ -448,7 +448,11 @@ def test_a_piece_that_fits_beside_its_neighbour_is_not_split_off():
 
     A box wide enough for most of the line but too short for two of them, so
     the spill runs and still has to fit pieces together."""
-    r, lay = _fit("freefloat", text=HYPHENATED, box=(150, 150, 220, 20),
+    # 140x14, down from 220x20 on 2026-08-26 when Comic Neue became the
+    # default face (`fonts/LICENSES.md`). It is narrower, so the old box fitted
+    # the whole line and the spill never ran - a fixture that had stopped
+    # asking its own question.
+    r, lay = _fit("freefloat", text=HYPHENATED, box=(150, 150, 140, 14),
                   page=(400, 600))
     assert lay.spills, "this box must be one the spill actually handles"
     assert lay.lines == ["LITTLE VILLAINESS-IN-", "TRAINING."], lay.lines
@@ -517,7 +521,11 @@ def test_a_turned_line_is_measured_turned():
     to spare; stood up at sixty degrees the same word reaches half as far
     again, and measuring it level says there is nothing to do."""
     cfg = _cfg()
-    at = 274                     # level it reaches 298; turned, 302
+    # 278, up from 274, and the reach figures with it: Comic Neue became the
+    # default face on 2026-08-26 (`fonts/LICENSES.md`) and sets `OK!` narrower,
+    # so at 274 the turned word no longer crossed the edge and the fixture
+    # stopped posing its question.
+    at = 278                     # level it reaches 297; turned, past 300
     level = TextLayout(lines=["OK!"], font_size=26, leading=1.2,
                        line_origins=[(at, 150)],
                        font_path=default_font_path(), rotate=0.0)
@@ -574,7 +582,10 @@ def test_a_tall_narrow_balloon_gets_more_lines_rather_than_smaller_type():
     smaller if posible"*. A narrower line IS more lines - the line count is
     what decides how wide a line may be - and the cap on it was taste, which
     is not worth typesetting over somebody's drawing for."""
-    r, m = _lobe(70, 470)
+    # 48x420, down from 70x470 for the same reason: the narrower face fitted
+    # the old lobe without needing to narrow the lines at all, so the "without
+    # it" side came back a clean fit and there was nothing left to compare.
+    r, m = _lobe(52, 390)
     was, was_flag = _without_narrowing(r, m)
     r.flagged = None
     now = fit_region(r, _cfg(), mask=m)

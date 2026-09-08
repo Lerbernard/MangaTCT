@@ -51,10 +51,18 @@ setTimeout(async ()=>{
     const grp=d.querySelector('#overlay .tgrp');
     const line=d.querySelector('#overlay .tl');
     console.log('group opacity:', grp.style.opacity);
-    const sh=line.style.textShadow.replace(/\s+/g,' ');
-    console.log('raw shadow:', sh);
-    console.log('glow stops:', (sh.match(/rgb\(255, 196, 0\)|#ffc400/gi)||[]).length);
-    console.log('glow has no offset:', /(^|,)\s*0 0 /.test(sh));
+    // The glow left text-shadow behind ("rings of copies are
+    // uncalibratable - both designs died measured", runStyle): it is now a
+    // .tglow span per pass - the letters stroked fat in the glow's colour
+    // and gaussian-blurred, the way the exporter composites it. A CHOSEN
+    // eight-digit-less glow gets two passes.
+    const glows=[...line.querySelectorAll('.tsh.tglow')];
+    console.log('glow passes:', glows.length);
+    const g0=glows[0]||{style:{}};
+    console.log('glow stroked and blurred:',
+      /255, 196, 0|#ffc400/i.test(g0.style.webkitTextStroke||'')
+      && /blur/.test(g0.style.filter||''));
+    console.log('glow has no offset:', !(g0.style.transform||'').includes('translate('));
     const rim=d.querySelector('#overlay .tl .tg');
     console.log('inner rim:', !!rim, rim && /transparent/.test(rim.style.webkitTextFillColor||''),
                 rim && /blur/.test(rim.style.filter||''));

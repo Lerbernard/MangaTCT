@@ -79,7 +79,15 @@ def test_the_clean_mask_is_still_required(tmp_path, monkeypatch):
     assert "comic-text-detector" in p.why_not_manga_segmenter()
 
 
-def test_the_dialog_is_told_all_three_answers():
+def test_the_dialog_is_told_all_three_answers(tmp_path, monkeypatch):
+    """The app's own folder is pointed somewhere empty, on purpose. `ready`
+    means "this could run on this machine", so asked of whatever happens to
+    be lying beside the app it passes on a bare checkout and fails on any
+    machine that has actually downloaded the 23MB file - which is every
+    machine the app runs on. The same lesson as `test_it_is_on_by_default`
+    over in the AnimeText file."""
+    from mangatl import project as P
+    monkeypatch.setattr(P, "__file__", str(tmp_path / "project.py"))
     s = _p().summary()["manga_segmenter"]
     assert set(s) == {"ready", "partly", "on", "why"}
     assert s["ready"] is False

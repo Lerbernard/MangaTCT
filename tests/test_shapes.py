@@ -203,17 +203,85 @@ def test_the_tools_put_each_other_away():
 def test_one_question_asks_whether_a_tool_is_armed():
     """`brush||stamp||heal||eraser` was written out in five files, and a new
     tool has to be added to every one of them or it silently does nothing.
-    There is one function now, and this is the guard against a sixth copy."""
+    There is one function now, and this is the guard against a sixth copy.
+
+    **Asked of the function, not of the line.** It used to exempt
+    `paintArmed`'s own body by looking for `shapeKind` on the same line as the
+    rest of the list - and then the list grew past eighty columns, wrapped,
+    and the exemption was on the second line while the match was on the
+    first. Red for days over a definition that is exactly where it belongs.
+    The block is what is exempt, so the block is what is found.
+    """
+    body = (JS / "paint.js").read_text(encoding="utf8")
+    assert "function paintArmed()" in body
+    at = body.index("function paintArmed()")
+    mine = body[at:body.index("\n}", at)]
     hits = []
     for f in sorted(JS.glob("*.js")):
         src = f.read_text(encoding="utf8")
         for line_no, line in enumerate(src.splitlines(), 1):
-            if "brush||stamp||heal||eraser" in line.replace(" ", ""):
-                # `paintArmed` itself is where the list belongs, and the
-                # cursor rules name the tools that draw a ring - a different
-                # question from "is a tool armed"
-                if "shapeKind" in line or "cursor" in line or "'none'" in line:
-                    continue
-                hits.append(f"{f.name}:{line_no}")
+            if "brush||stamp||heal||eraser" not in line.replace(" ", ""):
+                continue
+            # The one place the list belongs, however it happens to wrap.
+            if f.name == "paint.js" and line in mine:
+                continue
+            # ...and the cursor rules, which name the tools that draw a ring -
+            # a different question from "is a tool armed".
+            if "cursor" in line or "'none'" in line:
+                continue
+            hits.append(f"{f.name}:{line_no}")
     assert not hits, f"longhand arming test left in {hits}"
-    assert "function paintArmed()" in (JS / "paint.js").read_text(encoding="utf8")
+
+
+# ------------------------------- the export preview must not eat the tools
+#
+# `#stage.exact #paint{visibility:hidden}` - the export preview covers the
+# paint canvas, which is right: that view is the finished page and the live
+# layers are already baked into it. What it also did was kill every tool.
+#
+# Draw one shape, the app asks the server for a fresh preview, the preview
+# lands, the class goes on, and every drag after that hits an invisible
+# canvas. The tool stays lit and the cursor stays a crosshair, so there is
+# nothing on screen to say why nothing happens. Four tests in the paint suite
+# failed on it for days and read as four separate bugs.
+
+def test_a_tool_in_hand_keeps_the_export_preview_off_the_stage():
+    """One question with one answer. It was two - `paintArmed` for the
+    brushes and shapes, `selTool`/`xf` for the marquee and the transform -
+    and the preview only ever knew about neither."""
+    from pathlib import Path
+    import mangatl
+    js = lambda n: (Path(mangatl.__file__).parent / "static" / "js"
+                    / n).read_text(encoding="utf-8")
+    fn = js("picker.js").split("function toolInHand(")[1].split("\n}")[0]
+    for what in ("paintArmed", "selTool", "xf"):
+        assert what in fn, f"{what} is not a tool as far as the preview knows"
+    # the preview refuses to appear over one...
+    poss = js("exactview.js").split("function exactPossible(")[1] \
+                             .split("\n}")[0]
+    assert "toolInHand" in poss, \
+        "the export preview can still cover an armed tool"
+    # ...and arming one takes the stage back from a preview already up
+    assert "toolInHand" in js("picker.js").split("function paintToolUI(")[1] \
+                                          .split("\n}")[0]
+    assert "exactOff" in js("select.js").split("function toggleSelTool(")[1] \
+                                        .split("\n}")[0]
+
+
+def test_a_picture_that_is_still_loading_is_not_a_new_size():
+    """The other half of the same morning. Committing a shape reloads the page
+    image so the composite shows, and between the src changing and the bytes
+    arriving `naturalWidth` is 0. `ensureCanvas` adopted that, set the canvas
+    to 0x0, and the repaint threw out of `compositeLive` - `drawImage` will
+    not take a zero-sized canvas - which left `toggleShape` half-run, with the
+    shape armed and the canvas never given the mouse."""
+    from pathlib import Path
+    import mangatl
+    src = (Path(mangatl.__file__).parent / "static" / "js"
+           / "paint.js").read_text(encoding="utf-8")
+    fn = src.split("function ensureCanvas(")[1].split("\nfunction ")[0]
+    assert "naturalWidth > 0" in fn, \
+        "a loading picture can still be adopted as a size"
+    comp = src.split("function compositeLive(")[1].split("\nfunction ")[0]
+    assert "under.width" in comp, \
+        "a zero-sized source can still throw the whole redraw away"

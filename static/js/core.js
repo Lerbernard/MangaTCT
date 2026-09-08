@@ -112,6 +112,49 @@ function flushEdit(){
    So anything in the air is remembered and laid back over whatever the server
    sends, until its own reply comes home. */
 const inFlight = new Map();          // region id -> the fields still in the air
+
+/* How a block is drawn, from every source with an opinion, in order: what
+   somebody SET beats what the original was MEASURED to be, and both beat the
+   automatic choice the server worked out and sent in `layout`.
+
+   `render.style_of` is the same three lines on the server, and they have to
+   stay the same three - this is what the preview draws with and that is what
+   the exported page is drawn with, so any difference between them is a page
+   that does not look like what you were shown. */
+/* ...and HOW MUCH of the measurement a block may use depends on what it is -
+   `render.measured_for` is the same rule, with the reasoning on it.
+   A big drawn sound takes all of it; any other drawn sound takes the LINE
+   only (the rim width and whether the letterform is hollow, which is "a pen
+   has a width" and not a palette); everything else takes none and is typeset
+   in the pair that can be read. A hand override is unaffected either way. */
+const BIG_SOUND = 'sfx_big';
+const SHAPE_KEYS = ['stroke', 'rim', 'hollow'];
+
+function measuredFor(r){
+  const got = (r && r.layout_measured) || {};
+  const kind = (r && r.kind) || '';
+  if(kind === BIG_SOUND) return Object.assign({}, got);
+  // The family, the way the server asks it: the sub-type list the page was
+  // sent knows which family each key belongs to. `familyOf` lives in
+  // frames.js, which loads after this file - fine at draw time, and guarded
+  // anyway. The fallback is the safe direction: take nothing, and let the
+  // block be typeset in the pair that can be read.
+  const fam = (typeof familyOf === 'function') ? familyOf(kind) : '';
+  if(fam === 'sfx'){
+    const out = {};
+    for(const k of SHAPE_KEYS){ if(k in got) out[k] = got[k]; }
+    return out;
+  }
+  return {};
+}
+
+function styleOf(r){
+  const out = measuredFor(r);
+  const ov = (r && r.layout_override) || {};
+  for(const k in ov){ if(ov[k] !== null && ov[k] !== '') out[k] = ov[k]; }
+  return out;
+}
+
 /* Bumped every time an edit is made. A page fetch that was already on its way
    when that happened is answering a question about the page as it WAS, so it
    is not allowed to redraw the regions - it is stale by definition, however
@@ -301,6 +344,20 @@ const api=async(u,m,b)=>{
     const {regions, region, ...rest}=j;
     return Object.assign(rest, {stale:true});
   }
+  // A WRITE THAT LANDED IS A REASON TO SETTLE AGAIN. The export preview
+  // re-settles when something is DRAWN, which covers typing and dragging -
+  // but a layer's eye, a restack, a delete change the page without drawing
+  // anything, so the preview sat on the old picture until the next page
+  // turn. lee: *"when i turn off tehhela layer or anythy other layer it
+  // dont update teh exported page"*. Every state-changing call passes
+  // through here; asking for a settle AFTER the server has the new state
+  // also closes the race where a settle fired before its save arrived.
+  // `exactSoon` is a no-op outside the Image view and while editing, and a
+  // settled page answers from the server's cache in milliseconds - so the
+  // spare settles this adds cost nothing worth counting.
+  if((m||'GET')!=='GET' && !(j&&j.error) && typeof exactSoon==='function'){
+    try{ exactSoon(); }catch(e){}
+  }
   return j;
 };
 function toast(m,ms){const t=$('toast');t.textContent=m;t.style.display='block';
@@ -319,6 +376,16 @@ function disarmTools(keep){
   if(keep!=='stamp'  && typeof stamp!=='undefined'  && stamp)  toggleStamp(false);
   if(keep!=='heal'   && typeof heal!=='undefined'   && heal)   toggleHeal(false);
   if(keep!=='eraser' && typeof eraser!=='undefined' && eraser) toggleEraser(false);
+  if(keep!=='unclean' && typeof unclean!=='undefined' && unclean)
+    toggleUnclean(false);
+  // The clone stamp's source mark and ring are page furniture, not cursor:
+  // they were only ever cleared when the stamp itself was put away, so arming
+  // any other tool while one was up left a dashed green circle sitting on the
+  // artwork. Whatever is being armed, if it is not the stamp, they go.
+  if(keep!=='stamp'){
+    if(typeof hideCloneMark==='function') hideCloneMark();
+    if(typeof hideClonePrev==='function') hideClonePrev();
+  }
   if(keep!=='shape'  && typeof shapeKind!=='undefined' && shapeKind)
     toggleShape(shapeKind);
   // The shape arrow survives 'xf' on purpose: the free transform is the thing

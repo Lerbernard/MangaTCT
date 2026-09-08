@@ -48,8 +48,15 @@ def _column(g, x, y, w, h):
 
 
 def _sfx(text, w, h, angle=0.0):
+    # TWO Japanese characters, and the count is now load-bearing: a sound
+    # effect whose source is ONE character is set flat, because an axis
+    # through a single glyph is the long way through that glyph's own shape
+    # and not a direction of writing. lee: *"if the jappennese sfx chareter is
+    # just one charater in the box it shoud just be flat with no angle"*. The
+    # placeholder here used to be "x", which quietly made every effect in this
+    # file a single-character one.
     r = TextRegion(id=1, bbox=(300, 300, w, h), kind="sfx", order=1,
-                   src_text="x", dst_text=text, angle=angle,
+                   src_text="ドン", dst_text=text, angle=angle,
                    sfx_vertical=h > w, sfx_len=0.9, sfx_wid=0.6,
                    text_mask=np.zeros((900, 900), np.uint8))
     r.text_mask[300:300 + h, 300:300 + w] = 255
@@ -223,8 +230,22 @@ def test_a_line_turned_on_its_side_is_measured_on_its_side():
     assert flat_w > 80 * (1 + 2 * T.SFX_MARGIN), "fixture: it fits upright"
     out = T.clamp_to_box(r, lay, cfg)
     assert out.font_size < 40, "an upright line was measured lying down"
-    assert T._text_w(path, out.font_size, "KRRRRAKOOOM") \
-        <= 80 * (1 + 2 * T.SFX_MARGIN) + 2
+    # It goes down as far as the floor and no further, and says so when it
+    # stops there.
+    #
+    # This used to assert plain containment, which worked while `SFX_MARGIN`
+    # was 0.25 and "the box" was really the box plus a quarter of it. With
+    # lee's *"make it fie exacly the size of the box"* the margin is nothing,
+    # eleven letters do not cross 80px at any readable size, and the right
+    # answer is the one the code gives: stop at `min_font` and set `spills`.
+    # Asserting containment here now would be asserting that the escape hatch
+    # does not work.
+    room = 80 * (1 + 2 * T.SFX_MARGIN) + 2
+    if T._text_w(path, out.font_size, "KRRRRAKOOOM") > room:
+        assert out.font_size == cfg.min_font, out.font_size
+        assert out.spills, "stopped by the floor and not saying so"
+    else:
+        assert not out.spills, "inside its box and claiming otherwise"
 
 
 def test_every_line_counts_towards_the_height():

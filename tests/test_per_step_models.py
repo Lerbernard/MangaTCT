@@ -442,10 +442,21 @@ def test_the_models_offered_are_the_models_that_can_be_paid_for():
 def test_the_menu_opens_on_something_current():
     """In the price table's own order, which is newest first. Sorted by name it
     would open on the oldest model in the range, which is the one thing nobody
-    wants and the one thing that gets picked by accident."""
+    wants and the one thing that gets picked by accident.
+
+    Asked as "the newest one this app knows about" rather than by name: a
+    named model is a line that has to be edited every time a provider ships,
+    and it went red on 2026-09-03 for exactly that reason (Gemini 3.8 Flash
+    arrived, so the top of the table is not 3.7 any more). What is worth
+    holding is the ORDER, and the order is the table's.
+    """
     from mangatl import coins
-    assert coins.models_for("anthropic")[0] == "claude-fable-5"
-    assert coins.models_for("gemini")[0] == "gemini-3.7-flash"
+    for back in ("anthropic", "gemini"):
+        first = coins.models_for(back)[0]
+        newest = max(coins.models_for(back),
+                     key=lambda m: (coins._version(m) or ("", -1, -1))[1:])
+        assert (coins._version(first) or ("", -1, -1))[1:] == \
+            (coins._version(newest) or ("", -1, -1))[1:], (back, first, newest)
 
 
 def test_a_model_that_is_priced_but_retired_is_not_offered():

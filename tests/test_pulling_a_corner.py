@@ -576,26 +576,37 @@ def test_only_the_armed_tool_is_lit():
     his hand: *"only one tool sjou dbeselected at once and i dont now what
     this haft selection thing is but remove it"*.
 
-    What the slot still does is CHANGE ITS ICON to the tool it is set to -
-    that is the thing that says which one it is.
+    ## AND THERE ARE NO SLOTS ANY MORE
+
+    This test read a slot's `data-tool` to ask which tool it was set to, which
+    was the right question while a slot was one button with a flyout behind it.
+    The flyout is gone - every tool the toolbox has is its own button on the
+    strip - so `[data-slot=move]` now matches the FIRST button of that section
+    whatever is armed, and the question has no answer because it has no
+    subject. What is left of the idea is the half that still means something,
+    and it is the half lee asked for: exactly one button is lit, and it is the
+    one belonging to the tool in your hand.
     """
     def check(pg, p):
         pg.wait_for_timeout(500)
-        pg.evaluate("tbArm('move','xf')")     # nothing on the page to move
         pg.evaluate("tbArm('select','lasso')")
         pg.wait_for_timeout(400)
         got = pg.evaluate("""(()=>{
           const all=[...document.querySelectorAll('#toolbox .tbtn')];
-          return {lit:all.filter(b=>b.classList.contains('on')).length,
+          const lit=all.filter(b=>b.classList.contains('on'));
+          return {n:all.length,
+                  lit:lit.length,
+                  which:lit.map(b=>b.dataset.tool),
                   marked:all.filter(b=>b.classList.contains('chosen')).length,
-                  move:document.querySelector(
-                    '#toolbox .tbtn[data-slot=move]').dataset.tool,
-                  sel:document.querySelector(
-                    '#toolbox .tbtn[data-slot=select]').dataset.tool};})()""")
+                  tools:all.map(b=>b.dataset.tool)};})()""")
         assert got["marked"] == 0, ("the half-selection is back", got)
-        assert got["lit"] <= 1, ("two tools are lit at once", got)
-        # ...and the slots still SAY which tool they hold
-        assert got["move"] == "xf" and got["sel"] == "lasso", got
+        assert got["lit"] == 1, ("not exactly one tool is lit", got)
+        assert got["which"] == ["lasso"], ("the lit one is not the armed one",
+                                           got)
+        # ...and every tool really is on the strip, which is what replaced the
+        # slots: no flyout, nothing to open, nothing to remember.
+        for k in ("xfd", "xf", "rect", "lasso", "wand"):
+            assert k in got["tools"], (k, got["tools"])
     _serve(check)
 
 

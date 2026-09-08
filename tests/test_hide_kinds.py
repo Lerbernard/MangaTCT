@@ -461,7 +461,11 @@ def test_the_card_offers_exactly_the_groups_there_are_boxes_for():
         ["node", os.path.join("tests", "ui", "hide_kinds.test.js")],
         cwd=root, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert ('switches: ["Bubble text","Outside text",'
+    # The card says what FAMILY_LABELS says. This expectation predates the
+    # freefloat family's label settling on "Freefloat text" (the prose in the
+    # python tree still says "Outside text" - flagged to lee 2026-09-02, one
+    # word in frames.js if he wants the old name back).
+    assert ('switches: ["Bubble text","Freefloat text",'
             '"Apply to every page in the chapter"]') in out.stdout, out.stdout
     assert '"Sound effect"' in out.stdout, out.stdout
     assert "sfx ticked: false speech ticked: true" in out.stdout, out.stdout

@@ -11,9 +11,15 @@ worth keeping, and between them they leave every other too-long page exactly as
 it is: a chapter that came as proper files, a page you split off yourself, a
 scan of a double spread.
 
-So: a knife. One page, one row, chosen by the person looking at it. And its
+So: a knife. One page, the rows chosen by the person looking at it. And its
 opposite, because a cut in the wrong place has to be undoable and because a
 site's slicer sometimes puts a scene across two files.
+
+MANY ROWS AT ONCE, since lee: *"can you make it so that i can have multiple
+cut lines"*. A 10,413-row webtoon is four or five pages, and cutting it a row
+at a time meant reopening the dialog on a piece whose panels had all moved,
+with a renumber and a reload between each. The rows go together and the page
+comes back as N+1.
 
 What is NOT allowed either way: a page with work on it. The boxes are placed in
 that page's coordinates and cutting it would leave half of them measured from
@@ -256,6 +262,96 @@ def test_a_cut_at_the_edge_or_outside_is_refused(proj, at):
     assert len(proj.pages) == 3
 
 
+# ------------------------------------------------- more than one cut at once
+
+def test_three_cuts_make_four_pages(proj):
+    """lee: *"can you make it so that i can have multiple cut lines"*. Not the
+    same job done three times: one pass, one move of the original into
+    `split/`, one renumber."""
+    was = len(proj.pages)
+    ok, why = proj.split_page(1, [200, 400, 600])
+    assert ok, why
+    assert len(proj.pages) == was + 3
+
+
+def test_the_pieces_are_the_page_again_with_nothing_lost_and_in_order(proj):
+    """Top to bottom, every row once, no row twice. A cut that loses or
+    duplicates a band of pixels is a cut nobody can see went wrong until they
+    read the chapter."""
+    was = imgio.imread(proj.pages[1].path)
+    assert proj.split_page(1, [200, 400, 600])[0]
+    got = [imgio.imread(pg.path) for pg in proj.pages[1:5]]
+    assert [g.shape[0] for g in got] == [200, 200, 200, 300]
+    assert np.array_equal(np.vstack(got), was)
+
+
+def test_a_row_asked_for_twice_is_one_cut(proj):
+    """Two lines on the same row is one line, and a piece nought rows tall is
+    not a page. Sorted and de-duplicated where the rows go in, so nothing
+    downstream has to think about it."""
+    assert proj.split_page(1, [400, 400])[0]
+    assert len(proj.pages) == 4
+
+
+def test_the_rows_do_not_have_to_arrive_in_order(proj):
+    """The pieces are named `a`, `b`, `c` down the page and `renumber_pages`
+    trusts that order, so a caller handing them over shuffled must not end up
+    with a chapter that reads back to front."""
+    assert proj.split_page(1, [600, 200, 400])[0]
+    assert [pg.height for pg in proj.pages[1:5]] == [200, 200, 200, 300]
+
+
+def test_two_cuts_too_close_together_are_refused(proj):
+    """A fourteen-row page in the MIDDLE of a chapter is the same mistake as
+    one at the end of it, and the edge rule was only ever asking about the
+    ends. Refused whole - a cut that half happened is worse than one that did
+    not."""
+    ok, why = proj.split_page(1, [400, 410])
+    assert not ok and "apart" in why
+    assert len(proj.pages) == 3
+
+
+def test_one_bad_row_refuses_the_whole_cut(proj):
+    """Nothing is written before every row has been looked at."""
+    ok, why = proj.split_page(1, [300, 899])
+    assert not ok and why
+    assert len(proj.pages) == 3
+    assert all(os.path.isfile(pg.path) for pg in proj.pages)
+
+
+def test_no_rows_at_all_is_refused(proj):
+    ok, why = proj.split_page(1, [])
+    assert not ok and why
+    assert len(proj.pages) == 3
+
+
+def test_every_box_goes_to_the_piece_it_is_on(proj):
+    """The one thing a multi-cut can get wrong that a single cut cannot: each
+    piece is measured from ITS OWN top edge, not from the first cut. A box at
+    row 500 on a page cut at 200/400/600 is 100 rows down the third piece."""
+    proj.pages[1].detected = True
+    proj.pages[1].regions = [_box(1, 50), _box(2, 250), _box(3, 500),
+                             _box(4, 700)]
+    assert proj.split_page(1, [200, 400, 600])[0]
+    tops = [[r["bbox"][1] for r in pg.regions] for pg in proj.pages[1:5]]
+    assert tops == [[50], [50], [100], [100]], tops
+
+
+def test_the_pieces_are_named_so_they_sort_in_reading_order(proj):
+    """`a`, `b`, `c`, ... is what makes them sort where the page they came
+    from sorted, which is the only thing holding the chapter in order between
+    the cut and `renumber_pages`."""
+    from mangatl.project import _part_suffix
+    assert [_part_suffix(k, 4) for k in range(4)] == ["a", "b", "c", "d"]
+    # `a, b, ... z, aa` does NOT sort - `aa` comes before `b` in every sort
+    # there is - so the width is fixed by how many pieces there are instead.
+    assert [_part_suffix(k, 30) for k in range(3)] == ["aa", "ab", "ac"]
+    for n in (2, 4, 26, 30, 700):
+        got = [_part_suffix(k, n) for k in range(n)]
+        assert sorted(got) == got, n
+        assert len(set(got)) == n, n
+
+
 def test_a_half_never_writes_over_a_page_that_is_already_there(proj):
     """The halves are named off the stem with an `a` and a `b` on it, and
     `p0a.png` is a perfectly ordinary thing for a chapter to already contain.
@@ -455,16 +551,30 @@ CUT = (PKG / "static" / "js" / "pagecut.js").read_text(encoding="utf-8")
 CSS = (PKG / "static" / "css" / "editor.css").read_text(encoding="utf-8")
 
 
-def test_it_is_a_click_and_not_a_drag():
+def test_placing_a_line_is_a_click_and_never_a_drag():
     """lee: *"remoeve teh click and drag and allow me to clci where i want it
-    to cut"*. Dragging is for something you are adjusting; this is not that.
+    to cut"*, and later *"alow me to drag them into place"*. Those are not
+    opposite asks and the difference is what this pins down.
 
-    The pointer capture also swallowed a click while the pointer was down, so
-    a quick click on a slow frame sometimes did nothing at all."""
-    assert "setPointerCapture" not in CUT
-    assert "pointermove" not in CUT
+    PLACING is a click. The drag that came out was how a line got put down -
+    pointer down anywhere on the page, capture, follow, release - and its
+    capture swallowed a click while the pointer was down, so a quick click on
+    a slow frame sometimes did nothing at all. Nothing about a press on bare
+    page is held waiting to see whether it becomes something else.
+
+    ADJUSTING is a drag, and it starts on a line already down. So the
+    pointer handlers exist again, and every one of them turns back at the top
+    unless the press landed on a `.cutline`."""
     assert "addEventListener('click', cutFromEvent)" in CUT
     assert "Click on the page where you want" in HTML
+    down = CUT[CUT.index("function cutDown("):]
+    down = down[:down.index("\n}")]
+    assert "closest('.cutline')" in down
+    assert "if(!line) return;" in down, "a press on bare page is not held"
+    # ...and the capture is on the WRAP, because `drawCuts` replaces the lines
+    # on every move and capture held by a replaced element is capture lost.
+    assert "wrap.setPointerCapture" in down
+    assert "line.setPointerCapture" not in CUT
 
 
 def test_nothing_moves_the_line_off_the_row_it_was_given():
@@ -473,11 +583,11 @@ def test_nothing_moves_the_line_off_the_row_it_was_given():
     from the top and bottom sixteen rows is gone - a cut that close is refused
     by the BUTTON going off with the reason beside it, which is a different
     thing from being overruled."""
-    at = CUT.index("function putLine(")
+    at = CUT.index("function drawCuts(")
     body = CUT[at:CUT.index("\n}", at)]
     assert "Math.max(16" not in body and "_cutH - 16, Math.round" not in body
     assert "line.dataset.row = row;" in body
-    assert "too close to the edge" in body
+    assert "too close to the edge" in CUT
 
 
 def test_nothing_moves_the_line_at_all():
@@ -492,7 +602,8 @@ def test_nothing_moves_the_line_at_all():
     assert "snapToGap" not in CUT and "cutSnap" not in CUT
     assert "cutSnap" not in HTML
     assert "The line goes exactly there" in HTML
-    assert "line.classList.toggle('snap', on)" in CUT, "the readout stays"
+    assert "line.classList.toggle('snap', on && !tight)" in CUT, \
+        "the readout stays"
 
 
 def test_the_join_buttons_say_a_direction_and_not_a_filename():
@@ -598,11 +709,17 @@ def test_the_line_lands_exactly_where_it_is_put(screen):
     pg.evaluate("putLine(3)")
     assert pg.evaluate("cutAt()") == 3
     assert pg.evaluate("$('cutGo').disabled") is True
-    assert "edge" in pg.text_content("#cutRow")
+    assert "edge" in pg.text_content(".cutline b")
     assert not errs, errs
 
 
 def _clickAt(pg, frac):
+    """One click on the picture, on a preview with no lines on it yet.
+
+    Cleared first because a click ADDS a line now - lee: *"can you make it so
+    that i can have multiple cut lines"* - so a helper that did not would be
+    reading the first of several every time it was called twice."""
+    pg.evaluate("cutClear()")
     box = pg.evaluate("""(()=>{const r=document.getElementById('cutImg')
         .getBoundingClientRect();
         return {x:r.x+r.width/2, top:r.y, h:r.height};})()""")
@@ -610,7 +727,7 @@ def _clickAt(pg, frac):
     pg.mouse.click(box["x"], y)
     pg.wait_for_timeout(120)
     return y, box, pg.evaluate("""(()=>({
-        lineY: document.getElementById('cutLine').getBoundingClientRect().y,
+        lineY: document.querySelector('.cutline').getBoundingClientRect().y,
         row: cutAt()}))()""")
 
 
@@ -720,11 +837,310 @@ def test_a_line_on_a_gap_says_so(screen):
     pg, errs = _editor(br, base)
     _open(pg)
     pg.evaluate("putLine(415)")               # the middle of the 400..430 band
-    assert pg.evaluate("$('cutLine').classList.contains('snap')") is True
-    assert "on a gap" in pg.text_content("#cutRow")
+    assert pg.evaluate("!!document.querySelector('.cutline.snap')") is True
+    assert "on a gap" in pg.text_content(".cutline b")
     pg.evaluate("putLine(390)")
-    assert pg.evaluate("$('cutLine').classList.contains('snap')") is False
+    assert pg.evaluate("!!document.querySelector('.cutline.snap')") is False
     assert pg.evaluate("cutAt()") == 390, "and it stayed where it was put"
+    assert not errs, errs
+
+
+def test_a_second_click_is_a_second_cut(screen):
+    """lee: *"can you make it so that i can have multiple cut lines"*.
+
+    The dialog opens with NO line on it, which is the other half of the same
+    change: it used to open with one across the middle as a hint that the
+    thing was clickable, and that was fair while a click MOVED the line. Now a
+    click adds one, so a line already there would mean the first click
+    somebody makes leaves them with two cuts they never asked for."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    assert pg.evaluate("cutRows().length") == 0, "nothing until you click"
+    assert pg.evaluate("$('cutGo').disabled") is True
+    _clickAt(pg, 0.25)
+    assert pg.evaluate("cutRows().length") == 1
+    # ...and the helper clears, so the rest of this clicks by hand.
+    for frac in (0.55, 0.75):
+        box = pg.evaluate("""(()=>{const r=document.getElementById('cutImg')
+            .getBoundingClientRect();
+            return {x:r.x+r.width/2, top:r.y, h:r.height};})()""")
+        pg.mouse.click(box["x"], box["top"] + box["h"] * frac)
+        pg.wait_for_timeout(120)
+    assert pg.evaluate("cutRows().length") == 3
+    assert pg.evaluate("document.querySelectorAll('.cutline').length") == 3
+    # In reading order, because the pieces are named down the page.
+    rows = pg.evaluate("cutRows()")
+    assert rows == sorted(rows), rows
+    assert "Cut into 4 pages" in pg.text_content("#cutGo")
+    assert not errs, errs
+
+
+def test_the_button_adds_a_cut_in_the_middle_of_the_biggest_piece(screen):
+    """lee: *"add a button to add like"*. A cut without aiming at one.
+
+    The middle of the biggest piece is the one answer that is never wrong: it
+    cannot land on a line already there, it needs no aim, and pressing it
+    repeatedly spaces the cuts evenly - which is what a ten-thousand-row strip
+    wants before anything is nudged."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    for _ in range(3):
+        pg.click("#cutAdd")
+        pg.wait_for_timeout(100)
+    # 900 rows: 450, then 225 and 675, then 112 or 562 - whichever half of the
+    # two 225-row pieces it reaches first. Evenly spaced is the property; the
+    # exact third depends on which equal span is met first.
+    rows = pg.evaluate("cutRows()")
+    assert rows[:2] == sorted(rows[:2]) and len(rows) == 3, rows
+    assert 450 in rows and 225 in rows and 675 in rows, rows
+    assert "Cut into 4 pages" in pg.text_content("#cutGo")
+    assert not errs, errs
+
+
+def test_a_line_can_be_dragged_into_place(screen):
+    """lee: *"alow me to drag them into place"*. A click puts it roughly
+    where you want it; this is the nudge."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(300)")
+    box = pg.evaluate("""(()=>{const l=document.querySelector('.cutline');
+        const r=l.getBoundingClientRect();
+        const i=document.getElementById('cutImg').getBoundingClientRect();
+        return {x:i.x+i.width/2, y:r.y+1, h:i.height};})()""")
+    pg.mouse.move(box["x"], box["y"])
+    pg.mouse.down()
+    pg.mouse.move(box["x"], box["y"] + 40, steps=8)
+    pg.mouse.up()
+    pg.wait_for_timeout(150)
+    rows = pg.evaluate("cutRows()")
+    assert len(rows) == 1, "a drag moves the line, it does not add one"
+    want = 300 + 40 / box["h"] * 900
+    assert abs(rows[0] - want) <= 900 / box["h"] + 2, (rows, want)
+    assert not errs, errs
+
+
+def test_dragging_one_line_past_another_keeps_them_in_reading_order(screen):
+    """The pieces are named `a`, `b`, `c` down the page, so the rows have to
+    stay sorted while the pointer is still down - and the drag has to go on
+    following the line under the pointer rather than whatever is now at the
+    index it started from."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(300); addCut(600)")
+    box = pg.evaluate("""(()=>{const l=document.querySelectorAll('.cutline')[0];
+        const r=l.getBoundingClientRect();
+        const i=document.getElementById('cutImg').getBoundingClientRect();
+        return {x:i.x+i.width/2, y:r.y+1, top:i.y, h:i.height};})()""")
+    pg.mouse.move(box["x"], box["y"])
+    pg.mouse.down()
+    pg.mouse.move(box["x"], box["top"] + box["h"] * 0.85, steps=10)
+    pg.mouse.up()
+    pg.wait_for_timeout(150)
+    rows = pg.evaluate("cutRows()")
+    assert len(rows) == 2 and rows == sorted(rows), rows
+    assert rows[0] == 600, "the one that did not move is still where it was"
+    assert rows[1] > 700, rows
+    assert not errs, errs
+
+
+def test_a_drag_does_not_leave_a_cut_where_it_ended(screen):
+    """The click that follows a pointerup would ADD one. It is swallowed
+    after a drag and let through after a press that never moved, which is what
+    lets a nudge and a removal be the same gesture without being the same
+    outcome."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(300)")
+    box = pg.evaluate("""(()=>{const l=document.querySelector('.cutline');
+        const r=l.getBoundingClientRect();
+        const i=document.getElementById('cutImg').getBoundingClientRect();
+        return {x:i.x+i.width/2, y:r.y+1};})()""")
+    pg.mouse.move(box["x"], box["y"])
+    pg.mouse.down()
+    pg.mouse.move(box["x"], box["y"] + 50, steps=6)
+    pg.mouse.up()
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows().length") == 1
+    # ...and the very next click on bare page still adds one, so nothing is
+    # left swallowing clicks after the drag is over.
+    pg.mouse.click(box["x"], box["y"] - 120)
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows().length") == 2
+    assert not errs, errs
+
+
+def _xy(pg, sel):
+    return pg.evaluate("""(s)=>{const e=document.querySelector(s);
+        const r=e.getBoundingClientRect();
+        return {x:r.x+r.width/2, y:r.y+r.height/2};}""", sel)
+
+
+def test_the_x_on_a_line_takes_that_line_away(screen):
+    """lee: *"ad a way to delete the cut lines"*.
+
+    Its own target and not a gesture on the line, because the line is a thing
+    you DRAG now: a grab and a nudge are the same gesture with the distance
+    turned down, so a hand that moved by nought pixels would have deleted the
+    line it meant to move. Clicking a line used to remove it and that is
+    exactly the ambiguity this replaces."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(200); addCut(450); addCut(700)")
+    assert pg.evaluate("cutRows()") == [200, 450, 700]
+    at = pg.evaluate("""(()=>{const e=document.querySelectorAll('.cutline .x')[1];
+        const r=e.getBoundingClientRect();
+        return {x:r.x+r.width/2, y:r.y+r.height/2};})()""")
+    pg.mouse.click(at["x"], at["y"])
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows()") == [200, 700], "the one it was on, and no other"
+    assert pg.evaluate("document.querySelectorAll('.cutline').length") == 2
+    assert not errs, errs
+
+
+def test_the_x_is_on_top_of_the_handle_and_not_under_it(screen):
+    """The grab strip runs the full width of the line - under the badge as
+    well - so appended after the badge it is painted on top and takes every
+    click meant for the X, which then does nothing at all. Asked of the
+    browser and not of the source, because that is where it went wrong: the
+    markup was right and the stacking was not."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(450)")
+    hit = pg.evaluate("""(()=>{const e=document.querySelector('.cutline .x');
+        const r=e.getBoundingClientRect();
+        const t=document.elementFromPoint(r.x+r.width/2, r.y+r.height/2);
+        return !!(t && t.closest && t.closest('.cutline .x'));})()""")
+    assert hit, "the X has to be the thing under the pointer"
+    assert not errs, errs
+
+
+def test_pressing_the_x_does_not_start_a_drag(screen):
+    """Without that, pressing it starts a drag, the drag swallows the click
+    that was going to delete the line, and the X does nothing."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    pg.evaluate("putLine(450)")
+    at = _xy(pg, ".cutline .x")
+    pg.mouse.move(at["x"], at["y"])
+    pg.mouse.down()
+    pg.mouse.move(at["x"], at["y"] + 30, steps=5)
+    pg.mouse.up()
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows()") == [450], \
+        "the line did not move, and nothing new was put where the press ended"
+    # ...and letting go somewhere else does not delete it either, the way
+    # letting go off a button you pressed means you thought better of it.
+    at2 = _xy(pg, ".cutline .x")
+    pg.mouse.move(at2["x"], at2["y"])
+    pg.mouse.down()
+    pg.mouse.move(at2["x"] - 200, at2["y"] + 60, steps=5)
+    pg.mouse.up()
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows()") == [450], "still there, still the only one"
+    assert not errs, errs
+
+
+def test_clear_all_takes_every_line_away(screen):
+    """Four cuts placed by eye down a ten-thousand-row strip is four X's to
+    find; starting over is one thought rather than four."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    assert pg.evaluate("$('cutClearAll').disabled") is True, \
+        "nothing to clear until there is something"
+    pg.evaluate("putLine(200); addCut(450); addCut(700)")
+    assert pg.evaluate("$('cutClearAll').disabled") is False
+    pg.click("#cutClearAll")
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("cutRows()") == []
+    assert pg.evaluate("document.querySelectorAll('.cutline').length") == 0
+    assert pg.evaluate("$('cutGo').disabled") is True
+    assert pg.evaluate("$('cutClearAll').disabled") is True
+    assert not errs, errs
+
+
+def test_a_click_on_a_line_neither_removes_it_nor_stacks_another_on_it(screen):
+    """It used to remove it, and that was fine while a line was not something
+    you could take hold of. Now it is: the line stays put, and the click is
+    not turned into a second cut three pixels from the first either."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    y, box, _got = _clickAt(pg, 0.4)
+    assert pg.evaluate("cutRows().length") == 1
+    was = pg.evaluate("cutRows()")
+    pg.mouse.click(box["x"], y)
+    pg.wait_for_timeout(120)
+    assert pg.evaluate("cutRows()") == was, "left exactly as it was"
+    assert not errs, errs
+
+
+def test_two_lines_too_close_together_say_so_before_the_button_is_pressed(
+        screen):
+    """The server refuses this, and being told after choosing four rows is
+    being told too late. The line goes red and the button goes off - neither
+    line is moved, which is the rule this dialog has kept from the start."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    pg, errs = _editor(br, base)
+    _open(pg)
+    # TWELVE rows apart, and the number matters. There are two thresholds
+    # here and they are in different units: a click within `NEAR` (5 SCREEN
+    # pixels) of a line means "take that one away", and two cuts closer than
+    # `EDGE` (16 ROWS) are refused. On this 900-row page drawn about 494 tall
+    # a row is 0.55px, so 8 rows reads as the same line and is removed, and 12
+    # is a second line the server will not take. That window is what the red
+    # is for - on a tall webtoon the removal tolerance covers the whole of it
+    # and this state cannot be reached by clicking at all.
+    pg.evaluate("putLine(400); addCut(412)")
+    assert pg.evaluate("cutRows()") == [400, 412], \
+        "12 rows has to be far enough apart to be a second line"
+    assert pg.evaluate("document.querySelectorAll('.cutline.bad').length") == 2
+    assert pg.evaluate("$('cutGo').disabled") is True
+    assert "too close" in pg.text_content(".cutline b")
+    # ...and a row that lands ON one of them is not a third line jammed
+    # between the two. It used to be a removal; the X does that now.
+    pg.evaluate("cutClear(); putLine(400); addCut(404)")
+    assert pg.evaluate("cutRows()") == [400], "4 rows away is the same line"
+    # ...and it comes back the moment the offending one is gone.
+    pg.evaluate("cutClear(); putLine(400); addCut(600)")
+    assert pg.evaluate("document.querySelectorAll('.cutline.bad').length") == 0
+    assert pg.evaluate("$('cutGo').disabled") is False
+    assert not errs, errs
+
+
+def test_three_cuts_through_the_dialog_make_four_pages(screen):
+    """End to end: the rows go to the server together and the chapter comes
+    back one page longer for each of them."""
+    p, br, base = screen
+    p.settings["medium"] = "manhwa"; p.save()
+    was = len(p.pages)
+    pg, errs = _editor(br, base)
+    pg.evaluate("showPage(1)"); pg.wait_for_timeout(500)
+    _open(pg)
+    pg.evaluate("putLine(200); addCut(430); addCut(650)")
+    pg.evaluate("cutHere()")
+    pg.wait_for_timeout(1500)
+    assert len(p.pages) == was + 3
+    assert [pg_.height for pg_ in p.pages[1:5]] == [200, 230, 220, 250]
     assert not errs, errs
 
 

@@ -143,7 +143,8 @@ def _html():
 
 def test_there_is_a_card_for_every_route_and_one_for_none_of_them():
     html = _html()
-    for route in ("", "two_specialists", "manga_segmenter", "animetext"):
+    for route in ("", "two_specialists", "manga_segmenter", "animetext",
+                  "webtoon_ko", "webtoon_zh"):
         assert 'data-route="%s"' % route in html, route
 
 
@@ -152,19 +153,39 @@ def test_every_card_carries_what_it_costs_and_how_good_it_is():
     html = _html()
     # `data-sec=` alone also matches the settings rail's sections, so the
     # count is taken on the two attributes only these cards have.
+    #
+    # SIX CARDS, FOUR ON SCREEN. Two were counted on manga fragments, two on
+    # webtoons, and two on both - and the group shows the ones that belong to
+    # the format being worked on. A card counted on both carries both sets:
+    # `data-missed` is 23 pages of Japanese and `data-wmissed` is lee's
+    # Korean chapter. See `ROUTE_MEDIA` in project.js.
     assert html.count("data-missed=") == 4
+    assert html.count("data-wmissed=") == 4
     assert html.count("data-junk=") == 4
-    assert html.count('class="est"') == 4
-    assert html.count('class="rate"') == 4
+    assert html.count("data-wjunk=") == 4
+    assert html.count('class="est"') == 6
+    # The bar and the percentage are gone - three words instead, and on every
+    # choice rather than only on the one that happens to have a count. See
+    # `RATE_WORDS` in project.js. lee: *"remove teh blue bar and the number
+    # and create a new ratting system, fair, good and great"*.
+    assert html.count('class="rating"') >= 4
+    assert 'class="rate"' not in html and 'class="score"' not in html
 
 
 def test_the_selection_is_read_from_the_settings_not_from_the_dom():
     """The checkboxes are gone. Reading them would save `false` for all three
     on the next save of any unrelated setting, and the choice would vanish."""
     js = _js()
-    for k in ("two_specialists", "manga_segmenter", "animetext"):
-        assert "%s:(currentRoute()==='%s')" % (k, k) in js, k
+    for k in ("two_specialists", "manga_segmenter", "animetext",
+              "webtoon_ko", "webtoon_zh"):
+        assert "%s:routeFlag('%s')" % (k, k) in js, k
     assert "$('animetext').checked" not in js
+    # ...and `routeFlag` is `currentRoute` for the cards this format offers
+    # and a pass-through for the ones it does not, so a save on a manga
+    # cannot decide the manhwa's route. See `test_a_webtoon_gets_a_webtoon
+    # _detector`.
+    fn = js[js.index("function routeFlag("):]
+    assert "currentRoute() === k" in fn[:fn.index("\n}")]
 
 
 def test_only_one_route_can_be_on():
@@ -172,7 +193,7 @@ def test_only_one_route_can_be_on():
     ticked meant one ignored."""
     js = _js()
     body = js[js.index("function pickRoute("):js.index("function syncRoutes(")]
-    assert "proj.settings[k] = (k === name)" in body
+    assert "if(routeHere(k)) proj.settings[k] = (k === name)" in body
 
 
 def test_a_route_whose_weights_are_missing_cannot_be_picked():
@@ -184,8 +205,13 @@ def test_a_route_whose_weights_are_missing_cannot_be_picked():
 def test_the_rating_says_what_it_is_made_of():
     """A score whose formula is a secret is a score nobody can argue with."""
     js = _js()
-    assert "(226 - missed - junk)" in js
-    assert "hand-checked sites right" in js
+    assert "(SITES - missed - junk)" in js
+    assert "hand-checked " in js and "' right - '" in js
+    # ...and which count, because there are two: 226 hand-checked sites on 23
+    # pages of Japanese manga, and 33 balloons and captions on lee's Korean
+    # chapter. Showing either on the other format would be a made-up number.
+    assert "const WEBTOON_SITES = 33;" in js
+    assert "SITES = strip ? WEBTOON_SITES : 226" in js
 
 
 def test_the_estimate_is_for_this_chapter_not_for_one_page():
@@ -271,10 +297,29 @@ def test_the_buttons_are_filled_not_outlined():
     assert "background:#2f6fd0" in on, "armed is solid, not merely outlined"
 
 
-def test_it_is_in_the_toolbox_and_on_the_page():
+def test_it_is_on_the_page_and_NOT_in_the_toolbox():
+    """It moved, and this test was left behind by the move.
+
+    It used to be a tool on the strip down the left. lee: *"i wasnt you tpo
+    make teh select tool only be usable on the translation tab"* - it picks
+    BOXES, and boxes are managed on the Translation view, where that strip is
+    not even up. So the one tool on it that belonged to the other view sat
+    there being armable from the wrong screen.
+
+    Where it lives now is where it always also lived: the legend row above the
+    page, off the same `boxSel` state, so the S key and the button and the mode
+    cannot disagree. `toolbar.js` says all of that where the slot used to be.
+
+    The test asserting it is in the toolbox outlived that by a week, and it is
+    the toolbox half that was wrong - so it is asserted the other way round
+    here, which is a thing this test can say and a missing button is not.
+    """
     tb = (PKG / "static" / "js" / "toolbar.js").read_text(encoding="utf-8")
-    assert "Select boxes (S)" in tb
-    assert "boxsel" in tb
+    assert "Select boxes (S)" not in tb, \
+        "the box-select tool is back on the strip it was taken off"
+    panels = (PKG / "static" / "js" / "panels.js").read_text(encoding="utf-8")
+    assert "toggleBoxSelect()" in panels, "the legend has no button for it"
+    assert "Select boxes" in panels
     assert "boxselect.js" in _html()
 
 

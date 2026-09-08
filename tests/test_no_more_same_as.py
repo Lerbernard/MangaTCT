@@ -92,6 +92,50 @@ def test_no_screen_still_says_same_as():
     assert "Same as" not in HTML and "same as the" not in HTML
 
 
+def test_the_written_in_boxes_offer_the_three_media_languages():
+    """One language per medium, and nothing else. lee, going into the beta:
+    *"we will only support the original languages so manga jappenesse, mnhawa
+    koren and manhua chinesse"*.
+
+    English, Spanish, Portuguese and French used to sit under them, for
+    material not in its medium's usual language. Nothing in the app was built
+    for that case - the readers, the detectors and the honorific rules are all
+    CJK - so it was a menu entry offering something nobody had run a page
+    through.
+
+    Asked of BOTH boxes: the new-project picker and the settings screen said
+    different things once before.
+    """
+    from mangatl.translate import OFFERED_SOURCES
+    for sel in ("pkSource", "source"):
+        block = re.search(rf'id="{sel}".*?</select>', HTML, re.S).group(0)
+        assert re.findall(r'value="([a-z]+)"', block) == list(OFFERED_SOURCES), sel
+        assert re.findall(r'>([^<]+)</option>', block) == \
+            ["Japanese", "Korean", "Chinese"], sel
+    # ...and TRANSLATE INTO is untouched: what you write the chapter in is a
+    # different question from what it was drawn in.
+    for sel in ("pkTarget", "target"):
+        block = re.search(rf'id="{sel}".*?</select>', HTML, re.S).group(0)
+        assert re.findall(r'value="([a-z]+)"', block) == ["en", "es", "pt", "fr"], sel
+
+
+def test_a_language_no_longer_offered_is_still_understood():
+    """The four that left the menu are still NAMED, and that is deliberate.
+
+    Every reader falls back to the medium's own language for a code it does
+    not know, so deleting them would turn a chapter that already says
+    `source: "en"` into a Japanese one - read by manga-ocr, laid out right to
+    left, with nothing on screen saying why. Exactly the failure
+    `test_an_old_comic_chapter_is_still_an_english_chapter` below was written
+    for, arriving through a different door.
+    """
+    from mangatl.translate import SOURCE_LANGS, source_language
+    for code, name in (("en", "English"), ("es", "Spanish"),
+                       ("pt", "Portuguese"), ("fr", "French")):
+        assert SOURCE_LANGS.get(code) == name
+        assert source_language("manga", code) == name
+
+
 def test_the_language_boxes_have_no_automatic_answer():
     for sel in ("pkSource", "source", "pkDirection", "direction"):
         block = re.search(rf'id="{sel}".*?</select>', HTML, re.S).group(0)

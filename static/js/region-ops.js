@@ -14,8 +14,43 @@
    `{ov, text}`: the override, and the translation, which the server clears on
    its own when the lines come in empty - so an undo that only restored the
    override brought back an empty box. */
+/* ONE BOX, ONE COIN - the two buttons on every box row.
+
+   Read text re-reads the writing in THIS box from the image, with whatever
+   reader the project's own Read text step uses; Translate sends this box's
+   line and nothing else. lee: *"add a read text and traslate buuton to each
+   box and it shoud jut send that box and text with no extra context to the
+   ai and make it cost 1 coin"*. */
+async function boxAi(id, what, btn, busyLabel, doneLabel){
+  const b=$(btn);
+  const had=b?b.textContent:'';
+  if(b){ b.disabled=true; b.textContent=busyLabel; }
+  try{
+    const j=await api(`/api/page/${cur}/region/${id}/${what}`,'POST',{});
+    if(j && j.error){ toast(j.error, 3600); return; }
+    if(j && j.regions) setRegions(j.regions);
+    if(typeof paintCount==='function' && j && j.coins!==undefined)
+      paintCount(j.coins);
+    if(typeof refreshCoins==='function') refreshCoins();
+    toast(doneLabel, 2200);
+  } finally {
+    if(b){ b.disabled=false; b.textContent=had; }
+    renderList();
+    if(typeof drawText==='function') drawText();
+  }
+}
+function readBox(id){
+  return boxAi(id, 'read', 'readBox_'+id, 'Reading…',
+               'Box re-read — 1 coin.');
+}
+function translateBox(id){
+  return boxAi(id, 'translate', 'trBox_'+id, 'Translating…',
+               'Box translated — 1 coin.');
+}
+
 async function saveTypesetting(id, quiet, extra, norefresh, before){
   const r=regions.find(x=>x.id===id);
+  const patch=Object.assign(currentPatch(r), extra||{});
   if(r && !saveTypesetting._undoing){
     const prev=JSON.parse(JSON.stringify(
       (before&&before.ov!==undefined) ? (before.ov||{}) : (r.layout_override||{})));
@@ -29,21 +64,45 @@ async function saveTypesetting(id, quiet, extra, norefresh, before){
       async ()=>{
         saveTypesetting._undoing=true;
         try{
-          // The translation is a separate field on a separate branch of the
-          // region endpoint, so putting it back is its own call - and it goes
-          // FIRST. The layout post lays the block out from `dst_text`, so
-          // restoring an empty override while the sentence is still deleted
-          // lays out nothing and the box comes back blank.
-          if(prevText!==undefined && prevText!==null)
-            await api(`/api/page/${cur}/region/${id}`,'POST',{dst_text:prevText});
-          // An empty override is not an override. Posting `{}` MERGES - every
-          // field is read with a default, so the answer that comes back is a
-          // full override holding the edit's own empty line list, and the undo
-          // undid nothing. `reset` is the endpoint's own word for "there was
-          // no hand edit here; typeset it from the sentence".
-          const had=prev && Object.keys(prev).length;
-          await api(`/api/page/${cur}/region/${id}`,'POST',
-                    {layout: had ? prev : {reset:true}});
+          if(before){
+            // A CANVAS EDIT: only the WORDING was the edit. Everything
+            // else on the panel - a size set moments before the box
+            // opened, its save still in flight when it did - must survive
+            // the undo. So the undo is THIS SAVE'S OWN BODY posted again,
+            // with the wording keys, the frame and the translation put
+            // back the way they were when the box opened - one request,
+            // words and layout together, because the server reads "lines
+            // came in empty" as "the sentence was deleted" and re-clears a
+            // translation restored beside a still-emptied line list.
+            // (A `reset` here instead threw the person's size away; a
+            // partial layout post cannot exist - the endpoint reads every
+            // field with a default, so an absent `lines` IS an empty one.)
+            const again=Object.assign(JSON.parse(JSON.stringify(patch)), {
+              lines: (before.lines||[]).slice(),
+              spans: (prev && prev.spans) ? prev.spans : []});
+            if(before.frame && before.frame.length)
+              again.frame=before.frame.slice();
+            const body={layout: again};
+            if(prevText!==undefined && prevText!==null)
+              body.dst_text=prevText;
+            await api(`/api/page/${cur}/region/${id}`,'POST', body);
+          } else {
+            // The translation goes FIRST here: the layout post below lays
+            // the block out from `dst_text`, so restoring an override while
+            // the sentence is still deleted lays out nothing.
+            if(prevText!==undefined && prevText!==null)
+              await api(`/api/page/${cur}/region/${id}`,'POST',
+                        {dst_text:prevText});
+            // An empty override is not an override. Posting `{}` MERGES -
+            // every field is read with a default, so the answer that comes
+            // back is a full override holding the edit's own empty line
+            // list, and the undo undid nothing. `reset` is the endpoint's
+            // own word for "there was no hand edit here; typeset it from
+            // the sentence".
+            const had=prev && Object.keys(prev).length;
+            await api(`/api/page/${cur}/region/${id}`,'POST',
+                      {layout: had ? prev : {reset:true}});
+          }
           const d=await api('/api/page/'+cur);
           setRegions(d.regions);
           // ...and the words themselves, which live on the canvas rather than
@@ -55,7 +114,6 @@ async function saveTypesetting(id, quiet, extra, norefresh, before){
   }
   const ticket=pageTicket;
   const my=++editSeq;
-  const patch=Object.assign(currentPatch(r), extra||{});
   // Remembered until its own answer comes home, so a refresh that lands in
   // the meantime cannot put the old typesetting back on screen. See core.js.
   let mySeq = null;
@@ -65,10 +123,34 @@ async function saveTypesetting(id, quiet, extra, norefresh, before){
     // derived geometry (`frame`, `origins`) that comes home in a different
     // shape than it went out, so "has the server caught up" never became true.
     const mine = {};
+    // A BLOCK WITH RANGES IN IT DOES NOT PIN ITS PAINT.
+    //
+    // `inFlight` lays these back over the region until the save's own answer
+    // comes home, which is right for a value a person set and wrong for one
+    // this side worked out. While part of the text has a style of its own the
+    // panel is showing the RANGE's values, and a colour that leaks from there
+    // into the block's patch gets pinned here - so the editor draws the whole
+    // block in the range's colour while the server, which was sent the right
+    // thing, draws it correctly, and it comes good a moment later when the pin
+    // clears.
+    //
+    // lee, with two screenshots: *"only the word cloudy should be orange but
+    // the editor shows the whole thing as orange while the exported preview
+    // gets it right"*, then *"after a while the editor version gets it right
+    // too"*. The paint of a spanned block is cheap to redraw and always
+    // arrives with the reply, so there is nothing to gain by holding it.
+    const spanned = !!(r && r.layout_override
+                       && Array.isArray(r.layout_override.spans)
+                       && r.layout_override.spans.length);
+    const PAINT = ['fg','edge','fg1','fg2','grad_angle','stroke',
+                   'shadow','sh_dist','sh_blur','glow','glow_size',
+                   'iglow','iglow_size','opacity'];
     for(const k of ['font_size','lines','leading','rotate','stroke','lspace',
-                    'fg','edge','fg1','fg2','grad_angle','curve','opacity',
+                    'fg','edge','fg1','fg2','grad_angle','curve',
+                    'curve_kind','opacity',
                     'shadow','sh_dist','sh_blur','glow','glow_size',
                     'iglow','iglow_size','font']){
+      if(spanned && PAINT.indexOf(k) >= 0) continue;
       if(patch[k] !== undefined) mine[k] = patch[k];
     }
     // WHERE the block is, which was the one thing a person can change that
@@ -102,12 +184,67 @@ async function saveTypesetting(id, quiet, extra, norefresh, before){
                                             rotate: patch.rotate}});
     mySeq = mark && mark.seq;
   }
+  // ONE SAVE AT A TIME PER BOX, IN THE ORDER THEY WERE ASKED FOR.
+  //
+  // The app's server is threaded, so two POSTs for the same region are two
+  // read-modify-writes racing over one dictionary, and the one that finishes
+  // last wins whatever it read first. Four presses of the outline stepper
+  // sent 2, 3, 4, 5 - in that order, a fifth of a second apart - and the file
+  // ended up holding **4**. The field said 5, the page said 5, and the number
+  // that had been saved was the one before it.
+  //
+  // Which is lee's *"i can manuly tye a number and wheni try to use teh arrow
+  // its reverts back"* from the other end: that half was the panel rebuilding
+  // from a stale copy, this half is the save itself landing out of order, and
+  // it only ever showed up on the press you did not make - the LAST one.
+  //
+  // The browser is the only thing that knows what order they were asked in, so
+  // it is the browser that queues them. Per region, so two different boxes
+  // still save side by side.
+  //
+  // ...AND A SAVE NOBODY IS WAITING FOR ANY MORE DOES NOT GO AT ALL.
+  //
+  // Queueing alone turns four presses into four round trips one after the
+  // other, and a layout POST re-lays the block out and rebuilds the page - so
+  // the fourth press's number lands seconds after the fourth press. It does not
+  // need to go: `currentPatch` is a snapshot of the WHOLE panel, so a later one
+  // says everything an earlier one said and more. The older one is abandoned
+  // at the gate, before it is sent.
+  //
+  // Only the plain ones. A wrap, a fit, an undo or an on-canvas edit carries an
+  // `extra` of its own that no later snapshot contains, and dropping one of
+  // those would drop the thing that was actually asked for.
+  const plain=!extra && !before;
+  const q=(saveTypesetting._q||(saveTypesetting._q={}));
+  const lane=q[id]||(q[id]={tail:Promise.resolve(), gen:0});
+  const myGen=++lane.gen;
+  const before_me=lane.tail;
+  let letgo;
+  const mine=new Promise(res=>{ letgo=res; });
+  lane.tail=mine;
+  try{ await before_me; }catch(_){}
+  const drop=()=>{
+    letgo();
+    // The lane is per region and lives as long as the page, so it is dropped
+    // once nothing is behind it - otherwise every box that was ever saved
+    // keeps a settled promise for the life of the session.
+    if(lane.tail===mine && q[id]===lane) delete q[id];
+  };
+  if(plain && myGen!==lane.gen){
+    // Superseded. The mark has to be let go all the same, or the newer value
+    // stays pinned behind an answer that is never coming.
+    if(typeof settleInFlight==='function') settleInFlight(id, mySeq);
+    drop();
+    return;
+  }
   let j;
   try{
     j=await api(`/api/page/${cur}/region/${id}`,'POST',{layout:patch});
   } catch(e){
     if(typeof settleInFlight==='function') settleInFlight(id, mySeq);
     throw e;
+  } finally {
+    drop();
   }
   // On disk. The mark is let go here, BEFORE the answer below is laid down -
   // that answer is the newest thing there is and must not be overlaid.
@@ -590,13 +727,6 @@ async function upd(id,patch){
   const j=await api(`/api/page/${cur}/region/${id}`,'POST',patch);
   if(j.regions) setRegions(j.regions);
 }
-async function asDrawn(id){
-  const r=regions.find(x=>x.id===id);
-  const box=r.draw_box||r.bubble_bbox||r.bbox;
-  const j=await api(`/api/page/${cur}/region/${id}`,'POST',
-    {resnap:true,snap:false,bbox:box});
-  if(j.regions) setRegions(j.regions);
-}
 async function resnap(id,snap){
   const r=regions.find(x=>x.id===id);
   // Re-snap works from the WRITING and finds the balloon round it again. Handing
@@ -770,7 +900,6 @@ function pt(e){
    anymore"* - a box you drew jumping to whatever outline it landed on was
    undoing the drawing you had just done, and the box is the WRITING, not the
    balloon. The server still knows how to snap; nothing asks it to. */
-function snapOn(){ return false; }
 /* The Translated tab is for reading the result, so boxes stay out of the way
    there unless you ask for them. The toggle still wins if you tick it. */
 /* Placing a text box of your own.

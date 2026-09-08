@@ -585,9 +585,22 @@ def test_with_the_setting_on_the_page_is_made_drawable(tmp_path):
     test still says which way it is testing when the default next moves."""
     p = _proj(tmp_path)
     p.settings["substitutes"] = True
-    r, lay = _fit(p, "OH ♪ REALLY")
-    assert "♪" not in " ".join(lay.lines), lay.lines
+    r, lay = _fit(p, "OH あ REALLY")
+    assert "あ" not in " ".join(lay.lines), lay.lines
     assert "REALLY" in " ".join(lay.lines).upper()
+
+
+def test_but_a_mark_survives_the_substitutes_setting(tmp_path):
+    """♪ is NOT an undrawable character: `mark_glyph` stamps it from the
+    bundled mark faces whatever the typesetting face carries. Substitutes-on
+    used to sweep the marks out with the genuinely undrawable - which is how
+    a ♥ picked from the special-characters dialog reached the output
+    text and then vanished from the page the moment the preview ran. lee:
+    *"it dont add to either teh box or teh text box"*."""
+    p = _proj(tmp_path)
+    p.settings["substitutes"] = True
+    _r, lay = _fit(p, "OH ♪ REALLY")
+    assert "♪" in " ".join(lay.lines), lay.lines
 
 
 def test_the_switch_is_on_the_settings_screen(home):

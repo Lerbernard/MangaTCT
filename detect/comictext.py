@@ -2162,7 +2162,7 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
                      split_gap: float = 1.8, split_height: float = 1.8,
                      join_x: float = None, join_y: float = None,
                      craft_x: float = None, craft_y: float = None,
-                     craft_cap: float = 0.05,
+                     craft_cap: float = 0.05, craft_low: float = None,
                      sfx_grow: float = None, sfx_grow_cap: float = 0.12,
                      text_grow: float = None,
                      effect_fill: float = None,
@@ -2231,10 +2231,14 @@ def detect_comictext(page: Page, model_path: str, conf_thresh: float = 0.4,
     # argued about: the net, the wait on CRAFT, and everything after.
     _t0 = _time.time()
     craft_job = None
+    # `craft_low` is CRAFT's `low_text`, its floor for "this pixel is in a
+    # letter"; None leaves CRAFT its own, which was set on printed type. The
+    # webtoon route lowers it for painted sounds - see `webtoon.CRAFT_LOW`.
+    knobs = {"low_text": craft_low} if craft_low is not None else {}
     if craft_x and craft_y and want_sfx:
         from . import craft as _craft
         if _craft.available():
-            craft_job = _POOL.submit(_craft.pieces, img)
+            craft_job = _POOL.submit(_craft.pieces, img, **knobs)
 
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     lb, dw, dh = _letterbox(rgb, INPUT)

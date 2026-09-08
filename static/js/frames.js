@@ -12,6 +12,10 @@ let pageTicket=0;
    builds an image URL outside showPage - the reference pane, the prefetcher -
    asks for the copy the browser already has instead of a fresh download. */
 var scanKey={}, vKey={};
+/* ...and the key for the FINISHED page. A different picture from the
+   clean plate, so a different key - see `editor._render_key`, which is
+   asked with the mode for this one and without one for `vKey`. */
+var tKey={};
 
 /* ---- picture cache -------------------------------------------------------
    Switching pages used to show the page you were LEAVING for a moment: the
@@ -70,7 +74,46 @@ function pageUrl(i, mode){
     +encodeURIComponent(vKey[i]||'x'));
 }
 
+/* While a page's picture is still on its way, switching is HELD - mashing
+   Next used to queue half-loaded pages behind each other, each one paying
+   its round trips just to lose the ticket race. The screen (`#pageLoading`,
+   the app icon with a ring round it) appears only after a short grace, so a
+   cached page - the common case, the prefetcher fills the cache - never
+   shows it at all. lee: *"add a loading screen that prevents teh user to
+   switch page while a page is loading"*. */
+let pageHold=false;
+let pageHoldTimer=null;
+let pageHoldNext=null;      // the LAST page asked for during the hold
+function holdPages(){
+  pageHold=true;
+  clearTimeout(pageHoldTimer);
+  pageHoldTimer=setTimeout(()=>{
+    const el=$('pageLoading');
+    if(el && pageHold) el.classList.add('on');
+  }, 160);
+}
+function releasePages(){
+  pageHold=false;
+  clearTimeout(pageHoldTimer);
+  // A click made during the hold was a decision, not noise - the LAST one
+  // is honoured the moment the page in flight lands. Dropping them outright
+  // read as a dead button, and quietly broke anything that turns pages
+  // programmatically.
+  const next=pageHoldNext;
+  pageHoldNext=null;
+  if(next!=null && next!==cur) showPage(next);
+}
+function hideLoadScreen(){
+  const el=$('pageLoading');
+  if(el) el.classList.remove('on');
+}
+
 async function showPage(i){
+  // A page is still loading: the click waits its turn rather than joining a
+  // race it would lose - the LAST page asked for is shown when the hold
+  // lifts. Same-page reloads (saves, view switches) go through - they are
+  // not a switch, and holding them would deadlock a save.
+  if(pageHold && showPage._last!==i){ pageHoldNext=i; return; }
   // Any pending stroke changes belong to the page being left - save them
   // before switching. Nothing painted is ever thrown away by moving around.
   await syncPaint();
@@ -97,6 +140,7 @@ async function showPage(i){
   if(ticket!==pageTicket) return;      // a later page won the race
   scanKey[i]=d.ikey||'';               // so the reference pane can cache too
   vKey[i]=d.vkey||'';
+  tKey[i]=d.tkey||'';
   // Is this the same page coming back, or a different one? Needed before the
   // regions land (see below) as well as by the scroll-keeping further down.
   const samePage = (showPage._last===i);
@@ -195,11 +239,38 @@ async function showPage(i){
   // exactly the flash of the previous page's cleaning. `readyImage` has its
   // own guard, so a slow or missing file can only delay this, never stop it.
   const want = bothPanes ? [url, refUrl] : [url];
+  // Already decoded and in the cache? Then there is nothing to hold for -
+  // assigning a cached src reports complete immediately. SAME-PAGE reloads
+  // hold too: after Clean or Typeset the picture on this very page is being
+  // rebuilt, which is exactly the wait the screen is for. lee: *"the oading
+  // screen should also happen when the pages is etting ready after clenning
+  // or typesetting"*. The grace in holdPages keeps it off the small saves
+  // whose rebuild lands faster than a blink.
+  const probe=new Image(); probe.src=url;
+  const cached = probe.complete && probe.naturalWidth;
+  if(!cached) holdPages();
   Promise.all(want.map(u=>readyImage(u, 2500))).then(()=>{
+    // THE HOLD AND THE SCREEN COME DOWN SEPARATELY. The hold is about input
+    // and stays short - 2.5s at most, then clicks work again whatever
+    // happens, which is the behaviour every switching test pins. The SCREEN
+    // is about honesty and stays up until the picture actually lands: a
+    // page being BUILT during "Preparing pages" is seconds of real work,
+    // and dropping the ring at 2.5s left lee looking at a blank stage with
+    // the page still in the oven (his ask: the Image tab, mid-warm-up,
+    // should show the loading screen until the page is ready).
+    releasePages();
     if(ticket!==pageTicket) return;            // a later page won the race
     if(bothPanes){ ri.dataset.page=String(i); ri.src=refUrl; }
     setMain();
     if(typeof refSync==='function') refSync();  // side-by-side follows along
+    const im=$('img');
+    if(im && !(im.complete && im.naturalWidth)){
+      const done=()=>hideLoadScreen();
+      im.addEventListener('load', done, {once:true});
+      im.addEventListener('error', done, {once:true});
+    } else {
+      hideLoadScreen();
+    }
   });
   renderPages(); renderList();
   warmFrom(i);
@@ -430,11 +501,16 @@ function drawLinks(){
     const mem=groups[g].slice().sort((a,b)=>(a.order??0)-(b.order??0));
     const col=linkColor(+g);
     for(let i=0;i<mem.length-1;i++){
-      // Two sections of ONE balloon are already shown as one framed group.
-      // Running a connector between them as well says the same thing twice
-      // and puts a line across the balloon lee asked to keep whole.
-      const ga=+(mem[i].box_group||0), gb=+(mem[i+1].box_group||0);
-      if(ga>0 && ga===gb) continue;
+      // SECTIONS OF ONE BALLOON GET THE LINE TOO, and they used to be the
+      // one case that did not: "already shown as one framed group", said the
+      // reason. That frame is gone - lee asked for it twice, *"hide teh big
+      // box afterware it dosnt need to be visibel"* - and nothing took over
+      // saying it. `.box.section` forces the dashes back on, deliberately, so
+      // it beats `.box.linked`'s solid border as well; between the two, a
+      // linked pair of sections was drawn exactly like two unrelated boxes
+      // and lee said so: *"the link is not showing"*.
+      //
+      // The line is the only thing left that can say it, so it says it.
       const a=boxCentre(mem[i]), b=boxCentre(mem[i+1]);
       const ln=document.createElementNS(NS,'line');
       ln.setAttribute('x1',a.x);ln.setAttribute('y1',a.y);
@@ -528,7 +604,11 @@ function measureLine(text, L, r){
   const ov=(r&&r.layout_override)||{}, st=(r&&r.style)||{};
   const fam=(typeof fontFam==='function')
     ? fontFam(ov.font||st.font||L.font, r&&r.kind) : 'sans-serif';
-  _measCtx.font=`${L.font_size}px ${fam}`;
+  // The size ASKED FOR, not the size stored: a point is not a size, and the
+  // server draws this line through `typeset.px_for`. Measuring at the nominal
+  // size in a face with small capitals put every line short of where the page
+  // actually puts it. See `project.emPx`.
+  _measCtx.font=`${emPx(L.font_size, fam)}px ${fam}`;
   return _measCtx.measureText(text||'').width;
 }
 
@@ -722,7 +802,7 @@ function moveFrame(e){
     // re-wrap at the same size (left/right also hug the height). The server
     // confirms once, on release.
     fdrag.invert=!!(e.ctrlKey||e.metaKey);   // read again on release
-    const flags=resizeFlags(c, fdrag.invert);
+    const flags=resizeFlags(c, fdrag.invert, r);
     if(flags.fit) localFit(r); else localWrap(r, flags.snug);
   }
   if(editing!==null){
@@ -789,11 +869,33 @@ function unfix(r){
    round the other way: there a handle reflows by default and Ctrl scales.
    Either way the point is that both behaviours are on every handle, so you
    are never forced to let go and grab a different one. */
-function resizeFlags(corner, invert){
-  const scaling=(corner&&corner.length===2) ? !invert : !!invert;
+function resizeFlags(corner, invert, r){
+  let scaling=(corner&&corner.length===2) ? !invert : !!invert;
+  // A BLOCK WITH MIXED SIZES IS NEVER RESCALED BY ITS BOX.
+  //
+  // Scaling means one new size for the whole block, and a block where part
+  // of the text was deliberately made bigger has no one size to give it -
+  // dragging a corner would flatten the very difference somebody set. lee:
+  // *"if all the text in a box is the same, then keep the text box as is
+  // but if some of the text is not the same make chnaging the text box
+  // size not change the text size like it does now to keep it simple"*.
+  // So a corner on such a block re-wraps at the sizes it already has,
+  // which is what every side drag does anyway.
+  if(scaling && typeof hasMetricSpans==='function' && hasMetricSpans(r))
+    scaling=false;
   return scaling
     ? {fit:true}
     : {wrap:true, snug:(corner==='e'||corner==='w')};
+}
+
+/* Does any range in this block carry a face or a size of its own? The one
+   question that decides whether the block still has a single size to scale.
+   `render.has_metric_spans` asks it on the other side. */
+function hasMetricSpans(r){
+  const raw=(r&&r.layout_override||{}).spans;
+  if(!Array.isArray(raw)) return false;
+  return raw.some(sp=>sp && sp.st
+    && (sp.st.font!==undefined || sp.st.font_size!==undefined));
 }
 
 /* Does the text run past its box? Measured the way the box is measured -
@@ -819,7 +921,11 @@ const PADL=4;
 let _measure=null;
 function textW(fam,size,t){
   if(!_measure) _measure=document.createElement('canvas').getContext('2d');
-  _measure.font=`${size}px ${fam},sans-serif`;
+  // `size` is the NOMINAL size everything stores; `emPx` is the pixel size the
+  // face is actually asked for, here and on the server. One conversion, in the
+  // one place every caller measures through - wrapping, fitting, the overset
+  // check and the curved-line places all come here.
+  _measure.font=`${emPx(size, fam)}px ${fam},sans-serif`;
   return _measure.measureText(t).width;
 }
 function wrapLocal(words,fam,size,maxw){
@@ -913,7 +1019,8 @@ function endFrame(){
   if(!r) return;
   // One request, not two: the save's reply carries the fresh layout, and a
   // second concurrent preview was the other half of the springing-text race.
-  saveTypesetting(id, true, mode==='size' ? resizeFlags(corner, invert) : null);
+  saveTypesetting(id, true,
+                  mode==='size' ? resizeFlags(corner, invert, r) : null);
 }
 
 window.addEventListener('mousemove',moveFrame);

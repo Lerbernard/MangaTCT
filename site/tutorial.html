@@ -72,7 +72,7 @@ table.keys td:first-child{white-space:nowrap;width:1%}
 .note{border-left:3px solid var(--accent);background:var(--panel2);
  border-radius:0 10px 10px 0;padding:10px 14px;font-size:14.5px;
  color:var(--dim);margin:14px 0}
-.note b{color:var(--fg)}
+.note b{color:var(--ink)}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:700px){.cols{grid-template-columns:1fr}}
 </style>
@@ -84,7 +84,9 @@ table.keys td:first-child{white-space:nowrap;width:1%}
   </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
   <nav>
     <a class="navb" href="index.html">Home</a>
+    <a class="navb" href="download.html">Download</a>
     <a class="navb on" href="tutorial.html">Guide</a>
+    <a class="navb" href="fonts.html">Fonts</a>
     <a class="navb" href="pricing.html">Coins</a>
     <a class="navb cta" id="acct" href="account.html">Account</a>
     <button class="navb icon" id="theme" type="button" aria-label="Theme"></button>
@@ -103,6 +105,7 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <button class="tb" role="tab" aria-selected="false" aria-controls="t-boxes">Working with boxes</button>
     <button class="tb" role="tab" aria-selected="false" aria-controls="t-set">Settings that matter</button>
     <button class="tb" role="tab" aria-selected="false" aria-controls="t-tips">Tips and fixes</button>
+    <button class="tb" role="tab" aria-selected="false" aria-controls="t-help">Updates and help</button>
   </div>
 
   <!-- ================================================== START HERE -->
@@ -186,9 +189,17 @@ table.keys td:first-child{white-space:nowrap;width:1%}
       <p class="note"><b>Wrong or missing boxes?</b> You never have to accept
       what it found. Draw a box by hand, delete one, resize one, or merge
       several. See the "Working with boxes" tab.</p>
-      <h3 style="margin-top:26px">Manhwa too</h3>
-      <p>Tall colour strips work the same way. Pick Manhwa in Settings and
-      Find text tunes itself for webtoon pages.</p>
+      <h3 style="margin-top:26px">Manhwa and manhua too</h3>
+      <p>Tall colour strips work the same way. In
+      <b>Settings &rsaquo; Language &amp; direction</b> pick <b>Manhwa</b> for
+      Korean or <b>Manhua</b> for Chinese, and Find text retunes itself for
+      webtoon pages: it reads down instead of across, expects colour rather
+      than screentone, and copes with a strip that arrived as one enormous
+      file. Both go down the same route.</p>
+      <p class="note"><b>How much this has been run.</b> Korean has had many
+      chapters. Chinese has had one &mdash; 41 pages, 86 blocks, and it
+      behaved. If a Chinese chapter goes wrong for you, that is worth
+      reporting; there is not yet a pile of evidence saying it should not.</p>
       <div class="ba">
         <figure class="shot"><span class="batag">Before</span>
           <img src="assets/tut-manhwa-before.jpg" loading="lazy"
@@ -270,6 +281,41 @@ table.keys td:first-child{white-space:nowrap;width:1%}
           alt="A short clip of the font being changed for one bubble">
           <figcaption>Any bubble can have its own font.</figcaption></figure>
       </div>
+
+      <h3 style="margin-top:30px">Bending a line: the curve picker</h3>
+      <p>Sound effects and shop signs rarely sit on a straight line. Select a
+      box and the side panel's <b>Curve</b> row offers four shapes, then one
+      slider for how far:</p>
+      <table class="keys">
+        <tr><td>Arch</td><td>bowed up, like a rainbow</td></tr>
+        <tr><td>Sag</td><td>the same bow the other way, drooping down</td></tr>
+        <tr><td>Wave</td><td>one S along the line</td></tr>
+        <tr><td>Rise</td><td>the line slants up, but every letter stays upright</td></tr>
+      </table>
+      <p style="margin-top:14px"><b>Amount</b> runs from &minus;180 to 180.
+      Zero is a straight line, and negative bends it the opposite way, which
+      is why Arch and Sag are the same shape with opposite signs. Drag the
+      slider to feel it, or type an exact number in the box beside it.</p>
+
+      <h3 style="margin-top:30px">Glow, outer and inner</h3>
+      <p>Under <b>Colour</b> there are two glows and they do different jobs.
+      <b>Outer glow</b> spreads a colour outward from the letters &mdash; the
+      usual way to lift white text off busy art. <b>Inner glow</b> works
+      inward from the letter edges, so the colour sits <i>inside</i> the
+      stroke; it is what gives a sound effect that hot-metal look without
+      touching the shape at all. Each has a colour well and a <b>Size</b> in
+      pixels, and the red <b>&times;</b> beside each one turns just that glow
+      off. A colour well left empty means "automatic", not "none".</p>
+
+      <h3 style="margin-top:30px">Special characters</h3>
+      <p>The typesetting faces have almost no &hearts;, &#9834; or &#10022; in
+      them as letters, so typing one usually gets you an empty rectangle.
+      <b>Special characters</b> opens a grid of symbols the app stamps from
+      its own symbol faces instead: they come out at the size of the
+      surrounding type and take its colour, so a heart at the end of a line
+      of dialogue matches it. Every square in that grid is a picture of what
+      will actually be stamped, not your browser's version of the character,
+      which is a different shape on every machine.</p>
     </div>
 
     <div class="pan" id="s-exp" role="tabpanel" hidden>
@@ -381,17 +427,69 @@ table.keys td:first-child{white-space:nowrap;width:1%}
   <section class="sect" id="t-set" role="tabpanel" hidden>
     <p class="eyebrow">Settings that matter</p>
     <h2>The handful worth knowing on day one</h2>
-    <p class="lede">Settings has a page for everything. These four are the
-      ones a new chapter actually needs.</p>
+    <p class="lede">Settings has a page for everything. Here is the whole rail
+      first, so you know where a thing lives, and then the ones a new chapter
+      actually needs.</p>
+
+    <h3>Everything in the Settings rail</h3>
+    <p>Two groups down the left-hand side. <b>Story</b> is what this series
+      is; <b>Settings</b> is how the app should handle it, in pipeline order
+      &mdash; what the chapter is, what finds the text, what reads and writes
+      it, what cleans the page, what sets the words.</p>
+    <table class="keys">
+      <tr><td>Story settings</td><td>whether the story context is used at all, and the switches that shape it</td></tr>
+      <tr><td>Synopsis</td><td>two sentences about the story, so the translator knows who is who</td></tr>
+      <tr><td>Characters</td><td>each name spelled the way you want it, with a word on how they speak</td></tr>
+      <tr><td>Places, terms &amp; other</td><td>the glossary: anything that must always come out the same way</td></tr>
+      <tr><td>Language&nbsp;&amp;&nbsp;direction</td><td>manga, manhwa or manhua; which language in, which out; which way the page reads</td></tr>
+      <tr><td>Detection &amp; OCR</td><td>which detector finds your text, and which reader reads it</td></tr>
+      <tr><td>Translation</td><td>how the English should sound &mdash; the wording rules, not the model</td></tr>
+      <tr><td>AI models</td><td>which model does the reading, the translating and the proofreading</td></tr>
+      <tr><td>Page cleaning</td><td>how hard the eraser works and what it is allowed to touch</td></tr>
+      <tr><td>Fonts &amp; typesetting</td><td>your faces, the default one, and how text is fitted into a balloon</td></tr>
+    </table>
+    <p class="note"><b>Two neighbours that sound alike.</b>
+      <b>Translation</b> is about the words &mdash; how formal, what to leave
+      untranslated, how honorifics come out. <b>AI models</b> is about the
+      machine doing it. Changing the model does not change the wording rules,
+      and changing the wording rules does not cost you a penny.</p>
 
     <div class="tabs sub" role="tablist" id="settabs">
-      <button class="tb" role="tab" aria-selected="true"  aria-controls="g-det">Detectors</button>
+      <button class="tb" role="tab" aria-selected="true"  aria-controls="g-lang">Language &amp; direction</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-det">Detection &amp; OCR</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-word">Translation</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-ai">AI models</button>
+      <button class="tb" role="tab" aria-selected="false" aria-controls="g-clean">Page cleaning</button>
       <button class="tb" role="tab" aria-selected="false" aria-controls="g-fonts">Fonts</button>
       <button class="tb" role="tab" aria-selected="false" aria-controls="g-story">Story and glossary</button>
-      <button class="tb" role="tab" aria-selected="false" aria-controls="g-ai">The AI</button>
     </div>
 
-    <div class="pan" id="g-det" role="tabpanel">
+    <div class="pan" id="g-lang" role="tabpanel">
+      <h3>Language &amp; direction</h3>
+      <p>The first screen to set on a new chapter, because almost everything
+      below it follows from the answer. Three choices:</p>
+      <ol class="steps">
+        <li><b>What you are translating</b><p>Manga, manhwa or manhua. This
+          is not decoration: manga goes down the page-by-page route, manhwa
+          and manhua go down the tall-strip route, and the two routes find
+          text differently, cut pages differently and expect different
+          art.</p></li>
+        <li><b>From and to</b><p>The source language and the one you want
+          out. The source also decides which readers are offered on the next
+          screen &mdash; not every reader knows every script.</p></li>
+        <li><b>Which way the page reads</b><p>Right-to-left for Japanese
+          manga, left-to-right for most everything else. This is what puts
+          the boxes in the right order for the translator, so a page where
+          the dialogue comes out shuffled is usually this setting.</p></li>
+      </ol>
+      <p class="note"><b>Strips that arrived as one huge file</b> get their
+      own switch on this screen. The app can cut a machine-sliced strip back
+      into pages by itself, and only when several separate checks agree,
+      because being wrong there rearranges your chapter behind your back. To
+      cut a page yourself, see <b>Cut / join</b> in Tips and fixes.</p>
+    </div>
+
+    <div class="pan" id="g-det" role="tabpanel" hidden>
       <h3>Which detector finds your text</h3>
       <p>Four cards, one choice. Each card shows how long it takes on your
       chapter and a score from a hand-checked test of 226 pieces of text.
@@ -404,6 +502,48 @@ table.keys td:first-child{white-space:nowrap;width:1%}
         <figcaption>Pick a card. The time is for your chapter, the score is
         measured, and the amber line is what to download if you want that
         card.</figcaption></figure>
+    </div>
+
+    <div class="pan" id="g-word" role="tabpanel" hidden>
+      <h3>How the English should sound</h3>
+      <p>This screen is about the words, not the machine. Two switches:</p>
+      <ol class="steps">
+        <li><b>Keep honorifics and forms of address</b><p>On by default. The
+          bubble that says &#12464;&#12525;&#12454;&#12373;&#12435; comes out
+          as "Glow-san" rather than "Mr. Glow". It follows the source language
+          on its own, off the medium you set in Language &amp; direction:
+          Japanese suffixes for manga, oppa and hyung for manhwa, gege and
+          shizun for manhua. Turn it off and the translator renders them the
+          English way instead.</p></li>
+        <li><b>Let the reading fix sound effect vs outside text</b><p>Off by
+          default. Find text only ever sees a shape, and loose text on the
+          artwork looks the same whether it is a drawn sound or a narrator's
+          line &mdash; so it mixes those two up, and only those two. Turn this
+          on and the words settle it as soon as they are read. It is off by
+          default because it will overwrite a type you set by hand.</p></li>
+      </ol>
+      <p class="note">Changing either of these is free and instant. They cost
+      nothing to try, and rerunning Translate is the only thing that spends
+      anything.</p>
+    </div>
+
+    <div class="pan" id="g-clean" role="tabpanel" hidden>
+      <h3>Page cleaning</h3>
+      <p>There is no eraser to pick. One was measured against five others on
+      nine hard boxes off a real chapter &mdash; sound effects and outside
+      text over hatching and screentone &mdash; and it won, so it is simply
+      the cleaner now. A plain white balloon never goes anywhere near it: on
+      white the colour is known exactly, so it is filled on your own machine
+      and the page is not sent.</p>
+      <p>The one switch worth knowing is <b>Use the text detector while
+      cleaning</b>, on by default. After a page is cleaned it is read again
+      with the same detector that found the boxes, and anything still legible
+      inside a box that was supposed to be empty gets erased on a second pass.
+      That is what stops a cleaned balloon from still faintly saying what it
+      used to say.</p>
+      <p class="note"><b>The page still looks wrong?</b> Paint over it. The
+      Image view has brushes, fills and a healing tool that work underneath
+      the typesetting, and your strokes survive a recleaning.</p>
     </div>
 
     <div class="pan" id="g-fonts" role="tabpanel" hidden>
@@ -435,11 +575,15 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     </div>
 
     <div class="pan" id="g-ai" role="tabpanel" hidden>
-      <h3>The AI</h3>
+      <h3>AI models</h3>
       <p>Pick which model reads, translates and proofreads. Cheaper models
       are fine for reading text; the better ones earn their price on
       translation. The pricing page has a calculator that quotes a whole
       chapter before you spend anything.</p>
+      <p>This screen sets the machine. What you want it to <i>do</i> with the
+      words is the <b>Translation</b> screen above it &mdash; they are
+      separate on purpose, so you can change model without losing your wording
+      rules.</p>
     </div>
   </section>
 
@@ -470,6 +614,32 @@ table.keys td:first-child{white-space:nowrap;width:1%}
         recleaning.</p></div>
     </div>
 
+    <h3 style="margin-top:30px">A page that is the wrong length: Cut / join</h3>
+    <p>Webtoon chapters arrive in whatever pieces the site felt like. The app
+      re-cuts a machine-sliced strip on its own, but only on a chapter that
+      arrived that way, only before you have done any work on it, and only
+      when several separate checks agree &mdash; being wrong there rearranges
+      somebody's chapter behind their back. Every other too-long page is left
+      exactly as it came, and <b>Cut / join</b> is the knife for those.</p>
+    <p>It is in the <b>Translation</b> view, on the page you are looking at,
+      because that is the view you are in when you notice the page is wrong.
+      Open it and you get the page with a ruler down it:</p>
+    <ol class="steps">
+      <li><b>Click to put a cut line down. Click it again to take it
+        away.</b><p>As many as you like, in one go. A 10,000-row webtoon is
+        four or five pages, and they are all made in a single pass rather than
+        one cut at a time with a renumber between each.</p></li>
+      <li><b>A line goes green when it lands in a gap between panels.</b><p>It
+        never moves your line for you &mdash; it just tells you the cut is
+        clean. The decision stays yours.</p></li>
+      <li><b>Or join instead.</b><p><b>Join with previous</b> and <b>Join with
+        next</b> put a page back together with its neighbour.</p></li>
+    </ol>
+    <p class="note"><b>It will refuse a painted page,</b> and say so before
+      you pick a row. Boxes come through a cut; painting does not, because a
+      stroke and a hand-cleaned plate are pictures the size of the whole page.
+      Cut first, then paint &mdash; or undo the painting.</p>
+
     <h3 style="margin-top:30px">Keyboard shortcuts</h3>
     <table class="keys">
       <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>set the selected box's type | choose what a drawn box becomes</td></tr>
@@ -481,6 +651,74 @@ table.keys td:first-child{white-space:nowrap;width:1%}
       <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>previous page | next page</td></tr>
       <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>undo, everywhere, including a merge</td></tr>
     </table>
+  </section>
+
+  <!-- ================================================== UPDATES AND HELP -->
+  <section class="sect" id="t-help" role="tabpanel" hidden>
+    <p class="eyebrow">Updates and help</p>
+    <h2>Which version you are on, and what to do when something breaks</h2>
+
+    <h3>The pill in the header</h3>
+    <p>Next to the MangaTCT wordmark, top left, is a small pill. It is the
+      version you are running &mdash; <b>beta 1.0.0</b> today. Hover it and it
+      says the same thing in full. It is the first thing to quote in any
+      message about a problem, because almost every answer starts with knowing
+      which build you are on.</p>
+    <p class="note"><b>What "beta" means here.</b> It is not a warning that
+      the app eats chapters. It means the shape of things can still change
+      between versions, and that a rough edge you hit is worth telling us
+      about rather than working around silently. Your projects, fonts and
+      settings are not touched by any of it.</p>
+
+    <h3 style="margin-top:30px">How updates arrive</h3>
+    <ol class="steps">
+      <li><b>It checks when it starts.</b><p>Every start, briefly. If the
+        network is slow it gives up after a few seconds and starts anyway
+        &mdash; an update is never allowed to stand between you and your
+        pages.</p></li>
+      <li><b>A new version is a few megabytes, not another install.</b><p>You
+        never run the installer again. The app fetches the new version, checks
+        it against a published checksum, and unpacks it beside the one you are
+        running.</p></li>
+      <li><b>It swaps over at the next start.</b><p>Never mid-session. If an
+        update lands while you have a chapter open, the pill gets a dot to say
+        so and nothing else moves. Close the app and open it again when you
+        are ready.</p></li>
+      <li><b>The previous version stays on disk.</b><p>If a new one cannot
+        start, the app falls back to the old one by itself. You do not have to
+        do anything, and you do not lose the chapter.</p></li>
+    </ol>
+
+    <h3 style="margin-top:30px">Report a problem</h3>
+    <p><b>File &rsaquo; Report a problem</b> builds the message for you. Say
+      three things in your own words &mdash; what you did, what you expected,
+      what happened instead &mdash; and send them with the box the screen
+      fills in. That box holds:</p>
+    <table class="keys">
+      <tr><td>version</td><td>the app's version and channel, and the launcher's if one started it</td></tr>
+      <tr><td>machine</td><td>your Python, your operating system, and what the computer is</td></tr>
+      <tr><td>chapter</td><td>how many pages, what medium, which language, which routes and reader</td></tr>
+      <tr><td>keys</td><td>only <i>whether</i> each key is present &mdash; yes or no, never the key</td></tr>
+      <tr><td>log</td><td>the last lines of the app's own log</td></tr>
+    </table>
+    <p style="margin-top:14px">Anything key-shaped is stripped out before you
+      ever see the box, and the box is read-only and sitting there in front of
+      you: <b>read it before you send it</b>. Nothing is transmitted by the
+      app itself &mdash; <b>Copy to clipboard</b> is the whole mechanism, and
+      you decide where it goes.</p>
+    <p class="note"><b>Started by hand rather than by the launcher?</b> There
+      is no log file to attach, and the box says so. Copy the console window
+      instead.</p>
+
+    <h3 style="margin-top:30px">Where your things live</h3>
+    <p>Worth knowing before you go looking, and before you uninstall anything:</p>
+    <table class="keys">
+      <tr><td>%LOCALAPPDATA%\MangaTCT</td><td>the app, its Python and the downloaded models &mdash; all replaceable</td></tr>
+      <tr><td>~\.mangatl</td><td><b>yours</b>: fonts, settings and API keys. Untouched by updates and by uninstalling.</td></tr>
+      <tr><td>Documents\MangaTCT</td><td>exported pages, unless you chose a folder</td></tr>
+    </table>
+    <p style="margin-top:14px">A key never goes into a project file. It lives
+      in your own folder, once, for every chapter.</p>
   </section>
 </main>
 

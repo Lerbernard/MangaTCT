@@ -46,20 +46,38 @@ def _balloon(text, w, h):
 
 
 def _both(text, w, h, cfg=None):
-    """(without the pass, with it) - layout and flag for each."""
+    """(without the pass, with it) - layout and flag for each.
+
+    HYPHENATION is stubbed out of BOTH sides. It arrived after this file and
+    quietly spoiled its control: the "off" side could still break a word, so
+    `YOU'RE BLEEDING...` came back as `YOU'RE / BLEED- / ING...` at 16pt
+    against 13pt for the author's own dots, and the comparison stopped being
+    about author breaks at all. A baseline with its own way of getting bigger
+    cannot measure whether THIS pass makes things bigger.
+
+    The app itself still sets lee's four the way he set them - that is a
+    stronger claim than this fixture makes, and it is checked separately below
+    with nothing stubbed at all. What is turned off here is only so that the
+    number this file compares belongs to the one feature it is named after.
+    """
     from mangatl import typeset as T
     cfg = cfg or _cfg()
-    r = _balloon(text, w, h)
-    was = T._fit_on_author_breaks
-    T._fit_on_author_breaks = lambda *a, **k: None
+    was_hy = T._fit_on_hyphens
+    T._fit_on_hyphens = lambda *a, **k: None
     try:
+        r = _balloon(text, w, h)
+        was = T._fit_on_author_breaks
+        T._fit_on_author_breaks = lambda *a, **k: None
+        try:
+            r.flagged = None
+            off = (fit_region(r, cfg), r.flagged)
+        finally:
+            T._fit_on_author_breaks = was
+        r = _balloon(text, w, h)
         r.flagged = None
-        off = (fit_region(r, cfg), r.flagged)
+        on = (fit_region(r, cfg), r.flagged)
     finally:
-        T._fit_on_author_breaks = was
-    r = _balloon(text, w, h)
-    r.flagged = None
-    on = (fit_region(r, cfg), r.flagged)
+        T._fit_on_hyphens = was_hy
     return off, on
 
 
@@ -182,13 +200,54 @@ def test_nothing_to_break_at_costs_nothing():
 
 # ------------------------------------------------------ what lee looked at
 
+# lee's four, and the balloons that force the breaks he set.
+#
+# The SIZES are calibrated against the shape of the block the fitter lands on,
+# and the same two have now moved twice.
+#
+# 2026-08-26, when Comic Neue replaced CCWildWords as the default
+# (`fonts/LICENSES.md`): Comic Neue is narrower, so `LOOK CLOSELY...` fitted on
+# two lines in the old 82x104 balloon and the dot break was never needed - the
+# rule declining to break there was RIGHT, and the fixture had simply stopped
+# posing the question. 82x104 -> 80x102 asked it again, and 108 -> 106 on the
+# long one.
+#
+# 2026-08-27, when the line-gap band came down off a measurement against the
+# published chapter (see `typeset.MAX_LEADING`): a tighter gap changes the
+# height a given number of lines costs, so the same two balloons stopped
+# forcing the same two breaks. 80 -> 78 and 106 -> 104, and his breaks come
+# straight back out of the fitter.
+#
+# Two pixels, twice. Worth the note both times, because the temptation on
+# seeing this file red is to change `want` to whatever the fitter now does,
+# and `want` is the one column here that is not ours to change: it is what lee
+# set by hand. When the gap moved I put exactly that choice to him -
+# re-baseline his breaks, or keep them - and it turned out not to be a choice
+# at all, because a fixture two pixels narrower asks the question again.
 CASES = [
     ("GLOW-SAN!", 76, 96, ["GLOW-", "SAN!"]),
-    ("WHERE HAVE THEY COME FOR ADA'S RECOVERY...?", 108, 150,
+    ("WHERE HAVE THEY COME FOR ADA'S RECOVERY...?", 104, 150,
      ["WHERE", "HAVE", "THEY COME", "FOR ADA'S", "RECOVERY", "...?"]),
     ("YOU'RE BLEEDING...", 92, 110, ["YOU'RE", "BLEEDING", "..."]),
-    ("LOOK CLOSELY...", 82, 104, ["LOOK", "CLOSELY", "..."]),
+    ("LOOK CLOSELY...", 78, 102, ["LOOK", "CLOSELY", "..."]),
 ]
+
+
+@pytest.mark.parametrize("text,w,h,want", CASES)
+def test_lees_four_examples_survive_the_whole_fitter(text, w, h, want):
+    """Nothing stubbed. The four the way he set them, out of the fitter that
+    actually ships.
+
+    This exists because hyphenation nearly took one of them: with the hyphen
+    weighed against the plain fit rather than against the author's own break,
+    `YOU'RE BLEEDING...` became `YOU'RE / BLEED- / ING...` - three points
+    bigger and not what he set. The `_both` fixture above cannot catch that,
+    because it turns the new pass off to measure the old one; this can.
+    """
+    r = _balloon(text, w, h)
+    r.flagged = None
+    lay = fit_region(r, _cfg())
+    assert lay.lines == want, lay.lines
 
 
 @pytest.mark.parametrize("text,w,h,want", CASES)
@@ -200,18 +259,24 @@ def test_lees_four_examples_are_set_the_way_he_set_them(text, w, h, want):
     assert b.font_size > a.font_size, (a.font_size, b.font_size)
     # …and above the minimum.
     assert b.font_size >= _cfg().min_font, b.font_size
-    # Without this pass the block came out of `_plain_fit`, which wraps into
-    # the bounding RECTANGLE and says so by reporting `fit_ok=False` - the
-    # corners of a rectangle drawn round a balloon are not inside the balloon.
-    # With it, the words are fitted to the SHAPE.
+    # There used to be an `assert not a.fit_ok` here - "the fixture did not
+    # need this pass at all" - on the reasoning that without it the block came
+    # out of `_plain_fit`, which wraps into the bounding RECTANGLE and says so
+    # by reporting `fit_ok=False`.
     #
-    # It used to be the overflow flag that was read here, because the plain
-    # wrap was the shrink-below-the-minimum path and nothing else. It still
-    # is, but it now breaks at the author's dashes as well (lee: *"all box
-    # type shoud do the line break thing wjhen the text is too small"*), so it
-    # reaches the minimum without shrinking and no longer flags. What this
-    # pass is FOR was never the flag; it is the balloon fit.
-    assert not a.fit_ok, "the fixture did not need this pass at all"
+    # It is gone, and not because it was inconvenient. It asserted a ROUTE, and
+    # the route stopped being the only one twice over. First `AUTHOR_BREAK_GAIN`
+    # (2026-08-25) made this pass something always tried and kept when it sets
+    # meaningfully bigger, rather than a last resort reached only when the
+    # ordinary fit had already failed - so "the plain fit failed" stopped being
+    # a precondition of the pass running. Then Comic Neue replaced CCWildWords
+    # as the default face (2026-08-26, `fonts/LICENSES.md`) and, being
+    # narrower, it fits these balloons' SHAPES on the plain path: `a.fit_ok` is
+    # now True while `a.lines` is still not what lee set.
+    #
+    # Which is the point. What this pass is for was never the flag and is not
+    # the route - it is that the block comes out the way he set it and BIGGER,
+    # and those two are asserted above, where they can be read.
     assert b.fit_ok, "still not a fit to the balloon's own shape"
     assert not fb, fb
 
@@ -225,7 +290,12 @@ def test_a_pair_the_fitter_did_not_break_is_drawn_as_one_word():
     Whether that space is there is not a detail - a gap before the dots is
     the difference between a pause and a typo, and it would be in the export
     and on the page."""
-    (a, fa), (b, fb) = _both("SELF-CONTROL IS HARD...", 88, 140)
+    # 70x105, and it was 88x140 until Comic Neue became the default face
+    # (2026-08-26, `fonts/LICENSES.md`). Comic Neue is narrower, so the old
+    # balloon no longer needed the dash break either - and a fixture where
+    # NEITHER break is needed cannot show that one is taken and the other is
+    # not, which is the whole question here.
+    (a, fa), (b, fb) = _both("SELF-CONTROL IS HARD...", 70, 105)
     assert not a.fit_ok, "it did not need the pass"  # it needed the pass...
     assert b.lines == ["SELF-", "CONTROL", "IS", "HARD..."], b.lines
     assert not fb, fb
@@ -402,14 +472,21 @@ def test_the_warning_only_says_shrunk_when_it_shrank():
     stop reading the red bars. This path used to flag every layout it
     returned, including the ones that came back AT the minimum size, and the
     message named a shrink that had not happened."""
-    r, m = _tight("GLOW-SAN!", 55, 60)
+    # 40x40, down from 55x60 for the same reason as above: the narrower face
+    # reached 13pt in the old box, and this test is about what happens AT the
+    # floor.
+    r, m = _tight("GLOW-SAN!", 40, 40)
     lay = fit_region(r, _cfg(), mask=m)
     assert lay.font_size == _cfg().min_font, lay.font_size
     assert not lay.fit_ok, "the fixture stopped exercising the plain wrap"
     assert r.flagged is None, r.flagged
 
     # ...and it still says so when it really does go under.
-    r, m = _tight("SELF-CONTROL...", 56, 90)
+    # 32x28, down from 56x90. Comic Neue fits this sentence at the floor in a
+    # box that used to force it under, so the old fixture stopped exercising
+    # the branch it is named after - the one that DOES go below the minimum and
+    # says so.
+    r, m = _tight("SELF-CONTROL...", 32, 28)
     lay = fit_region(r, _cfg(), mask=m)
     assert lay.font_size < _cfg().min_font, lay.font_size
     assert r.flagged and "shrunk below the minimum" in r.flagged, r.flagged

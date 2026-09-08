@@ -199,7 +199,11 @@ def test_the_box_is_what_costs_the_point_size():
     strayed = 0
     for r in regions:
         lay = fit_region(r, cfg, lobes[r.id])
-        assert lay.font_size >= 24, (r.id, lay.font_size)   # the size on offer
+        # The size on offer. 23, down one from 24 when Comic Neue became the
+        # default face (2026-08-26, `fonts/LICENSES.md`) - a fixture-strength
+        # guard drifting by a point, not the trade changing. What this test
+        # protects is `strayed` at the bottom.
+        assert lay.font_size >= 23, (r.id, lay.font_size)
         x, y, w, h = (int(v) for v in r.bbox)
         reach = BOX_LEEWAY * max(4.0, float(min(w, h)))
         f = _font(lay.font_path, lay.font_size)

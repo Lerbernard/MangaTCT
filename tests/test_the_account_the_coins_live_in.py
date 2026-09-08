@@ -683,8 +683,13 @@ def test_the_refund_is_tied_to_the_charge_it_came_from(project, monkeypatch,
     assert refunds[0]["body"]["data"]["run"]
 
 
-def test_a_run_that_finished_asks_for_nothing_back(project, monkeypatch,
-                                                   tmp_path):
+def test_a_finished_run_gets_back_only_the_headroom(project, monkeypatch,
+                                                    tmp_path):
+    """A run that did everything and metered nothing verifiable keeps its
+    quoted price - the old promise - and the settle returns exactly the
+    HEADROOM the hold added on top. It used to ask for nothing back because
+    nothing more than the quote had been taken; the hold changed the first
+    half of that, not the second."""
     from mangatl import editor
     _signed_in(monkeypatch, balance=5000, checked=time.time())
     p = _chapter(tmp_path, [3, 3])
@@ -694,4 +699,12 @@ def test_a_run_that_finished_asks_for_nothing_back(project, monkeypatch,
     with editor._charge(p, "translate", [0, 1]):
         p.job["done"] = 2
 
-    assert [c for c in wire.sent if c["url"].endswith("/refundCoins")] == []
+    price, _m, _b = editor.run_price(p, "translate", [0, 1])
+    reserve = coins.hold(price)
+    got = [c for c in wire.sent if c["url"].endswith("/refundCoins")]
+    if reserve > price:
+        assert len(got) == 1
+        assert int((got[0]["body"].get("data") or got[0]["body"])
+                   ["coins"]) == reserve - price
+    else:
+        assert got == []

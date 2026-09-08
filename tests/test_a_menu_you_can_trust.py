@@ -429,8 +429,14 @@ def test_the_trim_happens_after_the_reachable_check(monkeypatch):
 
 
 def test_every_price_on_the_menu_is_a_different_price():
+    """...bar the handful named in `coins.ALWAYS_OFFERED`, which are there
+    precisely because a shared price hides a choice worth having: 3.8 Flash
+    and 3.7 Flash cost the same and are a generation apart. Every OTHER
+    duplicate is still one choice with two names."""
     for back in ("anthropic", "gemini"):
-        rates = [coins.rate_for(m) for m in coins.offered(back)]
+        menu = [m for m in coins.offered(back)
+                if coins.vendor_free(m) not in coins.ALWAYS_OFFERED]
+        rates = [coins.rate_for(m) for m in menu]
         assert len(rates) == len(set(rates)), back
 
 
@@ -627,3 +633,44 @@ def test_the_runner_starts_when_the_files_are_clean(tmp_path, monkeypatch):
     assert "REFUSING" not in out.getvalue()
     # ...and it put the file back.
     assert f.read_text(encoding="utf-8") == "the real line\n"
+
+
+def test_the_newest_flash_and_the_one_before_it_are_both_offered():
+    """Google shipped 3.8 Flash in September 2026 at 3.7 Flash's exact rate,
+    and lee wanted the pair rather than the newer one: *"google realseased 3.8
+    flash, keep 3.7 and add 3.8 as anouther option"*.
+
+    The duplicate-price trim would have shown only 3.8 - which is right when
+    the two are different lines that happen to cost the same, and wrong when
+    they are one line a generation apart, where the price says "one choice"
+    and the person knows better. `coins.ALWAYS_OFFERED` is the exemption, and
+    it is written out rather than guessed at from the names.
+    """
+    assert coins.rate_for("gemini-3.8-flash") == coins.rate_for("gemini-3.7-flash")
+    menu = coins.offered("gemini")
+    assert menu[:2] == ["gemini-3.8-flash", "gemini-3.7-flash"], menu
+    # ...on the picture step as well: both can be shown a page
+    assert "gemini-3.8-flash" in coins.offered("gemini", "ocr")
+    assert "gemini-3.7-flash" in coins.offered("gemini", "ocr")
+    # ...and through the reseller, where a slug carries its vendor
+    thru = coins.offered("openrouter")
+    assert "google/gemini-3.8-flash" in thru and "google/gemini-3.7-flash" in thru
+    # The exemption is EXACTLY that: 3.6 costs the same and is still trimmed,
+    # so nothing else came back with it.
+    assert "gemini-3.6-flash" not in menu, menu
+    # ...and it is not a licence to be unpriced: what a menu offers, the
+    # ledger can bill.
+    for m in ("gemini-3.8-flash", "google/gemini-3.8-flash"):
+        r = coins.rate_for(m)
+        assert r.inp > 0 and r.out > 0, m
+
+
+def test_the_newest_flash_is_priced_at_its_standing_rate_not_the_discount():
+    """$0.75/$3.75 is Google's promotion until the last day of 2026; $1.50/
+    $7.50 is the rate from 1 January 2027. lee's rule, set when 3.7 Flash
+    arrived on the same terms: *"no promotianal rate us teh normal rate"* - a
+    discount somebody else can withdraw is a price that changes under you on a
+    date you do not control."""
+    r = coins.rate_for("gemini-3.8-flash")
+    assert (r.inp, r.out) == (1.50, 7.50), r
+    assert coins.rate_for("google/gemini-3.8-flash") == r

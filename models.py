@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field, asdict
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 from . import kinds as _kinds
@@ -49,10 +49,28 @@ class TextRegion:
     bbox: tuple[int, int, int, int]          # x, y, w, h  of the TEXT
     text_mask: Optional[np.ndarray] = None   # what we must erase
     bubble_mask: Optional[np.ndarray] = None # where we may place English
+    # ...and, when this block SHARES a balloon, the part of it the fitter
+    # actually gave this block. `share_masks` divides a balloon between the
+    # blocks in it and can divide it differently from the detector - a balloon
+    # drawn as two lobes goes lobe to a block, whatever the ink underneath
+    # said - so the shape the words were fitted into is not `bubble_mask` and
+    # the renderer must not clip them with `bubble_mask`. It did, and every
+    # letter standing on the difference was deleted: lee's REGION came off the
+    # page as 'EGION. Filled in by `typeset_page`, which always runs before
+    # anything renders; never stored, like the masks above.
+    share_mask: Optional[np.ndarray] = None
     bubble_bbox: Optional[tuple[int, int, int, int]] = None
     # Outline of the bubble in page coordinates. Masks are rebuilt from this on
     # demand so a whole chapter can be held in memory as geometry, not bitmaps.
     polygon: Optional[list] = None
+    # A better balloon for the TYPESETTER only, written by the balloon check
+    # (`balloonck`) when the saved outline runs off its balloon and the
+    # model's balloon clearly holds this box alone. The fitter and everything
+    # placement-side prefer it; the CLEANER never reads it - the erase masks
+    # still come from `polygon`, deliberately, because every past change to
+    # the cleaning mask moved something else, and lee asked for exactly this
+    # scope: *"it should only help the typesetter on bubble text"*.
+    fit_poly: Optional[list] = None
     kind: RegionKind = "bubble"
     panel_id: Optional[int] = None
     order: int = -1
@@ -121,6 +139,28 @@ class TextRegion:
     # set these win over the automatic fit, so a human correction is never
     # silently recomputed away.
     layout_override: Optional[dict] = None
+    # What the ORIGINAL writing in this box was drawn with, read off the
+    # artwork by `inkstyle.measure_page`: the ink colour, the colour and width
+    # of any keyline round it, whether the letterform is hollow.
+    #
+    # A field of its own, and it had to become one. It used to be written into
+    # `layout_override`, beside the hand corrections, and `render._hollow_
+    # colours` already said what was wrong with that - *"that is the MEASURED
+    # ink colour, not somebody's choice, and there is nothing in the record to
+    # tell the two apart"*.
+    #
+    # What it cost: pressing Typeset means "put this page back to what the
+    # fitter would do", so it empties `layout_override` - and it emptied the
+    # measurement with it. Typeset always follows the read, so the first press
+    # threw the answer away, every time, on every chapter ever typeset. lee,
+    # looking at a sound effect that came back white-on-black where the
+    # original was black with a thin white keyline: *"i feel like all the copy
+    # style chnages that we worked on is not live"*. It was not.
+    #
+    # Now each can be treated as what it is: Typeset clears the hand
+    # corrections and REFRESHES this, and a hand correction still wins over it
+    # wherever both have something to say.
+    layout_measured: Optional[dict] = None
     flagged: Optional[str] = None            # human-review reason
     # Leave this region's source text alone during cleaning, so an individual
     # cleaning the person does not like can be switched off.
@@ -173,8 +213,47 @@ class TextRegion:
             return self.bubble_mask
         if self.text_mask is None or _kinds.family_of(self.kind) == "sfx":
             return self.text_mask
-        H, W = self.text_mask.shape[:2]
-        x, y, w, h = [int(v) for v in (self.bbox or (0, 0, 0, 0))]
+        return self.box_mask(self.text_mask.shape[:2])
+
+    def box_mask(self, shape=None) -> Optional[np.ndarray]:
+        """The region's own rectangle, as a page-sized mask.
+
+        `place_mask` has said "bubble if we have one, else the box" since it
+        was written, and it kept that promise only while some other mask was
+        around to say how big the page is: with `text_mask` gone it returned
+        `None` and the typesetter was handed nothing at all.
+
+        Every region in a REOPENED chapter is in exactly that state -
+        `to_dict` drops the masks, so nothing written to disk remembers a
+        shape - and a block re-typeset after a reload came back with no lines
+        in it. lee: *"if the typesetter can't find a box it hsoud fall back to
+        using the box"*.
+
+        With no mask to measure the page by, the array is cut off at the box's
+        own far corner. Everything downstream works in page coordinates from
+        (0, 0), so a shorter array holds the box in the same place a full-page
+        one would; it is only missing paper nothing was going to be drawn on.
+
+        **It is not what `place_mask` hands the CLEANER.** This is the room the
+        English may use. The eraser reads `place_mask()` too, and a box-shaped
+        answer there would rub out a rectangle of artwork round writing whose
+        footprint nobody could find - so the fallback belongs to the fitter
+        that asked for it, and stays out of the mask everything shares.
+        """
+        try:
+            x, y, w, h = [int(v) for v in (self.bbox or (0, 0, 0, 0))]
+        except (TypeError, ValueError):
+            return None
+        if w <= 0 or h <= 0:
+            return None
+        if shape is None:
+            for m in (self.text_mask, self.bubble_mask, self.share_mask):
+                if m is not None:
+                    shape = m.shape[:2]
+                    break
+        if shape is None:
+            shape = (max(1, y + h), max(1, x + w))
+        H, W = int(shape[0]), int(shape[1])
         x, y = max(0, min(x, W - 1)), max(0, min(y, H - 1))
         w, h = max(1, min(w, W - x)), max(1, min(h, H - y))
         box = np.zeros((H, W), np.uint8)
@@ -183,7 +262,7 @@ class TextRegion:
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        for k in ("text_mask", "bubble_mask", "layout"):
+        for k in ("text_mask", "bubble_mask", "share_mask", "layout"):
             d.pop(k, None)
         if self.polygon is not None:
             d["polygon"] = [[int(a), int(b)] for a, b in self.polygon]
@@ -219,6 +298,16 @@ class TextLayout:
     # positions from the frame - the browser's preview, the box you type into
     # - leaves these exactly where they are.
     fixed: bool = False
+    # What the fit this layout came out of was fitted FROM: a fingerprint of
+    # everything on the page that decides where the lines land - the boxes, the
+    # words, the shapes, the font settings, and the hand edits that steer a
+    # fit. See `typeset.page_fit_key`.
+    #
+    # It is here so that rendering a page that has not changed can use the
+    # layout it already has instead of fitting every block again. That fitting
+    # is 2.6 seconds of the 3 it takes to build a finished page, and it was
+    # being paid on every render, every export, and every restart.
+    fit: str = ""
     # True when this block is deliberately BIGGER than the box it belongs to.
     # Outside text and sound effects are allowed to run onto the artwork
     # rather than shrink under the minimum size - lee: *"outside text and sfx

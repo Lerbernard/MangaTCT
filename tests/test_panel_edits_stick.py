@@ -107,7 +107,14 @@ def test_typing_new_text_and_clicking_off_keeps_it():
         pg.evaluate("editOnCanvas(1)")
         pg.wait_for_timeout(500)
         assert pg.evaluate("editing") == 1, "the block did not open for typing"
-        pg.evaluate("""(()=>{ editBox.innerText='BRAND NEW'; })()""")
+        # BY TYPING, not by writing into the editor's DOM behind its back -
+        # the box is a ProseMirror view now, and a DOM poke changes the
+        # picture without changing the document. Real keys are what a
+        # person sends, so real keys are what this sends.
+        pg.evaluate("(document.querySelector('#canvasEdit .ProseMirror')"
+                    "||editBox).focus()")
+        pg.keyboard.press("Control+a")
+        pg.keyboard.type("BRAND NEW")
         pg.evaluate("closeCanvasEdit(true)")     # click off, at once
         pg.wait_for_timeout(1400)
         assert pg.evaluate("document.getElementById('lyLines').value") \
@@ -208,35 +215,66 @@ def test_every_group_starts_open():
 def test_the_line_gap_box_goes_under_the_floor_by_hand():
     """The floor is on what the fitter chooses. lee: *"the line spacing shoud
     only be a minimun of 1.20 for the typesetting the user shoud be able to go
-    lowwer"*."""
+    lowwer"*.
+
+    The wait at the end is for the VALUE and not for a length of time. Saves
+    for one region are queued now (`saveTypesetting`, and
+    `test_side_panel_tidy` for why), so six presses land one after the other
+    rather than all at once - and a flat pause was only ever a guess about how
+    long a page takes to lay out.
+    """
     def check(pg, p):
         pg.evaluate("select(1)")
         pg.wait_for_timeout(700)
         assert pg.evaluate("+document.getElementById('lyLead').min") < 1.20
         for _ in range(6):
             pg.click("#lyLead ~ .numbtn.dn")
-        pg.wait_for_timeout(700)
+        pg.wait_for_timeout(300)
         got = pg.evaluate("+document.getElementById('lyLead').value")
         assert got < 1.20, got
+        for _ in range(600):
+            if _stored(p, "leading") == pytest.approx(got):
+                break
+            pg.wait_for_timeout(100)
         assert _stored(p, "leading") == pytest.approx(got), _stored(p, "leading")
     _open(check)
 
 
-def test_the_two_copies_of_the_floor_agree():
-    """The browser has its own number so the box can be built without asking
-    the server. Two numbers, one meaning - they have to be held together."""
-    from mangatl.typeset import MIN_LEADING
+def test_the_two_copies_of_the_band_agree():
+    """The browser has its own numbers so the box can be built without asking
+    the server. Two files, one meaning - they have to be held together."""
+    from mangatl.typeset import MIN_LEADING, MAX_LEADING
     js = (PKG / "static" / "js" / "panels.js").read_text("utf8")
-    line = [l for l in js.splitlines() if l.startswith("const MIN_LEADING")]
-    assert line, "panels.js has no MIN_LEADING"
-    assert float(line[0].split("=")[1].strip(" ;")) == MIN_LEADING
+    for name, want in (("MIN_LEADING", MIN_LEADING), ("MAX_LEADING", MAX_LEADING)):
+        line = [l for l in js.splitlines() if l.startswith("const " + name)]
+        assert line, "panels.js has no " + name
+        assert float(line[0].split("=")[1].strip(" ;")) == want, name
 
 
-def test_nothing_the_fitter_chooses_is_tighter_than_the_floor():
-    from mangatl.typeset import MIN_LEADING, TypesetConfig
-    assert MIN_LEADING == 1.20
-    assert min(TypesetConfig().leadings) == MIN_LEADING
-    assert all(v >= MIN_LEADING for v in TypesetConfig().leadings)
+def test_the_fitter_chooses_inside_the_band_lee_measured():
+    """1.20 was the FLOOR. It is the CEILING now, and the change came off a
+    measurement rather than a preference - one ruler over both, line pitch
+    divided by the height of the tall letters:
+
+        published chapter 22      1.31
+        the app at its old floor  1.80
+
+    lee: *"the real line gap number is somewhere between 1 - 1.10 and 1.20
+    tyhe max youu shoud use is 1.20"*.
+    """
+    from mangatl.typeset import MIN_LEADING, MAX_LEADING, TypesetConfig
+    assert (MIN_LEADING, MAX_LEADING) == (1.00, 1.20)
+    sweep = TypesetConfig().leadings
+    assert min(sweep) == MIN_LEADING, sweep
+    # The sweep tops out at 1.10, NOT at the ceiling. 1.20 is the most
+    # anything may ever be - what the panel will accept, and what a hand edit
+    # may reach - and the first half of lee's sentence is the number the
+    # fitter goes looking for. Put 1.20 in the sweep and it wins on every
+    # bubble with room to spare, which is most of them.
+    assert max(sweep) <= 1.10, sweep
+    assert max(sweep) < MAX_LEADING, sweep
+    assert list(sweep) == sorted(sweep, reverse=True), \
+        ("loosest first: the fitter takes the first that fits", sweep)
 
 
 def test_a_tighter_gap_typed_in_by_hand_is_taken_as_typed():
@@ -259,9 +297,14 @@ def test_a_tighter_gap_typed_in_by_hand_is_taken_as_typed():
 
 
 def test_the_fitter_still_will_not_choose_one():
-    """Both halves of what lee asked for, side by side."""
+    """Both halves of what lee asked for, side by side.
+
+    "One" is a gap of exactly the type size, and the fitter reaching for it
+    was the original complaint. It may reach it NOW - that is where his
+    measured band starts - and what it still may not do is go under."""
     from mangatl.typeset import MIN_LEADING, TypesetConfig
-    assert min(TypesetConfig().leadings) == MIN_LEADING == 1.20
+    assert min(TypesetConfig().leadings) == MIN_LEADING == 1.00
+    assert all(v >= MIN_LEADING for v in TypesetConfig().leadings)
 
 
 # ------------------------------------------ an edit outlives a page refresh

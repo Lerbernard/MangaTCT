@@ -89,36 +89,22 @@ def test_a_region_with_nothing_to_measure_promises_nothing():
     assert T.fits_chars(r) == 0
 
 
-def test_it_travels_with_the_region():
-    got = T.build_payload(_page([_r(w=300, h=160)]), T.SeriesContext())
-    assert got["regions"][0]["fits_chars"] > 0
+def test_it_no_longer_travels_with_the_region():
+    """It did, and that was the point of this file. lee took it back out:
+    *"i wan the most accurate transaltion no matter the leght of the of it so
+    i dont want to shrink or expand teh translation to fit anythng"*.
 
-
-def test_and_is_left_out_when_it_cannot_be_measured():
-    r = TextRegion(id=0, bbox=(0, 0, 0, 0), text_mask=None, bubble_mask=None,
-                   bubble_bbox=None, kind="bubble")
-    r.src_text, r.order = "응?", 0
-    got = T.build_payload(_page([r]), T.SeriesContext())
-    assert "fits_chars" not in got["regions"][0], \
-        "a guess sent as a measurement is worse than no number"
-
-
-def test_the_type_the_project_sets_in_is_the_one_used():
-    """It was the FLOOR, and the floor is a size the typesetter never reaches.
-
-    See `test_the_size_the_reader_gets`: on the chapter this file was written
-    against, min_font was 11 and the typesetter set a median of 32. The budget
-    is taken at `comfort_size` now - bigger type, less room.
+    The measurement above is still right and still made - `too_long` is what
+    uses it now - but the model is not handed a budget it will only ever
+    translate down to, and a number in the payload with no rule about it is
+    still a budget.
     """
-    c = T.SeriesContext()
-    c.min_font, c.max_font = 24, 48
-    small = T.build_payload(_page([_r(w=300, h=160)]), c)["regions"][0]
-    big = T.build_payload(_page([_r(w=300, h=160)]),
-                          T.SeriesContext())["regions"][0]
-    assert small["fits_chars"] < big["fits_chars"]
+    got = T.build_payload(_page([_r(w=300, h=160)]), T.SeriesContext())
+    assert "fits_chars" not in got["regions"][0]
+    assert "src_char_count" not in got["regions"][0]
 
 
-def test_the_settings_carry_it_into_the_context():
+def test_the_settings_still_carry_the_floor_into_the_context():
     import inspect
 
     from mangatl import editor
@@ -126,13 +112,16 @@ def test_the_settings_carry_it_into_the_context():
         inspect.getsource(editor._ctx_from_settings)
 
 
-def test_the_prompt_explains_the_number():
+def test_the_prompt_no_longer_explains_a_number_it_does_not_send():
     sys = T.build_system("manhwa", "en", "Korean")
-    assert "fits_chars" in sys
-    assert "measured off the shape on the page" in re.sub(r"\s+", " ", sys)
+    assert "fits_chars" not in sys
+    assert "LENGTH IS NOT A CONSTRAINT ON YOU" in sys
 
 
 def test_a_line_that_will_not_fit_is_flagged():
+    """The note is what survived the budget. It is taken at the project FLOOR
+    now, so it means "will not go in at any size" rather than "will come out
+    small" - see `test_the_size_the_reader_gets`."""
     r = _r(w=120, h=60)
     assert "holds ~" in T.too_long("x" * 300, r, 12)
 

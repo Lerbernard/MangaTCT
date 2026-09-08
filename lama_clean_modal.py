@@ -12,20 +12,29 @@
 # heavily toned page come back as flat grey blocks. LaMa is the standard erase
 # model, works in colour, and is much stronger at reconstructing texture.
 #
-# MODEL picks which one this deployment serves:
+# ONE DEPLOY SERVES BOTH MODELS NOW.
+#
 #   "lama"        the standard big-lama - strongest general-purpose eraser
 #   "anime-lama"  the same architecture fine-tuned on anime/manga artwork;
-#                 usually better on screentone and line work, occasionally
-#                 softer on photographic backgrounds
-# Change the one word, deploy again, and you get a third URL to compare.
+#                 better on screentone and line work
+#
+# It used to serve whichever one `MODEL` named, so comparing them meant editing
+# this file, deploying again, and pasting a second URL into the app. They are
+# 200MB each and the container holds both without noticing, so the app names
+# the one it wants per request and the picker is in Settings where it belongs.
+# lee, after seven erasers were measured on his own chapter: *"anime lama is
+# the shout, add it in the list"*.
+#
+# MODEL is the DEFAULT - what an old copy of the app, which sends no name at
+# all, gets served.
 import base64
 import modal
 
 CLEAN_TOKEN = "yq3tdiuwdgugqewyhduygwqdgduggeqywygywuegdhiuwgewebcwjhbxkjq"  # must match the app setting
 
-MODEL = "lama"           # "lama" or "anime-lama"
+MODEL = "anime-lama"     # the default; the app may ask for either
 
-_CLASS = {"lama": "LaMa", "anime-lama": "AnimeLaMa"}[MODEL]
+_CLASS = {"lama": "LaMa", "anime-lama": "AnimeLaMa"}
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -34,11 +43,19 @@ image = (
     # Bake the weights into the image using the SAME code path the runtime uses
     # (torch-hub cache), so is_downloaded() finds them. `iopaint download
     # --model-dir ...` puts them somewhere the runtime never looks.
-    .run_commands(
-        'python -c "from iopaint.model.lama import %s; %s(\'cpu\')"' % (_CLASS, _CLASS)
-    )
+    # Both sets of weights baked in, through the SAME code path the runtime
+    # uses (torch-hub cache), so `is_downloaded()` finds them.
+    .run_commands(*[
+        'python -c "from iopaint.model.lama import %s; %s(\'cpu\')"' % (c, c)
+        for c in _CLASS.values()
+    ])
 )
-app = modal.App("mangatl-clean-" + MODEL)
+# ONE app for both models, and it keeps the name the lama deploy already had -
+# so the URL somebody has already pasted into Settings goes on working and a
+# redeploy is all this costs. NOT the bare "mangatl-clean": that is
+# manga_clean_modal.py's app, and taking it would replace that deploy with this
+# one. The name no longer carries the model, because the request does.
+app = modal.App("mangatl-clean-lama")
 
 
 @app.cls(gpu="T4", image=image, timeout=180, scaledown_window=300)
@@ -49,7 +66,9 @@ class Cleaner:
         # adds a scan gate which hides erase models unless their weights sit in
         # the exact dir it expects, and leaves you with only 'cv2'.
         import iopaint.model.lama as lama
-        self.model = getattr(lama, _CLASS)("cuda")
+        # Both, held for the life of the container. Loading on demand would put
+        # a cold model load in front of somebody's first hard box.
+        self.models = {k: getattr(lama, c)("cuda") for k, c in _CLASS.items()}
 
     @modal.fastapi_endpoint(method="POST")
     def clean(self, item: dict):
@@ -72,6 +91,12 @@ class Cleaner:
         cfg = InpaintRequest(hd_strategy=HDStrategy.CROP,
                              hd_strategy_crop_margin=196,
                              hd_strategy_crop_trigger_size=1600)
-        out = self.model(rgb, msk, cfg)         # returns a BGR image
+        # Which eraser. An app that does not send one - or sends a name this
+        # deploy has never heard of - gets MODEL, so an older client keeps
+        # working and a typo in a settings box cleans the page instead of
+        # failing it.
+        want = str(item.get("model") or "").strip().lower()
+        model = self.models.get(want) or self.models[MODEL]
+        out = model(rgb, msk, cfg)              # returns a BGR image
         ok, buf = cv2.imencode(".png", out)
         return Response(content=buf.tobytes(), media_type="image/png")

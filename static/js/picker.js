@@ -150,20 +150,52 @@ function openPicker(anchor, target){
   const el=buildPicker();
   const q=hex2hsv(pkGet())||{h:30,s:.05,v:.96};
   pkH=q.h; pkS=q.s; pkV=q.v;
-  $('pkSw').innerHTML=[...new Set(
+  // NO FILL, when whoever opened the popover says this field may have none.
+  // First in the row, and the only swatch here that is not a colour: it does
+  // not move the wheel or the hex box, it writes its answer and is done.
+  // Reading it back off the wheel is not possible - transparent has no hue -
+  // so treating it as a colour would light up whatever the wheel was last on.
+  const none = pkTarget && pkTarget.none
+    ? `<i class="noswatch" title="No fill — outline only"
+          onclick="setPickedNone()"></i>` : '';
+  $('pkSw').innerHTML = none + [...new Set(
       [...pkRecent, '#ffffff','#f4f2ee','#e8e4dc','#bdbdbd','#6f6f6f',
-       '#2b2b2b','#000000'])].slice(0,8)
+       '#2b2b2b','#000000'])].slice(0, none ? 7 : 8)
     .map(c=>`<i style="background:${c}" title="${c}"
           onclick="setPicked('${c}')"></i>`).join('');
   const b=anchor.getBoundingClientRect();
   el.style.display='block';
   el.style.left=Math.min(b.left, innerWidth-240)+'px';
   el.style.top=Math.min(b.bottom+8, innerHeight-260)+'px';
-  pickerApply();
+  /* Paint the popover; do NOT write anything back yet. `pickerApply` here
+     wrote the wheel's position into the target the moment it opened - for
+     a well that held a colour that was a pointless self-assignment whose
+     `onTypesetStyle` then copied the panel (showing a RANGE's values) onto
+     the block's live style, and for an EMPTY well the wheel's fallback
+     position is a near-white nobody chose, which went straight onto the
+     selection as a glow. Opening a picker now changes nothing until a
+     drag, a swatch or the hex box actually picks. */
+  const hex0=hsv2hex(pkH,pkS,pkV);
+  const now=$('pkNow'), hx=$('pkHex');
+  if(now){ now.style.background=hex0; hx.value=hex0; }
+  paintPicker();
 }
 function setPicked(hex){
   const q=hex2hsv(hex); if(!q) return;
   pkH=q.h; pkS=q.s; pkV=q.v; pickerApply();
+}
+/* The letters emptied: `render.NO_FILL`, an eight-digit hex whose alpha is
+   zero. Written straight to the target rather than through `pickerApply`,
+   which exists to turn the wheel's position into a colour and has no position
+   that means "none". `done()` is called here because the popover closes on
+   this one press - there is nothing left to drag. */
+const NO_FILL = '#00000000';
+function setPickedNone(){
+  const t=pkTarget;
+  if(t && typeof t.set==='function') t.set(NO_FILL);
+  if(t && typeof t.done==='function') t.done();
+  const el=$('picker2'); if(el) el.style.display='none';
+  if(picking) stopPagePick();
 }
 function closePicker(){
   const el=$('picker2'); if(el) el.style.display='none';
@@ -262,10 +294,42 @@ function ensureCursor(){
    the size. With nothing armed, everything stays reachable. */
 const brushState={sz:16, op:100, hard:100, col:'#ffffff'};
 
+/* IS ANYTHING IN HAND? A brush, a shape, the region eraser, the shape arrow,
+   a selection tool, a live transform.
+
+   One question with one answer, because two of them used to be asked in
+   different places and the export preview only knew about the first. */
+function toolInHand(){
+  if(typeof paintArmed === 'function' && paintArmed()) return true;
+  if(typeof selTool !== 'undefined' && selTool) return true;
+  if(typeof xf !== 'undefined' && xf) return true;
+  return false;
+}
+
 function paintToolUI(){
+  // A TOOL IN HAND TAKES THE STAGE BACK FROM THE EXPORT PREVIEW.
+  //
+  // `#stage.exact #paint{visibility:hidden}` - the export preview covers the
+  // paint canvas, which is right, because that view is the finished page and
+  // the live layers are already baked into it. What it also did was kill the
+  // tools: draw ONE shape, the app asks the server for a fresh preview, the
+  // preview lands, the class goes on, and every drag after that hit an
+  // invisible canvas and did nothing. Four tests in the paint suite had been
+  // failing on exactly that, and it is worse in the hand than in the suite -
+  // the tool stays lit, the cursor stays a crosshair, and nothing happens.
+  //
+  // `exactPossible` already refuses while a text block is being typed into.
+  // A brush, a shape or the region eraser is the same kind of moment.
+  if(typeof toolInHand === 'function' && toolInHand()
+     && typeof exactOff === 'function') exactOff();
   const shp = (typeof shapeKind!=='undefined') && shapeKind;
+  // 'unclean' is the region eraser and it wants the same three rows an eraser
+  // wants - size, hardness, opacity - because on screen it IS a soft round
+  // brush. What it puts down is the scan rather than nothing; that is a
+  // difference one layer below anything this function decides.
+  const unc = (typeof unclean!=='undefined') && unclean;
   const t = shp?'shape' : brush?'brush' : stamp?'stamp'
-          : heal?'heal' : eraser?'erase'
+          : heal?'heal' : eraser?'erase' : unc?'unclean'
           : (typeof shapeEdit!=='undefined' && shapeEdit)?'move' : null;
   // With nothing armed the SECTION on screen decides: standing in Retouch
   // with no tool picked should not be offering a brush colour, and standing
@@ -286,8 +350,8 @@ function paintToolUI(){
   // at all, so none of the three say anything about what it will do.
   show('rowSize', t!=='move');
   show('rowOp',   t==='brush' || t==='stamp' || t==='erase' || t==='shape'
-                  || (idle && tab!=='select'));
-  show('rowHard', t==='brush' || t==='stamp' || t==='erase'
+                  || t==='unclean' || (idle && tab!=='select'));
+  show('rowHard', t==='brush' || t==='stamp' || t==='erase' || t==='unclean'
                   || (idle && (tab==='paint' || tab==='retouch')));
   show('rowCol',  t==='brush' || t==='shape'
                   || (idle && tab!=='retouch'));
@@ -313,7 +377,9 @@ function positionBrushCursor(){
   const c=$('brushCursor'); if(!c||!lastMouse) return;
   // an armed colour pick is a precise point, not a brush circle
   if(picking){ c.style.display='none'; return; }
-  if(!(brush||heal||eraser)||view!=='typeset'){ c.style.display='none'; return; }
+  const unc=(typeof unclean!=='undefined') && unclean;
+  if(!(brush||heal||eraser||unc)||view!=='typeset'){
+    c.style.display='none'; return; }
   const img=$('img'), b=img.getBoundingClientRect();
   const inside=lastMouse.x>=b.left&&lastMouse.x<=b.right
              &&lastMouse.y>=b.top&&lastMouse.y<=b.bottom;

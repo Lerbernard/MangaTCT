@@ -165,6 +165,11 @@ def test_a_caption_panel_is_exactly_what_the_pass_refuses():
 def test_the_free_blocks_are_searched_on_the_upright_pass():
     """The one line the speed claim rests on: they are eligible, so the answer
     comes off the labelling the pass already did rather than a second search.
+
+    `promote=rename` rather than `promote=True` since the RELOAD path stopped
+    renaming - the free blocks are searched either way, which is what this test
+    is about, and `rename` defaults to True so detection is unchanged. The
+    other half is in `test_a_box_you_named_stays_named.py`.
     """
     import inspect
 
@@ -172,7 +177,8 @@ def test_the_free_blocks_are_searched_on_the_upright_pass():
     src = inspect.getsource(B.attach_balloons)
     up = src.split("_attach(gray, regions")[1].split("\n    dark")[0]
     assert "freefloat" in up, up
-    assert "promote=True" in up, up
+    assert "promote=rename" in up, up
+    assert "rename: bool = True" in src, "detection must keep the promotion"
 
 
 def test_one_labelling_of_the_page_serves_both_kinds_of_block():

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>MangaTCT</title>
+<title>MangaTCT Beta</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/editor.css">
 
@@ -42,7 +42,7 @@
     <circle cx="3" cy="3" r=".95" fill="#0f1218" opacity=".45"/>
   </pattern>
   <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
-</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+</defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
     <span id="tabs">
       <!-- A tab like the others, not a button beside them. It opens a whole
            screen, exactly as Workspace, Results and Settings do, and only one
@@ -136,6 +136,20 @@
     <label id="sbsWrap" class="swx" style="margin-right:10px;display:none"
            title="Side by side">
       <input type="checkbox" id="sbs" onchange="toggleSideBySide(this.checked)"><i></i><span>Side by side</span></label>
+    <!-- When this is on, the Image view settles into the page the EXPORT
+         draws, a moment after you stop touching it - so what is on screen is
+         the file you are going to get, not the browser's copy of it.
+         lee: *"i want you to make it so that what is in teh editor and what is
+         exported are 100% the exact same"*. See js/exactview.js.
+
+         LEFT of the view buttons, like everything else in this group and for
+         the same reason: it is laid out from the right edge, so anything that
+         appears to their right shoves the button you just pressed out from
+         under the pointer. lee said so about the last pair to land here. -->
+    <label id="exactWrap" class="swx" style="margin-right:10px;display:none"
+           title="Settle into the exported page when you stop editing">
+      <input type="checkbox" id="exactCk"
+             onchange="toggleExact(this.checked)"><i></i><span>Export preview</span></label>
     <label id="showTextWrap" class="swx" title="Hide the text">
       <input type="checkbox" id="showText" checked onchange="onShowText()">
       <i></i><span>Translated text</span></label>
@@ -151,6 +165,7 @@
       <button id="vOriginal" class="vw on" onclick="setView('original')">Translation</button>
       <button id="vTypeset"  class="vw"    onclick="setView('typeset')">Image</button>
     </span>
+
   </div>
 </div>
 
@@ -231,6 +246,27 @@
     <div class="row" style="margin-top:16px;justify-content:flex-end">
       <button onclick="askClose(false)">Cancel</button>
       <button class="pri" id="askOk" onclick="askClose(true)">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- The marks that can go in a line. lee: *"i wan a big librey of icons that
+     can be put there"*.
+
+     Every square is an IMAGE fetched from /marksample, not a character drawn
+     by the browser. Two reasons and both matter: the shapes live in `marks.py`
+     and a second set of them in JavaScript is the mistake `DEFAULT_FONTS`
+     already taught us, and the browser's own ♥ is not the one the page gets -
+     the picker has to show what the typesetter will actually stamp. -->
+<div id="markdlg" class="modal">
+  <div class="sheet" style="max-width:560px">
+    <h2>Special characters</h2>
+    <p class="muted" style="margin:6px 0 0">These are stamped from the app's
+      own symbol faces, so they come out at the size of the type and take its
+      colour — the typesetting faces have almost none of them as letters.</p>
+    <div id="markGrid" style="margin-top:14px"></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      <button onclick="closeMarks()">Done</button>
     </div>
   </div>
 </div>
@@ -369,6 +405,17 @@
             onclick="exportSettings()">Export story context</button>
     <button class="setnav-btn"
             onclick="$('impSet').click()">Import story context&hellip;</button>
+    <!-- Where to go when something is wrong. The version, the machine and
+         the last lines of the log are gathered HERE, on screen, before a
+         person pastes them anywhere - a report that starts "1.0.0, no AVX2,
+         the log says..." is one that can be answered; "it doesn't work" is
+         not. Keys never appear in it. lee: *"i still want to be able to send
+         out update and keep suporting teh app"*. -->
+    <div class="setnav-title" style="margin-top:16px">Help</div>
+    <button class="setnav-btn" data-sec="help"
+            onclick="setFileTab('help');openHelp()">Report a problem</button>
+    <button class="setnav-btn" id="guideBtn"
+            onclick="openGuide()">Guide</button>
   </nav>
   <div id="fileBody">
    <section class="set-section on" data-sec="new">
@@ -400,10 +447,6 @@
           <option value="ja">Japanese</option>
           <option value="ko">Korean</option>
           <option value="zh">Chinese</option>
-          <option value="en">English</option>
-          <option value="es">Spanish</option>
-          <option value="pt">Portuguese</option>
-          <option value="fr">French</option>
         </select>
       </div>
       <div style="flex:1 1 200px">
@@ -522,6 +565,26 @@
   </div><!-- /.pk -->
    </section>
 
+   <section class="set-section" data-sec="help">
+    <div class="pk">
+     <h2 style="margin:0">Report a problem</h2>
+     <p class="muted" style="margin:8px 0 0">Say what you did, what you
+       expected and what happened instead, and send it with the box below.
+       The box is your version, your machine and the last lines of the
+       app's own log; nothing else, and never a key. Read it before you
+       send it.</p>
+     <p id="helpLinks" style="margin:12px 0 0"></p>
+     <textarea id="diagText" readonly spellcheck="false"
+               style="width:100%;min-height:220px;margin-top:12px;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto"></textarea>
+     <p style="margin:10px 0 0">
+       <button class="btn" onclick="copyDiag()">Copy to clipboard</button>
+       <span id="diagMsg" class="help"></span>
+     </p>
+     <p class="muted" style="margin:14px 0 0">MangaTCT is free software under
+       the GNU GPL v3. The source of the version you are running is in the
+       app's own folder, and every release on the download page carries it.</p>
+    </div>
+   </section>
    <section class="set-section" data-sec="save">
     <div class="pk">
      <h2 style="margin:0">Save / open project</h2>
@@ -530,9 +593,11 @@
        the layouts, your paint and hand-cleaned plates, the custom box types
        and the faces it typesets in. Open one anywhere and it is exactly as you
        left it.</p>
-     <p class="muted" style="margin:4px 0 0">It carries your settings too, and
-       that includes any API keys saved in this project - treat the file the
-       way you would treat the keys.</p>
+     <p class="muted" style="margin:4px 0 0">It carries your settings too. Keys
+       are not among them any more - those live in your <code>.env</code>, once
+       for every chapter, and a project file never sees one. A chapter set up
+       before that may still have old keys saved inside it, so treat an old
+       <b>.tctp</b> the way you would treat the keys.</p>
 
      <p class="muted" style="margin:10px 0 0">The <b>story context</b> beneath
        it is the other file: a <b>.tct</b> holding the synopsis, the
@@ -578,10 +643,23 @@
   <div id="canvasWrap">
     <div id="stage">
       <img id="img" draggable="false">
+      <!-- The page as the EXPORT draws it, laid over the editor's own copy
+           whenever nothing is being touched. See js/exactview.js. -->
+      <img id="exact" draggable="false" alt="">
+      <div id="exactBadge"></div>
       <div id="rubber"></div>
       <div id="overlay"></div>
       <div id="modehint"></div>
     </div>
+    <!-- The page-loading screen: the app icon with a ring turning round it,
+         shown while a page's picture is still on its way, and page switching
+         waits for it. lee: *"add a loading screen that prevents teh user to
+         switch page while a page is loading and mak te loading screen be teh
+         app icon witha circle arond it"*. Appears only when the picture is
+         not already in the browser's cache, after a short grace - a cached
+         page swaps in instantly and never shows it. See frames.js. -->
+    <div id="pageLoading"><div class="ring"><img src="/static/icon.png"
+         alt="loading"></div></div>
     <div id="results"></div>
   </div>
   <div id="side">
@@ -607,8 +685,11 @@
       <input type="checkbox" id="manual_translate" onchange="saveSettings()">
       <i></i><span>I'll translate it myself</span></label>
     <div class="row" id="manrow" style="margin:0 0 10px;display:none">
+      <!-- Two buttons, not three. The JSON template answered a question
+           nobody was asking - the TXT file is the one a person types into.
+           lee: *"remve teh json button it shodu just be teh txt file and
+           teh uplaod button"*. A filled-in .json still uploads fine. -->
       <button class="pri" onclick="downloadManualTemplate('txt')">Template (TXT)</button>
-      <button onclick="downloadManualTemplate('json')">JSON</button>
       <button onclick="document.getElementById('manUp').click()">Upload filled in…</button>
       <input id="manUp" type="file" accept=".txt,.json,.md"
              style="display:none" onchange="uploadManualTranslation(this)">
@@ -621,7 +702,7 @@
       <summary>History - this session</summary>
       <div id="histList"></div>
     </details>
-    <p class="muted" style="margin-top:12px">
+    <p class="muted" id="kbdHint" style="margin-top:12px">
       <kbd>Del</kbd> remove · <kbd>S</kbd> mark as SFX · <kbd>L</kbd> link to
       another bubble · <kbd>←</kbd><kbd>→</kbd> pages
     </p>
@@ -648,13 +729,22 @@
            the screen does, which sets the model for all three AI steps. -->
       <button class="setnav-btn" data-sec="language" onclick="setSettingsTab('language')">Language &amp; direction</button>
       <button class="setnav-btn" data-sec="detection" onclick="setSettingsTab('detection')">Detection &amp; OCR</button>
+      <button class="setnav-btn" data-sec="wording" onclick="setSettingsTab('wording')">Translation</button>
       <button class="setnav-btn" data-sec="translation" onclick="setSettingsTab('translation')">AI models</button>
       <button class="setnav-btn" data-sec="cleaning" onclick="setSettingsTab('cleaning')">Page cleaning</button>
       <button class="setnav-btn" data-sec="fonts" onclick="setSettingsTab('fonts')">Fonts &amp; typesetting</button>
     </nav>
     <div class="setmain">
     <div id="setBody">
-      <section class="set-section" data-sec="story">
+      <!-- `on` HERE, on the nav button above it, and on nothing else in this
+           body. The markup answers "which section is open" twice - once on a
+           button, once on a section - and the two have to agree. Taking `on`
+           off the Synopsis section stopped them DISAGREEING and left them both
+           silent: Settings opened with `Story settings` lit and nothing beside
+           it. `_pickSection` is only reached through `openSettingsDlg`, so any
+           other way onto this page - pressing the tab - shows whatever the
+           markup says is open, and the markup said nothing was. -->
+      <section class="set-section on" data-sec="story">
         <h2 class="set-h">Story settings</h2>
         <p class="sethint">The synopsis, the character sheet and the glossary
           are what keep chapter 4 calling her the same thing chapter 3 did.
@@ -830,10 +920,6 @@
         <option value="ja">Japanese</option>
         <option value="ko">Korean</option>
         <option value="zh">Chinese</option>
-        <option value="en">English</option>
-        <option value="es">Spanish</option>
-        <option value="pt">Portuguese</option>
-        <option value="fr">French</option>
       </select>
 
       <label>Translate into</label>
@@ -843,6 +929,59 @@
         <option value="pt">Portuguese</option>
         <option value="fr">French</option>
       </select>
+      </section>
+
+      <!-- HOW THE TRANSLATION READS, as against which model writes it. The
+           "AI models" section next door is about backends and keys; this is
+           about house style, which is a different question and belongs to the
+           person releasing the chapter rather than to the model. -->
+      <section class="set-section" data-sec="wording">
+        <h2 class="set-h">Translation</h2>
+
+        <!-- lee, over a bubble reading "Mr. Glow" where the Japanese says
+             グロウさん: *"a swith that lets the translator keep glow-san instad
+             of mr glow fo rthe tranlsation it shoud keep styff like oni-chan
+             and other stuff like that that manga reader like and do it for
+             mnahwa and mahua too"*.
+
+             The switch itself is not new - `keep_honorifics` has been going
+             into the payload, and the proofreader has had a rule about it,
+             since the day it was added. What was missing was both ends: the
+             TRANSLATE prompt was never told, so the proofreader was policing a
+             decision the translator had never been asked to make; and there
+             was no control anywhere, so nobody could have made it either way.
+
+             It follows the source language on its own - Japanese suffixes for
+             manga, oppa and hyung for manhwa, gege and shizun for manhua - off
+             the medium already set in Language & direction. -->
+        <label class="swx" style="margin-top:4px;text-transform:none">
+          <input type="checkbox" id="keep_honorifics" checked
+                 onchange="saveSettings()"><i></i>
+          <span>Keep honorifics and forms of address</span></label>
+        <!-- The two paragraphs that stood here explained what the switch does
+             and listed every suffix it keeps. lee: *"remove these text form
+             teh setting"*. The list lives in `translate.py`, next to the
+             prompt that carries it, which is where it can be checked; the
+             switch says what it is in its own label. -->
+
+        <!-- lee: *"the tranlator or read text shoiud tun sfx into outside text
+             or turn outside text into sfx only those 2 add that as a setting
+             the the setting too toi do it automatucaly"*.
+
+             Those two and no others, because those two are the same SHAPE:
+             loose text on the artwork with no balloon round it. That is all
+             Find text has to go on, which is why it mixes them up - and the
+             words settle it instantly, so the first step that can read them
+             is the first step that can be right about it. Every other kind
+             says something about the picture that the words cannot overrule.
+
+             Off by default: it rewrites a label you may have set by hand. -->
+        <label class="swx" style="margin-top:16px;text-transform:none">
+          <input type="checkbox" id="retype_kinds"
+                 onchange="saveSettings()"><i></i>
+          <span>Let the reading fix sound effect vs outside text</span></label>
+        <!-- The paragraph under it is gone at lee's word; the reasoning it
+             carried is in the comment above, where it belongs. -->
       </section>
 
       <section class="set-section" data-sec="detection">
@@ -864,6 +1003,7 @@
                   onclick="pickReader('ai')">
             <b>The AI reader</b>
             <i>sees the whole chapter</i>
+            <span class="rating"></span>
             <span>Reads each box with the rest of the page behind it, so it
               can settle a name it has met before - and it is the one that
               reads painted sounds.</span></button>
@@ -871,11 +1011,32 @@
                   onclick="pickReader('offline')">
             <b id="offlineName">On this computer</b>
             <i>no key, no coins, no network</i>
+            <span class="rating"></span>
             <span id="offlineWhy">One box at a time. Level on dialogue and it
               never files a line under the wrong box, but it invents dialogue
               when handed a painted sound.</span></button>
         </div>
 
+        <!-- HOW MUCH OF THE PAGE IT LOOKS AT, AND WHAT THAT COSTS.
+
+             This was taken off the screen when a close-up per box won every
+             accuracy score it was given. What the scoring never priced is
+             that a close-up sends one picture PER BOX: a ten-box page sends
+             ten pictures where the whole page sends one, and measured over
+             138 real runs that is a read costing 25,000 input tokens a page
+             against the 2,900 the estimate thought.
+
+             lee, on being shown that: *"so teh ing increasing the price was
+             teh zoom in images right? if it is can you bring back teh 1, 4
+             and 9 cut and make them tabs instad of drop down"*.
+
+             So it is a choice again, it is four tabs, and each one carries
+             what it really costs on this chapter - see `coins.pictures` for
+             where the number comes from and `ocr.DETAILS` for the one list
+             both the reader and the price read. -->
+        <label id="detailLbl" style="margin-top:16px">How much of the page it
+          looks at</label>
+        <div id="detailCards" class="cards"></div>
 
         <!-- lee: *"add a button in the setting setting to auto emove boxes
              taht are only symbol like ! or ....... etc make it on by defaut
@@ -891,13 +1052,35 @@
           <input type="checkbox" id="drop_symbol_only" checked
             onchange="saveSettings()"><i></i>
           <span>Delete boxes that turn out to hold only symbols</span></label>
-        <!-- Two more switches stood under that one - a drop of a box whose
-             reading was part of an overlapping box's, and a demotion of a
-             "sound effect" that read as a sentence. lee: *"make it so that
-             read text only read teh etxt and not modify boxes exapt for
+
+        <!-- ...and the OTHER two things Read text deletes. lee: *"make it so
+             that read text only read teh etxt and not modify boxes exapt for
              removing boxes with no text or remoeving boxes with only
-             symobos"*, so both the switches and the passes behind them are
-             gone. See `editor.do_ocr`. -->
+             symobos"* - which names these two exactly, so both passes are
+             wanted and both belong on this list.
+
+             THEY WERE RUNNING WITH NO SWITCH. The comment that stood here
+             said the two passes were gone with their ticks; only the third
+             one was (`readkinds`, the "sound effect" that read as a sentence
+             - that one really is gone, see `editor.do_ocr`). These two kept
+             running, on by default, and the settings page had nowhere to stop
+             them. It cost a box: three readers over one chapter, and the one
+             that gave up on page 005 deleted a box that plainly reads 슈 -
+             for good, and for every reader that came after it.
+
+             A pass that deletes somebody's work gets a tick. Not because it
+             is usually wrong - all three are usually right - but because
+             "the reader said nothing" and "there is nothing there" are not
+             the same sentence, and only the person looking at the page can
+             tell them apart. -->
+        <label class="swx">
+          <input type="checkbox" id="drop_empty" checked
+            onchange="saveSettings()"><i></i>
+          <span>Delete boxes the reader found nothing in</span></label>
+        <label class="swx">
+          <input type="checkbox" id="drop_read_twice" checked
+            onchange="saveSettings()"><i></i>
+          <span>Delete boxes whose words were read as part of another box</span></label>
 
         <!-- THE DETECTOR, AS FOUR CARDS AND NOTHING ELSE.
 
@@ -911,24 +1094,70 @@
              paragraphs of prose saying what each number on a card already
              says. The model path went too, later: an empty setting already
              means "look beside the app", which is where the download puts
-             the file. -->
+             the file.
+
+             SIX CARDS, FOUR AT A TIME. lee: *"i want tyou to test a bunch of
+             box finders and add the goods ones as coard for mahhwa and
+             manhua"*, *"4 in total"*, and then the part that decided the
+             shape of this: *"we to find and use detector that are good for
+             manwa and mnahua not the same ones at teh manga"*.
+
+             Which card is on screen for which format is `ROUTE_MEDIA` in
+             `project.js`, and it is there rather than on the button because
+             `currentRoute` has to answer the same question with no settings
+             page built. A manga gets the four that were swept on manga
+             fragments; a manhwa or a manhua gets the two webtoon models
+             instead of the two that need panels.
+
+             The numbers ARE on the button, twice: `data-sec`/`data-missed`/
+             `data-junk` are the manga counts and `data-wsec`/`data-wmissed`/
+             `data-wjunk` the webtoon ones, and a card shown on both formats
+             carries both. One chapter's answer is not the other's -
+             comic-text-detector is 2.94s on a manga fragment and twenty-odd
+             on a full-length strip - so a single number would be wrong half
+             the time it was read.
+
+             The whole group used to be HIDDEN on anything but a manga, which
+             was honest while every route had been measured on manga alone.
+             It is not honest now. -->
         <label>Detector</label>
         <div id="routeCards" class="cards">
           <button type="button" class="card" data-route=""
                   data-sec="2.94" data-missed="5" data-junk="13"
+                  data-wsec="2.8" data-wmissed="1" data-wjunk="2"
                   onclick="pickRoute('')">
             <b>comic-text-detector</b>
             <i>dmMaze &middot; one model</i>
             <em class="est"></em>
-            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span class="rating"></span>
             <span>The fallback. Nothing to download.</span></button>
+          <button type="button" class="card" data-route="webtoon_ko"
+                  data-wsec="4.7" data-wmissed="1" data-wjunk="0"
+                  onclick="pickRoute('webtoon_ko')">
+            <b>Webtoon balloons KO</b>
+            <i>with comic-text-detector</i>
+            <em class="est"></em>
+            <span class="rating"></span>
+            <span>The default on a strip. Trained on webtoon pages, not
+              manga panels, with comic-text-detector filling in the sound
+              effects and text with no balloon round it.</span></button>
+          <button type="button" class="card" data-route="webtoon_zh"
+                  data-wsec="4.7" data-wmissed="5" data-wjunk="1"
+                  onclick="pickRoute('webtoon_zh')">
+            <b>Webtoon balloons ZH</b>
+            <i>with comic-text-detector</i>
+            <em class="est"></em>
+            <span class="rating"></span>
+            <span>The same job, trained on a Chinese chapter. A second
+              opinion when the other misses a balloon. Filled in the same
+              way.</span></button>
           <button type="button" class="card" data-route="two_specialists"
                   data-sec="9.9" data-missed="6" data-junk="4"
                   onclick="pickRoute('two_specialists')">
             <b>DB++ / COO</b>
             <i>with comic-text-detector</i>
             <em class="est"></em>
-            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span class="rating"></span>
             <span>Trained on painted sounds, so it says which boxes are paint.</span></button>
           <button type="button" class="card" data-route="manga_segmenter"
                   data-sec="12.7" data-missed="7" data-junk="3"
@@ -936,17 +1165,18 @@
             <b>Manga109 YOLO26</b>
             <i>with DB++/COO</i>
             <em class="est"></em>
-            <span class="rating"><span class="rate"></span><b class="score"></b></span>
+            <span class="rating"></span>
             <span>Finds balloons as shapes, so more lines read as speech.</span></button>
           <button type="button" class="card" data-route="animetext"
                   data-sec="14.3" data-missed="11" data-junk="0"
+                  data-wsec="4.7" data-wmissed="1" data-wjunk="3"
                   onclick="pickRoute('animetext')">
             <b>AnimeText YOLO12-L</b>
             <i>with DB++/COO</i>
             <em class="est"></em>
-            <span class="rating"><span class="rate"></span><b class="score"></b></span>
-            <span>The default. Finds every line of dialogue and every
-              caption.</span></button>
+            <span class="rating"></span>
+            <span>The default on a manga. Finds every line of dialogue
+              and every caption.</span></button>
           <div id="routeWhy" class="cardwhy"></div>
         </div>
 
@@ -957,9 +1187,47 @@
              one right answer and a hundred wrong ones. A path typed into a
              project by hand is still obeyed; there is just no longer a place
              to type one. -->
-        <label class="swx" style="margin-top:14px">
+        <!-- BOX TYPES, AND THE TWO PASSES ARE NOT THE SAME PASS.
+
+             `auto_kind` was labelled "Label box types" on its own. Then Read
+             text learned to label sub-types and got a switch of its own, and
+             for a few minutes there were two settings in this section that
+             said the same words about different things, with the whole
+             detector block between them. lee, looking at it: *"also make teh
+             automated box labbling finding a setting in te setting"*.
+
+             So they sit together and each says WHICH question it answers:
+
+               auto_kind    FIND TEXT. Is there a balloon drawn round this
+                            writing? Geometry, from the detector, free.
+               label_kinds  READ TEXT. Given that it is a balloon, what KIND
+                            of balloon? The drawing, from the AI, one request
+                            a page.
+
+             The family cannot be changed by the second one - see
+             `translate.label_kinds` - which is exactly why they are two
+             switches and not one. -->
+        <label style="margin-top:16px">Box types</label>
+        <label class="swx">
           <input type="checkbox" id="auto_kind" onchange="saveSettings()"><i></i>
-          <span>Label box types</span></label>
+          <span>Sort boxes into bubble, outside text and sound effect</span></label>
+
+        <!-- The switch exists because it COSTS: one more turn per page,
+             carrying a 768px picture of the page. Something that spends money
+             on every page has to have an off.
+
+             Only on the AI path - manga-ocr's whole promise is no key, no
+             network and no coins. -->
+        <label class="swx">
+          <input type="checkbox" id="label_kinds"
+            onchange="saveSettings()"><i></i>
+          <span>Change box types with Read text &mdash; thought, burst,
+            caption, whisper, big or small effect</span></label>
+        <!-- Both notes under these two switches are gone at lee's word:
+             *"remove these text form teh setting"*. What they said - free vs
+             one request a page, and that the second one only ever changes the
+             sub-type - is in the comment above and enforced in code, which is
+             the only place it was ever true. -->
 
         <!-- ...and the "Name boxes from the text" switch. lee: *"reovename
              text"*. It was off by default and stayed off: the rule behind it
@@ -989,7 +1257,16 @@
              still read from a project that has them - `editor.key_for` is
              unchanged - so nothing that was working stops; there is simply no
              box for typing one, because the answer is not the person's to
-             type any more. -->
+             type any more.
+
+             WHERE THEY LIVE NOW is one file, and this is the only place on
+             the screen that says so. lee: *"they key shoud be in the .env
+             file and all teh project shoud use them"*. Filled in by
+             `renderEnvKeys`; no key is ever sent here, only which of the four
+             the file answers for, and the path of the file itself - which is
+             the part that matters, because a key you cannot find is a key you
+             cannot roll. -->
+        <div id="envKeys" class="help" style="margin:10px 0 0"></div>
         <label style="margin-top:14px">THE COMPANY AND MODEL FOR EACH STEP</label>
         <div class="stepai">
           <label style="margin-top:10px">READ TEXT - the model that reads the page</label>
@@ -1006,7 +1283,11 @@
                services; every other maker is bought through OpenRouter -
                `pickCompany` saves the backend, and the model menu narrows
                to that maker. The backend itself is the hidden input below:
-               the same stored pair as always. -->
+               the same stored pair as always.
+
+               Written out whole and TRIMMED as the page loads: reading text
+               hands the model a picture, so `syncCompany` hides the makers
+               with nothing that can be shown one - `coins.blind_makers`. -->
           <select id="ocr_company" onchange="pickCompany('ocr')">
             <option value="claude">Claude (Anthropic)</option>
             <option value="google">Google (Gemini)</option>
@@ -1015,7 +1296,7 @@
             <option value="qwen">Qwen (Alibaba)</option>
           </select>
           <input id="ocr_backend" type="hidden" onchange="saveSettings()">
-          <label class="sublab">AI model</label>
+          <label class="sublab" title="Fair / Good / Great on each row is the MAKER'S OWN TIER, read off the model's name - &quot;lite&quot;, &quot;mini&quot; and &quot;haiku&quot; are their small models, &quot;opus&quot; and &quot;pro&quot; their large ones. It is a published fact about the model, not a measurement of anything this app does on your pages.">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
             <select id="ocr_vendor" data-locked="1" onchange="pickVendor('ocr')"
                     style="flex:1 1 130px;display:none"></select>
@@ -1052,7 +1333,7 @@
             <option value="qwen">Qwen (Alibaba)</option>
           </select>
           <input id="translate_backend" type="hidden" onchange="saveSettings()">
-          <label class="sublab">AI model</label>
+          <label class="sublab" title="Fair / Good / Great on each row is the MAKER'S OWN TIER, read off the model's name - &quot;lite&quot;, &quot;mini&quot; and &quot;haiku&quot; are their small models, &quot;opus&quot; and &quot;pro&quot; their large ones. It is a published fact about the model, not a measurement of anything this app does on your pages.">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
             <select id="translate_vendor" data-locked="1" onchange="pickVendor('translate')"
                     style="flex:1 1 130px;display:none"></select>
@@ -1089,7 +1370,7 @@
             <option value="qwen">Qwen (Alibaba)</option>
           </select>
           <input id="proofread_backend" type="hidden" onchange="saveSettings()">
-          <label class="sublab">AI model</label>
+          <label class="sublab" title="Fair / Good / Great on each row is the MAKER'S OWN TIER, read off the model's name - &quot;lite&quot;, &quot;mini&quot; and &quot;haiku&quot; are their small models, &quot;opus&quot; and &quot;pro&quot; their large ones. It is a published fact about the model, not a measurement of anything this app does on your pages.">AI model</label>
           <div class="row" style="gap:6px;flex-wrap:wrap">
             <select id="proofread_vendor" data-locked="1" onchange="pickVendor('proofread')"
                     style="flex:1 1 130px;display:none"></select>
@@ -1120,13 +1401,52 @@
 
       <section class="set-section" data-sec="cleaning">
         <h2 class="set-h">Page cleaning</h2>
-      <label>Method</label>
-      <select id="ai_clean" onchange="toggleAiCfg();saveSettings()">
-        <option value="off">Local - instant, no cost (default)</option>
-        <option value="hard">AI for hard areas - screentone, SFX, text on art</option>
-        <option value="all">AI for the whole page</option>
-      </select>
+      <!-- THERE IS NO METHOD MENU. It offered three - local, "AI for hard
+           areas", "AI for the whole page" - and lee, having run a chapter
+           every way there is to run one: *"also remove the option for no ai, i
+           for tough boxes ad only ai and the card make this the deaflau
+           clenner"*. The AI cleaner IS the cleaner now, on every page, and
+           `ai_clean` defaults to "all" in both copies of the settings block.
+
+           A plain white balloon is still filled locally and never sent, and
+           that is not an exception to the above so much as the reason it can
+           be stated so simply: on a white balloon the colour is KNOWN, so the
+           fill is exactly right by construction and a model can only guess at
+           something that was never in doubt. lee, after a chapter cleaned the
+           other way: *"look into making the local clenner do teh white biexes
+           because it did a bettr jib"*. -->
+      <!-- OUTSIDE `aicfg` deliberately: this is not part of the hosted
+           cleaner's setup and it works on every method, the local fill
+           included. What it does is read the finished page with the same text
+           detector that found the boxes, and anything still readable inside a
+           box that was cleaned gets erased on a second go.
+
+           lee, with two crops of a cleaned white balloon that still plainly
+           says しゅあ and もる: *"can you fix the issue of the text not fully
+           getting clenned off boxes"*. See `inpaint._reread`. -->
+      <label class="swx" style="margin-top:12px;text-transform:none">
+        <input type="checkbox" id="clean_reread" checked
+               onchange="saveSettings()"><i></i>
+        <span>Use the text detector while cleaning</span></label>
       <div id="aicfg" style="display:none">
+        <!-- WHICH ERASER: not a choice any more. Two cards stood here -
+             lee: *"acculay add an option for lama and anime with card like
+             the other options"* - and then: *"...ad only ai and the card make
+             this the deaflau clenner"*. `editor.clean_model` names the
+             measured one and ignores whatever a project.json says.
+
+             The measurement that picked it is worth keeping written down.
+             Against five other erasers on nine hard boxes off his own chapter
+             - sound effects and outside text over hatching and screentone -
+             anime-lama landed nearer the surrounding artwork on 6 of 9 at the
+             same speed, and it and lama were the only two of seven that never
+             drew something the page did not have. The other five: fcf drew a
+             human FACE into a blank panel, migan a black blob, manga mottled
+             all nine, zits hung streaks. -->
+        <!-- The paragraph naming anime-lama and its 6-of-9 stood here and is
+             gone at lee's word. The measurement itself is in the comment
+             above and must not be lost with it: it is the reason there is no
+             eraser menu on this screen. -->
         <label>Cleaner endpoint URL</label>
         <input id="clean_url" placeholder="https://…modal.run"
                onchange="saveSettings()">
@@ -1198,6 +1518,7 @@
    </div><!-- /.setcard -->
   </div><!-- /#settingsPage -->
 
+
 </div><!-- /#main -->
 
 <!-- Cutting a page in two, and joining two into one. The automatic re-cut
@@ -1212,7 +1533,9 @@
     <div id="cutStage">
       <div id="cutWrap">
         <img id="cutImg" alt="">
-        <div id="cutLine"><b id="cutRow"></b></div>
+        <!-- The lines are drawn into here rather than written out, because
+             there are as many of them as you clicked. See `drawCuts`. -->
+        <div id="cutLines"></div>
       </div>
       <!-- The line goes exactly where you click, and nothing moves it.
            lee: *"in teh cut page it teh cut line shoud be where my mouse is
@@ -1220,11 +1543,32 @@
            to clci where i want it to cut"*, then *"and removethe cut a the
            nearst gap button"*. Three asks, one answer: click, line, done.
 
-           The line still turns GREEN when the row it landed on happens to be
-           a gap between panels. That is a readout, not a hand on the wheel. -->
+           ...and then *"can you make it so that i can have multiple cut
+           lines"*, which is the same gesture again: every click is a line.
+           Clicking one you already put down takes it away, which is the only
+           undo this needs and costs no button.
+
+           A line still turns GREEN when the row it landed on happens to be a
+           gap between panels, and RED when nothing will let you cut there.
+           Both are readouts, not a hand on the wheel. -->
       <p class="muted" style="margin:8px 0 0">Click on the page where you want
         it cut. The line goes exactly there, and turns green when the row it is
-        on is a gap between panels.</p>
+        on is a gap between panels. Click again for another cut, drag a line to
+        move it, or press its <b>&times;</b> to take it away.</p>
+      <div class="row" style="margin:8px 0 0;gap:10px;align-items:center">
+        <!-- A cut without aiming at one, for a strip somebody just wants
+             broken into four. It lands in the middle of the biggest piece,
+             so pressing it repeatedly spaces them evenly and it can never
+             drop a line on top of one already there. See `addCutButton`. -->
+        <button type="button" id="cutAdd"
+                onclick="addCutButton()">+ Add a cut</button>
+        <!-- ...and starting over. lee: *"ad a way to delete the cut lines"*.
+             Four cuts placed by eye down a ten-thousand-row strip is four
+             X's to find; this is one thought instead of four. -->
+        <button type="button" id="cutClearAll"
+                onclick="cutClear()">Clear all</button>
+        <span class="muted" id="cutCount" style="color:var(--fg)"></span>
+      </div>
     </div>
 
     <div class="row" style="margin-top:14px;justify-content:space-between;
@@ -1248,6 +1592,12 @@
 
 <!-- Classic scripts, not ES modules: they share one global scope and MUST
      load in this order. See each file's banner for what lives where. -->
+<!-- ProseMirror, bundled: the document, the selection, the marks on a
+     range and their remapping when the text changes. MIT; the full
+     licence of every package in it is in static/js/vendor/LICENSES.md
+     and the project statement is in NOTICE. Nothing is fetched from a
+     network - this file is served from disk like every other script. -->
+<script src="/static/js/vendor/prosemirror.js"></script>
 <script src="/static/js/core.js"></script>
 <script src="/static/js/project.js"></script>
 <script src="/static/js/frames.js"></script>
@@ -1256,6 +1606,7 @@
 <script src="/static/js/picker.js"></script>
 <script src="/static/js/sync.js"></script>
 <script src="/static/js/select.js"></script>
+<script src="/static/js/textbox.js"></script>
 <script src="/static/js/typesetting.js"></script>
 <script src="/static/js/panels.js"></script>
 <script src="/static/js/region-ops.js"></script>
@@ -1267,5 +1618,6 @@
 <script src="/static/js/boxselect.js"></script>
 <script src="/static/js/toolbar.js"></script>
 <script src="/static/js/view.js"></script>
+<script src="/static/js/exactview.js"></script>
 <script src="/static/js/boot.js"></script>
 </html>

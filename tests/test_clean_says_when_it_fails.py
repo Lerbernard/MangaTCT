@@ -83,14 +83,18 @@ def _page(w=520, h=380):
     return img
 
 
-def _project(root, url, token):
+def _project(root, url, token, kind="sfx"):
     from mangatl.project import Project
     shutil.rmtree(root, ignore_errors=True)
     p = Project(None, root)
     p.add_uploaded("p0.png", cv2.imencode(".png", _page())[1].tobytes())
     p.settings.update(ai_clean="all", clean_url=url, clean_token=token)
+    # `sfx` by default, and not `bubble`, because these tests count calls to
+    # the ENDPOINT. A plain white bubble is filled flat and never sent - the
+    # local fill knows that colour exactly - which is right, and made every
+    # test in this file that counts calls count zero.
     p.pages[0].regions = [{
-        "id": 1, "kind": "bubble", "order": 0,
+        "id": 1, "kind": kind, "order": 0,
         "bbox": [160, 100, 200, 160], "bubble_bbox": [90, 70, 340, 220],
         "polygon": [[160, 100], [360, 100], [360, 260], [160, 260]],
         "src_text": "テスト", "dst_text": "TEST", "confidence": 0.9}]
@@ -208,8 +212,15 @@ def test_pressing_clean_again_really_does_call_the_cleaner_again():
     helped either: `_plate_stamp` keyed on the mode and the URL but not the
     token, so the smeared plate stayed valid.
 
-    Both are fixed: a plate built while the cleaner was refusing is not cached,
-    and the token's fingerprint is part of the plate's identity.
+    Both are fixed: a plate built while the cleaner was refusing is thrown
+    away rather than cached, and the token's fingerprint is part of the plate's
+    identity.
+
+    THE BUTTON PASSES `force`, and this presses it the way the button does -
+    which is now the only thing that reaches the endpoint at all. lee: *"it
+    shoudnt rebuild everytime, it shoud ony go to the ai when i clcik the
+    button"*. Opening the page, typesetting it or exporting it gets the plate
+    that exists or the scan; pressing Clean builds.
     """
     from mangatl import editor
     srv, url = _serve(_Refuse)
@@ -220,16 +231,27 @@ def test_pressing_clean_again_really_does_call_the_cleaner_again():
         editor.clear_clean_warning()
         editor._plate_cache.clear()
 
-        editor.do_clean(p, 0)
+        editor.do_clean(p, 0, force=True)
         first = _Refuse.hits
         assert first >= 1, "the endpoint was never called at all"
 
         # press it again: it must ask again, not serve the smear back
         editor.clear_clean_warning()
         editor._plate_cache.clear()          # as a restart would
-        editor.do_clean(p, 0)
+        editor.do_clean(p, 0, force=True)
         assert _Refuse.hits > first, \
             "the failed plate was cached, so Clean did nothing the second time"
+
+        # ...and OPENING it does not. The refused build is not kept, so there
+        # is no plate to find - and that used to mean every view rebuilt it.
+        editor.clear_clean_warning()
+        editor._plate_cache.clear()
+        again = _Refuse.hits
+        page = p.materialize(0)
+        editor.clean_page(p, 0, page)
+        assert _Refuse.hits == again, \
+            "opening the page went back to the cleaner %d times" % (
+                _Refuse.hits - again)
 
         # and a different token is a different plate - not the one from the 401s
         stamp_bad = editor._plate_stamp(p, 0)
@@ -689,7 +711,10 @@ def test_the_bar_says_when_nothing_was_sent(tmp_path):
     from mangatl import editor
     srv, url = _serve(_Refuse)
     root = scratch("_tmp_clean_quietui")
-    p = _project(root, url, "k9Xq2vBn7wLt4sRd8pYc3mZa6hGu5jFe1oIb")
+    # ...and THIS one wants the flat bubble, because a page of flat balloons
+    # never touching the endpoint is the whole thing being reported.
+    p = _project(root, url, "k9Xq2vBn7wLt4sRd8pYc3mZa6hGu5jFe1oIb",
+                 kind="bubble")
     p.settings["ai_clean"] = "hard"          # what his settings actually say
     was, editor.PROJECT = editor.PROJECT, p
     esrv = ThreadingHTTPServer(("127.0.0.1", 0), editor.Handler)

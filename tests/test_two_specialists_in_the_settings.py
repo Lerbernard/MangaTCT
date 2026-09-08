@@ -140,7 +140,13 @@ def test_a_format_it_was_never_measured_on_is_not_shown_a_switch(tmp_path):
     src = (PKG / "project.py").read_text(encoding="utf-8")
     body = src[src.index('"two_specialists": {'):]
     body = body[:body.index('"why":')]
-    assert body.count("self.medium in self.TWO_MEDIA") == 2, body
+    # `route_here` IS `medium in TWO_MEDIA` for this route, said once for all
+    # six cards - which is the point of it: `animetext` asked TWO_MEDIA here
+    # for as long as those were the same set and went on asking it after they
+    # stopped being. See `Project.route_media`.
+    assert body.count('self.route_here("two_specialists")') == 2, body
+    assert _p(medium="manhwa").summary()["two_specialists"]["partly"] is False
+    assert _p(medium="manga").summary()["two_specialists"]["partly"] is True
 
 
 def test_the_formats_are_named_in_one_place():
@@ -281,8 +287,12 @@ def test_the_settings_page_saves_it_and_loads_it_back():
     reading a DOM element that no longer exists would save `false` on the next
     save of any unrelated setting. See `test_stop_means_stop`."""
     js = (PKG / "static" / "js" / "project.js").read_text(encoding="utf-8")
-    assert "two_specialists:(currentRoute()==='two_specialists')" in js
+    assert "two_specialists:routeFlag('two_specialists')" in js
     assert "function currentRoute(" in js
+    # ...and `routeFlag` is `currentRoute` for the cards THIS format offers
+    # and a pass-through for the rest, so picking a card on a manga cannot
+    # turn the webtoon default off for the manhwa in the same project.
+    assert "function routeFlag(" in js
 
 
 def test_there_is_no_model_file_box_to_get_out_of_step():

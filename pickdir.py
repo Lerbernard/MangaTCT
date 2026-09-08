@@ -23,6 +23,12 @@ TIMEOUT = 180          # a person browsing for a folder, not a machine
 # module stays a leaf: it is spawned as a subprocess and must start fast.
 PROJECT_EXT = ".tctp"
 
+#: What every dialog this module opens is CALLED. One string, because on
+#: Windows the title is the window's name in the taskbar and in Alt-Tab, and
+#: three different sentences there are three windows that look like they belong
+#: to three different programs.
+APP_NAME = "MangaTCT Beta"
+
 
 def _run(cmd: list[str], **kw) -> str:
     try:
@@ -152,8 +158,82 @@ def _wear_our_own_icon(root) -> None:
             pass
 
 
+def _sharp_on_a_scaled_screen() -> None:
+    """Tell Windows this process draws its own pixels.
+
+    A process that has not said so is DPI-UNAWARE, and on any display running
+    above 100% - which is every laptop screen sold for years, and lee's - the
+    system draws it at 96 dpi and then STRETCHES the finished bitmap up to
+    size. Nothing crashes and nothing is out of place; the whole window is
+    simply soft. Every letter, the folder icons, the thumbnails, the buttons.
+
+    lee, with a screenshot of the save dialog beside his editor: *"why are
+    these so low quality"*. It is the one window in this app the operating
+    system draws rather than the browser, so it was the one window that
+    looked blurred while everything around it was sharp.
+
+    `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` is the modern call
+    and the one that also copes with a second monitor at a different scale;
+    the two below it are the fallbacks for Windows 8.1 and 8. It has to run
+    BEFORE any window exists, which is why it is the first thing `_tk_main`
+    does - before tkinter is even imported.
+
+    Every call is wrapped: a machine that answers none of them gets the
+    dialog it has always had, which is a soft dialog and not a missing one.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+    except Exception:
+        return
+    # -4 is PER_MONITOR_AWARE_V2 - a context HANDLE, not an enum, so it goes
+    # in as a pointer-sized value.
+    try:
+        if ctypes.windll.user32.SetProcessDpiAwarenessContext(
+                ctypes.c_void_p(-4)):
+            return
+    except Exception:
+        pass
+    try:                                   # Windows 8.1: 2 = per-monitor
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return
+    except Exception:
+        pass
+    try:                                   # Windows 8 and older: system-wide
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+
+def _tk_own_scaling(root) -> None:
+    """...and Tk's OWN idea of how big a point is.
+
+    Separate from the system's, and left at 72 dpi whatever the screen does.
+    With the process now DPI-aware the window is no longer stretched, so
+    without this the dialog would come back sharp and half the size it should
+    be - a fix that trades one complaint for another. `tk scaling` is the
+    screen's real dpi over 72. The file list and the title bar are the
+    operating system's own controls and follow the system setting by
+    themselves.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        dpi = int(ctypes.windll.user32.GetDpiForSystem())
+        if dpi and dpi != 96:
+            root.tk.call("tk", "scaling", dpi / 72.0)
+    except Exception:
+        pass
+
+
 def _tk_main() -> int:
     """Child process: show the Tk dialog and print the result."""
+    # BEFORE tkinter is imported: a process's DPI awareness is fixed the
+    # moment it draws anything, and Tk draws as soon as it is asked for a
+    # root window.
+    _sharp_on_a_scaled_screen()
     try:
         import tkinter
         from tkinter import filedialog
@@ -162,21 +242,30 @@ def _tk_main() -> int:
     start = sys.argv[1] if len(sys.argv) > 1 else ""
     mode = sys.argv[2] if len(sys.argv) > 2 else "dir"
     root = tkinter.Tk()
+    _tk_own_scaling(root)
     root.withdraw()
     _wear_our_own_icon(root)
     root.attributes("-topmost", True)      # otherwise it opens behind the browser
     kinds = [("MangaTCT project", f"*{PROJECT_EXT}"), ("All files", "*.*")]
     where = start or os.path.expanduser("~")
+    # THE TITLE IS THE APP'S NAME, on all three. lee, with a crop of the folder
+    # picker's title bar reading "Save the translated pages where?": *"this
+    # should just say manga tct"*.
+    #
+    # On Windows this string is the WINDOW title - what the taskbar and Alt-Tab
+    # show - and not a prompt inside the dialog. A window called "Save the
+    # translated pages where?" is a window nobody can find again; the dialog
+    # itself already says what it wants, because the operating system draws
+    # "Select Folder" and a file-name box on it.
     if mode == "save":
         path = filedialog.asksaveasfilename(
-            title="Save the project as", initialdir=where,
+            title=APP_NAME, initialdir=where,
             defaultextension=PROJECT_EXT, filetypes=kinds)
     elif mode == "open":
         path = filedialog.askopenfilename(
-            title="Open which project?", initialdir=where, filetypes=kinds)
+            title=APP_NAME, initialdir=where, filetypes=kinds)
     else:
-        path = filedialog.askdirectory(
-            title="Save the translated pages where?", initialdir=where)
+        path = filedialog.askdirectory(title=APP_NAME, initialdir=where)
     root.destroy()
     if path:
         print(path)

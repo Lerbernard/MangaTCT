@@ -88,10 +88,21 @@ def test_it_is_off_without_the_checkpoint(tmp_path):
     assert "AnimeText weights" in p.why_not_animetext()
 
 
-def test_it_is_off_on_a_manhwa():
+def test_it_is_offered_on_a_strip_too_and_the_two_that_need_panels_are_not():
+    """It WAS manga-only, with the rest of them, and the guard moved when it
+    was counted on a webtoon: 1 missed of the 33 balloons and captions on
+    lee's Korean chapter, against 5 for the Chinese webtoon model. What it
+    does badly there is cut a four-line caption into four boxes, which is a
+    junk count and not a miss. See `Project.ANIME_MEDIA` and
+    `detect/webtoon.py`.
+
+    The two routes swept on manga FRAGMENTS did not move: a manhwa is one
+    tall column of colour with no panels across it."""
     p = _p(medium="manhwa", animetext=True, weights="x.onnx")
-    assert not p.animetext()
-    assert "manga" in p.why_not_animetext()
+    assert p.route_here("animetext")
+    assert "manga" not in p.why_not_animetext()
+    for key in ("two_specialists", "manga_segmenter"):
+        assert not p.route_here(key), key
 
 
 def test_the_clean_mask_is_still_required(tmp_path, monkeypatch):
@@ -157,8 +168,14 @@ def test_the_dialog_is_told_all_three_answers():
     assert set(st) == {"ready", "partly", "on", "why"}
 
 
-def test_a_manhwa_is_not_offered_the_row_at_all():
-    st = _p(medium="manhwa", animetext=True).summary()["animetext"]
+def test_a_manhwa_is_offered_the_row_and_a_western_comic_would_not_be():
+    """`partly` is what puts a disabled row on screen with the reason in it,
+    and it follows the guard the RUN is decided by. It asked `TWO_MEDIA` here
+    for as long as those were the same set and went on asking it after they
+    stopped being, which showed as a row missing from a format the route runs
+    perfectly well on."""
+    assert _p(medium="manhwa", animetext=True).summary()["animetext"]["partly"]
+    st = _p(medium="manhwa", animetext=True).summary()["two_specialists"]
     assert not st["ready"] and not st["partly"]
 
 
