@@ -28,8 +28,20 @@ CHANNEL = "beta"
 #: and by the website's build, so the two never name different doors. Empty
 #: until lee makes them; an empty one is simply not offered.
 SUPPORT = {
-    "discord": "",          # an invite link, e.g. https://discord.gg/xxxxxxx
-    "email": "",            # e.g. support@mangatct.com
+    # This has to be a NEVER-EXPIRING invite. Discord's default is 7 days and
+    # 100 uses, and this link is baked into a shipped exe as well as the site -
+    # an installed copy would go on offering a dead door long after the invite
+    # lapsed, with nothing to tell the person why nobody answered.
+    # Confirmed never-expiring by lee, 2026-09-09. Worth re-checking on the
+    # server if the invite is ever regenerated.
+    "discord": "https://discord.gg/wsuD2EnSKt",
+    # A plain Gmail, deliberately, and not a stopgap. An address on the domain
+    # was costed out - it needs a mail host and DNS records, because forwarding
+    # alone cannot SEND, and Google stopped letting a free Gmail send as an
+    # outside address in 2023. lee: *"we not dong this we doing teh email i
+    # gabve you only not forwarding just teh email"*. A working inbox somebody
+    # reads beats a better-looking one that bounces.
+    "email": "mangatct@gmail.com",
     "guide": "https://mangatctproject.web.app/tutorial",
     "download": "https://mangatctproject.web.app/download",
 }
