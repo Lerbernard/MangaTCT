@@ -198,7 +198,48 @@ def test_the_runtime_script_proves_the_import_before_it_is_done():
     ps = (PKG / "launcher" / "build_runtime.ps1").read_text(encoding="utf-8")
     assert "import mangatl.editor" in ps
     assert "import sys, tkinter" in ps, "the folder picker needs tk"
+    assert "tkinter.Tcl().eval" in ps, \
+        "an import proves the .pyd loads; a Tcl interpreter proves tcl\\ was found"
     assert "requirements_sha256" in ps, "so the first start does not pip for nothing"
+
+
+def test_the_runtime_is_a_python_that_has_tkinter_pinned_by_hash():
+    """Release #4: the parse error fixed, the script ran - and the NuGet
+    `python` package it fetched has no tkinter, so the proof at line 43
+    threw. The runtime now comes from python-build-standalone, whose Windows
+    `install_only` tarballs carry `DLLs\\_tkinter.pyd` and `tcl\\` (listed
+    from the 3.12.7+20241016 asset itself). It is pinned three ways, and a
+    download whose sha256 is not the pinned one is refused."""
+    ps = (PKG / "launcher" / "build_runtime.ps1").read_text(encoding="utf-8")
+    assert "nuget install" not in ps, "the header may say why not; the script may not run it"
+    assert "astral-sh/python-build-standalone/releases/download" in ps
+    assert "install_only_stripped.tar.gz" in ps
+    m = re.search(r'\$PythonSha256\s*=\s*"([0-9a-f]{64})"', ps)
+    assert m, "the sha256 is pinned in the script, not looked up at build time"
+    assert "Get-FileHash" in ps and "-ne $PythonSha256" in ps
+    assert "Include_tcltk" not in ps, "no installer is run - a tarball is unpacked"
+
+
+def test_the_runtime_script_parses_as_powershell():
+    """Three releases failed to parse. Two traps are held by regex - a
+    backslash is not an escape, and `"$name: ..."` reads `name:` as a drive
+    (`$env:` is the one that is meant) - and where `pwsh` is on the path,
+    which it is on the Tests workflow's runner, the real parser gets the
+    last word."""
+    path = PKG / "launcher" / "build_runtime.ps1"
+    ps = path.read_text(encoding="utf-8")
+    assert not re.findall(r'\$(?!env:)[A-Za-z_]\w*:', ps), \
+        "`$name:` inside a string is a scope qualifier - write `${name}:`"
+    import shutil
+    pwsh = shutil.which("pwsh")
+    if not pwsh:
+        pytest.skip("no pwsh here; the regexes above are what holds")
+    script = ("$t=$null;$e=$null;"
+              "[System.Management.Automation.Language.Parser]::ParseFile('%s',[ref]$t,[ref]$e)|Out-Null;"
+              "if($e){$e|%%{$_.Message};exit 1}" % str(path).replace("'", "''"))
+    r = subprocess.run([pwsh, "-NoProfile", "-Command", script],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
 def test_the_version_comes_out_of_the_zip_by_a_subcommand_not_a_one_liner(tmp_path):
