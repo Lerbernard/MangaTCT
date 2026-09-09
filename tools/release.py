@@ -135,6 +135,25 @@ def build_zip(out_dir: str) -> str:
 
 # --------------------------------------------------------------- the checks
 
+def zip_version(zip_path: str) -> str:
+    """The version written inside an app zip - read from ITS `version.py`, not
+    this checkout's, so the runtime is staged against the zip it will run.
+
+    This used to be a Python one-liner inside `build_runtime.ps1`, and the
+    one-liner needed a literal double quote, and PowerShell escapes those
+    with a backtick, not a backslash. The backslash ended the string early,
+    the stray quote after it opened another, and every release run died on
+    a ParserError before a single line of the script executed. Three runs,
+    same nineteen seconds. A subcommand here has no quoting to get wrong.
+    """
+    with zipfile.ZipFile(zip_path) as z:
+        text = z.read("mangatl/version.py").decode("utf-8")
+    m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', text, re.M)
+    if not m:
+        sys.exit("%s: no __version__ in mangatl/version.py" % zip_path)
+    return m.group(1)
+
+
 def check_tag(tag: str) -> None:
     v = version()
     if tag.lstrip("v") != v:
@@ -275,6 +294,7 @@ def main(argv=None) -> int:
     sub.add_parser("models")
     s = sub.add_parser("manifest"); s.add_argument("--base", required=True); s.add_argument("--out", default="dist")
     sub.add_parser("version")
+    s = sub.add_parser("zip-version"); s.add_argument("zip")
     s = sub.add_parser("version-info"); s.add_argument("--out", default=os.path.join(ROOT, "launcher", "version_info.txt"))
     a = ap.parse_args(argv)
     if a.cmd == "check-tag":
@@ -287,6 +307,8 @@ def main(argv=None) -> int:
         build_manifest(a.base, a.out)
     elif a.cmd == "version":
         print(version())
+    elif a.cmd == "zip-version":
+        print(zip_version(a.zip))
     elif a.cmd == "version-info":
         write_version_info(a.out)
     return 0

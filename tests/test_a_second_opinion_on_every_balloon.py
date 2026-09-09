@@ -83,6 +83,10 @@ def _stub(monkeypatch, *rects):
             out.append(m)
         return out
     monkeypatch.setattr(balloonck, "_balloons", balloons)
+    # The model is stubbed, so the engine that would run it is "present"
+    # whether or not ultralytics is installed where this runs. Without this
+    # the whole file was green on a machine with it and red on CI without.
+    monkeypatch.setattr(balloonck, "_engine_present", lambda: True)
     return calls
 
 
@@ -314,6 +318,7 @@ def test_a_model_that_blows_up_costs_nothing_and_is_retried(monkeypatch):
     def boom(img, path):
         raise RuntimeError("cuda fell over")
     monkeypatch.setattr(balloonck, "_balloons", boom)
+    monkeypatch.setattr(balloonck, "_engine_present", lambda: True)
     try:
         assert balloonck.check_page(p, 0) == 0
         assert not any(r.get("flagged") for r in p.pages[0].regions)

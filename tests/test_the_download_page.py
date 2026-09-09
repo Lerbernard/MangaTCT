@@ -128,9 +128,11 @@ def test_the_landing_page_leads_with_it_and_has_no_todo_chips(index):
 
 
 def test_the_footer_links_all_go_somewhere(index):
-    foot = index[index.index('<nav class="footlinks">'):]
-    foot = foot[:foot.index("</nav>")]
-    hrefs = re.findall(r'href="([^"]+)"', foot)
+    # Two link columns now, Product and Help; every href in both is checked.
+    foot = index[index.index("<footer"):]
+    hrefs = re.findall(r'<nav class="footlinks"[^>]*>(.*?)</nav>', foot, re.S)
+    assert len(hrefs) >= 2, "the footer has its link columns"
+    hrefs = re.findall(r'href="([^"]+)"', "".join(hrefs))
     assert hrefs, "there are some"
     assert all(h and h != "#" for h in hrefs), hrefs
     for want in ("download.html", "tutorial.html", "pricing.html"):

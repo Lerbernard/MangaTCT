@@ -199,3 +199,23 @@ def test_the_runtime_script_proves_the_import_before_it_is_done():
     assert "import mangatl.editor" in ps
     assert "import sys, tkinter" in ps, "the folder picker needs tk"
     assert "requirements_sha256" in ps, "so the first start does not pip for nothing"
+
+
+def test_the_version_comes_out_of_the_zip_by_a_subcommand_not_a_one_liner(tmp_path):
+    """Release #1, #2 and #3 all died in nineteen seconds on a PowerShell
+    ParserError: an inline Python one-liner in `build_runtime.ps1` needed a
+    literal double quote, escaped it the C way, and the backslash ended the
+    PowerShell string instead. The whole script failed to parse before a
+    line of it ran. Nothing here can execute PowerShell, so two things are
+    held instead: the script asks `release.py` for the number, and no
+    PowerShell file in the launcher carries backslash-quote at all."""
+    ps = (PKG / "launcher" / "build_runtime.ps1").read_text(encoding="utf-8")
+    assert "release.py" in ps and "zip-version" in ps
+    for f in (PKG / "launcher").glob("*.ps1"):
+        assert '\\"' not in f.read_text(encoding="utf-8"), \
+            "%s: backslash-quote is not an escape in PowerShell" % f.name
+    wf = (PKG / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert '\\"' not in wf
+    # ...and the subcommand answers with the zip's own number
+    dest = R.build_zip(str(tmp_path))
+    assert R.zip_version(dest) == R.version()

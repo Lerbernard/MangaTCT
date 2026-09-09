@@ -43,7 +43,13 @@ $python = Join-Path $py "python.exe"
 if ($LASTEXITCODE -ne 0) { throw "the staged python cannot import tkinter" }
 
 # --- the app -------------------------------------------------------------
-$version = (& $python -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print([l for l in z.read('mangatl/version.py').decode().splitlines() if l.startswith('__version__')][0].split('\"')[1])" $AppZip).Trim()
+# The version comes out of the ZIP, by a subcommand rather than an inline
+# one-liner: the one-liner needed a literal double quote, and in PowerShell
+# that is backtick-quote, not backslash-quote - the backslash ended the string, and the whole script
+# failed to PARSE, on every release, before running a line. release.py is
+# standard library only, so the bare staged python can run it.
+$version = (& $python (Join-Path $PSScriptRoot "..\tools\release.py") zip-version $AppZip).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $version) { throw "could not read the version out of $AppZip" }
 Write-Host "== app version $version"
 $appDir = Join-Path $stage "app\$version"
 if (Test-Path $appDir) { Remove-Item -Recurse -Force $appDir }

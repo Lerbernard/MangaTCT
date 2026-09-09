@@ -274,10 +274,10 @@ table.keys td:first-child{white-space:nowrap;width:1%}
         <figcaption>The page from the Clean step, finished. Every line still
         editable, box by box.</figcaption></figure>
       <div class="cols">
-        <figure class="shot"><img src="assets/clip-fit.gif" loading="lazy"
+        <figure class="shot"><img src="assets/clip-fitter.gif" loading="lazy"
           alt="A short clip of text refitting inside a balloon as it is edited">
           <figcaption>Text refits live as you edit it.</figcaption></figure>
-        <figure class="shot"><img src="assets/clip-font.gif" loading="lazy"
+        <figure class="shot"><img src="assets/clip-faces.gif" loading="lazy"
           alt="A short clip of the font being changed for one bubble">
           <figcaption>Any bubble can have its own font.</figcaption></figure>
       </div>
@@ -502,6 +502,17 @@ table.keys td:first-child{white-space:nowrap;width:1%}
         <figcaption>Pick a card. The time is for your chapter, the score is
         measured, and the amber line is what to download if you want that
         card.</figcaption></figure>
+
+      <h3 style="margin-top:30px">Which reader reads it</h3>
+      <p>Separate choice, same screen. <b>The AI reader</b> sends the page to
+      whichever model you picked and costs coins. <b>On this computer</b> runs
+      a reader on your own machine and costs nothing.</p>
+      <p class="note"><b>Korean and Chinese need one extra install to read
+      locally.</b> Japanese works out of the box; Korean and Chinese are read
+      by <b>easyocr</b>, which does not ship with the app because of its size.
+      Run <code>pip install easyocr</code> once and the local option works for
+      them too. Or point Read text at a vision model and skip it entirely -
+      that path needs nothing installed.</p>
     </div>
 
     <div class="pan" id="g-word" role="tabpanel" hidden>

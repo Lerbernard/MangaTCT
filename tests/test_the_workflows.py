@@ -209,3 +209,23 @@ def test_the_suite_leaves_nothing_at_the_root_of_the_filesystem():
     strays = [n for n in os.listdir("/")
               if "nonexistent" in n or "mangatl" in n.lower()]
     assert not strays, strays
+
+
+def test_ci_installs_the_opencv_the_app_ships_not_the_newest():
+    """`requirements.txt` holds OpenCV below 5 - 5.0's dnn engine runs the
+    text detector 2.4x slower, and, found the hard way, its local eraser
+    leaves 41% of a sound effect's writing where 4.11 leaves 25%. Both
+    workflows installed it UNPINNED and were quietly testing a library no
+    user ever gets. The pin here is read out of requirements.txt, so the two
+    cannot drift apart again."""
+    import re
+    from where import PKG
+    req = (PKG / "requirements.txt").read_text(encoding="utf-8")
+    pin = re.search(r"^(opencv-contrib-python-headless[^\s#]*)", req, re.M)
+    assert pin and "<5" in pin.group(1), "requirements.txt pins OpenCV below 5"
+    for name in ("tests.yml", "release.yml"):
+        wf = (PKG / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        assert f'"{pin.group(1)}"' in wf, \
+            "%s installs %s, not a bare opencv-contrib-python-headless" % (name, pin.group(1))
+        assert not re.search(r"opencv-contrib-python-headless(?![>=<])", wf.replace(f'"{pin.group(1)}"', "")), \
+            "%s: an unpinned opencv install is still there" % name

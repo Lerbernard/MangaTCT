@@ -121,10 +121,14 @@ def test_the_page_says_the_app_cuts_webtoon_strips_up(html):
     assert "re-cut into pages near 2,400px" in faq
     assert "cut it up first" in faq, "and it should still say where the limit is"
     manhwa = [f for f in b.FORMATS if "manhwa" in f["media"]][0]
-    assert any("three and a half times as tall as they are wide" in d
-               for _t, d in manhwa["good"]), \
-        "the height is said as a shape now, the way the app says it"
-    assert not any("quietest row" in d for _t, d in manhwa["good"]), \
+    said = " ".join(t + " " + d for t, d in manhwa["good"]).lower()
+    # The panel says the APP cuts the strip - at a gutter, keeping the files.
+    # It used to say the page height as a ratio too; that detail went in
+    # lee's pass over what a visitor needs ("the user dont need to be told
+    # that here"). The FAQ keeps the number for whoever asks.
+    assert "cut" in said and "gutter" in said, "the panel says the app does it"
+    assert "kept" in said, "and that the person's own files survive it"
+    assert "quietest row" not in said, \
         "the page must not still promise a cut the app stopped making"
     assert faq in html
 
@@ -235,21 +239,56 @@ def test_every_format_admits_what_is_rough_about_it():
             assert title.strip() and len(body) > 40, f["id"]
 
 
-def test_the_reader_that_does_not_ship_is_named_as_such(html):
+def test_the_reader_that_does_not_ship_is_named_as_such():
     """`requirements.txt` installs manga-ocr and leaves easyocr commented out,
     so Korean and Chinese have no LOCAL reader out of the box. Saying so is the
-    difference between a known limit and a bug report."""
+    difference between a known limit and a bug report.
+
+    It used to be said on the landing page, inside the "Where it is rough"
+    box. lee took that box off the site - *"the user does not need to know
+    this"* - and he is right about most of what was in it, but this one item
+    is not an admission, it is a thing you have to DO before the local reader
+    works. So it moved to the guide's Detection & OCR screen, which is where
+    somebody who has just found the local option greyed out will be looking.
+    """
     req = (PKG / "requirements.txt").read_text(encoding="utf-8")
     assert re.search(r"^#\s*easyocr", req, re.M), \
-        "easyocr now ships — the site should stop warning about it"
-    assert "pip install easyocr" in html
+        "easyocr now ships — the guide should stop telling people to install it"
+    guide = (PKG / "site" / "tutorial.html").read_text(encoding="utf-8")
+    assert "pip install easyocr" in guide
+
+
+def test_the_site_no_longer_lists_its_own_rough_edges(html):
+    """lee: *"reove this and anything like it it the user does not need to
+    know this"*. The `rough` lists stay in `FORMATS` as the engineering record
+    - two tests above still hold them written and honest - but nothing renders
+    them, so a limitation noted in the source cannot leak onto the landing
+    page again by somebody re-adding one line."""
+    assert "Where it is rough" not in html
+    assert "roughbox" not in html
+    b = _build()
+    for f in b.FORMATS:
+        for title, body in f["rough"]:
+            assert title not in html, title
+            assert body not in html, title
 
 
 # ---------------------------------------------------------------- the shell
 
 def test_the_footer_says_who_built_it(html):
-    """lee: *"at the footer make it say built by lmb techology"*."""
-    assert "Built by <b>LMB Technology</b>" in html
+    """lee: *"at the footer make it say built by lmb techology"*, and later
+    *"add teh logo of lmb thecnology"*. The credit is a link to the company,
+    carries the mark when `assets/lmb.svg` or `lmb.png` exists, and reads
+    fine without it - a footer is not the place for a labelled hole."""
+    import re
+    foot = html[html.index("<footer"):]
+    m = re.search(r'<a class="built" href="https://lmbtechnology\.com/"[^>]*>(.*?)</a>', foot, re.S)
+    assert m, "the credit is a link to lmbtechnology.com"
+    assert "Built by" in m.group(1) and "<b>LMB Technology</b>" in m.group(1)
+    b = _build()
+    has_mark = any(b.have(n) for n in ("lmb.svg", "lmb.png"))
+    assert ('class="lmb"' in m.group(1)) == has_mark, \
+        "the mark is drawn exactly when its file is there"
 
 
 def test_the_page_works_with_no_javascript(html):
@@ -432,6 +471,12 @@ def _seed(*args):
     node = shutil.which("node")
     if not node:
         pytest.skip("no node")
+    # It imports firebase-admin, which is installed under firebase/functions
+    # by `npm ci` there and nowhere else. Without it node dies with
+    # ERR_MODULE_NOT_FOUND before the guard is reached - which is not the
+    # guard failing, and was reported as if it were for three weeks on CI.
+    if not (PKG / "firebase" / "functions" / "node_modules" / "firebase-admin").exists():
+        pytest.skip("firebase/functions has no node_modules - run `npm ci` there")
     env = dict(os.environ,
                GOOGLE_CLOUD_PROJECT="mangatct-there-is-no-such-project",
                GOOGLE_APPLICATION_CREDENTIALS="")

@@ -101,16 +101,24 @@ def weights_path(p) -> str:
     return fp if os.path.isfile(fp) else ""
 
 
-def available(p) -> bool:
-    if str(p.settings.get("balloon_check") or "").strip().lower() == "off":
-        return False
-    if not weights_path(p):
-        return False
+def _engine_present() -> bool:
+    """Is the thing that runs the model installed? Its own function so a test
+    that has stubbed `_balloons` can say so and be believed. CI installs five
+    packages and ultralytics is not one of them, and for three weeks that
+    turned nine tests about the CHECK into nine tests about the runner."""
     try:
         import ultralytics  # noqa: F401
     except Exception:
         return False
     return True
+
+
+def available(p) -> bool:
+    if str(p.settings.get("balloon_check") or "").strip().lower() == "off":
+        return False
+    if not weights_path(p):
+        return False
+    return _engine_present()
 
 
 def _balloons(img: np.ndarray, path: str) -> list:

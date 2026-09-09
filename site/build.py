@@ -49,17 +49,63 @@ VERSION, CHANNEL, SUPPORT = app_version()
 RELEASES = "https://github.com/Lerbernard/MangaTCT"
 
 
+# The two glyphs, drawn once. Discord's mark is theirs and used as their brand
+# guidelines allow for a "join our server" link; the envelope is nobody's.
+DISCORD_SVG = ('<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">'
+               '<path d="M19.6 5.6A17 17 0 0 0 15.4 4.3l-.2.4a15.5 15.5 0 0 1 3.8 1.9 13.5 13.5 0 0 0-14 0 15.5 15.5 0 0 1 3.8-1.9l-.2-.4a17 17 0 0 0-4.2 1.3C1.8 9.6 1.1 13.5 1.4 17.3a17 17 0 0 0 5.2 2.6l1.1-1.8a11 11 0 0 1-1.7-.8l.4-.3a12.2 12.2 0 0 0 11.2 0l.4.3a11 11 0 0 1-1.7.8l1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3-11.7ZM8.7 15c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1S9.7 15 8.7 15Zm6.6 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1Z"/>'
+               '</svg>')
+MAIL_SVG = ('<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" '
+            'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>')
+
+
 def contact_links(cls="btn ghost"):
     """The doors that exist. A door SUPPORT leaves empty is not drawn at
     all - a button to nowhere is exactly what the yellow `todo` chips were
     marking, and drawing one is not an improvement on marking one."""
     out = []
     if SUPPORT.get("discord"):
-        out.append(f'<a class="{cls}" href="{SUPPORT["discord"]}" target="_blank" '
-                   f'rel="noopener">Ask on Discord</a>')
+        # lee: *"add teh discord logo on there too"* - the mark beside the words.
+        out.append(f'<a class="{cls} withmark" href="{SUPPORT["discord"]}" target="_blank" '
+                   f'rel="noopener">{DISCORD_SVG}Ask on Discord</a>')
     if SUPPORT.get("email"):
-        out.append(f'<a class="{cls}" href="mailto:{SUPPORT["email"]}">Email us</a>')
+        out.append(f'<a class="{cls} withmark" href="mailto:{SUPPORT["email"]}">'
+                   f'{MAIL_SVG}Email us</a>')
     return "".join(out)
+
+
+def contact_icons():
+    """The same two doors, as icons for the header. lee: *"add thse as button
+    on the top bar so taht they are easy to access"*. Icons and not words,
+    because the header had just been got back down to one row and two more
+    text pills would put it on two again. Each carries its label as a title
+    and an aria-label, so it is a real button to a screen reader and a
+    tooltip to everyone else. Drawn only when the door exists, same as the
+    text version."""
+    out = []
+    if SUPPORT.get("discord"):
+        out.append(
+            f'<a class="navb icon" href="{SUPPORT["discord"]}" target="_blank" '
+            f'rel="noopener" title="Ask on Discord" aria-label="Ask on Discord">'
+            f'{DISCORD_SVG}</a>')
+    if SUPPORT.get("email"):
+        out.append(
+            f'<a class="navb icon" href="mailto:{SUPPORT["email"]}" '
+            f'title="Email us" aria-label="Email us">'
+            f'{MAIL_SVG}</a>')
+    return "".join(out)
+
+
+def lmb_mark():
+    """The LMB Technology mark beside the credit, when the file is in
+    `assets/`. lee: *"add teh logo of lmb thecnology"*. Either `lmb.svg` or
+    `lmb.png`; the credit reads fine without it, so a missing file draws
+    nothing rather than a hole - a footer is not the place for a WANTED slot.
+    """
+    for name in ("lmb.svg", "lmb.png"):
+        if have(name):
+            return f'<img class="lmb" src="assets/{name}" alt="" width="26" height="26">'
+    return ""
 
 
 def mark(size):
@@ -119,8 +165,8 @@ AIS = [
 
 STEPS = [
     ("Translation", [
-        ("1", "Find text", "Every block of writing on the page, boxed. "
-         "comic-text-detector runs on your machine - no upload, no cost."),
+        ("1", "Find text", "Every block of writing on the page, boxed - "
+         "dialogue, captions, thoughts on the art, sound effects."),
         ("2", "Read text", "The Japanese, Korean or Chinese out of each box. "
          "Whole page in one request, or the page cut up for the small print."),
         ("3", "Translate", "Every box on the page in one go, with the "
@@ -134,10 +180,11 @@ STEPS = [
          "works exactly the same."),
     ]),
     ("Image", [
-        ("5", "Clean", "The Japanese comes off. Flat fill, tone copy, or the "
-         "AI cleaner for the hard bits. Every bubble tells you which it used."),
-        ("6", "Typeset", "The English goes in. Line breaks first, then size - "
-         "never a hyphen, never a cut sentence, never a word split."),
+        ("5", "Clean", "The Japanese comes off. Flat fill for a plain "
+         "balloon, tone copied under a screentone, the AI cleaner for the "
+         "hard bits."),
+        ("6", "Typeset", "The English goes in, fitted to the balloon. Line "
+         "breaks first, then size - the words themselves are never touched."),
     ]),
     ("Out", [
         ("7", "Export", "The finished pages. Or the cleaned plates. Or a "
@@ -235,19 +282,11 @@ FORMATS = [
         "line": "One route, two languages. Webtoon strips are cut into pages "
                 "before anything else runs.",
         "good": [
-            ("A strip uploaded as tiles is re-cut into pages, on upload",
-             "Six or more images of identical width and identical height is a "
-             "sliced strip, and it is re-cut at the gutters into pages about "
-             "three and a half times as tall as they are wide. This exists "
-             "for webtoons and has no manga equivalent."),
-            ("Every cut is a gutter, never through the artwork",
-             "The cut goes to the gutter NEAREST the target, not the first one "
-             "past it. Where the window holds none, the page runs on to the "
-             "next gutter there is, past the height limit if that is what it "
-             "takes, and you are told which pages ran over."),
-            ("Your tiles are kept, never deleted",
-             "They move into a folder beside the chapter. And nothing is "
-             "re-cut on a chapter you have already started work on."),
+            ("A sliced strip is cut back into pages, on upload",
+             "Upload the tiles a site hands you and they are re-cut into "
+             "pages - always at a gutter, never through the artwork, and your "
+             "original files are kept beside the chapter. A page that is "
+             "still the wrong length you cut yourself, with Cut / join."),
             ("Register reaches the model, in both languages",
              "Korean: \ud574\uc694\uccb4, \ud574\uccb4 and \ud569\uc1fc\uccb4, and "
              "\uc624\ube60 / \uc5b8\ub2c8 / \uc120\ubc30. Chinese: \u54e5, \u59d0, \u524d\u8f88 and the "
@@ -374,10 +413,11 @@ COMPARE = [
 
 FAQ = [
     ("What do I need to run it?",
-     "A machine with Python. The text detector is a single model file you "
-     "download once and it runs on the processor - no graphics card needed. "
-     "Reading and translating need an API key for whichever model you pick, "
-     "or a local one; cleaning can run entirely offline."),
+     "Windows 10 or 11. The installer brings its own Python, and the first "
+     "start downloads the text models - about 200 MB, once. No graphics card "
+     "needed. Reading and translating need credits or your own API key; "
+     "everything else runs offline. On macOS or Linux it runs from source - "
+     "see the download page."),
     ("Does it upload my raws?",
      "Finding text, cleaning, typesetting and exporting never leave your "
      "machine. Reading and translating send the page - or just the text - to "
@@ -445,9 +485,16 @@ def build():
             f'{slot(pic["file"], pic.get("alt") or f["tab"] + " in the editor", pic["want"], "16 / 10")}'
             f'<figcaption>{pic["cap"]}</figcaption></figure>'
             for pic in f["imgs"])
-        + '<div class="roughbox"><p class="sub rough">Where it is rough</p><dl>'
-        + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in f["rough"])
-        + "</dl></div></div></div></section>"
+        # The "Where it is rough" box that stood here is GONE from the page.
+        # lee: *"reove this and anything like it it the user does not need to
+        # know this"*. The `rough` lists stay in FORMATS as the engineering
+        # record - they are what a limitation gets written into when it is
+        # found, and two tests still hold them honest - but they are not
+        # rendered. The one item in them a person genuinely needed before
+        # installing (Korean and Chinese need `pip install easyocr`) moved to
+        # the guide's Detection & OCR screen, where somebody looking for it
+        # will actually be.
+        + "</div></div></section>"
         for i, f in enumerate(FORMATS))
 
     screens = "".join(
@@ -469,37 +516,51 @@ def build():
 
     rules = "".join(f'<article class="rule"><h4>{t}</h4><p>{d}</p></article>'
                     for t, d in RULES)
-    control = "".join(
-        f'<div class="ctl rise"><div class="ctltx"><h3>{t}</h3><p>{d}</p></div>'
-        f'<figure class="shot">{slot(img, t, want, "4 / 3")}</figure></div>'
-        for t, d, img, want in CONTROL)
+    # Three PORTRAIT screenshots - the editor's side rails, 336x905 - so
+    # three columns, picture on top, words under it. They used to be three
+    # stacked rows, each a four-line paragraph beside a tall picture in a
+    # 4:3 hole, and every row was mostly air. lee: *"chnahge teh layout ...
+    # so taht the vertcal screenshot are better integated"*. The picture is
+    # capped and fades out at the bottom rather than shown whole: a rail is
+    # 905px tall and three of those side by side is the "long screenshot"
+    # he asked not to have. The top is where the controls are.
+    control = ('<div class="ctl3 rise">' + "".join(
+        f'<div class="ctlcol">'
+        f'<figure class="shot rail">{slot(img, t, want, "336 / 520")}</figure>'
+        f'<h3>{t}</h3><p>{d}</p></div>'
+        for t, d, img, want in CONTROL) + '</div>')
     rows = "".join(
         f"<tr><th>{a}</th><td>{b}</td><td>{c}</td><td class=\"me\">{d}</td></tr>"
         for a, b, c, d in COMPARE)
     faq = "".join(f"<details><summary>{q}</summary><p>{a}</p></details>"
                   for q, a in FAQ)
 
-    # The before/after handle. Both halves have to exist for it to mean
-    # anything, so when either is missing the whole thing becomes one labelled
-    # hole rather than a slider with a hole on one side of it.
-    if have("ba-before.jpg") and have("ba-after.jpg"):
-        ba = ('<div class="ba" id="ba">'
-              '<img class="ba-a" src="assets/ba-before.jpg" alt="The raw page">'
-              '<div class="ba-b"><img src="assets/ba-after.jpg" '
-              'alt="The same page, cleaned and typeset in English"></div>'
-              '<div class="ba-h" aria-hidden="true"><i></i></div>'
-              '<input type="range" min="0" max="100" value="52" step="0.1" '
-              'aria-label="Reveal the typeset page"></div>')
-    else:
-        WANTED.append(("ba-before.jpg / ba-after.jpg",
-                       "ONE page, twice: the raw scan and the finished export, "
-                       "same size, same crop. This is the most important "
-                       "picture on the site."))
-        ba = ('<div class="slot tall" style="aspect-ratio:3 / 2">'
-              '<span class="sn">ba-before.jpg + ba-after.jpg</span>'
-              '<span class="sw">One page, twice - the raw scan and the '
-              'finished export, same size and same crop. Drop both in and '
-              'this becomes a slider you drag.</span></div>')
+    # FOUR before/after handles in a row, each a quarter of the width, not
+    # one the width of the page. lee: *"this is too big and do a mahwa page
+    # too and othe r pages 4 in total in a smaller spot"*. Every pair is one
+    # page twice - the raw scan and the finished export, same size - so the
+    # handle reveals the English under the Japanese with nothing moving.
+    # Both halves have to exist for a pair to mean anything. A pair that is
+    # not there yet is simply not drawn - the row is three wide until the
+    # fourth arrives - rather than a labelled hole on the front page of a
+    # live site. The manhwa pair (`ba4-*`) is the one still owed: lee's
+    # webtoon chapter, exported from the app, raw beside finished.
+    PAIRS = [("ba", "manga"), ("ba2", "manga"), ("ba3", "manga"), ("ba4", "manhwa")]
+
+    def one_ba(tag, what):
+        b, a = f"{tag}-before.jpg", f"{tag}-after.jpg"
+        return (f'<div class="ba">'
+                f'<img class="ba-a" src="assets/{b}" alt="A raw {what} page">'
+                f'<div class="ba-b"><img src="assets/{a}" '
+                f'alt="The same {what} page, cleaned and typeset in English"></div>'
+                f'<div class="ba-h" aria-hidden="true"><i></i></div>'
+                f'<input type="range" min="0" max="100" value="52" step="0.1" '
+                f'aria-label="Reveal the typeset {what} page"></div>')
+
+    cells = [one_ba(t, w) for t, w in PAIRS
+             if have(f"{t}-before.jpg") and have(f"{t}-after.jpg")]
+    ba = (f'<div class="ba4" style="grid-template-columns:repeat({len(cells)},1fr)">'
+          + "".join(cells) + '</div>')
 
     return f"""<!doctype html>
 <html lang="en">
@@ -621,7 +682,7 @@ section.band>.wrap:before{{content:"";position:absolute;left:24px;top:-6px;
 /* ---------------------------------------------------------------- header */
 header{{position:sticky;top:0;z-index:60;background:var(--bg);
  backdrop-filter:blur(12px) saturate(1.3);border-bottom:1px solid var(--line)}}
-.hd{{display:flex;align-items:center;gap:26px;height:64px}}
+.hd{{display:flex;align-items:center;gap:14px;height:56px}}
 .brand{{display:flex;align-items:flex-end;gap:9px;text-decoration:none;color:inherit}}
 .brand svg{{display:block}}
 /* MangaTCT is one word. `gap` on a flex row falls between EVERY child, so the
@@ -631,33 +692,37 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 /* THE APP IS IN BETA and says so wherever it says its own name.
    lee: "make the app be in beta ... mae ecrything say beta". One small pill
    beside the wordmark, the same one the editor's header wears. */
-.brand .betapill{{font:700 9px/1 system-ui;letter-spacing:.08em;
+.brand .betapill{{font:700 8px/1 system-ui;letter-spacing:.06em;
   font-style:normal;color:#0f1218;background:#ffc400;border-radius:7px;
-  padding:2.5px 5px 2px;margin-left:7px;align-self:center;
+  padding:2px 4px 1.5px;margin-left:5px;align-self:center;
   text-transform:uppercase}}
-.brand b{{font-size:25px;line-height:.82}}
-.brand i{{font-size:25px;line-height:.82;color:var(--accent);font-style:normal}}
-.hd nav{{margin-left:auto;display:flex;gap:8px;font-size:14px;
- align-items:center;flex-wrap:wrap}}
+.brand b{{font-size:20px;line-height:.82}}
+.brand i{{font-size:20px;line-height:.82;color:var(--accent);font-style:normal}}
+.hd nav{{margin-left:auto;display:flex;gap:5px;font-size:13px;
+ align-items:center;flex-wrap:nowrap;min-width:0}}
 /* Pills, not a row of words. Six links in a line all the same colour read as
    one sentence you cannot press. */
-.hd nav a,.navb{{color:var(--dim);text-decoration:none;padding:7px 13px;
+.hd nav a,.navb{{color:var(--dim);text-decoration:none;padding:6px 10px;
  border:1px solid transparent;border-radius:999px;line-height:1;
- white-space:nowrap;background:var(--panel2);font:inherit;font-size:14px;
+ white-space:nowrap;background:var(--panel2);font:inherit;font-size:13px;
  font-weight:600;cursor:pointer;display:inline-flex;align-items:center;
  gap:7px;transition:color .15s ease,border-color .15s ease,
  background .15s ease,transform .15s ease}}
 .hd nav a:hover,.navb:hover{{color:var(--fg);border-color:transparent;
  background:var(--line);transform:translateY(-1px)}}
-.navb.icon{{padding:7px;width:34px;height:34px;justify-content:center;
+.navb.icon{{padding:6px;width:30px;height:30px;justify-content:center;
  color:var(--dim)}}
 .navb svg{{display:block}}
 .btn{{display:inline-block;background:var(--accent);color:var(--on-accent);
  padding:11px 20px;border-radius:9px;font-weight:700;text-decoration:none;
- font-size:15px;border:1px solid var(--accent);transition:transform .12s ease,
- background .12s ease}}
+ font-size:15px;border:1px solid var(--accent);white-space:nowrap;
+ transition:transform .12s ease,background .12s ease}}
+/* The two in the header are smaller than the ones in the page body. */
+.hd .btn{{padding:8px 14px;font-size:13.5px;border-radius:8px}}
 .btn:hover{{filter:brightness(1.07);transform:translateY(-1px)}}
 .btn.ghost{{background:transparent;color:var(--fg);border-color:var(--line2)}}
+.btn.withmark{{display:inline-flex;align-items:center;gap:9px}}
+.btn.withmark svg{{flex:none}}
 .btn.ghost:hover{{background:var(--panel2)}}
 
 /* ------------------------------------------------------------------ hero */
@@ -713,17 +778,22 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 .slot .sw{{font-size:13.5px;max-width:46ch;color:var(--dim)}}
 
 /* ----------------------------------------------------------- before/after */
+.ba4{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}}
+/* Every cell is the shape of a manga page, whatever is in it: a taller
+   manhwa page is cropped to its top rather than making its column taller
+   than the other three. Same rule as the rails in Editorial control. */
+.ba{{aspect-ratio:960 / 1365}}
 .ba{{position:relative;border:1px solid var(--line);border-radius:var(--r);
  overflow:hidden;background:var(--panel);touch-action:none;
- box-shadow:0 30px 80px rgba(0,0,0,.5)}}
-.ba img{{width:100%;display:block}}
+ box-shadow:0 18px 50px rgba(0,0,0,.45)}}
+.ba img{{width:100%;height:100%;object-fit:cover;object-position:top;display:block}}
 .ba-b{{position:absolute;inset:0;width:var(--x,52%);overflow:hidden}}
 .ba-b img{{position:absolute;top:0;left:0;height:100%;width:auto;
  max-width:none}}
 .ba-h{{position:absolute;top:0;bottom:0;left:var(--x,52%);width:2px;
  background:var(--accent);transform:translateX(-1px);pointer-events:none}}
-.ba-h i{{position:absolute;top:50%;left:50%;width:44px;height:44px;
- margin:-22px 0 0 -22px;border-radius:50%;background:var(--accent);
+.ba-h i{{position:absolute;top:50%;left:50%;width:32px;height:32px;
+ margin:-16px 0 0 -16px;border-radius:50%;background:var(--accent);
  box-shadow:0 4px 18px rgba(0,0,0,.5)}}
 .ba input[type=range]{{position:absolute;inset:0;width:100%;height:100%;
  opacity:0;cursor:ew-resize;margin:0}}
@@ -784,14 +854,6 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 .sub{{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;
  font-weight:700;margin:0 0 16px}}
 .sub.good{{color:var(--ok)}}
-.sub.rough{{color:var(--warn)}}
-/* The rough column is usually shorter than the good one, and a short bare
-   column reads as a mistake. Boxing it makes the asymmetry look like what it
-   is - a deliberately shorter list - and it is the part worth reading twice. */
-.roughbox{{background:var(--panel);border:1px solid var(--line);
- border-left:3px solid var(--warn);border-radius:var(--r);padding:22px 24px 6px;
- align-self:start}}
-.roughbox dd:last-of-type{{margin-bottom:16px}}
 dl{{margin:0}}
 dt{{font-weight:650;margin:0 0 4px}}
 dd{{margin:0 0 18px;color:var(--dim);font-size:14.5px}}
@@ -810,10 +872,19 @@ figure.shot{{margin:0}}
 figure.shot img{{border:1px solid var(--line);border-radius:var(--r);
  background:var(--panel)}}
 figcaption{{color:var(--dim);font-size:13px;margin-top:9px;max-width:70ch}}
-.ctl{{display:grid;grid-template-columns:1fr 400px;gap:36px;align-items:center;
- padding:30px 0;border-top:1px solid var(--line)}}
-.ctl:first-child{{border-top:0;padding-top:0}}
-.ctl p{{color:var(--dim);margin:0}}
+.ctl3{{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;align-items:start}}
+.ctlcol h3{{margin:16px 0 6px;font-size:19px}}
+.ctlcol p{{color:var(--dim);margin:0;font-size:15px}}
+/* The rail, cropped to its top and faded out, never scaled past its own
+   pixels - 336 wide is what it is, so it sits centred in its column crisp. */
+figure.shot.rail{{position:relative;max-width:336px;margin:0 auto;height:520px;
+ overflow:hidden;border-radius:var(--r);border:1px solid var(--line)}}
+figure.shot.rail img{{width:100%;height:100%;object-fit:cover;object-position:top;
+ border:0;border-radius:0;display:block}}
+figure.shot.rail .slot{{height:100%}}
+figure.shot.rail:after{{content:"";position:absolute;left:0;right:0;bottom:0;
+ height:110px;background:linear-gradient(to bottom,transparent,var(--bg));
+ pointer-events:none}}
 .clips{{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}}
 .clip{{background:var(--panel);border:1px solid var(--line);
  border-radius:var(--r);padding:14px}}
@@ -842,18 +913,29 @@ summary:before{{content:"+";color:var(--accent);margin-right:11px;
 details[open] summary:before{{content:"\\2013"}}
 details p{{color:var(--dim);margin:10px 0 0 23px;max-width:78ch}}
 
-footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
+footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
  font-size:14px;background:var(--bg2)}}
-.foot{{display:flex;gap:22px;flex-wrap:wrap;align-items:center}}
+.foot{{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:40px;align-items:start}}
+.footabout p{{margin:14px 0 0;max-width:38ch;font-size:14.5px;line-height:1.55;color:var(--dim)}}
+.footlinks b{{display:block;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+ color:var(--dim2);margin-bottom:4px;font-weight:700}}
+.footlinks a svg{{width:15px;height:15px;flex:none;opacity:.85}}
+.footbar{{display:flex;justify-content:space-between;align-items:center;gap:18px;
+ margin-top:40px;padding-top:22px;border-top:1px solid var(--line);
+ font-size:13px;color:var(--dim2);flex-wrap:wrap}}
+.built{{display:inline-flex;align-items:center;gap:9px;color:var(--dim2);
+ text-decoration:none;padding:8px 12px;border-radius:10px;border:1px solid transparent}}
+.built:hover{{border-color:var(--line);background:var(--panel2);color:var(--dim)}}
+.built img.lmb{{display:block;width:26px;height:26px;border-radius:7px}}
+.built b{{color:var(--fg);font-weight:650}}
 /* The footer links. They replaced a placeholder chip, so every one of them
    goes somewhere real - and the two that depend on doors lee has not built
    yet are drawn by `contact_links` only once they exist. */
-.footlinks{{display:flex;gap:16px;flex-wrap:wrap}}
-.footlinks a{{color:var(--dim);text-decoration:none;border-bottom:1px solid transparent}}
+.footlinks{{display:flex;flex-direction:column;gap:9px}}
+.footlinks a{{color:var(--dim);text-decoration:none;display:inline-flex;align-items:center;
+ gap:8px;width:fit-content;border-bottom:1px solid transparent;font-size:14.5px}}
 .footlinks a:hover{{color:var(--fg);border-bottom-color:var(--accent)}}
 .foot .brand b,.foot .brand i{{font-size:20px}}
-.built{{margin-left:auto;color:var(--dim2)}}
-.built b{{color:var(--fg);font-weight:650}}
 @media(max-width:980px){{
  .walk{{grid-template-columns:1fr;gap:24px}}
  .walk .rail{{position:static}}
@@ -861,7 +943,9 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
  .walk .rail li{{border-left:0;border-bottom:2px solid var(--line);
   padding:6px 10px 8px;white-space:nowrap}}
  .walk .rail li.on{{border-bottom-color:var(--accent)}}
- .pantop,.two,.two.tight,.ctl,.g3,.g2,.clips,.gsteps{{grid-template-columns:1fr}}
+ .pantop,.two,.two.tight,.ctl3,.g3,.g2,.clips,.gsteps{{grid-template-columns:1fr}}
+ .foot{{grid-template-columns:1fr 1fr;gap:28px}} .footabout{{grid-column:1 / -1}}
+ .ba4{{grid-template-columns:1fr 1fr!important}}
  .ais{{grid-template-columns:1fr}}
  /* The in-page anchors go; Pricing and the theme control stay. Hiding the
     whole nav took the theme button with it, which is the one thing on this
@@ -877,16 +961,17 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
 </style>
 
 <header><div class="wrap hd">
-  <a class="brand" href="#top">{mark(28)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
+  <a class="brand" href="#top">{mark(24)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
   <nav>
     <a href="#how">How it works</a>
-    <a href="#formats">Manga | manhwa | manhua</a>
+    <a href="#formats">Formats</a>
     <a href="#control">Control</a>
     <a href="#compare">Compare</a>
     <a href="#credits">Coins</a>
     <a href="tutorial.html">Guide</a>
     <a href="fonts.html">Fonts</a>
     <a href="pricing.html">Pricing</a>
+    {contact_icons()}
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
   <a class="btn ghost" href="signin.html">Sign in</a>
@@ -906,10 +991,8 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
     <a class="btn" href="download.html">Download for Windows - free</a>
     <a class="btn ghost" href="#how">See it work</a>
   </div>
-  <p class="note">Version {VERSION}{" (" + CHANNEL + ")" if CHANNEL else ""} - it updates
-  itself. Free credits on signup, no card. Finding text, cleaning and
-  typesetting run on your own machine and cost nothing.</p>
-  <div class="heroshot">{slot('ui-hero-real.jpg',
+  <p class="note">Windows 10 and 11. Version {VERSION}{" (" + CHANNEL + ")" if CHANNEL else ""}.</p>
+  <div class="heroshot">{slot('ui-hero.jpg',
     'The MangaTCT workspace: a chapter typeset in English, with the seven '
     'steps across the top and the cleaning panel on the right',
     'The workspace on a finished chapter, the whole window', '16 / 10')}</div>
@@ -927,21 +1010,21 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="lead rise">One file, both ends of the pipeline. Pull the handle
   across.</p>
   <div class="rise" style="margin:30px 0 0">{ba}</div>
-  <div class="balabels"><span>Raw</span><span>Typeset</span></div>
+  <div class="balabels"><span>Drag any handle</span><span>Real pages from a real chapter</span></div>
   <div class="clips rise" style="margin-top:36px">
-    <div class="clip">{slot('clip-pipeline.gif',
+    <div class="clip">{slot('clip-stages.gif',
       'The three stages cycling: raw, cleaned, typeset',
       'A short loop of one page going raw to cleaned to typeset')}
       <h4>The three stages</h4>
       <p>Find and read, clean, typeset. Each stage is a step you can run, undo
       and run again on one page or the whole chapter.</p></div>
-    <div class="clip">{slot('clip-fit.gif',
+    <div class="clip">{slot('clip-fitter.gif',
       'One balloon typeset with four different lengths of English',
       'A loop of one balloon fitted with four lengths of English')}
       <h4>The fitter, working</h4>
       <p>Same balloon, four lengths of English. It changes the breaks and the
-      size - 34pt down to 16pt - and never the words.</p></div>
-    <div class="clip">{slot('clip-font.gif',
+      size - the label on each frame is the size it chose - and never the words.</p></div>
+    <div class="clip">{slot('clip-faces.gif',
       'The same balloon typeset in four different fonts',
       'A loop of one balloon in four different faces')}
       <h4>One block, four faces</h4>
@@ -975,9 +1058,7 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="lead rise" style="margin-bottom:30px">All three are supported end
   to end. Manga is a different job from the other two - a tool that pretends
   otherwise hands you a Korean chapter numbered backwards. Manhwa and manhua
-  are the same job in two languages, and they share a tab here because they
-  share a code path in the app. Here is what actually differs - including the
-  parts that are still rough.</p>
+  are the same job in two languages. Here is what actually differs.</p>
   <div class="tabs rise" role="tablist" id="fmttabs">{fmt_tabs}</div>
   <div class="rise" id="fmtpanels">{fmt_panels}</div>
   <p class="note" style="margin-top:30px">Everything AFTER the words is the
@@ -999,8 +1080,8 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <p class="lead rise">This is the part most tools skip. Everything the pipeline
   decided is a value you can see and change, on the page, without leaving the
   editor and without starting again.</p>
-  <div style="margin-top:30px">{control}</div>
-  <div class="rise" style="margin-top:38px">{shot('ui-typesetting-full.jpg',
+  <div style="margin-top:34px">{control}</div>
+  <div class="rise" style="margin-top:38px">{shot('ui-workspace.jpg',
     'The whole workspace with one block selected and the typesetting panel open',
     'One block picked, and every control that applies to it.',
     'The workspace with a block selected and the typesetting rail open')}</div>
@@ -1013,18 +1094,19 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   is not saving you work - it is hiding work you now have to find.</p>
   <div class="grid g3 rise" style="margin-top:28px">{rules}</div>
   <div class="grid g2 rise" style="margin-top:30px">
-    {shot('cmp-substitutes.jpg',
-      'The same page typeset twice, with glyph substitution off and on',
-      'Your font, and only your font. Left: the switch off - the character '
-      'your face cannot draw is KEPT and the box is flagged by name. Right: '
-      'the switch on, if you want it.',
-      'One page typeset twice: substitution off, then on', '4 / 3')}
-    {shot('cmp-spill.jpg',
-      'A sound effect typeset inside its box, and again spilling out of it',
-      'Outside text and sound effects sit on artwork, not on paper. Rather '
-      'than shrink under the legible minimum they are set at it and allowed '
-      'to run past the box - the way a typesetter would.',
-      'The same effect at the minimum size, boxed and spilling', '4 / 3')}
+    {shot('rule-font.jpg',
+      'A finished page: every balloon set in one face, nothing borrowed',
+      'Your font, and only your font. Every glyph on this page is the face '
+      'that was picked for it - nothing borrowed from another family to '
+      'fill a gap. A glyph the face cannot draw is kept and flagged, never '
+      'quietly swapped.',
+      'A finished panel in one face, from a real chapter', '5 / 3')}
+    {shot('rule-spill.jpg',
+      'Three SPLASH sound effects typeset across the top of a panel',
+      'Sound effects sit on the artwork, not in a balloon. They are set at a '
+      'size you can read and allowed to run across the panel - the way the '
+      'original ink did, and the way a typesetter would draw it.',
+      'A sound effect running across a panel, from a real chapter', '3 / 1')}
   </div>
 </div></section>
 
@@ -1038,15 +1120,8 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
       careful one on the words. <b>Claude, Google AI Studio or OpenRouter</b> -
       one key per service, not one per step - or a model running on your own
       machine.</p>
-      <p>The menu only ever offers models this app can PRICE and your key can
-      actually REACH, crossed together. A model you cannot run never appears in
-      it, and neither does one nobody has priced. Nothing a generation behind
-      is offered at all.</p>
-      <p><b>Or do it entirely by hand.</b> Turn on manual translation and the
-      three model steps go quiet. You get a labelled text file with every box
-      numbered the way the box sheet numbers it, the original beside each one
-      and room to type underneath. Fill in as much as you like, upload it back,
-      and whatever is in it wins.</p>
+      <p>The menu only shows models your key can actually reach, so you are
+      never offered one you cannot run.</p>
     </div>
     <figure class="shot">{slot('ui-settings-models-real.jpg',
       'Per-step model settings',
@@ -1059,15 +1134,6 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   the calculator on the coins page will tell you the number before you spend
   anything.</p>
   <div class="ais rise">{ais}</div>
-  <p class="note">Or your own key, or a model on your own machine, in which
-  case none of this costs anything here.</p>
-
-  <div class="rise" style="margin-top:38px">{shot('ui-settings-fonts-real.jpg',
-    'Settings: fonts and typesetting, with a face per box type',
-    'Fonts you upload stay with YOU, not with the chapter - the next project '
-    'already has them. Every box type gets its own face, and you can add your '
-    'own types: caption box, thought bubble, burst, whisper, aside, sign.',
-    'Settings ▸ Fonts and typesetting')}</div>
 </div></section>
 
 <section class="band" id="compare"><div class="wrap">
@@ -1117,20 +1183,34 @@ footer{{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--dim);
   <div class="rise" style="margin-top:22px">{faq}</div>
 </div></section>
 
-<footer><div class="wrap foot">
-  <a class="brand" href="#top">{mark(22)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
-  <span>Translate | clean | typeset. v{VERSION}</span>
-  <nav class="footlinks">
-    <a href="download.html">Download</a>
-    <a href="tutorial.html">Guide</a>
-    <a href="fonts.html">Fonts</a>
-    <a href="pricing.html">Coins</a>
-    <a href="account.html">Account</a>
-    <a href="{RELEASES}" target="_blank" rel="noopener">Source (GPL-3.0)</a>
-    {('<a href="' + SUPPORT["discord"] + '" target="_blank" rel="noopener">Discord</a>') if SUPPORT.get("discord") else ""}
-    {('<a href="mailto:' + SUPPORT["email"] + '">' + SUPPORT["email"] + '</a>') if SUPPORT.get("email") else ""}
-  </nav>
-  <span class="built">Built by <b>LMB Technology</b></span>
+<footer><div class="wrap">
+  <div class="foot">
+    <div class="footabout">
+      <a class="brand" href="#top">{mark(22)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
+      <p>Translate, clean and typeset manga, manhwa and manhua - and keep
+      every decision the machine made where you can change it.</p>
+    </div>
+    <nav class="footlinks" aria-label="Product">
+      <b>Product</b>
+      <a href="download.html">Download</a>
+      <a href="tutorial.html">Guide</a>
+      <a href="fonts.html">Fonts</a>
+      <a href="pricing.html">Coins</a>
+      <a href="account.html">Account</a>
+    </nav>
+    <nav class="footlinks" aria-label="Help">
+      <b>Help</b>
+      {('<a href="' + SUPPORT["discord"] + '" target="_blank" rel="noopener">' + DISCORD_SVG + 'Discord</a>') if SUPPORT.get("discord") else ""}
+      {('<a href="mailto:' + SUPPORT["email"] + '">' + MAIL_SVG + SUPPORT["email"] + '</a>') if SUPPORT.get("email") else ""}
+      <a href="{RELEASES}" target="_blank" rel="noopener">Source on GitHub</a>
+      <a href="{RELEASES}/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 license</a>
+    </nav>
+  </div>
+  <div class="footbar">
+    <span>v{VERSION}{" " + CHANNEL if CHANNEL else ""}</span>
+    <a class="built" href="https://lmbtechnology.com/" target="_blank" rel="noopener">
+      <span>Built by</span>{lmb_mark()}<b>LMB Technology</b></a>
+  </div>
 </div></footer>
 
 <script>
@@ -1239,8 +1319,7 @@ document.documentElement.classList.remove('nojs');
      over the picture at zero opacity - so dragging, tapping and the arrow
      keys all work without a line of pointer code, and a screen reader gets a
      slider rather than a div. */
-  var ba = document.getElementById('ba');
-  if (ba) {{
+  document.querySelectorAll('.ba').forEach(function(ba){{
     var r = ba.querySelector('input[type=range]');
     var b = ba.querySelector('.ba-b img');
     function put(){{
@@ -1251,7 +1330,7 @@ document.documentElement.classList.remove('nojs');
     addEventListener('resize', put);
     addEventListener('load', put);
     put();
-  }}
+  }});
 }})();
 </script>
 </html>
