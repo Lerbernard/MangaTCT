@@ -218,9 +218,17 @@ def check_models() -> None:
 
 # ------------------------------------------------------------- the manifest
 
-def build_manifest(base: str, out_dir: str) -> str:
+def build_manifest(base: str, out_dir: str, need_installer: bool = False) -> str:
     """What the launcher reads. `base` is where the release assets will be
-    served from, with a trailing slash."""
+    served from, with a trailing slash.
+
+    `need_installer`: refuse to write a manifest when `MangaTCT-Setup-<v>.exe`
+    is not beside the zip. Release #5 built everything, uploaded a 5 MB
+    artifact and failed at publish with "Pattern 'dist/MangaTCT-Setup-*.exe'
+    does not match any files": Inno Setup had written the installer under
+    `launcher\dist\` (a relative `OutputDir` is relative to the SCRIPT), and
+    this step, which ran after it and looked in the right folder, said
+    nothing. The command line the workflow runs now asks for it."""
     v = version()
     app = os.path.join(out_dir, "mangatct-app-%s.zip" % v)
     if not os.path.isfile(app):
@@ -239,6 +247,11 @@ def build_manifest(base: str, out_dir: str) -> str:
         "minimum_launcher": "1.0.0",
     }
     setup = os.path.join(out_dir, "MangaTCT-Setup-%s.exe" % v)
+    if need_installer and not os.path.isfile(setup):
+        print("no %s - the installer is not where the release expects it; "
+              "installer.iss writes to ..\\dist relative to launcher\\, check "
+              "OutputDir and the ISCC log" % setup, file=sys.stderr)
+        raise SystemExit(2)
     if os.path.isfile(setup):
         man["installer"] = {"version": v, "url": base + os.path.basename(setup),
                             "sha256": sha256_of(setup), "size": os.path.getsize(setup)}
@@ -293,6 +306,11 @@ def main(argv=None) -> int:
     s = sub.add_parser("zip"); s.add_argument("--out", default="dist")
     sub.add_parser("models")
     s = sub.add_parser("manifest"); s.add_argument("--base", required=True); s.add_argument("--out", default="dist")
+    # From the command line the installer is REQUIRED unless said otherwise:
+    # the command line is what the release workflow runs, and a release with
+    # no installer in it is the thing that must not go quietly.
+    s.add_argument("--no-installer", action="store_true",
+                   help="write a manifest with no installer entry (not a release)")
     sub.add_parser("version")
     s = sub.add_parser("zip-version"); s.add_argument("zip")
     s = sub.add_parser("version-info"); s.add_argument("--out", default=os.path.join(ROOT, "launcher", "version_info.txt"))
@@ -304,7 +322,7 @@ def main(argv=None) -> int:
     elif a.cmd == "models":
         check_models()
     elif a.cmd == "manifest":
-        build_manifest(a.base, a.out)
+        build_manifest(a.base, a.out, need_installer=not a.no_installer)
     elif a.cmd == "version":
         print(version())
     elif a.cmd == "zip-version":

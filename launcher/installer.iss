@@ -39,7 +39,12 @@ DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=dist
+; Relative to THIS FILE's folder, like SetupIconFile below - not to the
+; working directory. `dist` alone put the installer in launcher\dist, where
+; the workflow's upload pattern (dist\MangaTCT-Setup-*.exe) never looked, and
+; Release #5 published nothing. `..\dist` is the repository's dist, beside
+; the app zip and the manifest that names it.
+OutputDir=..\dist
 OutputBaseFilename=MangaTCT-Setup-{#AppVersion}
 SetupIconFile=..\static\icon.ico
 UninstallDisplayIcon={app}\MangaTCT.exe

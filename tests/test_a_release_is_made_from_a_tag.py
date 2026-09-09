@@ -194,6 +194,39 @@ def test_a_recommended_weight_stops_a_start_from_nothing_and_a_release_from_noth
         "nothing required may rest on a url that has never been fetched"
 
 
+def test_the_installer_lands_where_the_release_looks_for_it(tmp_path):
+    """Release #5: the Windows job went green, the artifact was 5 MB, and
+    publish failed with "Pattern 'dist/MangaTCT-Setup-*.exe' does not match
+    any files". Inno Setup's `OutputDir` is relative to the SCRIPT, so
+    `OutputDir=dist` wrote to `launcher\\dist` while everything else read
+    `dist`. Two things now hold: the script says `..\\dist`, and the manifest
+    step - the last one that runs on the installer's folder - refuses to write
+    a release manifest when the installer is not in it."""
+    iss = (PKG / "launcher" / "installer.iss").read_text(encoding="utf-8")
+    m = re.search(r"^OutputDir=(.+)$", iss, re.M)
+    assert m and m.group(1).strip() == "..\\dist", \
+        "relative to launcher\\, so ..\\dist is the repository's dist"
+    wf = (PKG / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "mangatl/dist/MangaTCT-Setup-*.exe" in wf, \
+        "the upload pattern is the folder the .iss now writes to"
+    # the command line the workflow runs refuses without the installer...
+    R.build_zip(str(tmp_path))
+    r = subprocess.run([sys.executable, str(PKG / "tools" / "release.py"), "manifest",
+                        "--out", str(tmp_path), "--base", "https://x/v1.0.0/"],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 2 and "MangaTCT-Setup-" in r.stderr, r.stderr
+    assert not (tmp_path / "manifest.json").exists()
+    # ...and writes the installer's entry once it is there
+    (tmp_path / ("MangaTCT-Setup-%s.exe" % R.version())).write_bytes(b"MZ" + b"\0" * 100)
+    r = subprocess.run([sys.executable, str(PKG / "tools" / "release.py"), "manifest",
+                        "--out", str(tmp_path), "--base", "https://x/v1.0.0/"],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    man = json.loads((tmp_path / "manifest.json").read_text())
+    assert man["installer"]["url"] == "https://x/v1.0.0/MangaTCT-Setup-%s.exe" % R.version()
+    assert man["installer"]["size"] == 102
+
+
 def test_the_runtime_script_proves_the_import_before_it_is_done():
     ps = (PKG / "launcher" / "build_runtime.ps1").read_text(encoding="utf-8")
     assert "import mangatl.editor" in ps
