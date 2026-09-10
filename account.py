@@ -295,7 +295,11 @@ def _keep(got: dict, **extra) -> None:
     d = _read()
     d.update({
         "idToken": got.get("idToken") or got.get("id_token") or "",
-        "refreshToken": got.get("refreshToken") or got.get("refresh_token") or "",
+        # A reply with no refresh token in it is not a sign-out. Google's
+        # refresh endpoint always returns one; anything else that lands here
+        # keeps the credential that got it.
+        "refreshToken": got.get("refreshToken") or got.get("refresh_token")
+                        or d.get("refreshToken", ""),
         "uid": got.get("localId") or got.get("user_id") or d.get("uid", ""),
         "email": got.get("email") or d.get("email", ""),
         "expires": time.time() + float(got.get("expiresIn")
@@ -305,12 +309,19 @@ def _keep(got: dict, **extra) -> None:
     _write(d)
 
 
-def token() -> str:
-    """A live ID token, refreshed if the one on disk has run out."""
+def token(force: bool = False) -> str:
+    """A live ID token, refreshed if the one on disk has run out.
+
+    `force`: fetch a new one even though the old one has time left. The
+    token carries `email_verified`, and it is minted when it is minted: for
+    up to an hour after the person clicks the link in the mail, the token
+    the editor holds still says the address is unverified, and the server -
+    which reads the token and nothing else - keeps the hundred coins back.
+    A refresh is what turns the claim over."""
     d = _read()
     if not d.get("refreshToken"):
         raise NotSignedIn()
-    if d.get("idToken") and float(d.get("expires") or 0) > time.time() + EARLY:
+    if not force and d.get("idToken") and float(d.get("expires") or 0) > time.time() + EARLY:
         return d["idToken"]
     c = config()
     got = _post("%s?key=%s" % (REFRESH, urllib.parse.quote(c.get("apiKey", ""))),
@@ -369,12 +380,54 @@ def sign_up(email: str, password: str, username: str = "") -> dict:
             claim_username(username)
         except AccountError:
             pass
+    # The link that makes the address a verified one - and a verified one is
+    # what the hundred free coins are given to. Best effort: an account that
+    # was made is an account, and the coin panel offers the mail again.
+    try:
+        send_verification()
+    except AccountError:
+        pass
     return refresh_me()
 
 
 def reset_password(email: str) -> None:
     _identity("sendOobCode", {"requestType": "PASSWORD_RESET",
                               "email": (email or "").strip()})
+
+
+def send_verification() -> None:
+    """The verification mail, to the signed-in account's own address. The
+    link in it lands on the website's account page, which is where the
+    coins are first seen; the editor sees them on its next look."""
+    _identity("sendOobCode", {"requestType": "VERIFY_EMAIL",
+                              "idToken": token()})
+
+
+# How often, while the free coins are still owed, the editor turns its token
+# over on its own to see whether the link has been clicked. The person can
+# press the button and not wait; this is for the one who clicked the link and
+# came back to the editor expecting the number to have changed.
+RECHECK_VERIFIED = 300.0
+
+
+def _turn_token() -> None:
+    """A fresh ID token now, and a note of when, so the automatic turnover in
+    `refresh_me` does not do it again a moment later."""
+    try:
+        token(force=True)
+    except AccountError:
+        pass
+    d = _read()
+    d["token_turned"] = time.time()
+    _write(d)
+
+
+def claim_welcome() -> dict:
+    """The person says they clicked the link: fetch a token that knows, and
+    ask the server - which gives the coins on that same call if it is so."""
+    _turn_token()
+    _MEM.pop("balance", None)
+    return refresh_me()
 
 
 def claim_username(name: str) -> str:
@@ -387,12 +440,24 @@ def claim_username(name: str) -> str:
 
 def refresh_me() -> dict:
     """Ask the server what the account holds, and remember it."""
+    d = _read()
+    if d.get("welcome_due") and not d.get("verified") \
+            and time.time() - float(d.get("token_turned") or 0) > RECHECK_VERIFIED:
+        # The coins are owed and the token on disk was minted unverified.
+        # Turn it over now and then, so a link clicked in a browser reaches
+        # the editor within minutes rather than within the hour.
+        _turn_token()
     got = call("me")
     d = _read()
     d["username"] = got.get("username") or d.get("username", "")
     d["photo"] = got.get("photo") or d.get("photo", "")
     d["plan"] = got.get("plan") or {}
     d["balance"] = int(got.get("coins") or 0)
+    d["verified"] = bool(got.get("verified"))
+    w = got.get("welcome") or {}
+    d["welcome_due"] = bool(w.get("due"))
+    d["welcome_coins"] = int(w.get("coins") or 0)
+    d["welcome_given"] = bool(w.get("given"))
     d["checked"] = time.time()
     _write(d)
     return got
@@ -469,10 +534,19 @@ def state() -> dict:
     d = _read()
     live = bool(d.get("refreshToken"))
     coins = balance() if live else 0
+    d = _read()
     return {"configured": configured(), "signed_in": live,
-            "email": d.get("email", ""), "username": _read().get("username", ""),
-            "photo": _read().get("photo", ""), "plan": _read().get("plan") or {},
-            "balance": coins}
+            "email": d.get("email", ""), "username": d.get("username", ""),
+            "photo": d.get("photo", ""), "plan": d.get("plan") or {},
+            "balance": coins,
+            # The free coins: owed until the email is verified, and how many.
+            # `welcome_due` and not `verified` is the state with a button in
+            # it; verified and still due is an address that had its coins on
+            # an earlier account, and is shown nothing.
+            "verified": bool(d.get("verified")),
+            "welcome_due": bool(live and d.get("welcome_due")),
+            "welcome_coins": int(d.get("welcome_coins") or 0),
+            "welcome_given": bool(d.get("welcome_given"))}
 
 
 # ------------------------------------------------------------- from the shell

@@ -6404,6 +6404,14 @@ class Handler(BaseHTTPRequestHandler):
                         account.claim_username(str(body.get("username") or ""))
                     elif do == "reset":
                         account.reset_password(str(body.get("email") or ""))
+                    elif do == "verify":
+                        # The verification mail again. The hundred free coins
+                        # wait on it - see `welcomeIfDue` in the functions.
+                        account.send_verification()
+                    elif do == "claim":
+                        # "I clicked the link": a fresh token, and the server
+                        # gives the coins on the same call if it is so.
+                        account.claim_welcome()
                     else:
                         return self._json({"error": "do what?"}, 400)
                 except account.AccountError as e:

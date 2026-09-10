@@ -81,6 +81,15 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Which email addresses have had their hundred free coins, keyed by a
+    // hash of the address. Written by `me` when a verified account first
+    // calls it, read by nothing but that same function. The catch-all below
+    // already says this; it is written out because a collection that decides
+    // whether money moves should not be protected by default alone.
+    match /welcomed/{hash} {
+      allow read, write: if false;
+    }
+
     // Anything not named above. A rule file that ends without this is one
     // forgotten `match` away from being open.
     match /{document=**} {

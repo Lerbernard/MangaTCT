@@ -1771,6 +1771,8 @@ body.laydragging .lay{cursor:grabbing}
 .wacct{display:flex;align-items:center;gap:8px;margin:8px 0 2px;
  padding:8px 8px;border-radius:8px;background:#ffffff08}
 .wacct .wnote{margin:0;flex:1}
+.wacct.wwelcome{flex-wrap:wrap}
+.wacct.wwelcome .wnote{flex:1 1 100%}
 .wacct .wwho{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
  white-space:nowrap;font-size:12px}
 .wacct button{flex:none}

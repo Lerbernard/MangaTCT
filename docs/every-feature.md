@@ -2129,9 +2129,13 @@ Seven functions:
 **All amount logic is in a separate, Firebase-free file.** The rule is: if an
 `if` in the function file decides an amount, it is in the wrong file.
 
-An account starts at **zero on the server**. There is no welcome grant, because
-a free sample anybody can have again with another email address is not a free
-sample, it is the price.
+An account starts at **zero on the server** and is given **100 free coins once
+its email is verified** — on the first `me` call whose ID token says
+`email_verified`, once per uid and once per (hashed) address, so a free sample
+cannot be had again with the same address and costs a verified inbox for a new
+one. The site's account page and the editor's coin panel both say the coins
+are waiting, offer the mail again, and take "I clicked it" (which refreshes the
+token before asking).
 
 ### The security rules
 

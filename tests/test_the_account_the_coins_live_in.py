@@ -290,7 +290,11 @@ def test_nothing_private_to_this_process_is_left_in_the_token_file(project,
     assert [k for k in on_disk if k.startswith("_")] == []
     assert set(on_disk) <= {"idToken", "refreshToken", "uid", "email",
                             "expires", "balance", "checked", "username",
-                            "photo", "plan"}
+                            "photo", "plan",
+                            # the hundred free coins: owed or not, and when
+                            # the token was last turned over to find out
+                            "verified", "welcome_due", "welcome_coins",
+                            "welcome_given", "token_turned"}
 
 
 def test_asking_for_a_token_signed_out_says_so(project, monkeypatch):

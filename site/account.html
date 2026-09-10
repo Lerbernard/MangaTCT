@@ -46,6 +46,7 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
     <div class="row spread" id="purse">
       <span class="dim">Loading...</span>
     </div>
+    <div id="welcome" class="card" style="margin-top:16px" hidden></div>
   </section>
 
   <section class="sect reveal">
@@ -84,12 +85,12 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
 import {
   call, $, toast, saysWhat, whoAmI, needSignIn, COIN, esc, ICONS, iconSvg,
   auth, signOut, watchMe, db, doc, setDoc, collection, query, orderBy, limit,
-  getDocs, initChrome,
+  getDocs, initChrome, sendVerifyMail, nowVerified,
 } from './app.js';
 
 initChrome();
 
-let uid = '', mine = null;
+let uid = '', mine = null, user = null;
 
 /* ------------------------------------------------------------------- purse */
 
@@ -100,6 +101,62 @@ function drawPurse(d) {
     <div class="row">
       <a class="btn pri" href="pricing.html">Buy coins</a>
     </div>`;
+}
+
+/* ------------------------------------------------------------ the free coins
+
+   A hundred coins for a new account, once its email is verified. The server
+   gives them on the first `me` after the token says verified - see
+   `welcomeIfDue` in the functions - so all this page does is notice, and ask.
+
+   Shown only while there is something for the person to DO: the email is not
+   yet verified and the coins have not been given. A Google sign-in is
+   verified on arrival and never sees this; an address that already had its
+   coins on an earlier account does not see it either, because being asked to
+   verify for coins that will not come would be a lie with a button on it. */
+let welcomeSaid = false;
+
+function drawWelcome(w, verified) {
+  const box = $('welcome');
+  if (!w || !w.due || verified) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="row spread" style="gap:14px;flex-wrap:wrap">
+      <div><b>${Number(w.coins)} free coins are waiting.</b>
+        <span class="dim">Click the link we emailed to
+        <span id="wmail"></span> and they land here.</span></div>
+      <div class="row">
+        <button id="wcheck" class="pri">I clicked it</button>
+        <button id="wsend">Send it again</button>
+      </div>
+    </div>`;
+  $('wmail').textContent = (user && user.email) || 'your address';
+  $('wcheck').onclick = () => checkWelcome(true);
+  $('wsend').onclick = async () => {
+    $('wsend').disabled = true;
+    const ok = await sendVerifyMail(user);
+    toast(ok ? 'Sent. Look for a mail from MangaTCT - the spam folder too.'
+             : 'Could not send it just now. Try again in a minute.', !ok);
+    setTimeout(() => { $('wsend').disabled = false; }, 30000);
+  };
+}
+
+/* Asks the server, with a fresh token, whether the coins are due now. Called
+   on load, when the page comes back from the link (`?verified=1`), when the
+   tab regains focus - somebody clicks the link in a mail tab and comes back to
+   this one - and when the button is pressed. */
+async function checkWelcome(pressed) {
+  const verified = await nowVerified(user);
+  let data = {};
+  try { ({ data } = await call('me')()); } catch { return; }
+  drawWelcome(data.welcome, verified || data.verified);
+  if (data.welcome && data.welcome.given && !welcomeSaid) {
+    welcomeSaid = true;
+    toast(`Your ${data.welcome.coins} free coins have landed.`);
+    setTimeout(drawLedger, 800);
+  } else if (pressed && !verified) {
+    toast('Not verified yet. Open the mail and click the link first.', true);
+  }
 }
 
 /* ----------------------------------------------------------------- profile */
@@ -196,6 +253,9 @@ function saysWhatFor(r) {
   // coins pack, refunded" says it once too often. The word in front is the one
   // that carries it, so the tag comes off here.
   what = what.replace(/\s*[-|\u2013\u2014]\s*refunded\s*$/i, '');
+  // The hundred free coins are written as a credit called `welcome`; "Bought
+  // welcome" is not what happened.
+  if (r.kind === 'credit' && what === 'welcome') return 'Free coins for signing up';
   return `${WORDS[r.kind] || r.kind} ${what}`.trim();
 }
 
@@ -236,6 +296,7 @@ async function drawLedger() {
   const u = await whoAmI();
   if (needSignIn(u)) return;
   uid = u.uid;
+  user = u;
   $('mail').textContent = u.email || '';
   $('out').onclick = async () => {
     await signOut(auth);
@@ -263,14 +324,27 @@ async function drawLedger() {
 
   // The pack names, before the ledger is drawn with them in it. If this call
   // fails the ledger still draws, saying `pack pack1` as the server wrote it.
+  // The same call is where the free coins land once the email is verified,
+  // so the token is refreshed first if the link has just been clicked.
+  const verified = await nowVerified(u);
   try {
     const { data } = await call('me')();
     for (const q of data.packs || []) {
       PACKS[q.id] = Number(q.coins).toLocaleString() + ' coins';
     }
+    drawWelcome(data.welcome, verified || data.verified);
+    if (data.welcome && data.welcome.given) {
+      welcomeSaid = true;
+      toast(`Your ${data.welcome.coins} free coins have landed.`);
+    }
   } catch { /* the ledger reads a little worse and nothing else changes */ }
 
   drawLedger();
+
+  // Somebody clicks the link in their mail tab and comes back to this one.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !$('welcome').hidden) checkWelcome(false);
+  });
 
   // Straight back from Stripe. The webhook may not have landed yet; the
   // balance is watched, so it will simply appear.

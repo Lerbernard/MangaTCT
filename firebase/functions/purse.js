@@ -201,6 +201,35 @@ export function buy(balance, coins) {
   return { ok: true, balance: have + add, coins: add };
 }
 
+/* ------------------------------------------------------------ the first coins
+
+   lee: *"new account shoul get 100 free coins on creation"*.
+
+   A hundred coins is a dollar of face value - enough to translate a chapter
+   and see what the thing does before being asked for anything. An earlier
+   version of this file refused any welcome grant at all, on the grounds that
+   a free sample anybody can have again with another email address is not a
+   sample, it is the price. That is still true, so the grant has a gate and
+   a memory:
+
+   * it is given only to a VERIFIED email - an account that has proved it can
+     read mail at that address. Google sign-ins arrive verified; a password
+     sign-up gets the link and the coins land when it is clicked;
+   * it is given once per uid (`granted.welcome` on the user document) AND
+     once per email (`welcomed/<hash>`), so deleting the account and making
+     it again with the same address gets nothing the second time.
+
+   Nothing here decides who is verified - the ID token says, and `index.js`
+   reads it. This decides only whether, given those facts, coins move. */
+export const WELCOME = 100;
+
+export function welcome(balance, { verified, granted } = {}) {
+  const have = Math.trunc(Number(balance) || 0);
+  if (granted) return { ok: false, why: 'already given', balance: have, coins: 0 };
+  if (!verified) return { ok: false, why: 'email not verified', balance: have, coins: 0 };
+  return { ok: true, balance: have + WELCOME, coins: WELCOME };
+}
+
 /* --------------------------------------------------------------- refunds in
 
    Money going back the other way, which is a different question from the

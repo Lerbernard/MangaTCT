@@ -8,7 +8,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebas
 import {
   getAuth, connectAuthEmulator, createUserWithEmailAndPassword,
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup,
+  sendPasswordResetEmail, sendEmailVerification, GoogleAuthProvider,
+  signInWithPopup,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
 import {
   getFunctions, connectFunctionsEmulator, httpsCallable,
@@ -36,6 +37,36 @@ export {
   signInWithPopup, doc, onSnapshot, setDoc, collection, query, orderBy,
   limit, getDocs,
 };
+
+/* The mail with the link in it. Sent once at sign-up and again from the
+ * account page on request. Where the link lands is this site's account page,
+ * which is the page that notices the email is now verified and asks the
+ * server for the hundred coins; the address has to be one of the project's
+ * authorised domains, which the hosting domain is.
+ *
+ * Best effort, and quiet about failure: a sign-up that succeeded is a
+ * sign-up, and "could not send the verification mail" is a thing to say on
+ * the account page beside a button that tries again, not a reason to make
+ * the person wonder whether they have an account. */
+export function sendVerifyMail(user) {
+  return sendEmailVerification(user, {
+    url: location.origin + '/account.html?verified=1',
+  }).then(() => true).catch(() => false);
+}
+
+/* Has the link been clicked since this page loaded its idea of the person?
+ * `reload()` asks Auth for the current record; the ID token the functions
+ * read is then fetched again by force, because a token minted before the
+ * click still says unverified for up to an hour. */
+export async function nowVerified(user) {
+  if (!user) return false;
+  if (!user.emailVerified) {
+    try { await user.reload(); } catch { return false; }
+  }
+  if (!user.emailVerified) return false;
+  try { await user.getIdToken(true); } catch { /* the old token still works */ }
+  return true;
+}
 
 /* The account document, watched rather than fetched.
  *

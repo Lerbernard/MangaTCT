@@ -103,7 +103,7 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
 
 <script type="module">
 import {
-  auth, call, $, toast, saysWhat, whoAmI, initChrome, GOOGLE,
+  auth, call, $, toast, saysWhat, whoAmI, initChrome, GOOGLE, sendVerifyMail,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup,
 } from './app.js';
@@ -138,7 +138,9 @@ function setMode(m) {
   $('gbtn').querySelector('span').textContent =
     m === 'up' ? 'Sign up with Google' : 'Continue with Google';
   $('pass').autocomplete = m === 'up' ? 'new-password' : 'current-password';
-  $('passHint').textContent = m === 'up' ? 'Six characters at least.' : '';
+  $('passHint').textContent = m === 'up'
+    ? 'Six characters at least. New accounts get 100 free coins once the email is verified.'
+    : '';
 }
 $('tabIn').onclick = () => setMode('in');
 $('tabUp').onclick = () => setMode('up');
@@ -212,7 +214,10 @@ $('form').addEventListener('submit', async (e) => {
     if (mode === 'up') {
       // The account is made FIRST and the name claimed second: claiming needs
       // a signed-in caller, because the name is written against a uid.
-      await createUserWithEmailAndPassword(auth, email, pass);
+      const made = await createUserWithEmailAndPassword(auth, email, pass);
+      // The link that turns the address into a verified one - and the
+      // verified one into a hundred coins, on the account page.
+      sendVerifyMail(made.user);
       askName(() => { location.href = next; });
       return;
     }

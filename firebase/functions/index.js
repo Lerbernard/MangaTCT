@@ -18,8 +18,11 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import Stripe from 'stripe';
 
+import { createHash } from 'node:crypto';
+
 import {
-  PACKS, buy, checkUsername, clawback, pack, refund, refundedShare, spend,
+  PACKS, WELCOME, buy, checkUsername, clawback, pack, refund, refundedShare,
+  spend, welcome,
 } from './purse.js';
 
 initializeApp();
@@ -89,9 +92,9 @@ function must(auth) {
  * again. This runs on the first call that needs the document to exist, so a
  * failure is one retry away rather than permanent.
  *
- * It starts at zero. There is no welcome grant: coins are the product, and a
- * free sample anybody can have again with another email address is not a free
- * sample, it is the price.
+ * It starts at zero. The hundred free coins are not put here: they are given
+ * by `welcomeIfDue` below, to a VERIFIED email, which a document made on the
+ * first call usually does not have yet.
  */
 async function ensureUser(uid, auth) {
   const ref = userRef(uid);
@@ -111,6 +114,57 @@ async function ensureUser(uid, auth) {
     throw e;
   });
   return (await ref.get()).data();
+}
+
+/* ---------------------------------------------------------- the first coins
+ *
+ * lee: *"new account shoul get 100 free coins on creation"*. `purse.js` says
+ * how many and on what terms; this is the terms being read off the token and
+ * the coins being moved, once.
+ *
+ * Who is verified is the ID token's `email_verified` claim - set by Google
+ * for a Google sign-in, and by Firebase Auth for a password account once the
+ * link in the verification mail is clicked. It is not a field a client can
+ * write, and not something this function is told; it is read off the signed
+ * token on every call, so an unverified account calling `me` a thousand
+ * times gets nothing a thousand times and a verified one gets it the first
+ * time it calls.
+ *
+ * The email is remembered as a hash, not as an address: `welcomed/<sha256>`
+ * is a collection of "this address has had its coins", and there is no need
+ * for anyone reading the database to see whose. The account's own document
+ * carries `granted.welcome` too, the same way a Stripe event id is carried,
+ * so the second gate is the one that survives the account being deleted and
+ * made again with the same address.
+ */
+const emailKey = (email) => createHash('sha256')
+  .update(String(email || '').trim().toLowerCase()).digest('hex');
+
+async function welcomeIfDue(uid, auth) {
+  const tok = (auth && auth.token) || {};
+  const verified = tok.email_verified === true && !!tok.email;
+  if (!verified) return { given: false, verified: false };
+  const seen = db.doc(`welcomed/${emailKey(tok.email)}`);
+  return db.runTransaction(async (tx) => {
+    const [me, had] = await tx.getAll(userRef(uid), seen);
+    if (!me.exists) return { given: false, verified };
+    const d = me.data();
+    const got = welcome(d.coins, {
+      verified, granted: !!((d.granted || {}).welcome || had.exists),
+    });
+    if (!got.ok) return { given: false, verified };
+    tx.set(userRef(uid), { coins: got.balance, 'granted.welcome': true },
+           { merge: true });
+    tx.create(seen, { uid, at: FieldValue.serverTimestamp() });
+    ledger(tx, uid, { kind: 'credit', what: 'welcome', coins: got.coins });
+    return { given: true, verified, coins: got.coins };
+  }).catch((e) => {
+    // Two calls arriving together both read "not granted"; the second one's
+    // `create` of the welcomed document fails and the whole transaction with
+    // it - which is the point. Nobody is owed an error for it.
+    if (e && e.code === 6) return { given: false, verified };
+    throw e;
+  });
 }
 
 /* --------------------------------------------------------------- usernames
@@ -237,13 +291,30 @@ export const refundCoins = onCall(async (req) => {
 export const me = onCall(async (req) => {
   const uid = must(req.auth);
   // The first thing a signed-in page calls, so this is where the document
-  // usually comes into existence.
-  const d = await ensureUser(uid, req.auth);
+  // usually comes into existence - and, once the email is verified, where
+  // the hundred coins land.
+  await ensureUser(uid, req.auth);
+  const w = await welcomeIfDue(uid, req.auth);
+  const d = (await userRef(uid).get()).data() || {};
   return {
     coins: d.coins || 0, username: d.username || '',
     photo: d.photo || '', packs: PACKS,
+    verified: w.verified,
+    // What the screens say about the free coins: `due` while they are still
+    // to be had (verify the email and they come), `given` on the one call
+    // that put them there (so the page can say so), the amount either way.
+    welcome: {
+      coins: WELCOME, given: !!w.given,
+      due: !((d.granted || {}).welcome) && !w.given,
+    },
   };
 });
+
+/* A verified email is a claim on the token, and a token lasts an hour. The
+ * page that just came back from the link in the mail refreshes its token and
+ * calls `me`; the editor does the same. Nothing else is needed - there is no
+ * "claim my coins" call, because a call a client makes on purpose is a call a
+ * client can make for someone else's uid if there is ever a bug in it. */
 
 /* --------------------------------------------------------------- paying
  *

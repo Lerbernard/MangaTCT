@@ -73,14 +73,30 @@ users/{uid}
   coins            THE BALANCE. Functions only.
   stripeCustomer   Functions only
   granted          {sessionId: true} — so a retried webhook is not free coins
+                   {welcome: true}   — the hundred free coins, given once
   clawed           {chargeId: coins} — what a refund has already taken back
   users/{uid}/ledger/{id}   the receipt. Functions write, the person reads.
 
 usernames/{key}    the uniqueness index. The document ID IS the folded name.
   uid
 
+welcomed/{sha256 of the email}   which addresses have had their free coins,
+  uid, at          so delete-and-recreate gets nothing twice. Functions only.
+
 config/prices      the tiers and packs, for a page that has not signed in yet
 ```
+
+### The hundred free coins
+
+A new account is given `WELCOME` (100) coins **once its email is verified**.
+The grant happens inside `me`, the first call every signed-in page and the
+editor make: `welcomeIfDue` reads `email_verified` off the signed ID token —
+never off the request — and moves the coins in one transaction that also
+writes `granted.welcome` on the user and creates `welcomed/<hash>`. A Google
+sign-in arrives verified and is welcomed on its first `me`; a password
+sign-up gets the verification mail (sent by the site's sign-up form and by
+the editor's) and is welcomed on the first `me` after the link is clicked and
+the token has been refreshed. There is no `claimWelcome` callable on purpose.
 
 ### Why usernames are a separate collection
 

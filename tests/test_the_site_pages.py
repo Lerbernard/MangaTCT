@@ -36,6 +36,7 @@ export const signOut = async () => {};
 export const onAuthStateChanged = (a, cb) => {
   setTimeout(() => cb(window.__USER || null), 0); return () => {}; };
 export const sendPasswordResetEmail = async () => {};
+export const sendEmailVerification = async () => {};
 export function GoogleAuthProvider() {}
 export const signInWithPopup = async () => ({});
 export const getFunctions = () => ({});

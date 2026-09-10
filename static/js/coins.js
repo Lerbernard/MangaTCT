@@ -184,7 +184,53 @@ function accountRow(w){
            `<button onclick="walletSignIn()">Sign in</button></div>`;
   return `<div class="wacct"><span class="wwho">${
     coinEsc(w.username || w.email || 'signed in')}</span>` +
-    `<button onclick="walletSignOut()">Sign out</button></div>`;
+    `<button onclick="walletSignOut()">Sign out</button></div>` +
+    welcomeRow(w);
+}
+
+/* The hundred free coins, while they are still to be had.
+
+   A new account is given them once its email is verified - the server does
+   that on its own the first time it sees a verified token, see `welcomeIfDue`
+   in the functions. What this row does is say so, offer the mail again, and
+   take "I clicked it": the editor's token is turned over and the server asked,
+   so the coins do not wait on the hour the old token had left in it.
+
+   Drawn only while there is something to do. Verified and still owed is an
+   address that had its coins on an earlier account; asking it to verify for
+   coins that will not come would be a lie with a button on it. */
+let welcomeToasted = false;
+function welcomeRow(w){
+  if(w.welcome_given && !welcomeToasted){
+    welcomeToasted = true;
+    toast('Your ' + (w.welcome_coins || 100) + ' free coins have landed.');
+  }
+  if(!w.welcome_due || w.verified) return '';
+  return `<div class="wacct wwelcome"><span class="wnote">` +
+    `<b>${w.welcome_coins || 100} free coins are waiting.</b> Click the link ` +
+    `we emailed to ${coinEsc(w.email || 'your address')} and they land here.` +
+    `</span>` +
+    `<button class="pri" onclick="walletClaim(this)">I clicked it</button>` +
+    `<button onclick="walletVerifyMail(this)">Send it again</button></div>`;
+}
+
+async function walletClaim(btn){
+  if(btn) btn.disabled = true;
+  const got = await acPost({do: 'claim'});
+  if(got.error){ toast(got.error); if(btn) btn.disabled = false; return; }
+  await refreshCoins();
+  drawWallet();
+  if(wallet && wallet.welcome_due && !wallet.verified)
+    toast('Not verified yet. Open the mail and click the link first.');
+}
+
+async function walletVerifyMail(btn){
+  if(btn) btn.disabled = true;
+  const got = await acPost({do: 'verify'});
+  toast(got.error || 'Sent. Look for a mail from MangaTCT - the spam folder too.');
+  // Thirty seconds before it can be pressed again: Google rate-limits these,
+  // and a button that answers "too many" is worse than one that waits.
+  setTimeout(() => { if(btn) btn.disabled = false; }, 30000);
 }
 
 /* The sign-in form, drawn inside the purse rather than as a dialog of its own.

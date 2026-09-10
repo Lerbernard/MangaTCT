@@ -57,7 +57,7 @@ jobs:
       - name: Install what the fast tests need
         run: |
           python -m pip install --upgrade pip
-          pip install numpy opencv-contrib-python-headless pillow pytest fonttools
+          pip install numpy "opencv-contrib-python-headless>=4.8,<5" pillow pytest fonttools
       - name: The version, launcher and release tests
         working-directory: mangatl
         env:
