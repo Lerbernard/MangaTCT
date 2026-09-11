@@ -100,10 +100,14 @@ def test_needs_key_lets_a_run_start_on_the_fallback_alone(p):
     assert needs_key(p, "translate") == ""
 
 
-def test_needs_key_still_blocks_with_no_key_anywhere(p):
+def test_needs_key_still_blocks_with_no_key_anywhere_and_nobody_signed_in(p, monkeypatch):
+    from mangatl import account
+    monkeypatch.setattr(account, "signed_in", lambda: False)
     p.settings.update({"translate_backend": "anthropic",
                        "translate_model": "claude-sonnet-5"})
-    assert "key" in needs_key(p, "translate")
+    # ...and what it says is "sign in", not "find a key" - signed in, the
+    # relay calls with the project's key (test_the_keys_are_ours_not_theirs)
+    assert "Sign in" in needs_key(p, "translate")
 
 
 # --------------------------------------------------------- the refused key

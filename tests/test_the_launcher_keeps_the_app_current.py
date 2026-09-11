@@ -449,6 +449,47 @@ def test_a_weight_that_arrives_different_is_refused(home, channel):
     assert not os.path.exists(os.path.join(p["models"], "a.onnx"))
 
 
+def test_a_weight_is_tried_from_every_address_in_order(home, channel):
+    """1.0.3: `urls`, the project's mirror first and the publisher after.
+    An installed copy that can reach GitHub but not Hugging Face used to
+    start with the AnimeText route gray; now the mirror answers, and when
+    the mirror is the one missing, the publisher still does."""
+    p = home
+    install(p, "1.0.0")
+    w = b"weights" * 1000
+    inner = b"inner" * 500
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, "w") as z:
+        z.writestr("model.onnx", inner)
+    channel.files["/pub/a.pt"] = w
+    channel.files["/pub/b.zip"] = zbuf.getvalue()
+    _models_json(p, "1.0.0", [
+        # the mirror is gone; the publisher has it
+        {"name": "a.pt", "url": channel.url("/pub/a.pt"),
+         "urls": [{"url": channel.url("/mirror/a.pt")}, {"url": channel.url("/pub/a.pt")}],
+         "sha256": sha(w), "size": len(w), "tier": "recommended"},
+        # a bare file on the mirror, a zip at the publisher - each said its own way
+        {"name": "b.onnx", "url": channel.url("/pub/b.zip"), "inside": "model.onnx",
+         "urls": [{"url": channel.url("/mirror/b.onnx")},
+                  {"url": channel.url("/pub/b.zip"), "inside": "model.onnx"}],
+         "sha256": sha(inner), "size": len(inner), "tier": "recommended"},
+    ])
+    assert L.ensure_models(p, L.app_dir(p, "1.0.0")) == ""
+    assert open(os.path.join(p["models"], "a.pt"), "rb").read() == w
+    assert open(os.path.join(p["models"], "b.onnx"), "rb").read() == inner
+    assert channel.hits.index("/mirror/a.pt") < channel.hits.index("/pub/a.pt"), "mirror first"
+    # ...and with the mirror answering, the publisher is never asked
+    channel.files["/mirror/c.pt"] = w
+    _models_json(p, "1.0.0", [
+        {"name": "c.pt", "url": channel.url("/pub/c.pt"),
+         "urls": [{"url": channel.url("/mirror/c.pt")}, {"url": channel.url("/pub/c.pt")}],
+         "sha256": sha(w), "size": len(w), "tier": "recommended"}])
+    assert L.ensure_models(p, L.app_dir(p, "1.0.0")) == ""
+    assert "/pub/c.pt" not in channel.hits
+    # an old-style entry - one `url` - is one source
+    assert L.model_sources({"url": "https://x/y", "inside": "m"}) == [{"url": "https://x/y", "inside": "m"}]
+
+
 def test_the_shipped_model_list_is_well_formed():
     """`tools/models.json` is copied into every release zip; the launcher
     reads it. Every entry needs what `fetch_model` needs, and the required
@@ -456,13 +497,25 @@ def test_the_shipped_model_list_is_well_formed():
     d = json.loads((PKG / "tools" / "models.json").read_text(encoding="utf-8"))
     names = [m["name"] for m in d["models"]]
     assert "comictextdetector.pt.onnx" in names
+    mirror = "https://github.com/Lerbernard/MangaTCT/releases/download/models/"
     for m in d["models"]:
         assert m["url"].startswith("https://"), m["name"]
         assert len(m["sha256"]) == 64, m["name"]
         assert m["tier"] in ("required", "recommended"), m["name"]
         assert m["size"] > 0
+        srcs = L.model_sources(m)
+        assert all(u["url"].startswith("https://") for u in srcs), m["name"]
+        # `url` is the LAST source (the publisher, or the mirror when there
+        # is no publisher address) - what a launcher before 1.0.3 reads
+        assert srcs[-1]["url"] == m["url"] and srcs[-1]["inside"] == m.get("inside"), m["name"]
+        if m["name"].startswith("webtoon-"):
+            assert all(mirror not in u["url"] for u in srcs), "licence not written down: not mirrored"
+        else:
+            assert srcs[0]["url"] == mirror + m["name"], "%s: the project's mirror first" % m["name"]
     req = [m["name"] for m in d["models"] if m["tier"] == "required"]
     assert req == ["comictextdetector.pt.onnx"], "only the one nothing works without"
+    assert "dbpp_coo.dat" in names, "the sound-effect weights, which no publisher serves"
+    assert "animetext.pt" in names and "m109seg.pt" in names
 
 
 # --------------------------------------------------------------- the rules

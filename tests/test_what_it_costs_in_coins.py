@@ -1204,7 +1204,13 @@ def test_buying_coins_opens_the_website_and_nothing_else(tmp_path):
         browserpool.settled(pg)
         txt = pg.evaluate("document.getElementById('walletPop').textContent")
         assert "Buy coins" in txt
-        for gone in ("+500", "+2000", "+10000", "Recently", "$"):
+        # The suite runs on the developer's test purse (conftest), whose own
+        # +100/+1000/+5000 row is allowed to be there; the old top-up amounts
+        # are matched as whole numbers so +5000 is not read as +500.
+        import re
+        for gone in ("+500", "+2000", "+10000"):
+            assert not re.search(re.escape(gone) + r"(?!\d)", txt), gone
+        for gone in ("Recently", "$"):
             assert gone not in txt, gone
         opened = pg.evaluate("""(()=>{
             const was = window.open; let got = null;

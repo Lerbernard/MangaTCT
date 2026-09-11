@@ -53,9 +53,17 @@ async function quoteCoins(query){
    all for Opus. */
 function paintCount(coins){
   const n = $('coinN'); if(!n) return;
+  const btn = $('coinBtn');
+  // No account, no coins. lee: *"the coins should only be linked to an
+  // account, so no account = no coins"*. The pill says what to do instead
+  // of showing a number that is nobody's.
+  if(wallet && wallet.needs_signin){
+    n.textContent = 'Sign in';
+    if(btn){ btn.classList.remove('broke','low'); btn.title = 'Sign in to use TCT Coins'; }
+    return;
+  }
   n.textContent = String(coins);
   const chapter = coinsForAll();
-  const btn = $('coinBtn');
   if(btn){
     btn.classList.toggle('broke', coins <= 0);
     btn.classList.toggle('low', coins > 0 && chapter > 0 && coins < chapter);
@@ -107,6 +115,8 @@ function drawWallet(){
   const pop = $('walletPop'); if(!pop) return;
   if(!wallet){ pop.innerHTML = '<div class="wnote">Counting…</div>'; return; }
   const w = wallet;
+  // Signed out on an installed copy: the purse IS the sign-in form.
+  if(w.needs_signin){ walletSignIn(false); return; }
   const steps = Object.keys(w.prices||{});
   const odd = new Set(w.unpriced || []);
   const rows = steps.map(k =>

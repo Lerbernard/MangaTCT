@@ -331,6 +331,16 @@ def token(force: bool = False) -> str:
     return _read().get("idToken") or ""
 
 
+def function_url(name: str) -> str:
+    """Where one of the Cloud Functions answers. The relay (`editor.
+    relay_url`) is reached the same way as the callables."""
+    c = config()
+    if not c.get("projectId"):
+        raise AccountError("No Firebase project is configured.", "unconfigured")
+    return "https://%s-%s.cloudfunctions.net/%s" % (
+        c.get("region") or "us-central1", c["projectId"], name)
+
+
 def call(name: str, data: dict | None = None) -> dict:
     """One of the Cloud Functions, as a callable.
 
@@ -338,11 +348,7 @@ def call(name: str, data: dict | None = None) -> dict:
     Spoken by hand rather than through a client library, because the library
     for this is the JavaScript one and the editor is Python.
     """
-    c = config()
-    if not c.get("projectId"):
-        raise AccountError("No Firebase project is configured.", "unconfigured")
-    url = "https://%s-%s.cloudfunctions.net/%s" % (
-        c.get("region") or "us-central1", c["projectId"], name)
+    url = function_url(name)
     got = _post(url, {"data": data or {}}, token())
     if "error" in got:
         raise _says(got)

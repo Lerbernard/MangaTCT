@@ -179,6 +179,28 @@ firebase functions:secrets:set STRIPE_WEBHOOK_SECRET   # whsec_... (step 8)
 firebase functions:config:set                          # nothing else needed
 ```
 
+**5b. The provider keys the relay calls with.** lee: *"the user shoud not
+have eth keys"*. The editor's AI steps go through the `relay` function
+(`functions/relay.js`), which calls Claude, Gemini and OpenRouter with these
+and is paid in coins; the person never holds a key. Same mechanism, never in
+a file:
+
+```
+firebase functions:secrets:set ANTHROPIC_KEY     # sk-ant-...
+firebase functions:secrets:set GEMINI_KEY        # AIza...
+firebase functions:secrets:set OPENROUTER_KEY    # sk-or-...
+firebase functions:secrets:set CLEAN_TOKEN       # CLEAN_TOKEN out of the cleaner's deploy file
+firebase functions:secrets:set CLEAN_URL         # the https://...modal.run address that deploy printed
+```
+
+Paste each when prompted (the prompt shows nothing, so paste ONCE). A key you
+leave unset makes that provider answer 503 "not set on the server"; the
+others still work. The cleaner is the fourth key lee named (*"ther 4 key one
+for teh clner do tha too"*): its token travels in the request body, not a
+header, so the relay rewrites that one field, and its reply is a PNG. The relay checks the caller's ID token and that the
+account has coins, forwards the request unchanged, and logs the provider's
+usage; the price is held and settled by the editor as before (`spendCoins`).
+
 The site URL Stripe returns people to defaults to `https://mangatct.com`. To
 change it: `firebase deploy --only functions` after setting the `SITE_URL`
 parameter, or answer the prompt the CLI gives you on first deploy.

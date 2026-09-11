@@ -459,7 +459,7 @@ def test_a_step_with_no_key_says_so_before_the_chapter_starts():
         assert p.ctx.backend == "gemini"          # what the screen says
         assert p.ctx.model == "gemini-3.5-flash-lite"
         why = editor.needs_key(p, "ocr")
-        assert "Read text" in why and "API key" in why, why
+        assert "Read text" in why and "TCT Coins" in why, why
         # ...and the step that DOES have one is not complained about.
         p.settings["translate_key"] = "AIza-yes"
         assert editor.needs_key(p, "translate") == ""

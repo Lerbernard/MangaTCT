@@ -68,6 +68,14 @@ if _OURS:
     except OSError:
         pass    # a `.env` a previous run left behind is a key this one keeps
 
+# ...and the PURSE. On an installed copy, signed out, there is no purse at
+# all: coins live on the account or nowhere (lee: *"no account = no coins"*).
+# The suite is neither signed in nor a customer; it is the developer's
+# machine, and the local test purse is the one it spends - the same switch a
+# person running from source flips. A test about the signed-out installed
+# state takes the switch away again with monkeypatch.
+os.environ.setdefault("MANGATL_TEST_PURSE", "1")
+
 import pytest  # noqa: E402
 
 import browserpool  # noqa: E402  (after the home is pointed somewhere safe)

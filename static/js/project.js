@@ -322,7 +322,6 @@ async function loadProject(){
       : st==='set' ? '(saved)' : 'not set';
     el.disabled = st==='env';
   });
-  renderEnvKeys();
   // Keyed on the URL box and not on a method menu, because there is no method
   // menu: cleaning is the AI cleaner. `saveSettings` posts `clean_url`
   // whenever that box exists, so a box nothing fills in is a box that saves an
@@ -345,8 +344,8 @@ async function loadProject(){
     // string entirely.
     tf.classList.toggle('bad', ts==='placeholder');
     tf.disabled = ts==='env';
-    toggleAiCfg();
   }
+  toggleAiCfg();
   renderPages();
   if(!$('font').options.length){
     const f=await api('/api/fonts');
@@ -1196,7 +1195,9 @@ async function saveSettings(){
     // so it is stated here once: the AI cleaner, on the whole page.
     ai_clean:'all',
     clean_model:(proj.settings.clean_model||'anime-lama'),
-    clean_url:($('clean_url')?$('clean_url').value:''),
+    // Only when the box exists (it does not any more): a chapter's saved
+    // address must not be wiped by a screen that has no box for it.
+    ...($('clean_url')?{clean_url:$('clean_url').value}:{}),
     ...['ocr','translate','proofread'].reduce((o,k)=>{
       const v=id=>($(k+'_'+id)?$(k+'_'+id).value:'');
       o[k+'_backend']=v('backend'); o[k+'_model']=v('model');
@@ -1786,34 +1787,6 @@ function modelsStale(step){
    menu, halfway through a chapter. */
 const SERVICES = ['anthropic', 'gemini', 'openrouter'];
 const SERVICES_STEPS = ['ocr', 'translate', 'proofread'];
-
-/* The four secrets and what to CALL them on screen. `clean` is the odd one -
-   it is not an AI service and has its own box further down the settings - but
-   it lives in the same file for the same reason, so it is listed here.
-   lee: *"all the key i need to put ius claude gemini open router and
-   clenner"*. */
-const ENV_KEYS = [['anthropic','Claude'], ['gemini','Gemini'],
-                  ['openrouter','OpenRouter'], ['clean','Cleaner']];
-
-function renderEnvKeys(){
-  const box=$('envKeys');
-  if(!box) return;
-  const have=proj.env_keys||{};
-  const path=proj.env_path||'';
-  const e=s=>(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-  // Named one by one rather than as "3 of 4 keys found". A count tells you
-  // something is missing and not WHICH, and the whole point of this line is
-  // that a step failing at the provider should be explainable from the
-  // screen without opening the file.
-  const bits=ENV_KEYS.map(([k,label])=>
-    `<span class="envk ${have[k]?'on':'off'}">${e(label)} ${have[k]?'✓':'—'}</span>`);
-  // One line: where, and which are there. The variable names and the rest
-  // are in the guide - lee: *"no paragraphs"*.
-  box.innerHTML =
-    'Keys are read from <code>' + e(path) + '</code>: '
-    + bits.join(' &nbsp; ')
-    + '<br>One <code>MANGATL_ANTHROPIC_KEY=…</code> a line; save, then reload.';
-}
 
 /* ------------------------------------------------- the AI company, per step
    lee: *"for te ai ... i just wan the ai compay and teh ai model"*, then

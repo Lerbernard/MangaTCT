@@ -123,8 +123,8 @@ def test_no_token_still_says_that_first(monkeypatch):
     _files(monkeypatch, [{"file": "lama_clean_modal.py", "app": "",
                           "sha": _sha("x")}])
     msg = ED.clean_warning(_P(clean_token="", clean_url="https://x"))
-    assert "No cleaner token is saved" in msg, msg
-    assert "deploy" not in msg.lower(), msg
+    assert "Sign in" in msg, msg
+    assert "deploy" not in msg.lower() and "token is saved" not in msg, msg
 
 
 def test_the_example_token_still_says_that_first(monkeypatch):

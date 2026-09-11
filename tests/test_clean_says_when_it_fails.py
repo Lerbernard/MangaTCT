@@ -193,8 +193,11 @@ def test_no_token_saved_says_that_instead():
         cv2.rectangle(msk, (160, 100), (360, 260), 255, -1)
         neural(_page(), msk)
         w = editor.clean_warning(p)
-        assert "No cleaner token is saved" in w, w
-        assert "CHANGE-ME" not in w
+        # Nobody is told to find a token any more (lee: *"the user shoud not
+        # have eth keys"*): signed out with no deploy of their own, the bar
+        # says to sign in, and the relay does the rest.
+        assert "Sign in" in w and "AI cleaner" in w, w
+        assert "CHANGE-ME" not in w and "token is saved" not in w
     finally:
         srv.shutdown(); srv.server_close()
         editor.clear_clean_warning()
@@ -802,8 +805,8 @@ def test_the_test_button_says_which_cause(tmp_path, monkeypatch):
 
 def test_the_bar_and_the_field_both_say_it(tmp_path):
     """Chromium, against the real server, with a cleaner that refuses: the bar
-    goes orange and says so, the toast carries the instruction, and the settings
-    field stops calling the example token "(saved)". Writes the pictures."""
+    goes orange and says so, the toast carries the instruction - and the
+    settings screen has no token field to point at. Writes the pictures."""
     from mangatl import editor
     srv, url = _serve(_Refuse)
     root = scratch("_tmp_clean_ui")
@@ -844,31 +847,13 @@ def test_the_bar_and_the_field_both_say_it(tmp_path):
             pg.screenshot(path=str(shots / "toast.png"))
             pg.locator("#toast").screenshot(path=str(shots / "toast_only.png"))
 
-            # and the settings screen, which is where the fix is made
+            # The settings field that used to turn red here is gone: the
+            # token is the project's, not the person's (lee: *"the user shoud
+            # not have eth keys"*), and Page cleaning shows no box for one.
             pg.evaluate("openSettingsDlg(); setSettingsTab('cleaning')")
             pg.wait_for_timeout(700)
-            # what the same screen said before this change, reproduced by
-            # applying the old rule ("(saved)" for anything non-empty) to the
-            # same project - for the picture, and labelled as such
-            pg.evaluate("$('clean_token').placeholder='(saved)';"
-                        "$('clean_token').classList.remove('bad')")
-            pg.locator("#aicfg").screenshot(path=str(shots / "field_before.png"))
-            pg.evaluate("loadProject()")
-            pg.wait_for_timeout(1200)
-            ph = pg.evaluate("$('clean_token').placeholder")
-            assert "CHANGE-ME" in ph and "(saved)" not in ph, ph
-            assert pg.evaluate("$('clean_token').classList.contains('bad')")
-            pg.screenshot(path=str(shots / "settings_field.png"))
-            pg.locator("#aicfg").screenshot(path=str(shots / "field_after.png"))
-
-            # a real token stops the field complaining, without a reload
-            p.settings["clean_token"] = "k9Xq2vBn7wLt4sRd8pYc3mZa6hGu5jFe1oIb"
-            pg.evaluate("loadProject()")
-            pg.wait_for_timeout(1200)
-            assert pg.evaluate("$('clean_token').placeholder") == "(saved)"
-            assert not pg.evaluate(
-                "$('clean_token').classList.contains('bad')")
-            pg.locator("#aicfg").screenshot(path=str(shots / "field_fixed.png"))
+            assert pg.evaluate("!document.getElementById('clean_token') && !document.getElementById('clean_url')")
+            pg.screenshot(path=str(shots / "settings_no_field.png"))
             assert not errs, errs[:3]
     finally:
         esrv.shutdown(); esrv.server_close()

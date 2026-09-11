@@ -172,7 +172,7 @@ def test_but_the_page_still_says_which_one_and_why():
     import re
     html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
     at = html.index('id="aicfg"')
-    flat = re.sub(r"\s+", " ", html[at:html.index('id="clean_url"')])
+    flat = re.sub(r"\s+", " ", html[at:html.index('id="cleanTestBtn"')])
     assert "anime-lama" in flat
     assert "6 of 9" in flat, "the measurement that picked it is not on the page"
     assert "never drew something the page did not have" in flat
@@ -279,13 +279,16 @@ def test_the_cleaners_setup_is_on_the_page_without_switching_anything_on(tmp_pat
             browserpool.ready(pg)
             pg.evaluate("setTab('settings'); setSettingsTab('cleaning')")
             browserpool.settled(pg)
-            for want in ("aicfg", "clean_url", "clean_token"):
+            # The block, and the Test button in it. The address and token
+            # boxes that stood beside it are gone - lee: *"ther 4 key one for
+            # teh clner do tha too"* - the endpoint is the project's relay's
+            # business now (`editor.cleaner_endpoint`).
+            for want in ("aicfg", "cleanTestBtn"):
                 assert pg.evaluate(
                     "getComputedStyle(document.getElementById('%s'))"
                     ".display !== 'none'" % want), "%s is not on the page" % want
-            assert pg.evaluate(
-                "document.getElementById('clean_url').value") \
-                == "https://example.modal.run", "the saved address is not shown"
+            assert pg.evaluate("!document.getElementById('clean_url') && "
+                               "!document.getElementById('clean_token')")
             assert not errs, errs[:3]
     finally:
         srv.shutdown(); srv.server_close(); editor.PROJECT = was

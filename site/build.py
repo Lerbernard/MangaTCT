@@ -418,8 +418,8 @@ COMPARE = [
 FAQ = [
     ("What do I need to run it?",
      "Windows 10 or 11. The installer brings its own Python, and the first "
-     "start downloads the text models - about 200 MB, once. No graphics card "
-     "needed. Reading and translating need credits or your own API key; "
+     "start downloads the text models - about 300 MB, once. No graphics card "
+     "needed. Reading and translating are paid in TCT Coins; "
      "everything else runs offline."),
     ("Does it upload my raws?",
      "Finding text, cleaning, typesetting and exporting never leave your "
@@ -1120,16 +1120,15 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
     <div>
       <p>Reading, translating and proofreading each take their own service and
       their own model, so you can put a cheap fast one on the reading and a
-      careful one on the words. <b>Claude, Google AI Studio or OpenRouter</b> -
-      one key per service, not one per step - or a model running on your own
-      machine.</p>
-      <p>The menu only shows models your key can actually reach, so you are
-      never offered one you cannot run.</p>
+      careful one on the words. <b>Claude, Google AI Studio or OpenRouter</b>,
+      paid in TCT Coins with nothing to set up - or a model running on your
+      own machine, which costs nothing.</p>
+      <p>The menu shows the price of every model beside its name, so you
+      know what a chapter will cost before you press the button.</p>
     </div>
     <figure class="shot">{slot('ui-settings-models-real.jpg',
       'Per-step model settings',
-      'Settings ▸ the model for each step, with the three services and the '
-      'API keys block', '4 / 3')}</figure>
+      'Settings ▸ the model for each step, with the three services', '4 / 3')}</figure>
   </div>
   <h3 class="rise" style="margin-top:44px">What you can point them at</h3>
   <p class="lead rise">Six, from about a penny a chapter to about four dollars.
@@ -1169,7 +1168,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
       reading, translating, proofreading, and AI cleaning if you turn it
       on.</p></div>
     <div class="card"><h4>Free forever, if you want</h4>
-      <p class="mut">Point the steps at your own key or your own local model
+      <p class="mut">Point the steps at a model running on your own machine
       and it costs you nothing here. Finding text, cleaning and typesetting
       never cost credits.</p></div>
   </div>

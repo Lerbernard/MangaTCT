@@ -189,13 +189,11 @@ def test_a_recommended_weight_stops_a_start_from_nothing_and_a_release_from_noth
     d = json.loads((PKG / "tools" / "models.json").read_text(encoding="utf-8"))
     assert [m["name"] for m in d["models"] if m["tier"] == "required"] \
         == ["comictextdetector.pt.onnx"]
-    # ...and a url nobody could fetch from here says so in the data
-    unverified = [m["name"] for m in d["models"] if not m.get("verified")]
-    assert all("huggingface.co" in m["url"]
-               for m in d["models"] if m["name"] in unverified)
-    assert all(m.get("tier") == "recommended"
-               for m in d["models"] if m["name"] in unverified), \
-        "nothing required may rest on a url that has never been fetched"
+    # ...and nothing required rests on an address that is only a mirror or
+    # only Hugging Face: the one required file has its publisher on GitHub
+    ctd = next(m for m in d["models"] if m["tier"] == "required")
+    assert "github.com/zyddnys/" in ctd["url"]
+    assert "Every address" in body, "the check tries the mirror and the publisher"
 
 
 def test_the_installer_lands_where_the_release_looks_for_it(tmp_path):

@@ -391,15 +391,14 @@ def test_the_word_env_is_never_saved_as_a_key(env, proj):
     assert incoming == {"key_anthropic": "a-real-one"}
 
 
-def test_the_four_names_are_one_list(env):
-    """`userdata.ENV_NAMES` and the list the screen draws are the same four.
-    A key the file reads and the screen never mentions is a key nobody can
-    tell is missing."""
-    import re
+def test_the_screen_no_longer_lists_the_keys_at_all():
+    """The screen used to name the four and tick the ones the file answered
+    for. Gone: lee, *"the user shoud not have eth keys"* - a signed-in
+    editor runs its AI steps through the project's relay and a person is
+    never shown a key, a key's name, or the file they would live in. The
+    file is still read (`userdata.env_key`) for a checkout that has one."""
     from where import PKG
     js = open(os.path.join(str(PKG), "static", "js", "project.js"),
               encoding="utf8").read()
-    block = re.search(r"const ENV_KEYS = \[(.+?)\];", js, re.S)
-    assert block, "the screen's list of keys has been renamed"
-    named = set(re.findall(r"\['(\w+)'", block.group(1)))
-    assert named == set(userdata.ENV_NAMES), named
+    assert "ENV_KEYS" not in js and "MANGATL_ANTHROPIC_KEY" not in js
+    assert len(userdata.ENV_NAMES) == 4, "the file still knows the four"

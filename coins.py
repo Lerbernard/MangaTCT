@@ -51,14 +51,22 @@ written down, and the moment a price leaves here it is coins.
 
 Two, and the same six functions read both. Signed in, the balance is a number
 in Firestore that only a Cloud Function may write, and every call here is a
-request - see `account.py`. Signed out, or with no Firebase project configured
-at all, it is `wallet.json` beside the fonts, exactly as it was.
+request - see `account.py`. With no Firebase project configured at all - a
+checkout with no billing behind it, which is the case this app started as -
+or with `MANGATL_TEST_PURSE` set on the machine, it is `wallet.json` beside
+the fonts, exactly as it was.
+
+And otherwise there is NO purse. lee: *"the coins should only be linked to
+an account, so no account = no coins"*. An installed copy that is signed out
+has a balance of nothing, cannot afford anything, and the coin in the header
+says "Sign in". The local wallet used to stand in here, and what it stood in
+with was whatever the machine had - on lee's own the 990 coins left over from
+debugging, which is not a number a customer should ever see.
 
 The local purse is not a fallback for the remote one. If a spend cannot reach
 the server it fails, and the run does not start: quietly charging a local
 wallet instead would be giving the work away, and quietly not charging at all
-would be worse. It is the purse for a checkout with no billing behind it -
-somebody running this from source, which is the case this app started as.
+would be worse.
 """
 from __future__ import annotations
 
@@ -2039,10 +2047,24 @@ def remote() -> bool:
     return account.signed_in()
 
 
+def local_purse() -> bool:
+    """Is `wallet.json` a purse here at all? Only with no billing configured
+    (a checkout) or the test purse switched on. Never on an installed copy:
+    there the coins are the account's or there are none."""
+    return bool(os.environ.get(TEST_PURSE)) or not account.configured()
+
+
+def needs_signin() -> bool:
+    """No account and no local purse: nothing to pay with until signed in."""
+    return not remote() and not local_purse()
+
+
 def balance() -> int:
     """Coins in the purse."""
     if remote():
         return account.balance()
+    if not local_purse():
+        return 0
     with _LOCK:
         return int(_read().get("balance") or 0)
 
@@ -2051,10 +2073,10 @@ def ledger(n: int = 60) -> list:
     """Most recent first. The receipt - kept on disk so "what did that chapter
     cost me" has an answer, and not shown on the coin panel: lee asked for the
     count and the prices there and nothing else."""
-    if remote():
+    if remote() or not local_purse():
         # The account's receipt lives on the website, where it can be read
-        # from any machine. This one is still the local file's, which is what
-        # was spent before signing in.
+        # from any machine. This one is the local file's, which only a
+        # checkout or the test purse has.
         return []
     with _LOCK:
         return list(reversed((_read().get("ledger") or [])[-n:]))
@@ -2082,6 +2104,8 @@ def credit(coins: int, what: str = "top-up", run: str = "") -> int:
                 "Coins are bought on the website.", "no-minting")
         account.refund(coins, run)
         return account.balance()
+    if not local_purse():
+        raise account.AccountError("Sign in to use TCT Coins.", "no-account")
     with _LOCK:
         w = _read()
         w["balance"] = int(w.get("balance") or 0) + coins
@@ -2110,6 +2134,8 @@ def can_afford(coins: int) -> bool:
             return account.balance(fresh=True) >= int(coins or 0)
         except account.AccountError:
             return False
+    if not local_purse():
+        return False
     return balance() >= int(coins or 0)
 
 
@@ -2137,6 +2163,8 @@ def spend(bill: "Bill | int", what: str = "", page: str = "",
         # `run` is what makes this happen once. A request that times out may
         # well have arrived, and the retry carries the same id.
         return account.spend(coins, what or "ai", page, run or account.new_run())
+    if not local_purse():
+        return 0                    # nothing to take from; the run never started
     with _LOCK:
         w = _read()
         w["balance"] = int(w.get("balance") or 0) - coins
@@ -2203,6 +2231,9 @@ def state() -> dict:
         got["buy_url"] = BUY_URL
         got["can_top_up"] = False       # never, on an account
         return got
+    if not local_purse():
+        return {"balance": 0, "buy_url": BUY_URL, "can_top_up": False,
+                "configured": True, "signed_in": False, "needs_signin": True}
     with _LOCK:
         return {"balance": int(_read().get("balance") or 0),
                 "buy_url": BUY_URL, "can_top_up": can_top_up(),

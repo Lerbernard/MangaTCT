@@ -95,9 +95,9 @@ def test_it_says_the_three_things_a_first_run_surprises_people_with(page):
     # 1. Windows will refuse to run it, and what to click
     assert "SmartScreen" in page
     assert "More info" in page and "Run anyway" in page
-    # 2. the first start downloads models, and why they are not in the installer
-    assert "200 MB" in page
-    assert "redistribute" in page
+    # 2. the first start downloads models, checked, kept across updates
+    assert "300 MB" in page
+    assert "checksum" in page and "never fetches them again" in " ".join(page.split())
     # 3. the browser is the interface, not the internet
     assert "127.0.0.1" in page
 

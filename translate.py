@@ -1940,7 +1940,10 @@ GEMINI_HARMS = ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH",
 
 
 def is_google_endpoint(url: str) -> bool:
-    return "generativelanguage.googleapis.com" in (url or "").lower()
+    low = (url or "").lower()
+    # ...or the project's relay standing in front of it, which forwards the
+    # request unchanged, safety settings included (`editor.relay_url`).
+    return "generativelanguage.googleapis.com" in low or "/relay/gemini" in low
 
 
 def _openrouter_body_extras(base_url: str, model: str) -> dict:
@@ -1976,7 +1979,8 @@ def _openrouter_body_extras(base_url: str, model: str) -> dict:
 
 
 def is_openrouter_endpoint(url: str) -> bool:
-    return "openrouter.ai" in (url or "").lower()
+    low = (url or "").lower()
+    return "openrouter.ai" in low or "/relay/openrouter" in low
 
 
 def takes_google_options(url: str, model: str = "") -> bool:
@@ -2361,7 +2365,9 @@ def make_client(backend: str = "anthropic", base_url: str = "",
     # The key from Settings, not only the environment: `Anthropic()` bare
     # reads ANTHROPIC_API_KEY and nothing else, so the key typed into the
     # editor never reached a native Claude call.
-    return (anthropic.Anthropic(api_key=api_key or None),
+    # `base_url` for Claude is the project's relay (`editor.relay_url`), which
+    # speaks Anthropic's own shape: the SDK posts /v1/messages under it.
+    return (anthropic.Anthropic(api_key=api_key or None, base_url=base_url or None),
             (model or MODEL), "anthropic")
 
 

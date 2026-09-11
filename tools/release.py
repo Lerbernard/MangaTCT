@@ -198,19 +198,32 @@ def check_models() -> None:
     d = json.load(open(os.path.join(HERE, "models.json"), encoding="utf-8"))
     stop, warn = [], []
     for m in d["models"]:
-        why = ""
-        try:
-            req = urllib.request.Request(m["url"], headers={"User-Agent": "MangaTCT-release"})
-            with urllib.request.urlopen(req, timeout=120) as r:
-                data = r.read()
-            if m.get("inside"):
-                data = zipfile.ZipFile(io.BytesIO(data)).read(m["inside"])
-            got = hashlib.sha256(data).hexdigest()
-            if got != m["sha256"] or len(data) != m["size"]:
-                why = ("serves sha %s size %d; models.json says %s %d"
-                       % (got[:12], len(data), m["sha256"][:12], m["size"]))
-        except Exception as e:
-            why = str(e)
+        # Every address, in the launcher's order; the first that serves the
+        # right bytes is the answer, and the ones before it that did not
+        # are said - a mirror that has gone missing is worth a line even
+        # when the publisher still answers.
+        srcs = m.get("urls") or [{"url": m["url"], "inside": m.get("inside")}]
+        why, data, tried = "", b"", []
+        for src in srcs:
+            try:
+                req = urllib.request.Request(src["url"], headers={"User-Agent": "MangaTCT-release"})
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    data = r.read()
+                if src.get("inside"):
+                    data = zipfile.ZipFile(io.BytesIO(data)).read(src["inside"])
+                got = hashlib.sha256(data).hexdigest()
+                if got != m["sha256"] or len(data) != m["size"]:
+                    why = ("%s serves sha %s size %d; models.json says %s %d"
+                           % (src["url"], got[:12], len(data), m["sha256"][:12], m["size"]))
+                else:
+                    why = ""
+                    break
+            except Exception as e:
+                why = "%s: %s" % (src["url"], e)
+            tried.append(why)
+        for t in tried:
+            if not why:
+                print("note     %-28s %s" % (m["name"], t))
         if not why:
             print("ok       %-28s %6.1f MB  %s" % (m["name"], len(data) / 1e6, m["tier"]))
         elif m.get("tier") == "required":

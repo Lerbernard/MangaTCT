@@ -21,6 +21,9 @@ import Stripe from 'stripe';
 import { createHash } from 'node:crypto';
 
 import {
+  PROVIDERS, relayTarget, tokenOf, forwardHeaders, admit, usageOf, errorBody, withBodyToken,
+} from './relay.js';
+import {
   PACKS, WELCOME, buy, checkUsername, clawback, pack, refund, refundedShare,
   spend, welcome,
 } from './purse.js';
@@ -33,6 +36,16 @@ const db = getFirestore();
  * nobody verifies is an endpoint that grants coins to anyone who posts to it. */
 const STRIPE_KEY = defineSecret('STRIPE_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
+// The provider keys the relay calls with. lee: *"the user shoud not have
+// eth keys"* - these are set once with `firebase functions:secrets:set` and
+// never leave the function. See relay.js.
+const ANTHROPIC_KEY = defineSecret('ANTHROPIC_KEY');
+const GEMINI_KEY = defineSecret('GEMINI_KEY');
+const OPENROUTER_KEY = defineSecret('OPENROUTER_KEY');
+// ...and the cleaner's: its token, and the address of our deploy.
+const CLEAN_TOKEN = defineSecret('CLEAN_TOKEN');
+const CLEAN_URL = defineSecret('CLEAN_URL');
+const PROVIDER_SECRETS = { ANTHROPIC_KEY, GEMINI_KEY, OPENROUTER_KEY, CLEAN_TOKEN };
 const SITE = defineString('SITE_URL', { default: 'https://mangatct.com' });
 
 /* `basil` or later, because that is where `managed_payments` exists on a
@@ -282,6 +295,61 @@ export const get = onRequest({ memory: '128MiB', maxInstances: 5 }, async (req, 
   // function call, and a new release is visible within the same five.
   res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
   res.redirect(302, to);
+});
+
+/* ------------------------------------------------------------------ the relay
+ *
+ * `POST /relay/<backend>/<path>`: the editor's own request to Claude, Gemini
+ * or OpenRouter, forwarded with our key. The editor puts its Firebase ID
+ * token where the provider's key would go; that is the whole of the
+ * handshake. relay.js says what is checked and why the price is not taken
+ * here. Long, because a page of translation on a thinking model can take a
+ * couple of minutes; not streamed, because the editor does not stream.
+ */
+export const relay = onRequest({
+  memory: '512MiB', timeoutSeconds: 540, maxInstances: 20,
+  secrets: [ANTHROPIC_KEY, GEMINI_KEY, OPENROUTER_KEY, CLEAN_TOKEN, CLEAN_URL],
+}, async (req, res) => {
+  const to = relayTarget(req.path);
+  if (!to) { res.status(404).json(errorBody('No such relay.')); return; }
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.status(405).json(errorBody('POST or GET.')); return;
+  }
+  const token = tokenOf(req.headers);
+  if (!token) { res.status(401).json(errorBody('Sign in to MangaTCT to use TCT Coins.')); return; }
+  let uid = '';
+  try { uid = (await getAuth().verifyIdToken(token)).uid; } catch (e) {
+    res.status(401).json(errorBody('Your sign-in has expired - sign in again.')); return;
+  }
+  const snap = await userRef(uid).get();
+  const gate = admit(snap.exists ? snap.data() : null);
+  if (!gate.ok) { res.status(gate.status).json(errorBody(gate.why, 'coins')); return; }
+
+  const key = PROVIDER_SECRETS[PROVIDERS[to.backend].secret].value();
+  if (!key) { res.status(503).json(errorBody(`The ${to.backend} key is not set on the server.`)); return; }
+  // The cleaner's address is ours and set beside its token.
+  const url = to.url || (to.backend === 'clean' ? CLEAN_URL.value() : '');
+  if (!url) { res.status(503).json(errorBody('The cleaner address is not set on the server.')); return; }
+  let body = req.method === 'POST' ? (req.rawBody || JSON.stringify(req.body || {})) : undefined;
+  if (body !== undefined) body = withBodyToken(body, to.backend, key);
+  let up;
+  try {
+    up = await fetch(url, { method: req.method, body,
+      headers: forwardHeaders(req.headers, to.backend, key) });
+  } catch (e) {
+    console.error('relay upstream', to.backend, String(e));
+    res.status(502).json(errorBody(`${to.backend} did not answer: ${String(e).slice(0, 200)}`)); return;
+  }
+  // Bytes, not text: the cleaner answers with a PNG.
+  const buf = Buffer.from(await up.arrayBuffer());
+  const ctype = up.headers.get('content-type') || 'application/json';
+  let usage = null;
+  if (/json/i.test(ctype)) {
+    try { usage = usageOf(JSON.parse(buf.toString('utf8'))); } catch (e) { /* not usage */ }
+  }
+  console.log(JSON.stringify({ relay: to.backend, path: to.path, uid, status: up.status,
+    bytes: buf.length, usage }));
+  res.status(up.status).set('content-type', ctype).send(buf);
 });
 
 /* ------------------------------------------------------------------ the till

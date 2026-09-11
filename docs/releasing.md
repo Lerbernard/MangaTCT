@@ -85,6 +85,22 @@ and it goes back; it costs one repo and one fine-grained token.
   makes that go away after enough installs. Not needed for the beta, and
   worth doing before you tell strangers to install it.
 
+## The `models` release (once, and whenever a weight file changes)
+
+The launcher fetches each model from the first address in its `urls` in
+`tools/models.json` — the project's own mirror first, the publisher after.
+The mirror is a GitHub release on this repository tagged `models`, holding
+the exact files their publishers put out (the checksums in models.json are
+of those files). It exists because an installed copy could reach GitHub but
+not Hugging Face, and because the COO sound-effect weights have no fetchable
+publisher address at all. Upload the four by hand: comictextdetector.pt.onnx,
+animetext.pt, m109seg.pt, dbpp_coo.dat (GitHub → Releases → Draft a new
+release → tag `models`, drag the files in — or `gh release create models
+<files>`). Not the webtoon models: no licence is written down for them
+(NOTICE). Adding a model: put the file on the `models` release, add an entry
+with its sha256 and size, mirror first in `urls`, publisher (if any) last and
+also as `url` for launchers before 1.0.3.
+
 ## Every release
 
 **In PowerShell, one command per line.** Windows PowerShell 5.1 - the one that

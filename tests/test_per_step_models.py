@@ -714,7 +714,7 @@ def test_a_step_with_no_key_is_refused_before_the_run():
         except urllib.error.HTTPError as e:
             assert e.code == 402
             body = e.read().decode()
-            assert "Translate" in body and "API key" in body, body
+            assert "Translate" in body and "TCT Coins" in body, body
         assert not p.job.get("running")
     finally:
         editor.PROJECT = was

@@ -627,9 +627,17 @@ There is no free-text box: the menu is the only way to set a model.
 | Label | Key | Type | Default | Options |
 |---|---|---|---|---|
 | Method | `ai_clean` | menu | `off` | **Local - instant, no cost (default)**, **AI for hard areas** (screentone, SFX, text on art), **AI for the whole page** |
-| Cleaner endpoint URL | `clean_url` | text | empty | |
-| Cleaner token | `clean_token` | password | empty | Shown as "set", or in red as "placeholder" if it is still the example value |
 | Test cleaner | button | | | One real call, and the answer in words |
+
+**No address or token box** (1.0.3; lee: *"ther 4 key one for teh clner do
+tha too"*). The cleaner is reached through the project's relay
+(`editor.cleaner_endpoint` → `.../relay/clean`, signed with the person's ID
+token; the relay swaps in `CLEAN_TOKEN` and posts to `CLEAN_URL`, both
+Firebase secrets). Signed out, the local fill does every page and the bar says
+to sign in. A checkout with its own deploy still calls it directly: `clean_url`
+in the chapter or `MANGATL_CLEAN_URL` in the `.env`, plus `MANGATL_CLEAN_TOKEN`
+- and that pair wins over the relay. `clean_url`/`clean_token` keys survive in
+old project files and are honored, never wiped by a Save.
 
 **A refused token is said once.** 401 and 403 are not flakes - they are the
 endpoint reading the token and rejecting it, and nothing about cleaning the
@@ -2065,9 +2073,17 @@ two corrections per step and model.
 
 ## 9.6 The local purse
 
-When you are not signed in, coins live in `wallet.json` under `~/.mangatl`,
-written atomically. A new one opens with **1,000 coins**. The ledger keeps the
-last 400 entries.
+**Only for a checkout or the developer** (1.0.3; lee: *"no account = no
+coins"*). `wallet.json` under `~/.mangatl` is a purse when no Firebase project
+is configured at all, or when `MANGATL_TEST_PURSE` is set on the machine
+(`coins.local_purse`). An installed copy that is signed out has **no purse**:
+balance 0, `can_afford` false, a priced run says "Sign in (the coin, top
+right)", and the coin in the header reads **Sign in** and opens the sign-in
+form. The file is left where it is, untouched. The test suite sets the switch
+in `conftest.py` and spends the throwaway wallet as before.
+
+When it is a purse: written atomically; a new one opens with **1,000 coins**;
+the ledger keeps the last 400 entries.
 
 A local spend **is allowed to go below zero**, deliberately: it is recorded
 *after* the tokens were bought, and refusing the entry would not un-spend the

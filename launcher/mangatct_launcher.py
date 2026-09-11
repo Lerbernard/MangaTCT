@@ -482,7 +482,7 @@ def models_wanted(version_dir: str) -> list[dict]:
     """The weights this version of the app expects, from its own
     `models.json` (a copy of `tools/models.json` at release time)."""
     d = read_json(os.path.join(version_dir, "models.json"), {}) or {}
-    return [m for m in d.get("models", []) if m.get("name") and m.get("url")]
+    return [m for m in d.get("models", []) if m.get("name") and model_sources(m)]
 
 
 def model_present(p: dict, m: dict) -> bool:
@@ -493,20 +493,50 @@ def model_present(p: dict, m: dict) -> bool:
     return not size or os.path.getsize(fp) == int(size)
 
 
+def model_sources(m: dict) -> list[dict]:
+    """Where one weight file can be had, in the order to try. `urls` (1.0.3+:
+    the project's own mirror first, the publisher after) or, from an older
+    models.json, the one `url`. Each entry is `{"url", "inside"?}`."""
+    out = []
+    for u in m.get("urls") or []:
+        if isinstance(u, dict) and u.get("url"):
+            out.append({"url": u["url"], "inside": u.get("inside")})
+        elif isinstance(u, str) and u:
+            out.append({"url": u, "inside": None})
+    if not out and m.get("url"):
+        out.append({"url": m["url"], "inside": m.get("inside")})
+    return out
+
+
 def fetch_model(p: dict, m: dict, progress=None) -> bool:
-    """One weight file, from its publisher, checked against the sum every
-    measurement was made on. Some arrive inside a zip (`inside` names the
-    member); the sum is always of the file that lands in `models/`."""
+    """One weight file, from the first address that has it, checked against
+    the sum every measurement was made on. Some arrive inside a zip
+    (`inside` names the member); the sum is always of the file that lands
+    in `models/`.
+
+    The mirror on the project's own release page is tried before the
+    publisher: an installed copy that can reach GitHub but not Hugging Face
+    otherwise starts with the AnimeText and Manga109 routes gray, and the
+    only fix was copying files by hand."""
     dest = os.path.join(p["models"], m["name"])
-    if not m.get("inside"):
-        return download(m["url"], dest, m.get("sha256"), m.get("size"), progress)
+    for src in model_sources(m):
+        if _fetch_one(m, src, dest, progress):
+            log("model %s: from %s" % (m["name"], src["url"]))
+            return True
+        log("model %s: not had from %s" % (m["name"], src["url"]))
+    return False
+
+
+def _fetch_one(m: dict, src: dict, dest: str, progress=None) -> bool:
+    if not src.get("inside"):
+        return download(src["url"], dest, m.get("sha256"), m.get("size"), progress)
     zpath = dest + ".zip"
-    if not download(m["url"], zpath, None, None, progress):
+    if not download(src["url"], zpath, None, None, progress):
         return False
     try:
         with zipfile.ZipFile(zpath) as z:
-            with z.open(m["inside"]) as src, open(dest + ".part", "wb") as out:
-                shutil.copyfileobj(src, out)
+            with z.open(src["inside"]) as fh, open(dest + ".part", "wb") as out:
+                shutil.copyfileobj(fh, out)
     except (zipfile.BadZipFile, KeyError, OSError) as e:
         log("model %s: %s" % (m["name"], e))
         return False

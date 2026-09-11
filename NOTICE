@@ -18,10 +18,19 @@ and it does not reach across a network: a translation request sent to a remote
 API is two separate programs talking, not one program linked to another, and
 running mangatl as a hosted service is not distribution at all.
 
-NONE OF THE MODEL FILES ARE REDISTRIBUTED WITH THIS SOFTWARE. Every one of
-them is downloaded by the person using it, from its own publisher, and pointed
-at by a path in the project settings. What is listed below is what the app
-knows how to READ.
+NO MODEL FILE IS INSIDE THIS SOFTWARE. Every one of them is downloaded by the
+installed app on its first start (or by the person, for a checkout), and
+pointed at by a path in the project settings. What is listed below is what
+the app knows how to READ.
+
+FOUR OF THEM ARE ALSO MIRRORED on this project's own release page
+(`github.com/Lerbernard/MangaTCT/releases/tag/models`), and the app tries the
+mirror before the publisher: comic-text-detector (GPL-3.0), AnimeText
+(GPL-3.0), the Manga109 segmenter (MIT), and the DB++ COO weights (the
+authors' release, MIT repository; see its note below). Each is the exact
+file its publisher put out, unchanged, checksummed in `tools/models.json`.
+Nothing whose licence is not written down is mirrored - the webtoon balloon
+models are fetched from their publisher only.
 
 
 THE MODELS
@@ -90,9 +99,9 @@ webtoon balloon models, Korean and Chinese (YOLOv8)
             were trained with YOLOv8 and whose terms nobody has written down.
   used for  the "Webtoon balloons KO" and "Webtoon balloons ZH" routes, on
             manhwa and manhua
-  note      as with every other model file here, the weights are NOT
-            redistributed: the person using the app downloads them. 12MB each.
-            They are not a language split - see `detect/webtoon.py`.
+  note      not mirrored, for the reason above: the app fetches them from
+            the publisher's address only. 12MB each. They are not a language
+            split - see `detect/webtoon.py`.
 
 comic bubble + text detector (RT-DETR)
   file      detector.onnx / detector-v4-s_int8.onnx

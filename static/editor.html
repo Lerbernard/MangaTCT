@@ -1238,21 +1238,14 @@
 
              A project set up on the old pair is not lost: `migrate_engine`
              copies its engine onto whichever of the three steps had none. -->
-        <!-- THE KEY BOXES STOOD HERE. lee: *"remove tehh keys they shoud
-             happen in te backend and remove teh text"*. The three keys are
-             still read from a project that has them - `editor.key_for` is
-             unchanged - so nothing that was working stops; there is simply no
-             box for typing one, because the answer is not the person's to
-             type any more.
-
-             WHERE THEY LIVE NOW is one file, and this is the only place on
-             the screen that says so. lee: *"they key shoud be in the .env
-             file and all teh project shoud use them"*. Filled in by
-             `renderEnvKeys`; no key is ever sent here, only which of the four
-             the file answers for, and the path of the file itself - which is
-             the part that matters, because a key you cannot find is a key you
-             cannot roll. -->
-        <div id="envKeys" class="help" style="margin:10px 0 0"></div>
+        <!-- THE KEY BOXES STOOD HERE, and then a line naming the file they
+             live in. Both gone. lee: *"remove tehh keys they shoud happen in
+             te backend"*, then *"the user shoud not have eth keys"*. A
+             signed-in editor sends its AI calls through the project's relay
+             (`editor.relay_url`, functions/relay.js), which calls the
+             provider with the project's own key and is paid in coins; a
+             checkout with a `.env` beside it still uses that, silently
+             (`editor.key_for`). Nothing on this screen mentions a key. -->
         <label style="margin-top:14px">THE COMPANY AND MODEL FOR EACH STEP</label>
         <div class="stepai">
           <label style="margin-top:10px">READ TEXT - the model that reads the page</label>
@@ -1433,13 +1426,11 @@
              gone at lee's word. The measurement itself is in the comment
              above and must not be lost with it: it is the reason there is no
              eraser menu on this screen. -->
-        <label>Cleaner endpoint URL</label>
-        <input id="clean_url" placeholder="https://…modal.run"
-               onchange="saveSettings()">
-        <label>Cleaner token</label>
-        <input id="clean_token" type="password"
-               placeholder="the token from your deploy file"
-               onchange="saveSettings()">
+        <!-- The URL and token boxes stood here. Gone: lee, *"ther 4 key one
+             for teh clner do tha too"*. The cleaner is reached through the
+             project's relay (`editor.cleaner_endpoint`), which holds the
+             address and the token; a checkout with its own deploy names it
+             in the .env (MANGATL_CLEAN_URL, MANGATL_CLEAN_TOKEN). -->
         <div style="margin:8px 0 0">
           <button id="cleanTestBtn" onclick="testCleaner()">Test cleaner</button>
         </div>

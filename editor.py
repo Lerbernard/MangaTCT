@@ -242,7 +242,7 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
             _page_fingerprint(p, i), cc, _mtime(cc),
             ov, _mtime(ov), ovr, _mtime(ovr),
             json.dumps(inputs, sort_keys=True, default=str),
-            s.get("ai_clean") or "off", s.get("clean_url") or "",
+            s.get("ai_clean") or "off", cleaner_endpoint(p, token=False)[0],
             # ...and WHETHER IT HAS BEEN CLEANED, because that is now the
             # difference between two different pictures rather than between a
             # picture and the same picture built more slowly. Without it, the
@@ -398,7 +398,7 @@ def _plate_stamp(p: Project, i: int) -> tuple:
     # without this, pasting the real token in left every plate built during the
     # 401s sitting in the cache, so nothing changed and nothing was re-sent.
     tok = clean_token_for(p)
-    ai = (p.settings.get("ai_clean") or "off", p.settings.get("clean_url") or "",
+    ai = (p.settings.get("ai_clean") or "off", cleaner_endpoint(p, token=False)[0],
           hashlib.sha1(tok.encode("utf-8")).hexdigest()[:12] if tok else "",
           # ...and the CLEANER'S OWN VERSION. A plate is cached on disk and
           # reused forever, and none of the keys above change when the cleaning
@@ -726,8 +726,10 @@ def clean_warning(p: Project) -> str:
            f"{'was' if n == 1 else 'were'} filled in with the plain local "
            f"method instead.")
     tok = clean_token_for(p)
-    if not tok:
-        msg += " No cleaner token is saved (Settings ▸ Page cleaning)."
+    if not tok and not relay_ready():
+        msg += " Sign in (the coin, top right) to use the AI cleaner."
+    elif not tok:
+        pass                        # the relay's own words are in f["msg"]
     elif _token_is_placeholder(tok):
         msg += (" The saved token is still the CHANGE-ME example from the"
                 " deploy file — paste the real one into Settings ▸ Page cleaning.")
@@ -935,7 +937,7 @@ def clean_note(p: Project) -> str:
         # the second press of Clean reuses the plates the first one made.
         return ""
     mode = (p.settings.get("ai_clean") or "off").strip()
-    if mode not in ("hard", "all") or not (p.settings.get("clean_url") or "").strip():
+    if mode not in ("hard", "all") or not cleaner_endpoint(p, token=False)[0]:
         return ""
     if mode == "hard":
         return ("AI cleaning was on but nothing was sent to it — every region "
@@ -1095,9 +1097,8 @@ def clean_selftest(p: Project) -> dict:
     """
     import tempfile
     s = p.settings
-    url = (s.get("clean_url") or "").strip()
-    tok = clean_token_for(p)
-    files = _deploy_files()
+    url, tok, relayed = cleaner_endpoint(p)
+    files = [] if relayed else _deploy_files()
     mine = hashlib.sha1(tok.encode("utf-8")).hexdigest() if tok else ""
     for f in files:
         f["same_token"] = bool(mine) and f["sha"] == mine
@@ -1111,14 +1112,11 @@ def clean_selftest(p: Project) -> dict:
         f["url_matches"] = f["url_matches"] and len(f["app"]) == hit
     res = {"url": url, "mode": (s.get("ai_clean") or "off").strip(),
            "token": {"len": len(tok), "state": token_state(tok)},
+           "relayed": relayed,
            "files": files, "ok": False, "error": "", "hint": ""}
-    if not url:
-        res["error"] = "No cleaner address is saved."
-        res["hint"] = "Paste the endpoint URL your deploy printed."
-        return res
-    if not tok:
-        res["error"] = "No cleaner token is saved."
-        res["hint"] = "Paste CLEAN_TOKEN from your deploy file."
+    if not url or not tok:
+        res["error"] = "The AI cleaner needs you signed in."
+        res["hint"] = "Sign in with the coin at the top right, then test again."
         return res
 
     img = np.full((64, 64, 3), 235, np.uint8)
@@ -1206,8 +1204,9 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
     # would say, and waiting three minutes a box to be told so is the only
     # thing a round trip would add. `clean_warning` names the missing token.
     if not token:
+        # No token of their own and none from the relay: not signed in.
         _AI_CLEAN_FAIL["n"] += 1
-        _AI_CLEAN_FAIL["msg"] = "no cleaner token is saved"
+        _AI_CLEAN_FAIL["msg"] = "nobody is signed in"
         if strict:
             raise RuntimeError(_AI_CLEAN_FAIL["msg"])
         return cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
@@ -1242,8 +1241,11 @@ def _ai_clean_call(url: str, token: str, cache_dir: str,
             "image": base64.b64encode(cv2.imencode(".png", img)[1]).decode(),
             "mask": base64.b64encode(cv2.imencode(".png", mask)[1]).decode(),
         }).encode("utf-8")
+        # The token in the body is what our own deploy reads; the same
+        # string in the header is what the relay reads (an ID token, there).
         req = urllib.request.Request(
-            url, data=body, headers={"Content-Type": "application/json"})
+            url, data=body, headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + token})
         # A page whose cleaner hangs holds that page's build for this long,
         # and anything waiting on the same page waits with it. Three minutes
         # was long enough that it read as the app being dead.
@@ -1295,8 +1297,7 @@ def _make_cleaner(p: Project, strict: bool = False):
     """
     s = p.settings
     mode = (s.get("ai_clean") or "off").strip()
-    url = (s.get("clean_url") or "").strip()
-    token = clean_token_for(p)
+    url, token, _relayed = cleaner_endpoint(p)
     if mode not in ("hard", "all") or not url:
         return None, False
     cache_dir = _ai_clean_cache_dir(p)
@@ -2735,7 +2736,7 @@ def warm_models(p: Project, wait: bool = False) -> None:
 
 def _hosted_cleaning(p: Project) -> bool:
     return ((p.settings.get("ai_clean") or "off").strip() in ("hard", "all")
-            and bool((p.settings.get("clean_url") or "").strip()))
+            and bool(cleaner_endpoint(p, token=False)[0]))
 
 
 # Set while `do_clean` is running - the Clean button, and the Clean step of a
@@ -3438,6 +3439,32 @@ def clean_token_for(p: Project) -> str:
             or str(p.settings.get("clean_token") or "").strip())
 
 
+def cleaner_endpoint(p: Project, token: bool = True) -> tuple[str, str, bool]:
+    """Where the AI cleaner is and what to sign the call with:
+    `(url, token, relayed)`.
+
+    A checkout with its own deploy - a URL (`MANGATL_CLEAN_URL` in the
+    `.env`, or the chapter's `clean_url`) AND a token - calls it directly, as
+    always. Everybody else goes through the project's relay, which holds the
+    real token and address (lee: *"ther 4 key one for teh clner do tha
+    too"*): the URL is `.../relay/clean`, the token is the person's ID token,
+    and the relay swaps it for ours. Signed out with no deploy of their own:
+    no url, and the local fill does the page.
+
+    `token=False` answers the URL without fetching a token - for cache keys
+    and gates, which are asked often and must not touch the network."""
+    url = (str(userdata.load_env().get("MANGATL_CLEAN_URL") or "").strip()
+           or str(p.settings.get("clean_url") or "").strip())
+    tok = clean_token_for(p)
+    if url and tok:
+        return url, tok, False
+    if relay_ready():
+        t = relay_token() if token else "-"
+        if t:
+            return relay_url("clean"), ("" if t == "-" else t), True
+    return url, tok, False
+
+
 def key_for(p: Project, backend: str, step: str = "") -> str:
     """The key a call to this service will be made with.
 
@@ -3583,6 +3610,38 @@ def _steps_aside(step: str):
     return deco
 
 
+#: The services the project's relay can call for a signed-in person who has
+#: no key of their own. lee: *"the user shoud not have eth keys"*.
+RELAYED = ("anthropic", "gemini", "openrouter")
+
+
+def relay_ready() -> bool:
+    """Can this editor send its AI calls through the relay? Signed in is the
+    whole of it; whether the account has coins is the relay's answer, and
+    it is given in the provider's own error shape when it is no."""
+    from . import account
+    try:
+        return account.signed_in()
+    except Exception:
+        return False
+
+
+def relay_url(backend: str) -> str:
+    """The relay, for one provider: `.../relay/<backend>`. The OpenAI-shaped
+    clients add `/chat/completions` and `/models`; Anthropic's SDK adds
+    `/v1/messages`; the function takes both."""
+    from . import account
+    return account.function_url("relay") + "/" + (backend or "").strip().lower()
+
+
+def relay_token() -> str:
+    from . import account
+    try:
+        return account.token()
+    except Exception:
+        return ""
+
+
 def needs_key(p: Project, step: str) -> str:
     """"" if this step can be called, or the sentence saying what is missing.
 
@@ -3614,13 +3673,14 @@ def needs_key(p: Project, step: str) -> str:
     # so blocking it here would refuse a chapter that would have worked.
     if back in ("anthropic", "gemini") and fallback_key(p):
         return ""
+    # No key of their own, but signed in: the relay calls with ours, paid in
+    # coins. A person is never asked for a key.
+    if back in RELAYED and relay_ready():
+        return ""
     label = STEP_LABEL.get(step, step)
     service = dict(SERVICES).get(back, back)
-    # Names the SERVICE, not the step. One key serves all three steps now, so
-    # "put a key next to Translate" would send somebody looking for a box that
-    # is not there any more.
-    return ("%s has no API key. Open Settings \u203a API keys and put your "
-            "%s key in, or point that step at a model you run yourself."
+    return ("%s needs %s, which runs on TCT Coins. Sign in (the coin, top "
+            "right) to run it, or point that step at a model you run yourself."
             % (label, service))
 
 
@@ -3634,6 +3694,9 @@ def afford_run(p: Project, step: str, indices) -> str:
     """
     from . import coins
     price, _model, _backend = run_price(p, step, indices)
+    if price > 0 and coins.needs_signin():
+        return ("Sign in (the coin, top right) to run this - TCT Coins live "
+                "on your account.")
     # The HOLD is what actually leaves the purse when the button is pressed -
     # the estimate plus its headroom, returned at settle - so the hold is
     # what has to be affordable. Gating on the bare estimate would start a
@@ -4890,6 +4953,17 @@ def _ctx_from_settings(p: Project, step: str = "") -> None:
             and (not p.ctx.api_key
                  or step in getattr(p, "_openrouter_instead", ()))):
         _openrouter_ctx(p)
+    # No key anywhere, signed in: through the relay, with the ID token where
+    # the key goes. Per page, so a token that runs out mid-chapter is
+    # refreshed by `account.token` before the next one.
+    p.ctx.relayed = False
+    if (not p.ctx.api_key and not p.ctx.base_url and p.ctx.backend in RELAYED
+            and relay_ready()):
+        tok = relay_token()
+        if tok:
+            p.ctx.base_url = relay_url(p.ctx.backend)
+            p.ctx.api_key = tok
+            p.ctx.relayed = True
     # ...and what to call this step if the provider refuses it. See
     # `translate._model_error`: without this the message names the reader
     # whichever step was actually running.

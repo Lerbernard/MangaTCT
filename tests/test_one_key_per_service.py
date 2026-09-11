@@ -107,15 +107,16 @@ def test_an_old_project_json_that_has_not_been_saved_since_still_works(tmp_path)
 
 # ------------------------------------------------------------- and on screen
 
-def test_a_run_with_no_key_says_which_service_to_put_one_in(tmp_path):
-    """One key serves all three steps now, so "put a key next to Translate"
-    would send somebody looking for a box that is not there any more."""
+def test_a_run_with_no_key_and_nobody_signed_in_says_to_sign_in(tmp_path):
+    """Nobody is asked for a key any more (lee: *"the user shoud not have eth
+    keys"*): signed in, the relay calls with ours. Signed out and keyless,
+    the sentence names the service and says to sign in."""
     p = _proj(tmp_path)
     p.settings.update({"translate_backend": "gemini", "translate_key": "",
                        "translate_model": "gemini-3.6-flash"})
     said = editor.needs_key(p, "translate")
     assert "Google AI Studio" in said
-    assert "API keys" in said
+    assert "Sign in" in said and "TCT Coins" in said and "API key" not in said
     p.settings["key_gemini"] = "K"
     assert editor.needs_key(p, "translate") == ""
 
