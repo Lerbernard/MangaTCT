@@ -573,6 +573,11 @@ def editor_env(p: dict) -> dict:
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    # Every core for the detectors. ultralytics sets this to 1 at import when
+    # nobody has, and PyTorch then runs Find text on one core of twenty. The
+    # app sets it too (`mangatl/cores.py`); this is the same line from the
+    # outside, for an app version from before it did.
+    env.setdefault("OMP_NUM_THREADS", str(os.cpu_count() or 1))
     return env
 
 
@@ -832,6 +837,83 @@ def watch_for_updates(p: dict, manifest_url: str, proc: subprocess.Popen,
 
 # ----------------------------------------------------------------- window
 
+def icon_files() -> tuple[str, str]:
+    """(icon.ico, icon.png) - inside the frozen exe when there is one, beside
+    the source tree when there is not. Either may be missing; callers cope."""
+    bases = []
+    if getattr(sys, "_MEIPASS", ""):
+        bases.append(sys._MEIPASS)                       # type: ignore[attr-defined]
+    bases.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static"))
+    for b in bases:
+        ico, png = os.path.join(b, "icon.ico"), os.path.join(b, "icon.png")
+        if os.path.isfile(ico) or os.path.isfile(png):
+            return ico, png
+    return "", ""
+
+
+def wear_the_mark(root) -> None:
+    """The MangaTCT mark on the launcher's window - title bar and taskbar.
+    Tk stamps its own feather on any window that does not set one, which is
+    what lee saw and sent. Never allowed to matter: a missing file, an old
+    Tk - the window is the point, the picture on it is not."""
+    ico, png = icon_files()
+    if sys.platform == "win32" and os.path.isfile(ico):
+        try:
+            root.iconbitmap(default=ico)
+            return
+        except Exception:
+            pass
+    if os.path.isfile(png):
+        try:
+            import tkinter
+            root._mangatct_icon = tkinter.PhotoImage(file=png)
+            root.iconphoto(True, root._mangatct_icon)
+        except Exception:
+            pass
+
+
+def dark_frame(root) -> None:
+    """The launcher window's title bar in the dark, like the app's. Windows
+    draws it white unless asked; the ask is one DWM attribute, and the same
+    two colours `mangatl/window.py` gives the app window. Nothing here may
+    fail loudly - an older Windows simply keeps its own frame."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        root.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+        dwm = ctypes.windll.dwmapi
+        for attr, value in ((20, 1), (35, 0x161210), (34, 0x161210), (36, 0xECE8E6)):
+            v = ctypes.c_int(value)
+            dwm.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), ctypes.c_uint(attr),
+                                      ctypes.byref(v), ctypes.sizeof(v))
+        # the frame is repainted on the next show; a withdraw/deiconify is the
+        # cheap way to ask for one before the person sees the white
+        root.withdraw()
+        root.deiconify()
+    except Exception:
+        pass
+
+
+def mark_image(root, size: int = 32):
+    """The mark as a Tk image `size` pixels square, for beside the name; None
+    when it cannot be had. Tk shrinks only by whole factors, so 512 comes
+    down to 32 by sixteen."""
+    _, png = icon_files()
+    if not os.path.isfile(png):
+        return None
+    try:
+        import tkinter
+        im = tkinter.PhotoImage(file=png)
+        f = max(1, im.width() // size)
+        im = im.subsample(f, f) if f > 1 else im
+        root._mangatct_mark = im
+        return im
+    except Exception:
+        return None
+
+
 def main(argv=None) -> int:
     """A small window: the version, the address, Open and Quit. Closing it
     stops the editor - the window IS the app as far as Windows is
@@ -862,9 +944,15 @@ def main(argv=None) -> int:
     root = tk.Tk()
     root.title("MangaTCT")
     root.resizable(False, False)
+    wear_the_mark(root)
+    dark_frame(root)
     frame = ttk.Frame(root, padding=18)
     frame.grid()
-    title = ttk.Label(frame, text="MangaTCT", font=("Segoe UI", 14, "bold"))
+    mark = mark_image(root)
+    # The mark beside the name (a leading space is the gap: ttk has no
+    # image-to-text padding of its own).
+    title = ttk.Label(frame, text=" MangaTCT" if mark else "MangaTCT",
+                      font=("Segoe UI", 14, "bold"), image=mark, compound="left")
     title.grid(row=0, column=0, columnspan=2, sticky="w")
     status = tk.StringVar(value="Starting…")
     ttk.Label(frame, textvariable=status, wraplength=360).grid(
@@ -913,7 +1001,7 @@ def main(argv=None) -> int:
                              "be prepared. See logs\\launcher.log.)")
                 status.set(line)
                 b_open.config(state="normal")
-                title.config(text="MangaTCT %s" % s.version)
+                title.config(text=("%sMangaTCT %s" % (" " if mark else "", s.version)))
                 # The app has its own window now; this one would only be a
                 # second MangaTCT on the taskbar. It comes back if the app's
                 # window goes away while the editor is still running, with

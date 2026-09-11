@@ -137,6 +137,8 @@ def _balloons(img: np.ndarray, path: str) -> list:
         if _model is None or _model_path != path:
             from ultralytics import YOLO
             _model, _model_path = YOLO(path), path
+        from . import cores
+        cores.claim()            # ultralytics just set OMP to 1; undo it
         res = _model(img, verbose=False, conf=CONF, imgsz=IMGSZ)[0]
     h, w = img.shape[:2]
     out = []

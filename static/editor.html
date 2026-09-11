@@ -430,8 +430,8 @@
 
     <div class="pkstep on" data-step="1">
 
-    <div class="row" style="gap:12px;margin-top:14px;flex-wrap:wrap">
-      <div style="flex:1 1 280px">
+    <div class="pkgrid">
+      <div>
         <label style="margin-top:0">What is this?</label>
         <select id="pkMedium" onchange="mediumChosen('pk')">
           <option value="manga">Manga</option>
@@ -439,7 +439,7 @@
           <option value="manhua">Manhua</option>
         </select>
       </div>
-      <div style="flex:1 1 200px">
+      <div>
         <label style="margin-top:0"
                title="Source language">
                Written in</label>
@@ -449,14 +449,14 @@
           <option value="zh">Chinese</option>
         </select>
       </div>
-      <div style="flex:1 1 200px">
+      <div>
         <label style="margin-top:0">Reading direction</label>
         <select id="pkDirection" onchange="mediumHint()">
           <option value="rtl">Right to left</option>
           <option value="ltr">Left to right</option>
         </select>
       </div>
-      <div style="flex:1 1 200px">
+      <div>
         <label style="margin-top:0">Translate into</label>
         <select id="pkTarget">
           <option value="en">English</option>
@@ -469,6 +469,7 @@
     <p id="pkHint" class="help" style="margin:7px 0 0"></p>
 
     <div class="drop" id="drop">
+      <svg class="dropmark" viewBox="0 0 44 44" aria-hidden="true"><path d="M8 14h11l3 3h14v18H8z"/><path d="M14 27l4-5 4 4 3-3 5 6"/><path d="M8 20h28"/></svg>
       <p><strong>Drop a folder or images here</strong></p>
       <p class="muted">or</p>
       <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap">
@@ -568,11 +569,9 @@
    <section class="set-section" data-sec="help">
     <div class="pk">
      <h2 style="margin:0">Report a problem</h2>
-     <p class="muted" style="margin:8px 0 0">Say what you did, what you
-       expected and what happened instead, and send it with the box below.
-       The box is your version, your machine and the last lines of the
-       app's own log; nothing else, and never a key. Read it before you
-       send it.</p>
+     <p class="muted" style="margin:8px 0 0">Send what happened together with
+       the box below - your version, machine and last log lines, never a key.
+       Read it before you send it.</p>
      <p id="helpLinks" style="margin:12px 0 0"></p>
      <textarea id="diagText" readonly spellcheck="false"
                style="width:100%;min-height:220px;margin-top:12px;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto"></textarea>
@@ -580,29 +579,18 @@
        <button class="btn" onclick="copyDiag()">Copy to clipboard</button>
        <span id="diagMsg" class="help"></span>
      </p>
-     <p class="muted" style="margin:14px 0 0">MangaTCT is free software under
-       the GNU GPL v3. The source of the version you are running is in the
-       app's own folder, and every release on the download page carries it.</p>
+     <p class="muted" style="margin:14px 0 0">Free software, GNU GPL v3. The
+       source of this version is in the app's folder and on the download page.</p>
     </div>
    </section>
    <section class="set-section" data-sec="save">
     <div class="pk">
      <h2 style="margin:0">Save / open project</h2>
-     <p class="muted" style="margin:8px 0 0">A <b>.tctp</b> is the whole
-       chapter in one file: the pages, every box, the Japanese and the English,
-       the layouts, your paint and hand-cleaned plates, the custom box types
-       and the faces it typesets in. Open one anywhere and it is exactly as you
-       left it.</p>
-     <p class="muted" style="margin:4px 0 0">It carries your settings too. Keys
-       are not among them any more - those live in your <code>.env</code>, once
-       for every chapter, and a project file never sees one. A chapter set up
-       before that may still have old keys saved inside it, so treat an old
-       <b>.tctp</b> the way you would treat the keys.</p>
-
-     <p class="muted" style="margin:10px 0 0">The <b>story context</b> beneath
-       it is the other file: a <b>.tct</b> holding the synopsis, the
-       characters, the places and terms and how this series is set - the part
-       that carries into chapter two.</p>
+     <p class="muted" style="margin:8px 0 0"><b>.tctp</b> - the whole chapter
+       in one file, settings included, never a key.</p>
+     <p class="muted" style="margin:4px 0 0"><b>.tct</b> - the story context
+       alone: synopsis, characters, terms. The part that carries to the next
+       chapter.</p>
      <input id="tctpFile" type="file" accept=".tctp"
             style="display:none" onchange="uploadProject(this)">
      <!-- A story context exported before the rename is a .json and still
@@ -746,11 +734,12 @@
            markup says is open, and the markup said nothing was. -->
       <section class="set-section on" data-sec="story">
         <h2 class="set-h">Story settings</h2>
-        <p class="sethint">The synopsis, the character sheet and the glossary
-          are what keep chapter 4 calling her the same thing chapter 3 did.
-          They travel with every page, and the AI adds to them as it reads.
-          Some projects want none of that - a one-shot, a gag strip, a script
-          somebody else already wrote.</p>
+        <!-- One line per control and nothing else on the page. lee: *"remove
+             all the text explaining stuff ... just the button or field and a
+             short description, no paragraphs"*. The long form lives in the
+             guide. -->
+        <p class="sethint">The synopsis, characters and glossary travel with
+          every page and keep names consistent across chapters.</p>
 
         <!-- The master switch. lee: *"add a story setting that allow the user
              ti turn the story thing off, and to tun what the ai detects with
@@ -763,15 +752,11 @@
         <label class="swx" title="Use the story sheets">
           <input type="checkbox" id="story" checked onchange="saveSettings();syncStory()">
           <i></i><span>Keep a story for this project</span></label>
-        <p class="sethint" style="margin-top:6px">Off: nothing from Synopsis,
-          Characters or Places &amp; terms is sent to the model, and nothing is
-          added to them. What you have written stays on disk.</p>
+        <p class="sethint" style="margin-top:6px">Off: nothing is sent to
+          the model or added to the sheets. What you wrote stays.</p>
 
         <div id="storyopts">
           <label style="margin-top:16px">WHAT THE AI FILLS IN</label>
-          <p class="sethint">Each one on its own. A series with a big cast
-            wants the character sheet and not the glossary; somebody working
-            from a script wants the words and no speaker guessed at all.</p>
           <label class="swx"><input type="checkbox" id="learn_characters" checked
             onchange="saveSettings()"><i></i>
             <span>Add characters it meets to the sheet</span></label>

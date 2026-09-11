@@ -134,9 +134,8 @@ def _all_the_cores():
     thread, 5.57s on two. It scales almost linearly, so on twenty cores the
     same reclaim is roughly the difference between a minute and seconds.
     """
-    want = os.cpu_count() or 1
-    if cv2.getNumThreads() < want:
-        cv2.setNumThreads(want)
+    from .. import cores
+    cores.claim()
 
 
 def _get_net(path: str):

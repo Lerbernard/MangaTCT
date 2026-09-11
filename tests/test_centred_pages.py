@@ -98,15 +98,25 @@ _BOX = """(args)=>{
     ("setTab('settings'); setSettingsTab('fonts')", "#settingsPage .setcard"),
     ("setTab('settings'); setSettingsTab('synopsis')", "#settingsPage .setcard"),
 ])
-def test_the_settings_card_is_centred_both_ways(tab, card):
-    """lee: *"the cenetr page shoud be center verticsaly and horizontaly"*."""
+def test_the_settings_screen_fills_the_room_and_its_column_is_centred(tab, card):
+    """Was: a card centred both ways in an empty page - lee, 2026-08: *"the
+    cenetr page shoud be center verticsaly and horizontaly"*. Now the app has
+    a window of its own and a card floating in a void IS the window, so - lee,
+    2026-09-11: *"make the window of the app actually look like it's part of
+    the app ... redesign the layout of both of these"* - the screen runs edge
+    to edge and what is centred is the column of controls inside it."""
     def check(pg, p):
         pg.evaluate(tab)
         pg.wait_for_timeout(700)
         g = pg.evaluate(_BOX, [card, card.split(" ")[0]])
-        assert abs(g["left"] - g["right"]) <= 2, g
-        assert abs(g["top"] - g["bottom"]) <= 2, g
-        assert g["left"] > 60, f"still hard against the edge: {g}"
+        for side in ("left", "right", "top", "bottom"):
+            assert g[side] <= 2, (side, g)
+        col = pg.evaluate("""(()=>{
+            const s=document.querySelector('#setBody .set-section.on').getBoundingClientRect();
+            const b=document.getElementById('setBody').getBoundingClientRect();
+            return {left: s.left-b.left, right: b.right-s.right, width: s.width};})()""")
+        assert abs(col["left"] - col["right"]) <= 2, col
+        assert col["width"] <= 760, "a column of reading width, not the whole room"
     _serve(check)
 
 
@@ -152,14 +162,18 @@ def test_save_and_cancel_end_the_card_at_the_bottom_right(tab, card):
         buttons = pg.evaluate(f"""(()=>{{
             const f=document.querySelector('{card} .setfoot');
             const b=[...f.querySelectorAll('button')];
-            const r=f.getBoundingClientRect();
+            const col=document.querySelector('#setBody .set-section.on')
+                       .getBoundingClientRect();
             return {{names: b.map(x=>x.textContent.trim()),
-                     rightGap: Math.round(
-                       r.right - b[b.length-1].getBoundingClientRect().right)}};
+                     offColumn: Math.round(
+                       col.right - b[b.length-1].getBoundingClientRect().right)}};
             }})()""")
         assert buttons["names"][0] == "Cancel", buttons
         assert "Save" in buttons["names"][-1], buttons
-        assert buttons["rightGap"] <= 26, buttons
+        # Under the right edge of the column of controls, not in the far
+        # corner of a wide window: the bar's side padding is the column's own
+        # margin, so Save ends where the last field ends.
+        assert abs(buttons["offColumn"]) <= 2, buttons
     _serve(check)
 
 
@@ -199,15 +213,17 @@ def test_the_card_is_the_only_card():
                     pkBg:pk.backgroundColor,
                     radius:parseFloat(c.borderTopLeftRadius)};})()""")
         assert got["section"] == "0px", got
-        # The File screen is a card with a section rail now, exactly as this
-        # one is, and `.pk` inside it is a section - so the card to compare
+        # The File screen is a screen with a section rail, exactly as this
+        # one is, and `.pk` inside it is a section - so the surface to compare
         # against is `.filecard`. A panel background on `.pk` as well would be
         # the box in a box this test exists to catch.
         assert got["cardBg"] == got["pkBg"], got
         assert pg.evaluate(
             "getComputedStyle(document.querySelector('.pk')).backgroundColor"
         ) in ("rgba(0, 0, 0, 0)", "transparent")
-        assert got["radius"] >= 8, got
+        # ...and no rounded corners: a screen that fills the window is not a
+        # card any more, and a radius on it would draw the window's corners.
+        assert got["radius"] == 0, got
     _serve(check)
 
 
@@ -601,11 +617,9 @@ def test_the_top_bar_is_reachable_from_the_add_pages_screen():
         assert got["overBar"], "the picker is drawn over the top bar"
         assert got["tabClickable"], "a tab cannot be clicked through it"
         assert got["above"] >= 0, got
-        # Centred in the room BELOW the bar, not in the whole window - the
-        # difference only shows once the card is tall enough that half of it
-        # would reach up behind the bar, and then it is the top of the card
-        # that goes missing.
-        assert abs(got["above"] - got["below"]) <= 2, got
+        # The screen starts exactly under the bar and runs to the bottom of
+        # the window - the room below the bar, all of it.
+        assert got["above"] <= 1 and got["below"] <= 1, got
     _serve(check)
 
 

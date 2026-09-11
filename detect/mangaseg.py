@@ -96,6 +96,8 @@ def model(ckpt: str):
     if _model is None or _ckpt != ckpt:
         from ultralytics import YOLO
         _model, _ckpt = YOLO(ckpt), ckpt
+    from .. import cores
+    cores.claim()                # ultralytics just set OMP to 1; undo it
     return _model
 
 

@@ -1709,18 +1709,12 @@ function renderEnvKeys(){
   // screen without opening the file.
   const bits=ENV_KEYS.map(([k,label])=>
     `<span class="envk ${have[k]?'on':'off'}">${e(label)} ${have[k]?'✓':'—'}</span>`);
+  // One line: where, and which are there. The variable names and the rest
+  // are in the guide - lee: *"no paragraphs"*.
   box.innerHTML =
-    'Keys are read from <code>' + e(path) + '</code>, once for every chapter: '
+    'Keys are read from <code>' + e(path) + '</code>: '
     + bits.join(' &nbsp; ')
-    + '<br>One <code>NAME=value</code> a line — <code>MANGATL_ANTHROPIC_KEY</code>, '
-    + '<code>MANGATL_GEMINI_KEY</code>, <code>MANGATL_OPENROUTER_KEY</code>, '
-    + '<code>MANGATL_CLEAN_TOKEN</code>. '
-    + 'The usual names work too (<code>ANTHROPIC_API_KEY</code>, '
-    + '<code>GEMINI_API_KEY</code>, <code>OPENROUTER_API_KEY</code>). '
-    + 'A <code>.env</code> beside the app itself is read as well, but this one '
-    + 'is the one to keep them in — copying a new build over the top cannot '
-    + 'take it away. '
-    + 'Save the file and reload this page.';
+    + '<br>One <code>MANGATL_ANTHROPIC_KEY=…</code> a line; save, then reload.';
 }
 
 /* ------------------------------------------------- the AI company, per step

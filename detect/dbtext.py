@@ -97,6 +97,8 @@ def model(ckpt: str):
     """
     global _model, _ckpt
     import torch
+    from .. import cores
+    cores.claim()                # every core, every time - see cores.py
     if _model is None or _ckpt != ckpt:
         from ._dbnet.DBNet_resnet34 import TextDetection
         m = TextDetection()

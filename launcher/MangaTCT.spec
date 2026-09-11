@@ -17,7 +17,11 @@ a = Analysis(
     [os.path.join(here, "mangatct_launcher.py")],
     pathex=[here],
     binaries=[],
-    datas=[],
+    # The mark, carried inside the exe: the launcher's own window wears it
+    # (title bar, taskbar, and beside the name) before any app version is on
+    # disk to borrow it from. lee: *"use the logo everywhere"*.
+    datas=[(os.path.join(root, "static", "icon.ico"), "."),
+           (os.path.join(root, "static", "icon.png"), ".")],
     hiddenimports=["tkinter", "tkinter.ttk"],
     hookspath=[],
     runtime_hooks=[],

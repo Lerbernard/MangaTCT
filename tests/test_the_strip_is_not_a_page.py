@@ -238,6 +238,112 @@ def test_anything_that_might_be_a_book_of_pages_is_left_alone(sizes, why):
     assert not strip.looks_sliced(sizes), why
 
 
+# ------------------------------------------------- sliced, but not evenly
+
+def _drawn_strip(seed=7):
+    """Like `_strip_and_typesetting`, but the panels are DRAWN rather than
+    noise: soft shapes that continue from one row to the next, the way ink
+    does. The seam test reads that continuity, and per-pixel noise has none
+    - two neighbouring rows of static are as unalike as two strangers."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(14):
+        h = 700 + (i % 5) * 120
+        yy, xx = np.mgrid[0:h, 0:W].astype(np.float32)
+        panel = (140 + 60 * np.sin(yy / 90.0 + i) * np.cos(xx / 70.0)
+                 + 20 * np.sin(xx / 13.0)).clip(0, 255).astype(np.uint8)
+        panel = np.repeat(panel[:, :, None], 3, axis=2)
+        mid = h // 2
+        for k in range(4):
+            top = mid - 60 + k * 30
+            cv2.rectangle(panel, (120, top), (W - 120, top + 20), (0, 0, 0), -1)
+        rows.append(panel)
+        rows.append(np.full((GUTTER, W, 3), 255, np.uint8))
+    return np.vstack(rows)
+
+
+def _slice_unevenly(img, folder, seed=3):
+    """Cut it the way lee's manhua site did: tiles of many heights, the cut
+    landing wherever it lands - through a panel as often as between two."""
+    rng = np.random.default_rng(seed)
+    os.makedirs(folder, exist_ok=True)
+    paths, y, n = [], 0, 1
+    while y < len(img):
+        h = int(rng.integers(800, 2400))
+        p = os.path.join(folder, "page_%d.png" % n)
+        cv2.imwrite(p, img[y:y + h])
+        paths.append(p)
+        y += h
+        n += 1
+    return paths
+
+
+def _sizes(paths):
+    return [cv2.imread(p).shape[:2] for p in paths]
+
+
+def test_a_strip_cut_into_uneven_tiles_is_still_a_strip(tmp_path):
+    """lee, on the manhua: *"this dont work for manhua"*. Its 41 tiles were
+    one width and 828 to 2350px tall - `looks_sliced` reads that as pages -
+    and the seams ran through a balloon, a line of dialogue and a painted
+    sound. The seams are what give it away: across a cut through one
+    drawing the last row of a tile and the first row of the next are
+    neighbours, and agree."""
+    img = _drawn_strip()
+    paths = _slice_unevenly(img, str(tmp_path / "uneven"))
+    sizes = _sizes(paths)
+    assert len({h for h, _w in sizes}) > 3, "many heights, or the test is not the test"
+    assert not strip.looks_sliced(sizes), "the even-height test says pages; that is the gap"
+    assert strip.seams_through_ink(paths) >= strip.SEAMS_NEEDED
+    assert strip.looks_sliced_unevenly(sizes, paths)
+
+
+def test_a_book_of_pages_has_margins_at_its_seams_and_is_left_alone(tmp_path):
+    """Pages drawn as pages end in a margin, so no seam is a cut through a
+    drawing - however alike their sizes."""
+    rng = np.random.default_rng(1)
+    paths = []
+    for n in range(10):
+        h = int(rng.integers(1300, 1500))
+        page = np.full((h, W, 3), 255, np.uint8)
+        page[60:h - 60, 40:W - 40] = rng.integers(0, 255, (h - 120, W - 80, 3), dtype=np.uint8)
+        p = str(tmp_path / ("p%02d.png" % n))
+        cv2.imwrite(p, page)
+        paths.append(p)
+    assert strip.seams_through_ink(paths) == 0
+    assert not strip.looks_sliced_unevenly(_sizes(paths), paths)
+
+
+def test_pages_that_bleed_to_the_edge_still_do_not_agree_across_the_seam(tmp_path):
+    """Full-bleed pages have drawn rows at top and bottom, but two different
+    pictures do not continue into each other. Busy on both sides is not
+    enough; they have to match - and one coincidental match in ten (two
+    curves happening to cross at the same height) is why `SEAMS_NEEDED` is
+    more than one."""
+    paths = []
+    for n in range(10):
+        yy, xx = np.mgrid[0:1400, 0:W].astype(np.float32)
+        page = (128 + 90 * np.sin(yy / (50.0 + 17 * n) + n * 2.1)
+                * np.cos(xx / (40.0 + 9 * n))).clip(0, 255).astype(np.uint8)
+        page = np.repeat(page[:, :, None], 3, axis=2)
+        p = str(tmp_path / ("b%02d.png" % n))
+        cv2.imwrite(p, page)
+        paths.append(p)
+    assert strip.seams_through_ink(paths) < strip.SEAMS_NEEDED
+    assert not strip.looks_sliced_unevenly(_sizes(paths), paths)
+
+
+def test_the_uneven_test_still_wants_one_width_and_tall_tiles(tmp_path):
+    img = _drawn_strip()
+    paths = _slice_unevenly(img, str(tmp_path / "u"))
+    sizes = _sizes(paths)
+    wide = [(h, w + (1 if i == 0 else 0)) for i, (h, w) in enumerate(sizes)]
+    assert not strip.looks_sliced_unevenly(wide, paths), "a scan is never one exact width"
+    assert not strip.looks_sliced_unevenly(sizes[:5], paths[:5]), "five files is a short"
+    squat = [(w // 2, w) for h, w in sizes]
+    assert not strip.looks_sliced_unevenly(squat, paths), "a slice of a webtoon is tall"
+
+
 # ------------------------------------------------------------- the round trip
 
 def test_the_pages_are_the_strip_again_with_nothing_lost_or_added():
@@ -394,6 +500,28 @@ def test_a_manga_chapter_is_never_re_cut_however_uniform_it_looks(proj):
     before = [pg.path for pg in proj.pages]
     assert proj.restitch_if_sliced() == {}
     assert [pg.path for pg in proj.pages] == before
+
+
+def test_a_manhua_cut_into_uneven_tiles_is_re_cut_too(proj):
+    """The real one: 41 tiles, one width, every height different. The
+    project must recognise it by its seams and re-cut it at the gutters like
+    any other strip."""
+    proj.settings["medium"] = "manhua"
+    img = _drawn_strip(seed=11)
+    rng = np.random.default_rng(5)
+    y, n = 0, 1
+    while y < len(img):
+        h = int(rng.integers(800, 2400))
+        proj.add_uploaded("page_id_%d_1.png" % (11566410 + n),
+                          cv2.imencode(".png", img[y:y + h])[1].tobytes())
+        y += h
+        n += 1
+    tiles = len(proj.pages)
+    assert len({pg.height for pg in proj.pages}) > 3
+    rep = proj.restitch_if_sliced()
+    assert rep, "uneven tiles with seams through the drawing are a strip"
+    assert rep["before"] == tiles and len(proj.pages) != tiles
+    assert sum(pg.height for pg in proj.pages) == len(img)
 
 
 def test_a_manhua_is_re_cut_exactly_like_a_manhwa(proj):

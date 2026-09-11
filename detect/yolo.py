@@ -59,6 +59,8 @@ def get_model(weights: str):
                 f"Download one of: {', '.join(KNOWN.values())}"
             )
         _models[weights] = YOLO(weights)
+    from .. import cores
+    cores.claim()                # ultralytics just set OMP to 1; undo it
     return _models[weights]
 
 

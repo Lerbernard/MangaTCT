@@ -2049,7 +2049,16 @@ class Project:
                for pg in self.pages):
             return {}
         tiles = [pg.path for pg in self.pages]
-        if not _strip.looks_sliced([(pg.height, pg.width) for pg in self.pages]):
+        sizes = [(pg.height, pg.width) for pg in self.pages]
+        # Two signatures of a slicer. Tiles all one height is a slicer counting
+        # pixels (every Korean site so far). Tiles of many heights whose seams
+        # still run through the drawing is a slicer with some other rule - the
+        # manhua in lee's `Manhua/` folder, 41 tiles from 828 to 2350px tall,
+        # cut through a line of dialogue and a painted 符. lee: *"this dont
+        # work for manhua"*. The second test reads the pictures, so it is
+        # asked only when the first has said no.
+        if not (_strip.looks_sliced(sizes)
+                or _strip.looks_sliced_unevenly(sizes, tiles)):
             return {}
 
         target, ceiling = self.strip_heights()

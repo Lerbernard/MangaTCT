@@ -48,6 +48,12 @@ def _load_dotenv(filename: str = ".env") -> str | None:
 
 DOTENV_PATH = _load_dotenv()
 
+# Before torch or ultralytics is imported by anything below: ultralytics sets
+# OMP_NUM_THREADS=1 at import if nobody has, and PyTorch then runs on one core
+# for the life of the process. See `cores.py`.
+from . import cores as _cores                          # noqa: E402
+_cores.claim_env()
+
 from .pipeline import RunConfig, report, run          # noqa: E402
 from .translate import SeriesContext                  # noqa: E402
 from .models import Page, TextLayout, TextRegion       # noqa: E402

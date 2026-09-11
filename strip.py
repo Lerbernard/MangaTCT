@@ -173,6 +173,73 @@ def looks_sliced(sizes: list[tuple[int, int]]) -> bool:
     return hs[0] > sizes[0][1] * 1.2
 
 
+# ------------------------------------------------- sliced, but not evenly
+
+# A seam is a place where one tile ends and the next begins. Across a cut
+# through one picture, the last row of a tile and the first row of the next
+# are neighbouring rows of the same drawing and agree almost pixel for pixel;
+# across two separate pages they are two margins (blank, and told apart
+# below) or two unrelated pictures (and disagree). `SEAM_MATCH` is the mean
+# absolute difference, in grey levels, under which two rows are one picture;
+# `SEAM_BUSY` is the standard deviation a row needs to count as drawn on at
+# all - a blank margin against a blank margin says nothing either way.
+SEAM_MATCH = 16.0
+SEAM_BUSY = 20.0
+#: How many seams have to run through a drawing, continuously, before a
+#: chapter of uneven tiles is called a sliced strip. Two is a coincidence a
+#: book of pages could produce with bleed; four is not.
+SEAMS_NEEDED = 4
+
+
+def _edge_rows(path: str) -> tuple[np.ndarray, np.ndarray] | None:
+    g = imgio.imread(path, cv2.IMREAD_GRAYSCALE)
+    if g is None or g.shape[0] < 4:
+        return None
+    # Two rows averaged on each side: a JPEG's last row alone carries block
+    # noise that a single-row compare mistakes for a different picture.
+    return g[:2].astype(np.float32).mean(0), g[-2:].astype(np.float32).mean(0)
+
+
+def seams_through_ink(paths: list[str]) -> int:
+    """How many tile boundaries are cuts through one continuous drawing."""
+    edges = [_edge_rows(p) for p in paths]
+    n = 0
+    for a, b in zip(edges[:-1], edges[1:]):
+        if a is None or b is None or a[1].shape != b[0].shape:
+            continue
+        bottom, top = a[1], b[0]
+        if bottom.std() < SEAM_BUSY or top.std() < SEAM_BUSY:
+            continue
+        if float(np.abs(bottom - top).mean()) < SEAM_MATCH:
+            n += 1
+    return n
+
+
+def looks_sliced_unevenly(sizes: list[tuple[int, int]], paths: list[str]) -> bool:
+    """A strip cut into tiles of DIFFERENT heights.
+
+    `looks_sliced` reads the signature of a slicer counting pixels: every tile
+    the same height. Not every site's slicer counts pixels. The manhua that
+    lee's `Manhua/` folder holds came as 41 tiles, all 800 wide, 828 to 2350
+    tall - and the seams still ran through balloons, through the middle of a
+    line of dialogue, and through a painted 符. Uneven tiles are not evidence
+    of pages; they are evidence of a slicer with a different rule.
+
+    So the sizes are asked for what they can still say - one width, many
+    tiles, tall - and the pictures are asked the rest: do the seams run
+    through drawings, continuously? A book of pages has margins at its seams.
+    A strip has whatever the slicer happened to hit.
+    """
+    if len(sizes) < 6 or len(sizes) != len(paths):
+        return False
+    if len({w for _h, w in sizes}) != 1:
+        return False
+    tall = sum(1 for h, w in sizes if h > w * 1.2)
+    if tall < len(sizes) * 0.8:
+        return False
+    return seams_through_ink(paths) >= SEAMS_NEEDED
+
+
 def restitch(paths: list[str], out_dir: str, stem: str = "page",
              target: int = TARGET_H, ceiling: int = MAX_H,
              ext: str = ".png") -> dict:

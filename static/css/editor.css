@@ -131,10 +131,16 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
 /* THE APP IS IN BETA and says so wherever it says its own name.
    lee: "make the app be in beta ... mae ecrything say beta". One small pill
    beside the wordmark; the release push aims at 2-3 weeks out. */
+/* A fixed-height plate, centred on the cap height of the word beside it.
+   Padding-and-line-height sizing rounded differently at 150% scaling and the
+   pill sat a pixel above the name - lee: *"the text is not aligned with each
+   other"*. A box with a stated height and its text centred inside it lands
+   the same at every scale. */
 .brand .betapill{font:700 8.5px/1 system-ui;letter-spacing:.08em;
   font-style:normal;color:#0f1218;background:#ffc400;border-radius:7px;
-  padding:2.5px 5px 2px;margin-left:6px;align-self:center;
-  text-transform:uppercase}
+  display:inline-flex;align-items:center;height:14px;box-sizing:border-box;
+  padding:0 6px;margin-left:7px;align-self:center;position:relative;top:.5px;
+  text-transform:uppercase;white-space:nowrap}
 /* ...and a dot on it when the launcher has the next version waiting. */
 .brand .betapill.hasupdate::after{content:'';display:inline-block;width:6px;
   height:6px;border-radius:50%;background:#0f1218;margin-left:5px;
@@ -703,40 +709,48 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
    that works in one browser. */
 #top{position:relative;z-index:60}
 #picker{position:fixed;left:0;right:0;bottom:0;top:0;background:var(--bg);
- z-index:50;display:none;align-items:center;justify-content:center;
- padding:20px}
-#picker.on{padding-top:calc(var(--topbar,52px) + 20px)}
+ z-index:50;display:none;padding:0}
+#picker.on{padding-top:var(--topbar,52px)}
 #picker.on{display:flex}
-/* The File screen is one card with a section rail, the same shape as Settings
-   - `#fileNav` borrows `#setNav`'s rules below, and the sections inside are
-   the same `.set-section` the settings body uses. The card is the card: the
-   panel inside it drops its own border so there is not a box in a box. */
-.filecard{display:flex;width:100%;max-width:860px;
- max-height:min(100%, 760px);min-height:340px;
- background:var(--panel);border:1px solid var(--line);
- border-radius:12px;overflow:hidden}
-/* Tall enough to look like a screen, no taller than it needs. It was pinned to
-   760px, so a form that ends two thirds of the way up left a third of a very
-   large card empty underneath it - lee: *"make the fle look better"*. */
-#fileBody{flex:1;min-width:0;min-height:0;overflow-y:auto;padding:26px 28px;
- display:flex;justify-content:center;align-items:flex-start}
-.pk{max-width:560px;width:100%;background:transparent;border:0;
- border-radius:12px;padding:0}
-.pk h2{margin:0 0 4px;font-size:18px}
+/* THE SCREEN IS THE WINDOW. The File screen and Settings used to be a card
+   floating in the middle of an empty page - fine in a browser tab, odd in a
+   window of the app's own, where the void round the card was the app. Now
+   the app has that window, lee: *"make the window of the app actually look
+   like it's part of the app ... redesign the layout of both of these"*. So
+   both screens run edge to edge under the top bar: a rail down the left, the
+   section beside it in a column of reading width, the row of buttons on a
+   bar along the bottom. Nothing floats; the structure is the room.
+
+   `#fileNav` borrows `#setNav`'s rules below, and the sections inside are the
+   same `.set-section` the settings body uses. */
+.filecard{display:flex;width:100%;max-width:none;height:100%;max-height:none;
+ min-height:0;background:var(--bg);border:0;border-radius:0;overflow:hidden}
+#fileBody{flex:1;min-width:0;min-height:0;overflow-y:auto;
+ padding:40px 56px 48px;display:flex;justify-content:center;
+ align-items:flex-start}
+.pk{max-width:760px;width:100%;background:transparent;border:0;
+ border-radius:0;padding:0}
+.pk h2{margin:0 0 6px;font-size:22px;font-weight:650;letter-spacing:-.01em}
+/* The four choices as a 2x2 grid rather than a row that wrapped three-and-one
+   at reading width. */
+.pkgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:18px}
+.pkgrid label{margin-top:8px}
+@media (max-width:820px){.pkgrid{grid-template-columns:1fr}}
 /* Add pages is two screens: pages, then the settings file. Only one is in the
    document flow at a time, so the card is the height of whichever is showing
    rather than the taller of the two. */
 .pkstep{display:none}
 .pkstep.on{display:block}
-.pksteps{display:flex;gap:8px;margin:10px 0 4px}
+.pksteps{display:flex;gap:8px;margin:12px 0 6px}
 .pkdot{font-size:11px;letter-spacing:.05em;text-transform:uppercase;
  color:var(--dim);border:1px solid var(--line);border-radius:999px;
- padding:3px 10px}
+ padding:4px 11px}
 .pkdot.on{color:#161616;background:var(--accent);border-color:var(--accent);
  font-weight:600}
-/* The one row of buttons that ends a screen, always at the bottom right where
-   Next was on the screen before. */
-.pkfoot{margin-top:16px;gap:8px;justify-content:flex-end;align-items:center}
+/* The one row of buttons that ends a screen: a bar across the bottom of the
+   column, ruled off from the form above it, Next at the right where it was. */
+.pkfoot{margin-top:28px;padding-top:18px;border-top:1px solid var(--line);
+ gap:8px;justify-content:flex-end;align-items:center}
 #pkJsonMsg.bad{color:#e08a8a}
 #stagedList{max-height:240px;overflow:auto;margin-top:8px;
  border:1px solid var(--line);border-radius:8px}
@@ -750,9 +764,13 @@ details summary{cursor:pointer;color:var(--dim);font-size:11px;
 .sf .x:hover{background:var(--bad);color:#fff}
 .sf .i{color:var(--dim);font-variant-numeric:tabular-nums;min-width:22px;
  text-align:right;font-size:11px}
-.drop{margin-top:16px;border:2px dashed var(--line);border-radius:10px;
+.drop{margin-top:18px;min-height:220px;display:flex;flex-direction:column;
+ justify-content:center;align-items:center;border:2px dashed var(--line);
+ border-radius:14px;
  padding:26px;text-align:center;transition:.15s}
 .drop.hot{border-color:var(--accent);background:rgba(255,196,0,.07)}
+.drop .dropmark{display:block;width:44px;height:44px;margin:0 auto 6px;opacity:.55}
+.drop .dropmark path{fill:none;stroke:var(--dim);stroke-width:2;stroke-linejoin:round}
 .tab{border-radius:6px}
 .zoomer{display:flex;gap:2px;padding:3px;background:#12151b;
  border:1px solid var(--line);border-radius:8px;align-items:center}
@@ -1434,28 +1452,31 @@ select.fontsel{width:100%}
    the card is capped at the full height and scrolls inside itself, because a
    centred box taller than its parent is one whose top is unreachable. */
 #settingsPage,#mangaPage{flex:1;min-height:0;display:flex;
- align-items:center;justify-content:center;padding:20px;background:var(--bg)}
+ align-items:stretch;justify-content:stretch;padding:0;background:var(--bg)}
 /* ONE size, whichever section is open. Sized to the room and capped, not to
    the content: Fonts & typesetting is five times the height of Synopsis, and a
    card that resized to each of them jumped every time you moved between them.
    lee: *"ishnta fo the setting pages swithing size it shoud be this size and
    it there more text a side scroll bar shoud appear"*. Anything longer than
    the card scrolls inside `#setBody`. */
-.setcard{display:flex;width:100%;max-width:960px;height:min(100%, 760px);
- min-height:0;background:var(--panel);border:1px solid var(--line);
- border-radius:12px;overflow:hidden}
+.setcard{display:flex;width:100%;max-width:none;height:100%;
+ min-height:0;background:var(--bg);border:0;border-radius:0;overflow:hidden}
 .setmain{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
 /* The row that ends the card. Outside the scrolling body on purpose: Save is
    reachable without scrolling to the end of whichever section is open. */
+/* The buttons end where the column above them ends: the side padding is the
+   same margin the 760px column gets, so Save sits under the last control
+   rather than in the far corner of a wide window. */
 .setfoot{flex:0 0 auto;display:flex;gap:8px;justify-content:flex-end;
- padding:12px 20px;border-top:1px solid var(--line);background:var(--panel)}
-#setNav,#mangaNav,#fileNav{width:210px;flex:0 0 auto;background:var(--panel2);
-  border-right:1px solid var(--line);padding:14px 10px;overflow-y:auto;
-  display:flex;flex-direction:column;gap:4px}
+ padding:14px max(56px, calc((100% - 760px) / 2));
+ border-top:1px solid var(--line);background:var(--bg)}
+#setNav,#mangaNav,#fileNav{width:236px;flex:0 0 auto;background:var(--panel);
+  border-right:1px solid var(--line);padding:16px 12px 24px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:3px}
 .setnav-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--dim);padding:2px 8px 8px}
+  color:var(--dim);padding:10px 10px 6px}
 .setnav-btn{text-align:left;background:transparent;border:1px solid transparent;
-  border-radius:7px;padding:9px 11px;color:var(--fg);font-size:13px;
+  border-radius:8px;padding:8px 12px;color:var(--fg);font-size:13px;
   cursor:pointer;width:100%}
 /* Hover has to be READABLE. `--panel2` is barely off the panel it sits on and
    the label all but vanished into it - lee, with a picture: *"change the on
@@ -1466,18 +1487,22 @@ select.fontsel{width:100%}
 .setnav-btn.on{background:var(--accent);color:#161616;border-color:var(--accent);
   font-weight:600}
 /* One section at a time, centred in the card's body. */
-#setBody,#mangaBody{flex:1;min-height:0;overflow-y:auto;padding:24px 28px}
-/* The CARD is the card now - a second border inside it was a box in a box. */
-.set-section{display:none;width:100%;max-width:640px;margin:0 auto}
+#setBody,#mangaBody{flex:1;min-height:0;overflow-y:auto;padding:40px 56px 48px}
+/* One column of reading width, centred in the room beside the rail. No
+   border and no panel of its own: the screen is the surface. */
+.set-section{display:none;width:100%;max-width:760px;margin:0 auto}
 .set-section.on{display:block}
 /* The title carries the section: a short amber keyline under it, the same
    mark the site's section headers wear, so the eye lands somewhere before
    the controls start. lee: *"redesign the layout of the setting page"*. */
-.set-h{margin:0 0 14px;font-size:20px;font-weight:650;padding-bottom:10px;
-  border-bottom:1px solid var(--line);position:relative}
+.set-h{margin:0 0 18px;font-size:22px;font-weight:650;padding-bottom:12px;
+  border-bottom:1px solid var(--line);position:relative;letter-spacing:-.01em}
 .set-h::after{content:"";position:absolute;left:0;bottom:-1px;width:46px;
   height:2px;background:var(--accent)}
 #setBody label,#mangaBody label{font-size:11.5px;margin:11px 0 4px}
+/* Every switch on its own line. They are inline-flex elsewhere (a row of
+   them in a toolbar); in a settings column two on one line read as one. */
+#setBody label.swx,#mangaBody label.swx{display:flex;margin:12px 0 0}
 #setBody h3,#mangaBody h3{font-size:14px;margin:20px 0 8px;padding-top:14px;
   border-top:1px solid var(--line)}
 #setBody .help,#mangaBody .help{font-size:11.5px;line-height:1.5}

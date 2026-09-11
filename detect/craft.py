@@ -190,8 +190,10 @@ def pieces(img: np.ndarray, langs: tuple = ("ko", "en"),
     something else decides which of them are one sound effect.
     """
     from easyocr.detection import get_textbox
+    from .. import cores
 
     r = _reader(tuple(langs))
+    cores.claim()                # torch back on every core - see cores.py
     polys = get_textbox(
         r.detector, img, canvas_size=CANVAS, mag_ratio=MAG_RATIO,
         text_threshold=text_thresh, link_threshold=link_thresh,

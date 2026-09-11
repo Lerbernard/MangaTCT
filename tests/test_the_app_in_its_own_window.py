@@ -93,7 +93,7 @@ class FakeWindow:
         self.x, self.y = kw.get("x") or 100, kw.get("y") or 80
         self.native = types.SimpleNamespace(WindowState="Normal")
         self.events = types.SimpleNamespace(resized=FakeEvent(), moved=FakeEvent(),
-                                            closing=FakeEvent())
+                                            closing=FakeEvent(), shown=FakeEvent())
 
 
 def fake_webview(monkeypatch, is_chromium=True):
@@ -326,3 +326,49 @@ def test_the_launcher_is_still_standard_library_only():
         elif isinstance(node, ast.ImportFrom) and node.module:
             mods.add(node.module.split(".")[0])
     assert "webview" not in mods
+
+
+# -------------------------------------------------------------- the mark
+
+def test_the_launchers_own_window_wears_the_mark():
+    """lee, with the launcher on screen wearing Tk's blue feather: *"use the
+    logo everywhere"*. The mark rides inside the exe (PyInstaller `datas`), so
+    it is there before any app version is on disk; the window sets it as its
+    icon and shows it beside the name."""
+    spec = (PKG / "launcher" / "MangaTCT.spec").read_text(encoding="utf-8")
+    assert '"icon.ico"), ".")' in spec and '"icon.png"), ".")' in spec
+    assert 'icon=os.path.join(root, "static", "icon.ico")' in spec, "the exe's own icon"
+    src = (PKG / "launcher" / "mangatct_launcher.py").read_text(encoding="utf-8")
+    assert "wear_the_mark(root)" in src and "mark_image(root)" in src
+    assert "root.iconbitmap(default=ico)" in src
+    ico, png = L.icon_files()
+    assert ico.endswith("icon.ico") and png.endswith("icon.png")
+    assert os.path.isfile(ico) and os.path.isfile(png)
+    # ...and the same two files are what the app's own window and the folder
+    # picker wear, so there is one mark, not three
+    assert W._icon() == ico
+
+
+def test_the_frame_is_dressed_in_the_apps_colours_once_the_window_shows(home, monkeypatch):
+    """The title bar Windows draws round the page is white by default - the
+    one thing left that said "a browser in a box". lee: *"make the window of
+    the app actually look like it's part of the app"*. On `shown` the window
+    asks DWM for the dark frame and for the caption in the editor's own
+    background colour, and the launcher's little window asks the same."""
+    wv, made, started = fake_webview(monkeypatch)
+    monkeypatch.setattr(sys, "platform", "linux")
+    calls = []
+    monkeypatch.setattr(W, "dress_the_frame", lambda hwnd: calls.append(hwnd))
+    monkeypatch.setattr(W, "_hwnd_of", lambda win: 4242)
+
+    def start(**kw):
+        made[0].events.shown.fire()
+        made[0].events.closing.fire()
+    wv.start = start
+    W.main(["--port", "1"])
+    assert calls == [4242]
+    # COLORREF is 0x00BBGGRR; the editor's --bg #101216 is 0x161210
+    assert W._colorref(W.FRAME_BG) == 0x161210
+    assert W.DWMWA_USE_IMMERSIVE_DARK_MODE == 20 and W.DWMWA_CAPTION_COLOR == 35
+    src = (PKG / "launcher" / "mangatct_launcher.py").read_text(encoding="utf-8")
+    assert "dark_frame(root)" in src and "0x161210" in src, "the launcher's window, same colours"

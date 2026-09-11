@@ -153,6 +153,51 @@ def _own_taskbar_entry() -> None:
         pass
 
 
+# The window's own frame in the app's colours. WebView2 draws the page; the
+# title bar round it is Windows', and by default it is white - a white strip
+# over a dark app, which is the one thing that said "this is a browser in a
+# box". DWM lets a window ask for the dark frame (Windows 10 1809+) and, on
+# Windows 11, for the caption, border and title text in colours of its own.
+# The colours are the editor's: `--bg` #101216 and its text.
+DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+DWMWA_BORDER_COLOR = 34
+DWMWA_CAPTION_COLOR = 35
+DWMWA_TEXT_COLOR = 36
+FRAME_BG = (0x10, 0x12, 0x16)
+FRAME_FG = (0xE6, 0xE8, 0xEC)
+
+
+def _colorref(rgb) -> int:
+    r, g, b = rgb
+    return (b << 16) | (g << 8) | r
+
+
+def dress_the_frame(hwnd: int) -> None:
+    """Dark frame, app-coloured caption. Every call may fail on an older
+    Windows and none of them matters if it does."""
+    if sys.platform != "win32" or not hwnd:
+        return
+    try:
+        import ctypes
+        dwm = ctypes.windll.dwmapi
+        for attr, value in ((DWMWA_USE_IMMERSIVE_DARK_MODE, 1),
+                            (DWMWA_CAPTION_COLOR, _colorref(FRAME_BG)),
+                            (DWMWA_BORDER_COLOR, _colorref(FRAME_BG)),
+                            (DWMWA_TEXT_COLOR, _colorref(FRAME_FG))):
+            v = ctypes.c_int(value)
+            dwm.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), ctypes.c_uint(attr),
+                                      ctypes.byref(v), ctypes.sizeof(v))
+    except Exception:
+        pass
+
+
+def _hwnd_of(win) -> int:
+    try:
+        return int(win.native.Handle.ToInt64())
+    except Exception:
+        return 0
+
+
 def _icon() -> str | None:
     here = os.path.dirname(os.path.abspath(__file__))
     p = os.path.join(here, "static", "icon.ico")
@@ -215,6 +260,7 @@ def main(argv=None) -> int:
     win.events.resized += remember
     win.events.moved += remember
     win.events.closing += closing
+    win.events.shown += lambda *_: dress_the_frame(_hwnd_of(win))
     webview.start(gui=gui, debug=a.debug, private_mode=False,
                   storage_path=os.path.join(userdata.user_dir(), "webview"),
                   icon=_icon())
