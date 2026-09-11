@@ -480,7 +480,7 @@ def test_it_is_standard_library_only():
             mods.add(node.module.split(".")[0])
     allowed = {"datetime", "hashlib", "json", "os", "shutil", "socket", "subprocess",
                "sys", "threading", "time", "urllib", "zipfile", "webbrowser",
-               "tkinter", "__future__"}
+               "tkinter", "ctypes", "__future__"}      # ctypes: the dark title bar
     assert mods <= allowed, mods - allowed
 
 
