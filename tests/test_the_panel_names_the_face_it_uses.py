@@ -551,3 +551,16 @@ def test_the_specimen_shows_the_type_s_own_name(ed):
         "[...document.querySelectorAll('#ckList .cksamp img')].map(i=>i.alt)")
     assert any(a.startswith("Burst / shout,") for a in alts), alts
     assert any(a.startswith("Big / impact,") for a in alts), alts
+
+
+def test_an_unset_project_font_stays_unset_across_a_save():
+    """lee, on the installed copy, every row reading ComicNeue-Italic: *"we had
+    a bunch of set defaults"*. The project font select had no blank entry, so
+    with nothing set it showed its first face - the most recent one - and the
+    first Save wrote that face into `font`, where it sits ABOVE the shipped
+    per-kind defaults and hid all of them. The select carries a blank first
+    now, selected while nothing is set, and only a usable path is put on it."""
+    js = (PKG / "static" / "js" / "project.js").read_text(encoding="utf-8")
+    body = js[js.index("function rebuildFontSelects("):js.index("function fontName(")]
+    assert "<option value=\"\">Shipped default</option>" in body
+    assert "$('font').value = fontUsable(want) ? want : '';" in body

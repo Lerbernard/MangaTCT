@@ -191,6 +191,11 @@ def test_it_can_be_turned_off_and_stays_off():
     assert "function toggleExact" in js
     html = open(editor.STATIC + "/editor.html", encoding="utf-8").read()
     assert 'id="exactCk"' in html and "toggleExact(this.checked)" in html
+    # ...and OFF until somebody switches it on. lee: *"export preview should
+    # be off by default"*. The box in the markup is unchecked to match.
+    assert re.search(r"^let exactOn = false;", js, re.M)
+    ck = html[html.index('id="exactCk"'):html.index("toggleExact(this.checked)")]
+    assert "checked" not in ck
 
 
 def test_the_switch_is_left_of_the_view_buttons():

@@ -55,10 +55,11 @@ function paintCount(coins){
   const n = $('coinN'); if(!n) return;
   const btn = $('coinBtn');
   // No account, no coins. lee: *"the coins should only be linked to an
-  // account, so no account = no coins"*. The pill says what to do instead
-  // of showing a number that is nobody's.
+  // account, so no account = no coins"*, and then *"if the user is not
+  // signed in it should show 0 coins"*. So: 0, not red (nothing is wrong,
+  // nobody is in), and the click opens the sign-in form.
   if(wallet && wallet.needs_signin){
-    n.textContent = 'Sign in';
+    n.textContent = '0';
     if(btn){ btn.classList.remove('broke','low'); btn.title = 'Sign in to use TCT Coins'; }
     return;
   }
@@ -257,6 +258,10 @@ function walletSignIn(making, host){
   pop.innerHTML =
     `<h4>${making ? 'Make an account' : 'Sign in'}</h4>` +
     `<div class="wform">` +
+    // Google first, as on the website: one press against three fields.
+    `<button class="gbtn" onclick="walletGoogle(${making ? 'true' : 'false'})">` +
+    `${GOOGLE_MARK}<span>${making ? 'Sign up with Google' : 'Continue with Google'}</span></button>` +
+    `<div class="wor">or with an email</div>` +
     `<input id="acEmail" type="email" placeholder="you@example.com" ` +
     `autocomplete="username">` +
     `<input id="acPass" type="password" placeholder="password" ` +
@@ -283,6 +288,55 @@ function walletSignIn(making, host){
       if(f) f.onkeydown = e => { if(e.key === 'Enter') walletDoSignIn(making); };
     }
   }
+}
+
+/* Google's mark, the four colours, as the website draws it. */
+const GOOGLE_MARK = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
+  '<path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.8-.4-4H24v7.3h12.1c-.2 2-1.6 5-4.5 7l-.1.3 6.5 5 .5.1c4.2-3.8 6.6-9.5 6.6-15.7Z"/>' +
+  '<path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.4c-1.8 1.3-4.3 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9l-.3.1-6.8 5.2-.1.3C7.9 41 15.4 46 24 46Z"/>' +
+  '<path fill="#FBBC05" d="M11.5 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5v-.3l-6.9-5.4-.2.1A22 22 0 0 0 2 24c0 3.5.9 6.9 2.3 9.9l7.2-5.4Z"/>' +
+  '<path fill="#EA4335" d="M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 3.3 29.9 1 24 1 15.4 1 7.9 6 4.3 13.2l7.2 5.6c1.8-5.3 6.7-9.3 12.5-9.3Z"/></svg>';
+
+/* lee: *"sign in / sign up and login with google like in the website"*.
+   Google's sign-in happens in the system browser, on the website's own
+   sign-in page, opened by the server with a one-time nonce in its address
+   (`account.begin_handoff`). This waits: it asks `/api/account/hand?state=`
+   every couple of seconds until the page has handed the sign-in over, then
+   paints the purse, the Account page and Home as signed in. Ten minutes and
+   it stops asking - the nonce is dead by then anyway. */
+let _hand = null;                        // the nonce being waited on
+
+async function walletGoogle(making){
+  const say = $('acSay');
+  const tell = (msg, warn) => { if(say){ say.className = 'wnote' + (warn ? ' warn' : '');
+                                          say.innerHTML = msg; } };
+  tell('Opening the browser…');
+  const got = await acPost({do:'google', making: !!making});
+  if(got.error){ tell(got.error, true); return; }
+  _hand = got.state;
+  const link = got.url ? ` If it did not open, <a href="${got.url}" target="_blank" rel="noopener">go there</a>.` : '';
+  tell('Finish signing in in the browser that just opened; this fills in by itself.' + link);
+  const until = Date.now() + 10*60*1000;
+  while(_hand === got.state && Date.now() < until){
+    await new Promise(r => setTimeout(r, 2000));
+    let st;
+    try{
+      const r = await fetch(apiUrl('/api/account/hand?state=' + encodeURIComponent(got.state)));
+      st = await r.json();
+    }catch(e){ continue; }
+    if(st && st.done){
+      _hand = null;
+      await refreshCoins();
+      drawWallet();
+      if(typeof renderAccount === 'function') renderAccount();
+      if(typeof renderHome === 'function') renderHome();
+      if(typeof winFocus === 'function') winFocus();     // back to the app
+      toast('Signed in' + (st.who ? ' as ' + st.who : '') + '.');
+      return;
+    }
+    if(st && st.known === false){ _hand = null; tell('That sign-in ran out. Press the button again.', true); return; }
+  }
+  if(_hand === got.state){ _hand = null; tell('Nobody came back from the browser. Press the button to try again.', true); }
 }
 
 /* Its own fetch and not `api`, for one reason: `api` toasts whatever the
@@ -343,28 +397,97 @@ async function walletSignOut(){
   if(typeof renderAccount === 'function') renderAccount();
 }
 
-/* Settings > Account. lee: *"there isn't a place to sign in in the app"* -
-   there was, inside the coin's panel, and a panel behind a coin is not a
-   place anybody looks for it. This is the same form and the same two
-   buttons on a page with a name. */
+/* Settings > Account, the website's page in the app. lee: *"there isn't a
+   place to sign in in the app"*, then *"have an account view like on the
+   website"*. The purse, the free coins if owed, the receipt, and the
+   profile - the same picture set and the same username rules the site has.
+   Drawn from /api/account; the receipt comes through the `ledgerLines`
+   function, the picture is written the way the website writes it. */
+const ACCT_ICONS = ['fox','cat','moon','star','bolt','leaf','wave','ink','panel','brush'];
+function acctIconSvg(id, size){
+  const n = Math.max(0, ACCT_ICONS.indexOf(id));
+  const hue = (n * 36 + 20) % 360;
+  const ch = String.fromCodePoint(0x2726 + (n % 4));
+  return `<svg class="pic" width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true">` +
+    `<circle cx="20" cy="20" r="20" fill="hsl(${hue} 70% 42%)"/>` +
+    `<text x="20" y="27" text-anchor="middle" font-size="19" fill="#fff">${ch}</text></svg>`;
+}
+const ACCT_IN = new Set(['credit','refund']);
+const ACCT_WORDS = {spend:'Spent on', refund:'Given back', credit:'Bought', clawback:'Taken back'};
+function acctSays(r, packs){
+  let what = String(r.what || '');
+  what = what.replace(/\bpack (pack\d+)\b/g, (m,id)=> (packs && packs[id]) ? 'the ' + packs[id] + ' pack' : m);
+  what = what.replace(/\s*[-|\u2013\u2014]\s*refunded\s*$/i, '');
+  if(r.kind === 'credit' && what === 'welcome') return 'Free coins for signing up';
+  return `${ACCT_WORDS[r.kind] || r.kind} ${what}`.trim();
+}
+function acctWhen(ms){
+  if(!ms) return '';
+  try{ return new Date(ms).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); }
+  catch(e){ return ''; }
+}
+
 async function renderAccount(){
   const box = $('acctBox'); if(!box) return;
-  if(!wallet){ try{ await refreshCoins(); }catch(e){} }
-  const w = wallet || {};
+  let v;
+  try{ v = await api('/api/account'); }catch(e){ return; }
+  const w = v.account || {};
+  wallet = Object.assign(wallet || {}, w);
   if(!w.configured){
     box.innerHTML = '<div class="wnote">This copy has no account service configured.</div>';
     return;
   }
   if(!w.signed_in){ walletSignIn(false, box); return; }
+  const rows = v.ledger || [];
+  const ledger = !rows.length
+    ? '<p class="muted" style="margin:0">Nothing yet. Every coin in and every coin out shows up here.</p>'
+    : `<table class="acctledger"><tr><th>When</th><th>What</th><th class="n">Coins</th></tr>` +
+      rows.map(r => { const plus = ACCT_IN.has(r.kind);
+        return `<tr><td class="muted">${coinEsc(acctWhen(r.at))}</td>` +
+          `<td>${coinEsc(acctSays(r, v.packs))}${r.page ? ` <span class="muted">${coinEsc(r.page)}</span>` : ''}</td>` +
+          `<td class="n ${plus ? 'plus' : 'minus'}">${plus ? '+' : '−'}${Number(r.coins||0)}</td></tr>`; }).join('') +
+      `</table>`;
+  const icons = (v.icons && v.icons.length) ? v.icons : ACCT_ICONS;
   box.innerHTML =
-    `<div class="acctwho"><b>${coinEsc(w.username || w.email || 'signed in')}</b>` +
-    (w.username && w.email ? `<span class="muted">${coinEsc(w.email)}</span>` : '') + `</div>` +
-    `<div class="acctcoins"><svg class="coinface" width="15" height="15" aria-hidden="true">` +
-    `<use href="#tctcoin"/></svg><b>${w.balance}</b><span>TCT Coins</span></div>` +
-    `<div class="row" style="gap:10px;margin-top:14px">` +
-    `<button class="pri" onclick="buyCoins()">Buy coins</button>` +
-    `<button onclick="walletSignOut()">Sign out</button></div>` +
-    (typeof welcomeRow === 'function' ? welcomeRow(w) : '');
+    `<div class="acctpurse">` +
+    `<div class="acctcoins"><svg class="coinface" width="18" height="18" aria-hidden="true"><use href="#tctcoin"/></svg>` +
+    `<b>${Number(w.balance||0)}</b><span>TCT Coins</span></div>` +
+    `<button class="pri" onclick="buyCoins()">Buy coins</button></div>` +
+    (typeof welcomeRow === 'function' ? welcomeRow(w) : '') +
+    `<h3 class="accth">Everything that moved</h3>` +
+    (v.ledger_problem ? `<p class="muted">${coinEsc(v.ledger_problem)}</p>` : ledger) +
+    `<h3 class="accth">How people see you</h3>` +
+    `<div class="acctprofile">` +
+    `<div id="acctPicNow">${acctIconSvg(w.photo || icons[0], 72)}</div>` +
+    `<div class="acctname"><label>Username</label>` +
+    `<div class="row"><input id="acctName" maxlength="20" spellcheck="false" autocomplete="off" ` +
+    `value="${coinEsc(w.username||'')}" placeholder="pick a name">` +
+    `<button class="pri" onclick="acctSaveName()">Save name</button></div>` +
+    `<div class="muted" id="acctNameHint">Letters, numbers, dot, dash and underscore. Everyone's is different.</div></div></div>` +
+    `<label style="margin-top:14px">Picture</label>` +
+    `<div class="acctpicks">` + icons.map(id =>
+      `<button type="button" class="${id === w.photo ? 'on' : ''}" data-p="${id}" onclick="acctSetPic('${id}')">${acctIconSvg(id, 40)}</button>`).join('') +
+    `</div>` +
+    `<div class="acctfoot"><span class="muted">Signed in as ${coinEsc(w.email||'')}</span>` +
+    `<button onclick="walletSignOut()">Sign out</button></div>`;
+}
+
+async function acctSaveName(){
+  const want = (($('acctName')||{}).value || '').trim();
+  const hint = $('acctNameHint');
+  if(!want) return;
+  const got = await acPost({do:'name', username: want});
+  if(got.error){ if(hint){ hint.textContent = got.error; hint.className = 'muted warnbad'; } return; }
+  if(hint){ hint.textContent = 'Saved.'; hint.className = 'muted good'; }
+  await refreshCoins();
+  if(typeof renderHome === 'function') renderHome();
+}
+
+async function acctSetPic(id){
+  const got = await acPost({do:'photo', photo: id});
+  if(got.error){ toast(got.error); return; }
+  const now = $('acctPicNow'); if(now) now.innerHTML = acctIconSvg(id, 72);
+  document.querySelectorAll('.acctpicks button').forEach(b => b.classList.toggle('on', b.dataset.p === id));
 }
 
 /* lee: *"just have a buy coin button that will link to oa page on the

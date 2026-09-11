@@ -83,10 +83,15 @@ def test_each_entry_says_where_it_came_from():
     assert src.count("licence   ") >= 8
 
 
-def test_the_notice_says_the_weights_are_not_redistributed():
+def test_the_notice_says_where_the_weights_come_from():
+    """None ship inside the software; four whose licences allow it are
+    mirrored on the project's own release page, unchanged and checksummed,
+    and the notice says which and under what."""
     src = _notice()
-    assert "NONE OF THE MODEL FILES ARE REDISTRIBUTED" in src.upper()
-    assert "downloaded by the person using it" in src
+    assert "NO MODEL FILE IS INSIDE THIS SOFTWARE" in src.upper()
+    assert "FOUR OF THEM ARE ALSO MIRRORED" in src
+    assert "releases/tag/models" in src
+    assert "Nothing whose licence is not written down is mirrored" in src
 
 
 def test_the_manga109_terms_are_written_down_rather_than_assumed():

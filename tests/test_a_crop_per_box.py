@@ -271,14 +271,18 @@ def test_the_reader_is_told_which_image_is_which():
 
 # ---------------------------------------- ...and it is what the webtoons get
 
-def test_the_webtoons_get_a_crop_per_box():
-    """lee, after the four-way read: *"make teh zoom be teh default for mnahwa
-    and manhua"*. It is the only mode that got page 011's name."""
-    assert ocr.detail_for("manhwa") == "boxes"
-    assert ocr.detail_for("manhua") == "boxes"
+def test_nobody_choosing_gets_four_pieces_on_every_format():
+    """The crops were the default for a while - they scored best - and then
+    the bill came in: one picture a box is the dearest read there is. lee:
+    *"4 cut should be the default, not zoomed"*. Zoomed stays on the list, a
+    click away; four pieces is what a person pays for without asking."""
+    for medium in ("manhwa", "manhua", "manga", "", None):
+        assert ocr.detail_for(medium) == "auto", medium
+    assert ocr.DEFAULT_DETAIL == "auto" and ocr.DETAILS["auto"]["pieces"] == 4
+    assert ocr.detail_for("manga", "boxes") == "boxes", "still a choice"
 
 
-def test_manga_gets_a_crop_per_box_too_now_that_it_has_been_scored():
+def test_manga_gets_a_crop_per_box_when_chosen():
     """It used to stay on tiles because the crops had never been scored on a
     manga page. They have been: chapter 3, 23 pages, 225 boxes, read at 4
     pieces, 9 pieces and zoomed, each against manga-ocr - which reads one
@@ -289,9 +293,9 @@ def test_manga_gets_a_crop_per_box_too_now_that_it_has_been_scored():
     the same words. Cutting FINER made it worse, which says the mistake was
     never resolution: it is matching what was read to numbers drawn on a page,
     and a crop with one box in it has nothing to match."""
-    assert ocr.detail_for("manga") == "boxes"
-    assert ocr.detail_for("") == "boxes"
-    assert ocr.detail_for(None) == "boxes"
+    assert ocr.detail_for("manga", "boxes") == "boxes"
+    assert ocr.detail_for("", "boxes") == "boxes"
+    assert ocr.detail_for(None, "boxes") == "boxes"
 
 
 def test_the_project_arrives_with_nothing_chosen():
@@ -409,28 +413,28 @@ def _run_read(settings, monkeypatch):
     return seen
 
 
-def test_a_manhwa_project_nobody_configured_reads_a_crop_per_box(monkeypatch):
-    """The whole point of the change, driven through the real step."""
-    assert _run_read({"medium": "manhwa"}, monkeypatch).get("detail") == "boxes"
+def test_a_project_nobody_configured_reads_four_pieces(monkeypatch):
+    """The default, driven through the real step, on every format."""
+    assert _run_read({"medium": "manhwa"}, monkeypatch).get("detail") == "auto"
     assert _run_read({"medium": "manhua", "ocr_detail": ""},
+                     monkeypatch).get("detail") == "auto"
+    assert _run_read({"medium": "manga"}, monkeypatch).get("detail") == "auto"
+    assert _run_read({}, monkeypatch).get("detail") == "auto"
+
+
+def test_a_project_that_chose_zoomed_still_reads_a_crop_per_box(monkeypatch):
+    assert _run_read({"medium": "manga", "ocr_detail": "boxes"},
                      monkeypatch).get("detail") == "boxes"
-
-
-def test_a_manga_project_nobody_configured_reads_a_crop_per_box_too(monkeypatch):
-    """Driven through the real step, the same as the webtoon case above.
-    See `detail_for` for the chapter 3 numbers that moved this."""
-    assert _run_read({"medium": "manga"}, monkeypatch).get("detail") == "boxes"
-    assert _run_read({}, monkeypatch).get("detail") == "boxes"
 
 
 def test_a_saved_choice_is_obeyed_and_a_bad_one_is_not(monkeypatch):
     """It IS somebody's decision again, and the reader has to do what the
     tabs say - a choice the reader ignores is a price that disagrees with the
-    bill. Anything that is not one of the four falls back to the close-up,
+    bill. Anything that is not one of the four falls back to four pieces,
     which is what a project with nothing chosen gets."""
     for chosen in ("page", "auto", "high", "boxes"):
         got = _run_read({"medium": "manga", "ocr_detail": chosen}, monkeypatch)
         assert got.get("detail") == chosen, chosen
     for junk in ("", "nonsense", None):
         got = _run_read({"medium": "manhwa", "ocr_detail": junk}, monkeypatch)
-        assert got.get("detail") == "boxes", junk
+        assert got.get("detail") == "auto", junk

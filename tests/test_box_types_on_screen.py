@@ -387,8 +387,9 @@ def test_the_reading_detail_is_four_tabs_that_carry_their_price(ed):
     # the choice came back
     assert "1 picture" in got[0]["cost"], got
     assert "a box" in got[-1]["cost"], got
-    # zoomed is what a project with nothing chosen is really doing
-    assert [g["on"] for g in got] == [False, False, False, True], got
+    # 4 pieces is what a project with nothing chosen is really doing. lee:
+    # *"4 cut should be the default not zoomed"* (ocr.DEFAULT_DETAIL).
+    assert [g["on"] for g in got] == [False, True, False, False], got
     assert not errs, errs[:3]
 
 

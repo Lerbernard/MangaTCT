@@ -38,6 +38,19 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
   <p class="lede" id="lede">Your coins live on your account, so the editor
     picks them up wherever you are signed in.</p>
 
+  <!-- The app sent us. lee: *"sign in / sign up and login with google like
+       in the website"*: the app opens THIS page in the browser and, once the
+       person is in, the page hands the sign-in back to the app on this
+       computer. Shown only with `?app=` in the address. -->
+  <div class="card forapp" id="forApp" hidden>
+    <b>For the MangaTCT app on this computer.</b>
+    <span id="forAppSay">Sign in here, and this tab passes it to the app.</span>
+    <div class="forapp-row" id="forAppRow" hidden>
+      <button class="pri" id="useMe" type="button">Use this account</button>
+      <button id="notMe" type="button">Sign in as somebody else</button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="tabs" role="tablist">
       <button id="tabIn" class="on" role="tab" aria-selected="true">Sign in</button>
@@ -105,7 +118,7 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
 import {
   auth, call, $, toast, saysWhat, whoAmI, initChrome, GOOGLE, sendVerifyMail,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup,
+  sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signOut,
 } from './app.js';
 
 initChrome();
@@ -123,6 +136,52 @@ function safeNext(raw){
 }
 const next = safeNext(new URLSearchParams(location.search).get('next'));
 let mode = 'in';
+
+/* ------------------------------------------------------- for the app */
+
+/* `?app=<port>&state=<nonce>`: the MangaTCT app on this computer opened this
+   page and is waiting, on 127.0.0.1:<port>, for the sign-in. Once the person
+   is in, the credential goes to the app as a FORM POST - a plain navigation
+   to the loopback, which every browser allows from a page like this one -
+   with the nonce the app minted, and the app checks the nonce before it
+   keeps anything. A port that is not a port, or a nonce that does not look
+   like one, means this page is an ordinary sign-in page. */
+const forApp = (() => {
+  const q = new URLSearchParams(location.search);
+  const port = String(q.get('app') || ''), state = String(q.get('state') || '');
+  if (!/^\d{2,5}$/.test(port) || !/^[A-Za-z0-9_-]{16,80}$/.test(state)) return null;
+  return { port: Number(port), state };
+})();
+if (forApp) {
+  $('forApp').hidden = false;
+  $('lede').hidden = true;
+}
+
+async function handToApp(user) {
+  const f = document.createElement('form');
+  f.method = 'POST';
+  f.action = 'http://127.0.0.1:' + forApp.port + '/api/account/hand';
+  f.style.display = 'none';
+  const put = (k, v) => {
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = k; i.value = v == null ? '' : String(v);
+    f.appendChild(i);
+  };
+  put('state', forApp.state);
+  put('refreshToken', user.refreshToken || '');
+  put('idToken', await user.getIdToken().catch(() => ''));
+  put('uid', user.uid || '');
+  put('email', user.email || '');
+  $('forAppSay').textContent = 'Passing the sign-in to the app...';
+  document.body.appendChild(f);
+  f.submit();
+}
+
+/* Signed in: on to `next`, or, for the app, to the app. */
+function arrive(user) {
+  if (forApp && user) handToApp(user);
+  else location.href = next;
+}
 
 function say(msg) { $('err').textContent = msg || ''; }
 
@@ -218,11 +277,11 @@ $('form').addEventListener('submit', async (e) => {
       // The link that turns the address into a verified one - and the
       // verified one into a hundred coins, on the account page.
       sendVerifyMail(made.user);
-      askName(() => { location.href = next; });
+      askName(() => arrive(made.user));
       return;
     }
-    await signInWithEmailAndPassword(auth, email, pass);
-    location.href = next;
+    const got = await signInWithEmailAndPassword(auth, email, pass);
+    arrive(got.user);
   } catch (er) {
     say(saysWhat(er));
     $('go').disabled = false;
@@ -239,8 +298,8 @@ $('gbtn').onclick = async () => {
     // sign-up whichever button was pressed, so it gets the same popup; one
     // that already has a name goes straight through.
     const { data } = await call('me')().catch(() => ({ data: {} }));
-    if (!data || !data.username) { askName(() => { location.href = next; }); return; }
-    location.href = next;
+    if (!data || !data.username) { askName(() => arrive(cred.user)); return; }
+    arrive(cred.user);
   } catch (er) {
     const w = saysWhat(er);
     if (w) say(w);
@@ -262,7 +321,20 @@ $('forgot').onclick = async () => {
   } catch (e) { say(saysWhat(e)); }
 };
 
-// Already signed in? Then this page is a dead end.
-whoAmI().then((u) => { if (u) location.href = next; });
+// Already signed in? Then this page is a dead end - unless the app sent us,
+// in which case the person is asked which account the app should get: the
+// one this browser holds, or another one.
+whoAmI().then((u) => {
+  if (!u) return;
+  if (!forApp) { location.href = next; return; }
+  $('forAppSay').textContent = 'This browser is signed in as ' + (u.email || 'you') + '.';
+  $('forAppRow').hidden = false;
+  $('useMe').onclick = () => arrive(u);
+  $('notMe').onclick = async () => {
+    await signOut(auth).catch(() => {});
+    $('forAppRow').hidden = true;
+    $('forAppSay').textContent = 'Sign in here, and this tab passes it to the app.';
+  };
+});
 if (new URLSearchParams(location.search).get('new')) setMode('up');
 </script>

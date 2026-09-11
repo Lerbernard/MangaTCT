@@ -358,7 +358,7 @@ def test_the_frame_is_dressed_in_the_apps_colours_once_the_window_shows(home, mo
     wv, made, started = fake_webview(monkeypatch)
     monkeypatch.setattr(sys, "platform", "linux")
     calls = []
-    monkeypatch.setattr(W, "dress_the_frame", lambda hwnd: calls.append(hwnd))
+    monkeypatch.setattr(W, "dress_the_frame", lambda hwnd, frameless=False: calls.append(hwnd))
     monkeypatch.setattr(W, "_hwnd_of", lambda win: 4242)
 
     def start(**kw):

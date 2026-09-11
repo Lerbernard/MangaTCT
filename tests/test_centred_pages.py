@@ -1000,13 +1000,24 @@ def test_the_edit_tab_is_shut_with_no_pages():
     _serve(check, pages=0)
 
 
-def test_with_no_pages_you_land_on_New_project():
-    """There is exactly one thing to do, so that is where you start."""
+def test_with_no_pages_you_land_on_Home_and_New_project_is_one_press_away():
+    """Home first (lee: *"a landing page ... like Photoshop has"*), with New
+    project the first button on it; pressing it is the File screen."""
     def check(pg, p):
         pg.wait_for_timeout(800)
+        assert pg.evaluate("tab") == "home"
+        assert pg.evaluate("document.getElementById('home').classList.contains('on')")
+        assert not pg.evaluate("document.getElementById('picker').classList.contains('on')")
+        pg.evaluate("homeNew()")
+        pg.wait_for_timeout(500)
         assert pg.evaluate("tab") == "new"
-        assert pg.evaluate(
-            "document.getElementById('picker').classList.contains('on')")
+        assert pg.evaluate("document.getElementById('picker').classList.contains('on')")
+        assert not pg.evaluate("document.getElementById('home').classList.contains('on')")
+        # ...and the mark brings Home back
+        pg.evaluate("goHome()")
+        pg.wait_for_timeout(300)
+        assert pg.evaluate("tab") == "home"
+        assert not pg.evaluate("document.getElementById('picker').classList.contains('on')")
     _serve(check, pages=0)
 
 
@@ -1069,14 +1080,17 @@ def test_choosing_another_tab_puts_New_project_away():
 
 
 def test_that_screen_will_not_close_onto_nothing():
-    """Closing it lands on Edit, and Edit is shut with no pages. It stays."""
+    """Closing it lands on Edit, and Edit is shut with no pages. With no pages
+    the app is on Home (lee's landing page), and that is where it stays."""
     def check(pg, p):
         pg.wait_for_timeout(700)
         pg.evaluate("showPicker(false)")
         pg.wait_for_timeout(400)
-        assert pg.evaluate("tab") == "new"
-        assert pg.evaluate(
+        assert pg.evaluate("tab") == "home"
+        assert not pg.evaluate(
             "document.getElementById('picker').classList.contains('on')")
+        assert pg.evaluate(
+            "document.getElementById('home').classList.contains('on')")
     _serve(check, pages=0)
 
 

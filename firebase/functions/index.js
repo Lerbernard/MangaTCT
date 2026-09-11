@@ -442,6 +442,26 @@ export const me = onCall(async (req) => {
   };
 });
 
+/* The receipt, for the editor. The website reads the same collection
+ * straight out of Firestore with the person's own credentials; the editor
+ * is Python and talks to functions, so it asks here. Newest first, `at` as
+ * milliseconds, and never more than a screenful. lee: *"have an account
+ * view like on the website"*. */
+export const ledgerLines = onCall(async (req) => {
+  const uid = must(req.auth);
+  const n = Math.max(1, Math.min(100, Number((req.data && req.data.n) || 50)));
+  const snap = await userRef(uid).collection('ledger').orderBy('at', 'desc').limit(n).get();
+  return {
+    rows: snap.docs.map((d) => {
+      const r = d.data() || {};
+      const at = r.at && r.at.toMillis ? r.at.toMillis() : null;
+      return { kind: r.kind || '', what: r.what || '', page: r.page || '',
+        coins: Number(r.coins || 0), at };
+    }),
+    packs: PACKS,
+  };
+});
+
 /* A verified email is a claim on the token, and a token lasts an hour. The
  * page that just came back from the link in the mail refreshes its token and
  * calls `me`; the editor does the same. Nothing else is needed - there is no

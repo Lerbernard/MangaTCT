@@ -91,9 +91,10 @@ def test_a_run_that_costs_something_says_to_sign_in(installed_signed_out, monkey
     assert editor.afford_run(p, "translate", [0]) == ""
 
 
-def test_the_pill_says_sign_in_and_opens_the_form():
+def test_the_pill_shows_zero_and_opens_the_form():
+    """lee: *"if the user is not signed in it should show 0 coins"*."""
     body = JS[JS.index("function paintCount("):JS.index("function paintCoins(")]
-    assert "wallet.needs_signin" in body and "'Sign in'" in body
+    assert "wallet.needs_signin" in body and "n.textContent = '0'" in body
     assert "remove('broke','low')" in body, "not red: nothing is wrong, nobody is in"
     draw = JS[JS.index("function drawWallet("):JS.index("function topUpRow(")]
     assert "if(w.needs_signin){ walletSignIn(false); return; }" in draw
@@ -134,3 +135,37 @@ def test_buying_coins_goes_to_a_page_that_exists():
     assert (PKG / "site" / "pricing.html").exists()
     fb = _json.loads((PKG / "firebase.json").read_text(encoding="utf-8"))
     assert {"source": "/coins", "destination": "/pricing", "type": 301} in fb["hosting"]["redirects"]
+
+
+def test_the_quote_is_not_slow_and_says_how_long_it_took(monkeypatch, tmp_path):
+    """lee: *"the coins take a long time to show up, can you speed it up?"*
+    Three things held it up and each is measured here in the small: the
+    Firebase config was read off disk a few hundred times per quote (now held
+    for seconds), the local ledger was parsed once per page per step (now
+    once per version of the file), and the reply carries `took_ms` so the
+    next slow one can be seen rather than felt."""
+    import time as _t
+    from where import PKG
+    src = (PKG / "editor.py").read_text(encoding="utf-8")
+    assert 'out["took_ms"]' in src and "coins quote took" in src
+    a = account
+    t0 = _t.time()
+    for _ in range(300):
+        a.configured()
+    assert _t.time() - t0 < 0.5, "config is held, not re-read"
+    assert a.CONF_FOR >= 1
+    # the ledger: parsed once, then a stat until the file changes
+    monkeypatch.setenv("MANGATL_HOME", str(tmp_path))
+    monkeypatch.setenv(coins.TEST_PURSE, "1")
+    coins._write({"balance": 5, "ledger": [{"kind": "meter", "what": "x"}] * 300})
+    reads = []
+    real = coins._read
+    monkeypatch.setattr(coins, "_read", lambda: (reads.append(1), real())[1])
+    for _ in range(50):
+        assert len(coins.ledger(400)) == 300
+    assert len(reads) == 1, "one parse for fifty asks"
+    coins._write({"balance": 5, "ledger": [{"kind": "meter", "what": "y"}] * 2})
+    assert len(coins.ledger(400)) == 2, "a rewritten file is seen at once"
+    # ...and the dialog keeps the last quote on screen while the new one comes
+    js = (PKG / "static" / "js" / "pipeline.js").read_text(encoding="utf-8")
+    assert "if(scopeQuoteKey !== qk) scopeQuote = null;" in js

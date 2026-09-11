@@ -2002,10 +2002,11 @@ def test_a_read_is_priced_by_the_pictures_it_sends():
     assert coins.pictures("auto", 10) == 4
     assert coins.pictures("high", 10) == 9
     assert coins.pictures("boxes", 10) == 10
-    # nothing chosen reads as zoomed, which is what the reader really does
-    assert coins.pictures("", 10) == 10
-    # ...and a mode nobody has heard of does not silently cost nothing
-    assert coins.pictures("nonsense", 10) == 10
+    # nothing chosen reads as 4 pieces, which is what the reader really does
+    # (lee: *"4 cut should be the default not zoomed"*, ocr.DEFAULT_DETAIL)
+    assert coins.pictures("", 10) == 4
+    # ...and a mode nobody has heard of is priced as the default, not as free
+    assert coins.pictures("nonsense", 10) == 4
 
 
 def test_reading_zoomed_costs_more_than_reading_the_whole_page():
@@ -2051,8 +2052,8 @@ def test_the_reader_and_the_price_read_one_list():
     assert set(DETAILS) == {"page", "auto", "high", "boxes"}
     for k in DETAILS:
         assert detail_for("manga", k) == k
-    assert detail_for("manga") == "boxes"
-    assert detail_for("manga", "nonsense") == "boxes"
+    assert detail_for("manga") == "auto"
+    assert detail_for("manga", "nonsense") == "auto"
 
 
 # --------------------------------------------- and thinking is per box now

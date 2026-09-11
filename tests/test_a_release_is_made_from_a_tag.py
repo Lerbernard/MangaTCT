@@ -43,10 +43,13 @@ def test_the_zip_is_the_package_and_nothing_private(tmp_path):
             "mangatl/fonts/LICENSES.md",
             # the launcher's module, and only it: Settings > Updates runs
             # the launcher's own check/download code from the app
-            "mangatl/launcher/mangatct_launcher.py"]
+            "mangatl/launcher/mangatct_launcher.py",
+            # the Firebase web config: without it an installed copy cannot
+            # sign in (it read as "no account service configured")
+            "mangatl/site/config.js"]
     for m in must:
         assert m in names, m
-    never = re.compile(r"(_clean_modal\.py$|/\.env$|^mangatl/tests/|^mangatl/site/|"
+    never = re.compile(r"(_clean_modal\.py$|/\.env$|^mangatl/tests/|^mangatl/site/(?!config\.js$)|"
                        r"^mangatl/docs/|^mangatl/tools/|^mangatl/launcher/(?!mangatct_launcher\.py$)|"
                        r"\.(onnx|pt|pth|ckpt|dat)$|__pycache__|^mangatl/_sb\.py$|"
                        r"node_modules|^mangatl/firebase)")

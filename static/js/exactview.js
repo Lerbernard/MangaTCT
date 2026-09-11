@@ -29,7 +29,7 @@
    the editor's own furniture and stay on screen; only the drawn text goes,
    because that is the part the render draws for us. */
 
-let exactOn = true;                 // the preference, remembered below
+let exactOn = false;                // off unless switched on; remembered below (lee: *"export preview should be off by default"*)
 let exactShown = false;             // is the render on screen right now
 let exactTimer = null;
 let exactWant = 0;                  // bumped by every hide, so a late load can
