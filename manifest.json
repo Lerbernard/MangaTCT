@@ -2,57 +2,101 @@
  "app": {
   "version": "1.0.3",
   "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.3/mangatct-app-1.0.3.zip",
-  "sha256": "9bb5f96aaf65163fef5c750b2b53531b7764d957701f82bf37c33ee004e9753d",
-  "size": 6009971,
+  "sha256": "c9bab89cd184ea069588f62788a2bf38db09a53fa8ad911506b745c82e7d23dc",
+  "size": 6012441,
   "notes": "https://github.com/Lerbernard/MangaTCT/releases/tag/v1.0.3"
  },
  "models": [
   {
    "name": "comictextdetector.pt.onnx",
    "url": "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.2.1/comictextdetector.pt.onnx",
+   "urls": [
+    {
+     "url": "https://github.com/Lerbernard/MangaTCT/releases/download/models/comictextdetector.pt.onnx"
+    },
+    {
+     "url": "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.2.1/comictextdetector.pt.onnx"
+    }
+   ],
    "sha256": "1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f",
    "size": 94669756,
    "tier": "required",
-   "what": "comic-text-detector - the ink mask every route cleans with, and dialogue boxes",
-   "verified": true
+   "what": "comic-text-detector - the ink mask every route cleans with, and dialogue boxes"
   },
   {
    "name": "webtoon-ko.onnx",
    "url": "https://github.com/xulihang/balloon-dataset/releases/download/models/korean_webtoon.zip",
    "inside": "model.onnx",
+   "urls": [
+    {
+     "url": "https://github.com/xulihang/balloon-dataset/releases/download/models/korean_webtoon.zip",
+     "inside": "model.onnx"
+    }
+   ],
    "sha256": "73654f77503bc4eae159b487734f76db072c457c5968b8375e9048b2b48a9b6b",
    "size": 12239014,
    "tier": "recommended",
-   "what": "webtoon balloons, Korean - the default on manhwa",
-   "verified": true
+   "what": "webtoon balloons, Korean - the default on manhwa"
   },
   {
    "name": "webtoon-zh.onnx",
    "url": "https://github.com/xulihang/balloon-dataset/releases/download/models/chinese_webtoon.zip",
    "inside": "model.onnx",
+   "urls": [
+    {
+     "url": "https://github.com/xulihang/balloon-dataset/releases/download/models/chinese_webtoon.zip",
+     "inside": "model.onnx"
+    }
+   ],
    "sha256": "6718f5f4a0cba0f33f4e6c9dae135118759f92f09d455eeb075d465dcc31a105",
    "size": 12238951,
    "tier": "recommended",
-   "what": "webtoon balloons, Chinese - the default on manhua",
-   "verified": true
+   "what": "webtoon balloons, Chinese - the default on manhua"
   },
   {
    "name": "animetext.pt",
    "url": "https://huggingface.co/deepghs/AnimeText_yolo/resolve/main/yolo12l_animetext/model.pt",
+   "urls": [
+    {
+     "url": "https://github.com/Lerbernard/MangaTCT/releases/download/models/animetext.pt"
+    },
+    {
+     "url": "https://huggingface.co/deepghs/AnimeText_yolo/resolve/main/yolo12l_animetext/model.pt"
+    }
+   ],
    "sha256": "1d470b96c4a28176f9eb0fd8b0065e4dab60c225649c1c14b17cd1a9bf823ebb",
    "size": 53574054,
    "tier": "recommended",
-   "what": "AnimeText - the default detector on manga",
-   "verified": false
+   "what": "AnimeText - the default detector on manga"
   },
   {
    "name": "m109seg.pt",
    "url": "https://huggingface.co/ShadowB/Manga109-panel-balloon-text-yolov26-segmentation/resolve/main/best.pt",
+   "urls": [
+    {
+     "url": "https://github.com/Lerbernard/MangaTCT/releases/download/models/m109seg.pt"
+    },
+    {
+     "url": "https://huggingface.co/ShadowB/Manga109-panel-balloon-text-yolov26-segmentation/resolve/main/best.pt"
+    }
+   ],
    "sha256": "0b4376e426fa96af3976afa6a2602421dacf2dec96ef87b4a44f5e8d4971cb6f",
    "size": 23439133,
    "tier": "recommended",
-   "what": "Manga109 segmenter route",
-   "verified": false
+   "what": "Manga109 segmenter route"
+  },
+  {
+   "name": "dbpp_coo.dat",
+   "url": "https://github.com/Lerbernard/MangaTCT/releases/download/models/dbpp_coo.dat",
+   "urls": [
+    {
+     "url": "https://github.com/Lerbernard/MangaTCT/releases/download/models/dbpp_coo.dat"
+    }
+   ],
+   "sha256": "889a26c041cc03be7c3864de940368dc393b46d036da49f9bf762a8b798724cf",
+   "size": 116375215,
+   "tier": "recommended",
+   "what": "DB++ fine-tuned on COO - painted sound effects, in every route that finds them"
   }
  ],
  "minimum_launcher": "1.0.0",
@@ -62,7 +106,7 @@
  "installer": {
   "version": "1.0.3",
   "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.3/MangaTCT-Setup-1.0.3.exe",
-  "sha256": "849cc9942e9161307bb633f5a79dd32c8365ad300c7f55c645f90e70f8306008",
-  "size": 242806720
+  "sha256": "80ee7cab42b222fee4863f9dd4fcd2aa06840b4825cb266761fe65adc176791a",
+  "size": 242795076
  }
 }
