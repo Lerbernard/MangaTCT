@@ -436,9 +436,28 @@ def test_the_balance_is_not_asked_for_on_every_page_turn(project, monkeypatch):
     assert wire.sent == []
 
 
-def test_a_stale_balance_is_asked_for_again(project, monkeypatch):
+def test_a_stale_balance_is_asked_for_again_behind_the_screen(project, monkeypatch):
+    """A number is known, only old: the call answers with it AT ONCE and the
+    server is asked in a thread, so the run dialog's prices never wait on a
+    cold Cloud Function. lee: *"the coins took a long time to show up"*.
+    The next ask, once the thread has landed, has the new number."""
     _signed_in(monkeypatch, balance=500,
                checked=time.time() - account.FRESH_FOR - 1)
+    wire = Wire({"result": {"coins": 480}})
+    monkeypatch.setattr(account, "_post", wire)
+    t0 = time.time()
+    first = account.balance()
+    assert first == 500 and time.time() - t0 < 0.5, "answered from what was known"
+    for _ in range(100):
+        if account._read().get("balance") == 480:
+            break
+        time.sleep(0.05)
+    assert account.balance() == 480, "the refresh behind the screen landed"
+    assert len(wire.sent) == 1, "one thread, not one per ask"
+
+
+def test_a_balance_never_read_waits_for_the_server_once(project, monkeypatch):
+    _signed_in(monkeypatch, balance=0, checked=0)
     monkeypatch.setattr(account, "_post", Wire({"result": {"coins": 480}}))
     assert account.balance() == 480
 

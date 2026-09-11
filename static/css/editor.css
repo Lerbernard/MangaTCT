@@ -1843,6 +1843,15 @@ body.laydragging .lay{cursor:grabbing}
    label - a label names a control and this names the shape of a group. */
 .sethint{margin:4px 2px 2px;color:var(--dim);font-size:12px;line-height:1.55}
 
+/* Settings > Account. */
+.acctwho{display:flex;align-items:baseline;gap:10px;font-size:15px}
+.acctwho .muted{font-size:12px}
+.acctcoins{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:15px}
+.acctcoins b{font-size:20px;font-weight:700}
+.acctcoins span{color:var(--dim);font-size:12px}
+#acctBox .wform{max-width:380px}
+#acctBox .wform input{width:100%;box-sizing:border-box}
+
 /* Settings > Updates. One line of what is running, one line of what the
    channel says, a bar while something comes, and the buttons under it. */
 .updnow{display:flex;align-items:baseline;gap:10px;font-size:15px;font-weight:600}

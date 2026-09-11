@@ -1992,7 +1992,10 @@ WALLET = "wallet.json"
 # editor is a thing somebody runs on their own machine, and a card number does
 # not belong in it. lee: *"just have a buy coin button that will link to oa
 # page on the website"*.
-BUY_URL = "https://mangatct.com/coins"
+# The pricing page. It was `/coins` for a while, which the site never had -
+# lee's screenshot: Firebase's own "Page Not Found" - and hosting also sends
+# `/coins` on to it for the app versions that still say so.
+BUY_URL = "https://mangatct.com/pricing"
 
 # What a new install starts with. Enough to translate a chapter and see what
 # the thing does before being asked for anything - a wallet that opens empty

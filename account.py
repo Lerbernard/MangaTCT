@@ -481,13 +481,43 @@ def balance(fresh: bool = False) -> int:
         # moves; the last number known is not good enough to decide on.
         refresh_me()
     elif time.time() - float(d.get("checked") or 0) > FRESH_FOR:
+        if d.get("checked"):
+            # A number is known, only stale: answer with it now and ask the
+            # server behind the screen. The run dialog's prices used to wait
+            # on this call - a cold Cloud Function is seconds - and the
+            # coins on its buttons came up long after the buttons did.
+            # lee: *"the coins took a long time to show up"*.
+            _refresh_behind()
+        else:
+            try:
+                refresh_me()
+            except AccountError:
+                # Drawing a balance, not deciding on one. Nothing is known
+                # yet, so this once the screen waits for the answer.
+                pass
+    return int(_read().get("balance") or 0)
+
+
+_BEHIND = {"on": False}
+_BEHIND_LOCK = threading.Lock()
+
+
+def _refresh_behind() -> None:
+    """One `refresh_me` in a thread; a second ask while it runs joins it."""
+    with _BEHIND_LOCK:
+        if _BEHIND["on"]:
+            return
+        _BEHIND["on"] = True
+
+    def go():
         try:
             refresh_me()
-        except AccountError:
-            # Drawing a balance, not deciding on one. The last number known
-            # beats showing nothing, and nothing is bought on it.
+        except Exception:
             pass
-    return int(_read().get("balance") or 0)
+        finally:
+            with _BEHIND_LOCK:
+                _BEHIND["on"] = False
+    threading.Thread(target=go, daemon=True).start()
 
 
 def new_run() -> str:

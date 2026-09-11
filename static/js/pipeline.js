@@ -337,15 +337,16 @@ async function runDetect(thisPageOnly){
 
 const STEPS=[
   {n:1, label:'Find text',    act:()=>openDetect(),               job:'Detecting'},
-  {n:2, label:'Read text',    act:()=>stepScope('ocr_all','Read the Japanese'),
+  // The dialog says what the button said. lee: *"it should say read text"*.
+  {n:2, label:'Read text',    act:()=>stepScope('ocr_all','Read text'),
                                                                   job:'Reading text'},
   {n:3, label:'Translate',    act:()=>stepScope('translate_all','Translate'),
                                                                   job:'Translating'},
   {n:4, label:'Proofread',    act:()=>stepScope('proofread_all','Proofread'),
                                                                   job:'Proofreading'},
-  {n:5, label:'Clean',        act:()=>stepScope('clean_all','Clean the pages'),
+  {n:5, label:'Clean',        act:()=>stepScope('clean_all','Clean'),
                                                                   job:'Cleaning'},
-  {n:6, label:'Typeset',      act:()=>stepScope('typeset_all','Lay the text out'),
+  {n:6, label:'Typeset',      act:()=>stepScope('typeset_all','Typeset'),
                                                                   job:'Laying out text'},
   {n:7, label:'Export',       act:()=>exportDialog(),             job:'Exporting'},
 ];

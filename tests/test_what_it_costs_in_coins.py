@@ -1396,11 +1396,11 @@ def test_a_free_step_shows_no_price_at_all(tmp_path):
     p = _project(tmp_path, [9] * 3)
 
     def check(pg):
-        pg.evaluate("stepScope('clean_all','Clean the pages')")
+        pg.evaluate("stepScope('clean_all','Clean')")
         pg.wait_for_function(
             "document.querySelectorAll('#scopedlg .scpcoin').length===2",
             timeout=8000)
-        pg.evaluate("stepScope('typeset_all','Lay the text out')")
+        pg.evaluate("stepScope('typeset_all','Typeset')")
         pg.wait_for_timeout(500)
         assert pg.evaluate(
             "document.querySelectorAll('#scopedlg .scpcoin').length") == 0

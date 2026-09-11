@@ -14,6 +14,7 @@ coin in the header that reads "Sign in" and opens the sign-in form.
 """
 import json
 import os
+import re
 
 import pytest
 
@@ -96,7 +97,7 @@ def test_the_pill_says_sign_in_and_opens_the_form():
     assert "remove('broke','low')" in body, "not red: nothing is wrong, nobody is in"
     draw = JS[JS.index("function drawWallet("):JS.index("function topUpRow(")]
     assert "if(w.needs_signin){ walletSignIn(false); return; }" in draw
-    assert "function walletSignIn(making)" in JS, "the form it opens"
+    assert "function walletSignIn(making, host)" in JS, "the form it opens"
 
 
 def test_the_suite_itself_runs_on_the_test_purse():
@@ -105,3 +106,31 @@ def test_the_suite_itself_runs_on_the_test_purse():
     assert os.environ.get(coins.TEST_PURSE) == "1"
     src = (PKG / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert 'os.environ.setdefault("MANGATL_TEST_PURSE", "1")' in src
+
+
+def test_settings_has_an_account_page_with_the_same_form():
+    """lee: *"there isn't a place to sign in in the app"*. Settings > Account:
+    the sign-in form when nobody is, who and how many coins when somebody
+    is, Buy coins and Sign out."""
+    html = (PKG / "static" / "editor.html").read_text(encoding="utf-8")
+    assert re.search(r'<button class="setnav-btn" data-sec="account"[^>]*>Account</button>', html)
+    assert 'data-sec="account"' in html and 'id="acctBox"' in html
+    assert "function renderAccount(" in JS
+    body = JS[JS.index("function renderAccount("):]
+    assert "walletSignIn(false, box)" in body, "the same form, drawn into the page"
+    assert "buyCoins()" in body and "walletSignOut()" in body
+    view = (PKG / "static" / "js" / "view.js").read_text(encoding="utf-8")
+    assert "if(name==='account'" in view
+    # ...and the form's own buttons keep drawing where they were drawn
+    assert "this.closest('#acctBox')" in JS
+
+
+def test_buying_coins_goes_to_a_page_that_exists():
+    """`/coins` was Firebase's own Page Not Found (lee's screenshot). The app
+    links the pricing page, and hosting sends `/coins` there for app versions
+    that still say it."""
+    import json as _json
+    assert coins.BUY_URL == "https://mangatct.com/pricing"
+    assert (PKG / "site" / "pricing.html").exists()
+    fb = _json.loads((PKG / "firebase.json").read_text(encoding="utf-8"))
+    assert {"source": "/coins", "destination": "/pricing", "type": 301} in fb["hosting"]["redirects"]

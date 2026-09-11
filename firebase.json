@@ -50,6 +50,13 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/coins",
+        "destination": "/pricing",
+        "type": 301
+      }
     ]
   },
   "emulators": {

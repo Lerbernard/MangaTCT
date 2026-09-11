@@ -710,6 +710,7 @@
       <button class="setnav-btn" data-sec="characters" onclick="setSettingsTab('characters')">Characters</button>
       <button class="setnav-btn" data-sec="terms" onclick="setSettingsTab('terms')">Places, terms &amp; other</button>
       <div class="setnav-title" style="margin-top:16px">Settings</div>
+      <button class="setnav-btn" data-sec="account" onclick="setSettingsTab('account')">Account</button>
       <!-- Pipeline order, top to bottom: what the chapter IS, what finds the
            text, what reads and writes it, what cleans the page, what sets the
            words. lee: *"organize tehm better"*. The keys are unchanged - only
@@ -1468,6 +1469,15 @@
                  style="flex:2">
           <button class="pri" onclick="addCharacter()">Add</button>
         </div>
+      </section>
+
+      <!-- Account: who is signed in, the coins, sign in / out. lee: *"there
+           isn't a place to sign in in the app"*. Drawn by `renderAccount`
+           (coins.js) from the same state the coin's panel reads. -->
+      <section class="set-section" data-sec="account">
+        <h2 class="set-h">Account</h2>
+        <div id="acctBox">Looking…</div>
+        <p class="sethint">Coins live on your account. Sign in on any computer and they are there.</p>
       </section>
 
       <!-- Updates. lee: *"add an updates tab in the settings that downloads

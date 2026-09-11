@@ -249,8 +249,11 @@ async function walletVerifyMail(btn){
    The password is posted to the editor's own server, which passes it to Google
    and keeps nothing. What comes back and is kept is a refresh token, in the
    person's own folder - see `account.py`. */
-function walletSignIn(making){
-  const pop = $('walletPop'); if(!pop) return;
+function walletSignIn(making, host){
+  // Drawn into the purse, or into Settings > Account (`renderAccount`) -
+  // one at a time, since the form's fields are found by id.
+  const pop = host || $('walletPop'); if(!pop) return;
+  if(host && $('walletPop')) $('walletPop').innerHTML = '';
   pop.innerHTML =
     `<h4>${making ? 'Make an account' : 'Sign in'}</h4>` +
     `<div class="wform">` +
@@ -264,7 +267,7 @@ function walletSignIn(making){
     `<div class="wtop">` +
     `<button class="pri" onclick="walletDoSignIn(${making ? 'true' : 'false'})">` +
     `${making ? 'Make it' : 'Sign in'}</button>` +
-    `<button onclick="walletSignIn(${making ? 'false' : 'true'})">` +
+    `<button onclick="walletSignIn(${making ? 'false' : 'true'}, this.closest('#acctBox'))">` +
     `${making ? 'I have one' : 'Make one'}</button>` +
     `</div>` +
     (making ? '' : `<button class="wlink" onclick="walletReset()">` +
@@ -305,6 +308,7 @@ async function walletPost(body, saying){
   // would leave the panel with a balance and no rows.
   await refreshCoins();
   drawWallet();
+  if(typeof renderAccount === 'function') renderAccount();
   return true;
 }
 
@@ -336,6 +340,31 @@ async function walletSignOut(){
   if(got.error){ toast(got.error); return; }
   await refreshCoins();
   drawWallet();
+  if(typeof renderAccount === 'function') renderAccount();
+}
+
+/* Settings > Account. lee: *"there isn't a place to sign in in the app"* -
+   there was, inside the coin's panel, and a panel behind a coin is not a
+   place anybody looks for it. This is the same form and the same two
+   buttons on a page with a name. */
+async function renderAccount(){
+  const box = $('acctBox'); if(!box) return;
+  if(!wallet){ try{ await refreshCoins(); }catch(e){} }
+  const w = wallet || {};
+  if(!w.configured){
+    box.innerHTML = '<div class="wnote">This copy has no account service configured.</div>';
+    return;
+  }
+  if(!w.signed_in){ walletSignIn(false, box); return; }
+  box.innerHTML =
+    `<div class="acctwho"><b>${coinEsc(w.username || w.email || 'signed in')}</b>` +
+    (w.username && w.email ? `<span class="muted">${coinEsc(w.email)}</span>` : '') + `</div>` +
+    `<div class="acctcoins"><svg class="coinface" width="15" height="15" aria-hidden="true">` +
+    `<use href="#tctcoin"/></svg><b>${w.balance}</b><span>TCT Coins</span></div>` +
+    `<div class="row" style="gap:10px;margin-top:14px">` +
+    `<button class="pri" onclick="buyCoins()">Buy coins</button>` +
+    `<button onclick="walletSignOut()">Sign out</button></div>` +
+    (typeof welcomeRow === 'function' ? welcomeRow(w) : '');
 }
 
 /* lee: *"just have a buy coin button that will link to oa page on the

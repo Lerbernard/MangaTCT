@@ -298,8 +298,8 @@ choose a `.tct`, then **Done** (only enabled after an import) or **Skip**.
 
 ## 2.2 The run dialog
 
-Opened by steps 2 to 6. The title changes per step: **Read the Japanese?**,
-**Translate?**, **Proofread?**, **Clean the pages?**, **Lay the text out?**
+Opened by steps 2 to 6. The title is the button's own name with a question
+mark: **Read text?**, **Translate?**, **Proofread?**, **Clean?**, **Typeset?**
 
 | Button | Notes |
 |---|---|
@@ -743,6 +743,14 @@ removed, and it says re-adding one means coming and saying so out loud. It now
 carries that sentence, and guards this pass by its promise rather than by a
 list of names - which is what let a new pass under new names walk straight past
 it.
+
+## 4.9a Settings ▸ Account
+
+Who is signed in, the coin balance, **Buy coins** (opens `mangatct.com/pricing`)
+and **Sign out**; signed out, the same sign-in / make-an-account form the coin's
+panel shows (`renderAccount`, coins.js). lee: *"there isn't a place to sign in
+in the app"* — there was, behind the coin; now it has a page. The coin in the
+header reads **Sign in** until somebody is.
 
 ## 4.9b Settings ▸ Updates
 
