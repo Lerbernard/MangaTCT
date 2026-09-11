@@ -1802,6 +1802,13 @@ body.laydragging .lay{cursor:grabbing}
  white-space:nowrap;font-size:12px}
 .wacct button{flex:none}
 .wform{display:flex;flex-direction:column;gap:6px}
+.wform .gbtn{display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;background:#fff;color:#1f1f1f;border:1px solid #d8d8d8;font-weight:600}
+.wform .gbtn:hover{background:#f3f3f3;color:#000}
+.wform .gbtn svg{width:16px;height:16px;flex:none}
+.wor{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:11px;margin:4px 0}
+.wor::before,.wor::after{content:"";flex:1;height:1px;background:var(--line)}
+.wnote a{color:var(--ink)}
 .wform input{width:100%}
 .wform .wlink{background:none;border:none;color:var(--dim);font-size:11px;
  text-decoration:underline;padding:2px;cursor:pointer;align-self:flex-start}
@@ -1843,7 +1850,95 @@ body.laydragging .lay{cursor:grabbing}
    label - a label names a control and this names the shape of a group. */
 .sethint{margin:4px 2px 2px;color:var(--dim);font-size:12px;line-height:1.55}
 
+/* THE WINDOW'S OWN FRAME (chrome.js). Only under `html.framed`, which the
+   page sets once the window says it has no system frame of its own. The
+   three buttons are drawn to Windows' caption-button measure - 46 wide, the
+   bar's height, no gap - and the close one goes red under the pointer, as
+   Windows' does. `.tbdrag` is the stretch of bar you move the window by. */
+.tbdrag{flex:1 1 auto;align-self:stretch;min-width:24px}
+html.framed #top{padding-right:0;padding-top:0;padding-bottom:0;min-height:38px;
+  -webkit-user-select:none;user-select:none}
+html.framed #top>.side{padding:7px 0}
+html.framed #top>.side:first-child{padding-left:0}
+#winctl{display:flex;gap:0;align-self:stretch;margin-left:6px}
+#winctl[hidden]{display:none}
+.wbtn{width:46px;height:auto;align-self:stretch;min-height:38px;border:0;border-radius:0;
+  background:transparent;color:var(--fg);padding:0;display:inline-flex;align-items:center;
+  justify-content:center;cursor:default;box-shadow:none}
+.wbtn:hover{background:rgba(255,255,255,.08)}
+.wbtn:active{background:rgba(255,255,255,.14)}
+.wbtn.close:hover{background:#c42b1c;color:#fff}
+.wbtn.close:active{background:#b3271a}
+.wbtn svg{display:block}
+#winEdges{position:fixed;inset:0;pointer-events:none;z-index:1000}
+html.maximized #winEdges{display:none}
+.wedge{position:absolute;pointer-events:auto}
+.wedge.top{left:8px;right:8px;top:0;height:5px;cursor:ns-resize}
+.wedge.bottom{left:8px;right:8px;bottom:0;height:5px;cursor:ns-resize}
+.wedge.left{top:8px;bottom:8px;left:0;width:5px;cursor:ew-resize}
+.wedge.right{top:8px;bottom:8px;right:0;width:5px;cursor:ew-resize}
+.wedge.topleft{left:0;top:0;width:10px;height:10px;cursor:nwse-resize}
+.wedge.bottomright{right:0;bottom:0;width:10px;height:10px;cursor:nwse-resize}
+.wedge.topright{right:0;top:0;width:10px;height:10px;cursor:nesw-resize}
+.wedge.bottomleft{left:0;bottom:0;width:10px;height:10px;cursor:nesw-resize}
+
+/* HOME (home.js). A screen like the File screen: edge to edge under the top
+   bar, a rail on the left with the mark, the two ways to start and the
+   account; the room on the right for what is open and what was. */
+#home{position:fixed;left:0;right:0;bottom:0;top:0;background:var(--bg);z-index:50;
+  display:none;padding-top:var(--topbar,52px)}
+#home.on{display:flex}
+.homecard{display:flex;flex:1 1 auto;min-height:0;width:100%}
+#homeSide{flex:0 0 340px;background:var(--panel);border-right:1px solid var(--line);
+  padding:40px 32px;display:flex;flex-direction:column;gap:28px;overflow:auto}
+.homebrand{display:flex;align-items:center;gap:14px}
+.homename{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.homename b{color:var(--fg)} .homename i{color:var(--accent);font-style:normal}
+.homever{color:var(--dim);font-size:12px;margin-top:5px;text-transform:uppercase;letter-spacing:.06em}
+.homestart{display:flex;flex-direction:column;gap:10px}
+.homestart .big{font-size:15px;padding:12px 16px;text-align:left}
+.homeacct{border-top:1px solid var(--line);padding-top:22px}
+.homeacct-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.homeacct .wform{max-width:none}
+.homeacct .wform input{width:100%;box-sizing:border-box}
+#homeMain{flex:1 1 auto;min-width:0;overflow:auto;padding:40px 56px 48px}
+#homeMain section{max-width:960px;margin:0 0 34px}
+.homegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.homecard-proj{position:relative;display:flex;flex-direction:column;gap:4px;text-align:left;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+  color:var(--fg);cursor:pointer;font:inherit;min-width:0}
+.homecard-proj:hover{border-color:var(--accent);background:var(--panel2)}
+.homecard-proj b{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:26px}
+.homecard-proj span{color:var(--dim);font-size:12px}
+.homecard-proj em{color:var(--dim);font-style:normal;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
+.homecard-proj.now{border-color:var(--accent);max-width:460px}
+.homecard-proj.now em{color:var(--accent)}
+.homecard-proj.gone{opacity:.55;cursor:default}
+.homecard-proj .x{position:absolute;top:8px;right:8px;width:22px;height:22px;padding:0;
+  border-radius:6px;background:transparent;border:1px solid transparent;color:var(--dim);font-size:14px;line-height:1}
+.homecard-proj .x:hover{border-color:var(--line);color:var(--fg)}
+.homeempty{color:var(--dim);font-size:13px}
+
 /* Settings > Account. */
+.acctpurse{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;max-width:560px}
+.accth{margin:26px 0 10px;font-size:14px;font-weight:650}
+.acctledger{border-collapse:collapse;font-size:13px;max-width:720px;width:100%}
+.acctledger th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;
+  letter-spacing:.06em;padding:4px 10px 6px 0;border-bottom:1px solid var(--line)}
+.acctledger td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.acctledger .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.acctledger .plus{color:var(--ok)} .acctledger .minus{color:var(--fg)}
+.acctprofile{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.acctname{flex:1 1 280px}
+.acctname .row{gap:8px} .acctname input{flex:1 1 auto;min-width:0}
+.acctpicks{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.acctpicks button{padding:3px;border-radius:50%;background:transparent;border:2px solid transparent;line-height:0}
+.acctpicks button.on{border-color:var(--accent)}
+.acctpicks button:hover{border-color:var(--line)}
+.acctfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:26px;
+  padding-top:14px;border-top:1px solid var(--line);max-width:720px}
+.pic{display:block;border-radius:50%}
 .acctwho{display:flex;align-items:baseline;gap:10px;font-size:15px}
 .acctwho .muted{font-size:12px}
 .acctcoins{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:15px}

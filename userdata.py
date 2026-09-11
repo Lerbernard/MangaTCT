@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import re
 
 # How many "last used" faces are remembered. Five is what fits above the list
@@ -319,6 +320,53 @@ def write_env(values: dict, path: str = "") -> str:
     except OSError:
         pass
     return path
+
+
+# ------------------------------------------------------------ recent projects
+
+RECENT_PROJECTS = 12
+
+
+def recent_projects() -> list:
+    """Chapters opened or saved as a `.tctp`, newest first, for the Home
+    screen. Each is `{path, name, pages, medium, at}`; a file that has since
+    gone is still listed, with `exists: False`, so the person can see what
+    happened to it and take it off the list."""
+    out = []
+    for r in load_prefs().get("recent_projects") or []:
+        if not isinstance(r, dict) or not r.get("path"):
+            continue
+        r = dict(r)
+        r["exists"] = os.path.isfile(r["path"])
+        out.append(r)
+    return out
+
+
+def note_project(path: str, pages: int = 0, medium: str = "") -> list:
+    """Put a chapter at the top of the list (once: the same path moves up)."""
+    path = os.path.abspath(str(path or ""))
+    if not path:
+        return recent_projects()
+    prefs = load_prefs()
+    key = os.path.normcase(path)
+    rest = [r for r in (prefs.get("recent_projects") or [])
+            if isinstance(r, dict) and os.path.normcase(str(r.get("path") or "")) != key]
+    name = os.path.splitext(os.path.basename(path))[0]
+    prefs["recent_projects"] = ([{"path": path, "name": name, "pages": int(pages or 0),
+                                  "medium": str(medium or ""), "at": time.time()}]
+                                + rest)[:RECENT_PROJECTS]
+    save_prefs(prefs)
+    return recent_projects()
+
+
+def forget_project(path: str) -> list:
+    prefs = load_prefs()
+    key = os.path.normcase(os.path.abspath(str(path or "")))
+    prefs["recent_projects"] = [r for r in (prefs.get("recent_projects") or [])
+                                if isinstance(r, dict)
+                                and os.path.normcase(str(r.get("path") or "")) != key]
+    save_prefs(prefs)
+    return recent_projects()
 
 
 # ------------------------------------------------------------------ recents

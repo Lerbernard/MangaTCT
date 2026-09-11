@@ -1019,8 +1019,16 @@ function rebuildFontSelects(){
   const keep=id=>{const el=$(id);return el?el.value:'';};
   const cur={font:keep('font')};
   FONT_KINDS.forEach(k=>{ cur[k]=keep('font_'+k); });
-  $('font').innerHTML=fontOptions(cur.font||proj?.settings?.font||'');
-  if(cur.font) $('font').value=cur.font;
+  // A BLANK FIRST, and selected when nothing is set. Without it the menu's
+  // first entry - the most recent face, on lee's machine ComicNeue-Italic -
+  // was what `saveSettings` read off this select the first time anything
+  // was saved, and from then on the project "chose" that face for every
+  // kind: the shipped defaults (Comic Neue Bold for speech, Bangers for
+  // sounds...) sit after the project font on purpose, so one stray save
+  // hid all of them. lee: *"we had a bunch of set defaults"*.
+  const want=cur.font||proj?.settings?.font||'';
+  $('font').innerHTML='<option value="">Shipped default</option>'+fontOptions(want);
+  $('font').value = fontUsable(want) ? want : '';
   FONT_KINDS.forEach(k=>{
     const el=$('font_'+k);
     if(!el) return;
@@ -1712,7 +1720,7 @@ function syncDetailCards(){
   box.style.display = ai ? '' : 'none';
   if(lbl) lbl.style.display = ai ? '' : 'none';
   if(!ai) return;
-  const now = proj.settings.ocr_detail || 'boxes';
+  const now = proj.settings.ocr_detail || 'auto';     // 4 pieces: the default (lee)
   box.innerHTML = DETAIL_MODES.map(([k, name, cost, why]) =>
     `<button type="button" class="card${k === now ? ' on' : ''}"` +
     ` data-detail="${k}" onclick="pickDetail('${k}')">` +
@@ -1734,7 +1742,7 @@ function syncDetailCards(){
    and picking zoomed again finds it where it was. lee: *"if teh user clcik
    on 1,4,or 9 sissble teh settings that only works with zoomed in boxes"*. */
 function syncZoomOnly(detail){
-  const zoomed = (detail || 'boxes') === 'boxes';
+  const zoomed = (detail || 'auto') === 'boxes';
   ['retype_kinds'].forEach(id => {
     const el = $(id);
     if(!el) return;

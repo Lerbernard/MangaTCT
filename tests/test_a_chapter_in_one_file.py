@@ -548,8 +548,10 @@ def test_the_person_is_told_the_file_carries_their_keys():
     chapter set up before still does, and that is what the sentence is for.
     """
     src = _ui()
-    assert ".env" in src, "the file keys actually live in is not named"
-    assert "may still have old keys" in src
+    # ...and narrower again: a person has no keys at all now (the relay calls
+    # with the project's - lee: *"the user should not have the keys"*), so the
+    # one line the screen keeps is the promise, not the warning.
+    assert "never a key" in src
 
 
 # --------------------------------------------------------- and it has a name

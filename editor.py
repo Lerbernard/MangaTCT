@@ -948,6 +948,38 @@ def clean_note(p: Project) -> str:
             "nothing left to clean.")
 
 
+# The page the browser lands on after handing a sign-in to the app (see
+# `account.finish_handoff`). Plain on purpose: it is a tab the person is about
+# to close, and it says the one thing they need - it worked, go back to the
+# app - in the app's own colors.
+def _handed_page(what: str, ok: bool) -> str:
+    import html as _h
+    head = "You are signed in" if ok else "That did not work"
+    body = ("MangaTCT is signed in as <b>%s</b>. You can close this tab and go "
+            "back to the app." % _h.escape(what)) if ok else \
+           ("%s" % _h.escape(what))
+    return ("<!doctype html><meta charset=utf-8><title>MangaTCT</title>"
+            "<meta name=viewport content='width=device-width,initial-scale=1'>"
+            "<style>body{margin:0;min-height:100vh;display:grid;place-items:center;"
+            "background:#1b1c20;color:#e8e6df;font:15px/1.6 system-ui,sans-serif}"
+            ".card{max-width:420px;padding:32px 36px;border:1px solid #33353c;"
+            "border-radius:12px;background:#22242a}h1{font-size:20px;margin:0 0 10px}"
+            "b{color:#fff}p{margin:0;color:#b9b7ae}</style>"
+            "<div class=card><h1>%s</h1><p>%s</p></div>" % (head, body))
+
+
+def _current_project(p: Project) -> dict:
+    """What is open right now, for the Home screen's Continue card."""
+    try:
+        n = len(p.pages)
+    except Exception:
+        n = 0
+    fp = str(p.settings.get("project_file") or "").strip()
+    name = os.path.splitext(os.path.basename(fp))[0] if fp else ""
+    return {"pages": n, "name": name or ("Current project" if n else ""),
+            "path": fp, "medium": str(p.settings.get("medium") or "")}
+
+
 def _update_state() -> dict:
     """What the launcher knows about a newer version, if a launcher started
     this process at all.
@@ -5485,6 +5517,25 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
+    def _form_or_json(self) -> dict:
+        """The body as a dict, whether it came as a form post or as JSON."""
+        n = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(n) if n else b""
+        ctype = str(self.headers.get("Content-Type") or "")
+        if ctype.startswith("application/x-www-form-urlencoded"):
+            got = urllib.parse.parse_qs(raw.decode("utf8", "replace"),
+                                        keep_blank_values=True)
+            return {k: v[-1] for k, v in got.items()}
+        try:
+            got = json.loads(raw or b"{}")
+        except ValueError:
+            got = {}
+        return got if isinstance(got, dict) else {}
+
+    def _wants_html(self) -> bool:
+        """A browser navigating here (a form post) rather than a fetch."""
+        return "text/html" in str(self.headers.get("Accept") or "")
+
     # Every route that names a page by number. `/api/page/7`, `/api/page/7/ocr`,
     # `/img/7`, `/render/7` - the number is always the first path segment after
     # the prefix.
@@ -5559,6 +5610,39 @@ class Handler(BaseHTTPRequestHandler):
                 # channel has, and what is on its way. See `updates.py`.
                 from . import updates
                 return self._json(updates.state())
+            if path == "/api/home":
+                # The Home screen: who, what is open, what was opened before.
+                from . import coins, version as _v
+                return self._json({
+                    "version": _v.__version__, "channel": _v.CHANNEL,
+                    "account": coins.state(),
+                    "current": _current_project(p),
+                    "recent": userdata.recent_projects()})
+            if path == "/api/account/hand":
+                # The app asking whether the browser has handed the sign-in
+                # over yet. `state` is the nonce it was given.
+                from . import account
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                nonce = (q.get("state") or [""])[0]
+                out = account.handoff_state(nonce)
+                if out.get("done"):
+                    from . import coins
+                    out.update(coins.state())
+                return self._json(out)
+            if path == "/api/account":
+                # Settings > Account, like the website's page: who, the
+                # coins, the receipt, the picture. Never a token.
+                from . import account, coins
+                out = {"account": coins.state(), "icons": list(account.ICONS),
+                       "ledger": [], "packs": {}}
+                if account.signed_in():
+                    try:
+                        got = account.ledger(50)
+                        out["ledger"] = got.get("rows") or []
+                        out["packs"] = got.get("packs") or {}
+                    except Exception as e:
+                        out["ledger_problem"] = str(e)
+                return self._json(out)
             if path == "/api/queue":
                 return self._json({"ok": True, **queue_state()})
 
@@ -5579,6 +5663,7 @@ class Handler(BaseHTTPRequestHandler):
                 # twenty-three pages rounded up one at a time is twenty-three
                 # coins whatever is on them, which is the flat rate lee
                 # explicitly did not want.
+                t0 = time.time()
                 idx = _page_list(p, q.get("pages", [""])[0], whole=True)
                 one = _page_list(p, q.get("page", [""])[0])
                 # Which steps are running a model nobody has priced. They
@@ -5588,7 +5673,7 @@ class Handler(BaseHTTPRequestHandler):
                 unpriced = sorted(
                     s for s in PAID_STEPS if s != "clean"
                     and not coins.priced(*step_engine(p, s)))
-                return self._json({
+                out = {
                     **coins.state(),
                     "prices": {s: quote_run(p, s, idx) for s in PAID_STEPS},
                     "one": {s: quote_run(p, s, one) for s in PAID_STEPS},
@@ -5597,7 +5682,16 @@ class Handler(BaseHTTPRequestHandler):
                                if s != "clean"},
                     "pages": len(idx),
                     "boxes": sum(page_boxes(p, i) for i in idx),
-                })
+                }
+                # How long the quote took, on the reply and in the log when
+                # it is long: the run dialog waits on this for its prices,
+                # and "the coins take a long time to show up" (lee) needs a
+                # number before it can be chased.
+                out["took_ms"] = int((time.time() - t0) * 1000)
+                if out["took_ms"] > 800:
+                    print("mangatl: coins quote took %d ms for %d pages"
+                          % (out["took_ms"], len(idx)), flush=True)
+                return self._json(out)
 
             if path == "/api/job":
                 # The job's own error stops a run; a cleaner that refuses does
@@ -6068,6 +6162,37 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"error": str(e)}, 400)
                 return self._json(_adopt(p, state))
 
+            if path == "/api/account/hand":
+                # The browser handing a sign-in to the app - see
+                # `account.finish_handoff`. This is the one route a page that
+                # is not the editor's own may post to, so it is the one that
+                # checks who is posting: the nonce, and the Origin header the
+                # browser sets on a cross-site post. The body is a form (a
+                # top-level post from the site's sign-in page), or JSON when
+                # a test speaks it.
+                from . import account
+                form = self._form_or_json()
+                try:
+                    got = account.finish_handoff(
+                        str(form.get("state") or ""),
+                        str(form.get("refreshToken") or ""),
+                        str(form.get("idToken") or ""),
+                        str(form.get("uid") or ""),
+                        str(form.get("email") or ""),
+                        origin=str(self.headers.get("Origin") or ""))
+                except account.AccountError as e:
+                    if self._wants_html():
+                        return self._send(400, _handed_page(str(e), False).encode("utf8"),
+                                          "text/html; charset=utf-8")
+                    return self._json({"error": str(e), "code": e.code}, 400)
+                who = account.who()
+                if self._wants_html():
+                    name = who.get("username") or who.get("email") or "you"
+                    return self._send(200, _handed_page(name, True).encode("utf8"),
+                                      "text/html; charset=utf-8")
+                from . import coins
+                return self._json({"ok": True, **coins.state()})
+
             body = self._body()
 
             if path == "/api/warm":
@@ -6470,6 +6595,17 @@ class Handler(BaseHTTPRequestHandler):
                 from . import account
                 do = str(body.get("do") or "")
                 try:
+                    if do == "google":
+                        # lee: *"sign in / sign up and login with google
+                        # like in the website"*. The website's page, in the
+                        # system browser, marked for this app; the page
+                        # hands the sign-in back to `/api/account/hand`.
+                        port = int(self.server.server_address[1])
+                        got = account.begin_handoff(port, bool(body.get("making")))
+                        if body.get("open", True):
+                            threading.Thread(target=webbrowser.open,
+                                             args=(got["url"],), daemon=True).start()
+                        return self._json({"ok": True, **got})
                     if do == "signin":
                         account.sign_in(str(body.get("email") or ""),
                                         str(body.get("password") or ""))
@@ -6491,12 +6627,21 @@ class Handler(BaseHTTPRequestHandler):
                         # "I clicked the link": a fresh token, and the server
                         # gives the coins on the same call if it is so.
                         account.claim_welcome()
+                    elif do == "photo":
+                        account.set_photo(str(body.get("photo") or ""))
                     else:
                         return self._json({"error": "do what?"}, 400)
                 except account.AccountError as e:
                     return self._json({"error": str(e), "code": e.code}, 400)
                 from . import coins
                 return self._json({"ok": True, **coins.state()})
+
+            if path == "/api/home":
+                do = str(body.get("do") or "")
+                if do == "forget":
+                    return self._json({"ok": True,
+                                       "recent": userdata.forget_project(str(body.get("path") or ""))})
+                return self._json({"error": "do what?"}, 400)
 
             if path == "/api/updates":
                 # Check now / Download / the automatic switch / Restart now /
@@ -7041,6 +7186,7 @@ class Handler(BaseHTTPRequestHandler):
                 # Remembered so Save has somewhere to go next time.
                 p.settings["project_file"] = dest
                 p.save_soon()
+                userdata.note_project(dest, len(p.pages), p.settings.get("medium") or "")
                 return self._json({"path": dest, "bytes": len(data)})
 
             if path == "/api/project_open":
@@ -7057,7 +7203,9 @@ class Handler(BaseHTTPRequestHandler):
                         state = bundle.read(fh.read(), p.output_dir)
                 except (OSError, ValueError) as e:
                     return self._json({"error": str(e)}, 400)
-                return self._json(_adopt(p, state, src))
+                got = _adopt(p, state, src)
+                userdata.note_project(src, len(p.pages), p.settings.get("medium") or "")
+                return self._json(got)
 
             if path == "/api/export":
                 if body.get("dir"):

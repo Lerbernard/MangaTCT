@@ -101,6 +101,13 @@ def files_for_zip() -> list[tuple[str, str]]:
     # which is always the current copy even when the exe on disk is old.
     out.append((os.path.join(ROOT, "launcher", "mangatct_launcher.py"),
                 "mangatl/launcher/mangatct_launcher.py"))
+    # ...and the Firebase web config, the one file of the site the app needs:
+    # `account._repo_config` reads it to know which project to sign in to.
+    # Without it an installed copy was "not configured" - no sign-in, no
+    # relay, and the local test purse standing in for the account. (It is
+    # not a secret: a web config identifies the project, the rules and the
+    # functions are what guard it.)
+    out.append((os.path.join(ROOT, "site", "config.js"), "mangatl/site/config.js"))
     out.append((os.path.join(ROOT, "requirements.txt"), "requirements.txt"))
     out.append((os.path.join(HERE, "models.json"), "models.json"))
     return out
@@ -113,6 +120,13 @@ def launcher_version() -> str:
     return m.group(1) if m else "0.0.0"
 
 
+#: The one file allowed to carry one pattern: the Firebase WEB config's
+#: `apiKey` looks exactly like a Google API key and is not one - it names
+#: the project and authorises nothing (the rules and the functions do).
+#: Every other file, and every other pattern in that file, is still refused.
+LEAK_ALLOWED = {"mangatl/site/config.js": {"a Google key"}}
+
+
 def scan_for_leaks(pairs) -> list[str]:
     bad = []
     for fp, arc in pairs:
@@ -123,6 +137,8 @@ def scan_for_leaks(pairs) -> list[str]:
         except OSError:
             continue
         for what, rx in LEAKS:
+            if what in LEAK_ALLOWED.get(arc, ()):
+                continue
             if rx.search(text):
                 bad.append("%s holds %s" % (arc, what))
     return bad

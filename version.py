@@ -16,7 +16,7 @@ Bumping it: change the string, commit, tag `v<string>`, push the tag. Nothing
 else.
 """
 
-__version__ = "1.0.4"
+__version__ = "1.0.6"
 
 #: What the release is called beside the number. Empty string once the beta
 #: is over - and the header pill reads the same string, so that is the

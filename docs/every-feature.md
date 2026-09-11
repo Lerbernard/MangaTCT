@@ -744,13 +744,56 @@ carries that sentence, and guards this pass by its promise rather than by a
 list of names - which is what let a new pass under new names walk straight past
 it.
 
+## 0.1 Home
+
+The first screen when nothing is open, and where the mark at the top left
+always leads (`goHome`). Left: the mark and version, **New project**, **Open a
+project file…**, and the account — the sign-in form when nobody is, who and
+the balance when somebody is. Right: **Continue** (the chapter that is open,
+with its page count) and **Recent projects** — every `.tctp` saved or opened,
+newest first, twelve at most, a missing file greyed with a × to take it off
+the list (`userdata.recent_projects`, `/api/home`). lee: *"a landing page …
+like Photoshop has"*. A chapter that is open comes back where it was left.
+
+## 0.2 The window's own frame
+
+In its own window the app has no system title bar: the top bar is the title
+bar. The empty stretch of it drags the window, a double click maximises, and
+the three buttons at the far right minimise / maximise / close, drawn to
+Windows' measure. Eight thin strips round the edge resize. All of it is
+native — the page tells the window which part of a frame was pressed
+(`Api.hit`, a WM_NCHITTEST code) and Windows runs the drag, so it is smooth
+and Aero snap works. None of it appears in a browser tab (`chrome.js` waits
+for the window to say it is frameless). `MANGATCT_FRAME=1` brings the system
+frame back. lee: *"integrate it with the app"*.
+
 ## 4.9a Settings ▸ Account
 
-Who is signed in, the coin balance, **Buy coins** (opens `mangatct.com/pricing`)
-and **Sign out**; signed out, the same sign-in / make-an-account form the coin's
-panel shows (`renderAccount`, coins.js). lee: *"there isn't a place to sign in
-in the app"* — there was, behind the coin; now it has a page. The coin in the
-header reads **Sign in** until somebody is.
+The website's account page, in the app (lee: *"have an account view like on
+the website"*): the balance and **Buy coins** (opens `mangatct.com/pricing`),
+the free-coins box while they are owed, **Everything that moved** (the
+account's ledger, through the `ledgerLines` function — newest first, plus in
+green), **How people see you** (username, saved through `claimUsername`; the
+ten pictures, written to the account document the way the site writes them),
+and **Sign out**. Signed out, the same sign-in / make-an-account form the
+coin's panel shows (`renderAccount`, coins.js). The coin in the header reads
+**0** until somebody is signed in.
+
+**Continue with Google** / **Sign up with Google** sits at the top of that
+form, as on the website (lee: *"sign in / sign up and login with google like
+in the website"*). Google's sign-in is a popup on a Google page and wants a
+real browser, so the app does not draw it: the button asks the server for a
+one-time nonce (`account.begin_handoff`), the server opens
+`mangatct.com/signin?app=<port>&state=<nonce>` in the system browser, and
+the site's page — Google, or an email typed there — hands the credential to
+the app as a form post to `127.0.0.1:<port>/api/account/hand`. The app has
+been asking `/api/account/hand?state=` every two seconds; when the hand is
+in, it paints the purse, Account and Home, and asks its window to come to
+the front. The hand is checked before it is kept: the nonce is ours and
+under ten minutes old, the posting page is the site (the `Origin` header),
+and Google turns the refresh token into a real ID token — a made-up one
+leaves nothing on disk. If the browser did not open, the note under the
+button carries the link.
 
 ## 4.9b Settings ▸ Updates
 
@@ -2108,6 +2151,7 @@ The editor never writes a balance. It only asks.
 | Action | How |
 |---|---|
 | Sign in, sign up, reset password | Firebase Identity Toolkit directly |
+| Sign in with Google | The website's sign-in page, in the system browser, hands a refresh token to `/api/account/hand` on 127.0.0.1 with a nonce the app minted (§4.9a) |
 | Claim a username | A Cloud Function |
 | Ask who I am and what I have | A Cloud Function |
 | Spend, refund | Cloud Functions |

@@ -542,6 +542,26 @@ function setTab(t, byHand){
   // "manga" was a page of its own. It is a group inside Settings now, so the
   // old name still works and lands in the same place.
   if(t==='manga') t='settings';
+  // Home is a screen of its own, reached from the mark at the top left and
+  // shown first; it is not one of the four tabs, so none of them lights.
+  const isHome = t==='home';
+  const home = $('home');
+  if(home) home.classList.toggle('on', isHome);
+  if(isHome){
+    tab = t;
+    ['tabEdit','tabRes','tabSet','tabNew'].forEach(id=>{ const b=$(id); if(b) b.classList.remove('on'); });
+    $('picker').classList.remove('on');
+    $('stage').style.display='none'; $('side').style.display='none';
+    $('results').classList.remove('on'); $('pages').style.display='none';
+    const sp=$('settingsPage'); if(sp) sp.style.display='none';
+    const cw=$('canvasWrap'); if(cw) cw.style.display='none';
+    const wk=$('work'); if(wk) wk.style.display='none';
+    const pt=$('pageTools'); if(pt) pt.style.display='none';
+    const rt=$('resultTools'); if(rt) rt.style.display='none';
+    syncTabs();
+    if(typeof renderHome==='function') renderHome();
+    return;
+  }
   // A tab that cannot be opened says why - but only when a person asked. The
   // app itself calls setTab('edit') after saving settings and after closing
   // the picker, and a toast about missing pages in the middle of that is an

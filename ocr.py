@@ -508,11 +508,18 @@ def detail_for(medium: str = "", chosen: str = "") -> str:
     was teh zoom in images right? if it is can you bring back teh 1, 4 and 9
     cut"*.
 
-    So it is a CHOICE again, `boxes` is still what nobody choosing gets, and
-    the price follows the choice - see `coins.usd_page`.
+    So it is a CHOICE again, and the price follows the choice - see
+    `coins.usd_page`. What nobody choosing gets is **4 pieces** now. lee,
+    with the bill in front of him: *"4 cut should be the default, not
+    zoomed"*. Zoomed is still the most accurate read on the list and still a
+    click away; it is no longer the one a person pays for without asking.
     """
     got = str(chosen or "").strip().lower()
-    return got if got in DETAILS else "boxes"
+    return got if got in DETAILS else DEFAULT_DETAIL
+
+
+#: What nobody choosing gets. `auto` is the 4-piece read (DETAILS below).
+DEFAULT_DETAIL = "auto"
 
 
 #: The four ways the reader can be shown a page, cheapest first, with what

@@ -283,6 +283,12 @@ td.minus{color:var(--bad);font-weight:650}
   margin:20px 0}
 .sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
 .foot{margin-top:28px;color:var(--dim);font-size:13px;text-align:center}
+/* The strip the sign-in page shows when the MangaTCT app opened it. */
+.forapp{margin-bottom:14px;padding:14px 18px;font-size:13.5px;line-height:1.5;
+  border-color:var(--accent);display:flex;flex-direction:column;gap:4px}
+.forapp b{color:var(--accent)}
+.forapp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.forapp-row button{font-size:13px;padding:8px 14px}
 
 /* ------------------------------------------------------------------ modal
 

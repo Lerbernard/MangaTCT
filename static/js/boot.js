@@ -10,6 +10,9 @@ loadProject().then(()=>{
   // What is left to spend, and what this chapter would cost. Read once at
   // startup and again whenever a run ends - see poll() in pipeline.js.
   if(typeof refreshCoins==='function') refreshCoins();
-  if(!proj.pages.length){showPicker(true);}
+  // Home first when nothing is open - lee: *"have a landing page ... like
+  // Photoshop has"*. A chapter that is open comes back where it was left,
+  // and Home is one click away on the mark at the top left.
+  if(!proj.pages.length){ if(typeof setTab==='function') setTab('home'); }
   else {showPage(0);poll();}
 });
