@@ -111,7 +111,8 @@ def test_the_exe_carries_the_version_in_its_properties(tmp_path):
     fp = R.write_version_info(str(tmp_path / "vi.txt"))
     text = open(fp).read()
     assert "FileVersion', '%s'" % R.version() in text
-    assert "filevers=(1, 0, 0, 0)" in text
+    nums = ", ".join((R.version().split(".") + ["0"])[:4])
+    assert "filevers=(%s)" % nums in text
     assert "MangaTCT" in text
 
 

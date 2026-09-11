@@ -46,7 +46,8 @@ if(t)d.dataset.theme=t}catch(e){}</script>
  width:28px;height:28px;border-radius:50%;background:var(--accent);
  color:var(--on-accent);font-weight:700;display:flex;align-items:center;
  justify-content:center;font-size:14px}
-.dlsteps b{display:block;color:var(--ink);margin-bottom:2px}
+.dlsteps b{color:var(--ink)}
+.dlsteps li>b:first-child{display:block;margin-bottom:2px}
 .dlwhere{width:100%;border-collapse:collapse;font-size:14px}
 .dlwhere td{padding:8px 10px;border-top:1px solid var(--line);
  vertical-align:top;color:var(--dim)}
@@ -85,12 +86,11 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
       installer, no administrator password, and it updates itself from then
       on.</p>
     <div class="dlget">
-      <a class="dlbig" id="dlbtn"
-         href="https://github.com/Lerbernard/MangaTCT/releases/latest">Download for Windows</a>
+      <a class="dlbig" id="dlbtn" href="/get/latest/installer">Download for Windows</a>
       <p class="dlmeta" id="dlsize">
-        <b>About 700 MB</b> to download, about 4 GB on disk once the models
+        <b>About 250 MB</b> to download, about 4 GB on disk once the models
         are there.<br>
-        <a href="https://github.com/Lerbernard/MangaTCT/releases/latest">All releases and checksums</a>
+        <a href="releases.html">All releases</a>
       </p>
     </div>
   </div>
@@ -99,8 +99,7 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
     <b>Windows will warn you the first time.</b> The installer is not signed
     yet - a code-signing certificate is the next thing on the list - so
     SmartScreen says <i>"Windows protected your PC"</i>. Click
-    <b>More info</b>, then <b>Run anyway</b>. If you would rather check first,
-    every release publishes the SHA-256 of both files.
+    <b>More info</b>, then <b>Run anyway</b>.
   </div>
 
   <h2>What happens when you run it</h2>
@@ -112,10 +111,11 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
       come from the people who published them, not from us - we are not
       allowed to redistribute them, which is also why they are not in the
       installer. It says which one it is fetching while it does it.</li>
-    <li><b>Then the editor opens in your browser.</b> It is running on your
-      own machine at <code>127.0.0.1</code> - the browser is the interface,
-      not the internet. Point it at a folder of pages and press
-      <b>Find text</b>.</li>
+    <li><b>Then MangaTCT opens in its own window.</b> Under the hood it is a
+      local program serving a page to that window at <code>127.0.0.1</code> -
+      nothing leaves your machine. Point it at a folder of pages and press
+      <b>Find text</b>. (Prefer a browser tab? <i>Open in browser</i> is on
+      the little launcher window.)</li>
     <li><b>Add your API key when you want to translate.</b> Finding text,
       cleaning and typesetting cost nothing and need no key. Reading and
       translating call Claude, Gemini or OpenRouter - your key, or coins
@@ -127,7 +127,7 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
     <div class="dlcard">
       <h3>It updates itself</h3>
       <p>Every time you start MangaTCT it checks for a new version, and a new
-        version is a few megabytes, not another 700. You never reinstall.</p>
+        version is a few megabytes, not another 250. You never reinstall.</p>
       <p>An update that arrives while you are working is used the next time you
         start - a chapter open on screen is never swapped out from under
         you.</p>
@@ -153,12 +153,12 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
   <h2>Not on Windows?</h2>
   <p class="dlmuted" style="max-width:70ch">The app is Python and runs on macOS
     and Linux, but there is no installer for them yet and the beta is not
-    tested there. If you are comfortable with a terminal, the source of every
-    release is on the
-    <a href="https://github.com/Lerbernard/MangaTCT/releases/latest">releases page</a>
-    - unzip it, <code>pip install -r requirements.txt</code>, and
+    tested there. If you are comfortable with a terminal,
+    <a href="/get/latest/app">download the source of the current release</a>
+    (every version's is on the <a href="releases.html">releases page</a>) -
+    unzip it, <code>pip install -r requirements.txt</code>, and
     <code>python -m mangatl.editor</code>. MangaTCT is free software under the
-    GNU GPL v3.</p>
+    <a href="license.html">GNU GPL v3</a>.</p>
 
   <p class="dlmuted" style="margin-top:26px" id="dlcontact"></p>
 </main>
@@ -168,16 +168,20 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
   <a href="index.html">Home</a> &middot;
   <a href="tutorial.html">Guide</a> &middot;
   <a href="pricing.html">Coins</a> &middot;
-  <a href="https://github.com/Lerbernard/MangaTCT">Source (GPL-3.0)</a>
+  <a href="releases.html">Releases</a> &middot;
+  <a href="/get/latest/app">Source</a> &middot;
+  <a href="license.html">GPL-3.0</a>
 </footer>
 
 <script>
-/* The version, the direct link and the real size come from the SAME manifest
+/* The version and the real size come from the SAME manifest
    the installed app reads. That is deliberate: the site is deployed when the
    site changes and the app is released when the app changes, and a version
    number typed into this page would be wrong from the first release after
-   it. With the fetch blocked or JS off, the button still goes to
-   `/releases/latest`, which is right whatever the version is. */
+   it. The button itself never changes: `/get/latest/installer` is this
+   site's own address, answered by a function that reads the same manifest,
+   so it is right with the fetch blocked, with JS off, and on the day a new
+   version lands. Nothing on this page links anywhere but here. */
 var MANIFEST = 'https://raw.githubusercontent.com/Lerbernard/MangaTCT/main/manifest.json';
 (function(){
   fetch(MANIFEST, {cache: 'no-cache'}).then(function(r){
@@ -186,16 +190,15 @@ var MANIFEST = 'https://raw.githubusercontent.com/Lerbernard/MangaTCT/main/manif
     var v = m.app && m.app.version;
     if (v) document.getElementById('dlver').textContent = v;
     var i = m.installer;
-    if (i && i.url) {
+    if (i && i.size) {
       var b = document.getElementById('dlbtn');
-      b.href = i.url;
       b.textContent = 'Download MangaTCT ' + (i.version || v || '') + ' for Windows';
-      var mb = Math.round((i.size || 0) / 1e6);
-      if (mb) document.getElementById('dlsize').innerHTML =
+      var mb = Math.round(i.size / 1e6);
+      document.getElementById('dlsize').innerHTML =
         '<b>' + mb + ' MB</b> to download, about 4 GB on disk once the models are there.<br>' +
-        '<a href="https://github.com/Lerbernard/MangaTCT/releases/latest">All releases and checksums</a>';
+        '<a href="releases.html">All releases</a>';
     }
-  }).catch(function(){ /* the fallback link is already right */ });
+  }).catch(function(){ /* the page is already right without it */ });
 })();
 
 /* The theme button: same storage key as every other page, no CDN needed. */

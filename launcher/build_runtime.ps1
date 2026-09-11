@@ -94,8 +94,16 @@ Set-Content -Path (Join-Path $stage "state.json") -Value (@{ requirements_sha256
 Write-Host "== proving the staged runtime imports the staged app"
 Push-Location $appDir
 $env:PYTHONNOUSERSITE = "1"
-& $python -c "import mangatl.editor, mangatl.version, mangatl.pickdir, cv2, numpy, onnxruntime, PIL; print('imports ok', mangatl.version.__version__)"
+& $python -c "import mangatl.editor, mangatl.version, mangatl.pickdir, mangatl.window, cv2, numpy, onnxruntime, PIL, webview; print('imports ok', mangatl.version.__version__)"
 $ok = $LASTEXITCODE
+if ($ok -eq 0) {
+    # The app's window rides on WebView2 through pythonnet. Whether THIS
+    # runner has the WebView2 runtime is the runner's business (it does -
+    # Edge is on it), but pythonnet loading and the interop DLLs being
+    # present are the build's, so they are proved here.
+    & $python -c "from webview.platforms import winforms; print('webview2 on this runner:', winforms.is_chromium)"
+    $ok = $LASTEXITCODE
+}
 Pop-Location
 if ($ok -ne 0) { throw "the staged runtime cannot import the app" }
 

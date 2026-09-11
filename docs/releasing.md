@@ -124,7 +124,8 @@ the commit you are about to tag is the code you have been testing.
 
 When it is green: the Release is at
 `https://github.com/Lerbernard/MangaTCT/releases/tag/v1.0.1`, the
-download page's button already points at `.../releases/latest`, and every
+download page's button (`/get/latest/installer`, answered by the `get`
+function from the manifest) hands out the new file, and every
 installed copy picks the new version up on its next start (or within six
 hours if it is left running — the pill in the header gets a dot, and the
 switch happens at the next start).
@@ -146,9 +147,13 @@ first checksum, but a person reinstalling would find the button dead.
   models\                the weights, fetched once
   logs\launcher.log      what the launcher did
   logs\editor-<date>.log the editor's console, one file a day
+  logs\window-<date>.log the app window's, usually empty; says why the
+                         browser opened instead when it did
   state.json             installed version, last check, requirements hash
   update.json            what the header pill reads (only while one waits)
 ~\.mangatl\              THEIRS: fonts, prefs, API keys - untouched by all of this
+  window.json            where the app's window was last (size, place, maximised)
+  webview\               the window's own storage (localStorage, cache)
 ~\Documents\MangaTCT\out exported pages, unless they chose a folder
 ```
 

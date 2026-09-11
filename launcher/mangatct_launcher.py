@@ -12,8 +12,9 @@ source. This program's job, every time somebody double-clicks the icon:
     1. look for a newer version, quietly, and fetch it if there is one;
     2. pick the newest version that is complete, and if its requirements
        changed, bring the runtime up to them;
-    3. start the editor on a free port, wait until it answers, open the
-       browser, and sit in a small window with Open and Quit on it.
+    3. start the editor on a free port, wait until it answers, and show it -
+       in a window of its own (`mangatl.window`, WebView2), or in the
+       browser if that window cannot open or `--browser` was asked for.
 
 WHY A LAUNCHER AND NOT AN INSTALLER PER VERSION. An update to the app is a
 zip of Python files a few megabytes big. Making people download a gigabyte
@@ -615,6 +616,82 @@ def wait_for_editor(port: int, proc: subprocess.Popen, timeout: float = EDITOR_W
     return False
 
 
+# ------------------------------------------------------------- the window
+#
+# lee: *"make it run on its own app insted of teh browser"*, and *"keep a
+# version of this for the future if we want to host it instead"*. The window
+# is `python -m mangatl.window` - part of the APP, not of this launcher, so it
+# updates with the app and this file stays standard library. It is a second
+# process: closing the window is how the person quits, and this launcher,
+# which owns the editor, is what notices and stops it. The browser stays one
+# flag away (`--browser`, or MANGATCT_BROWSER=1), and is what a copy hosted
+# somewhere would be.
+
+#: How long the window process is given to prove it is alive. A missing
+#: WebView2 or pywebview exits at once with a code from `mangatl.window`;
+#: a window that is still running after this long is a window.
+WINDOW_GRACE = 4.0
+
+#: What the exit codes mean, from `mangatl.window`. Logged in words so the
+#: launcher log says why the browser opened instead.
+WINDOW_EXITS = {3: "pywebview is not installed in the runtime",
+                4: "this Windows has no WebView2 runtime"}
+
+
+def want_window(argv=None) -> bool:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--browser" in argv or "--no-window" in argv:
+        return False
+    return os.environ.get("MANGATCT_BROWSER", "") not in ("1", "true", "yes")
+
+
+def start_window(p: dict, version: str, port: int) -> subprocess.Popen | None:
+    """The app's own window on the running editor, or None if it could not
+    be started at all. A process that starts and then exits within
+    `WINDOW_GRACE` is reported by `window_alive`."""
+    vdir = app_dir(p, version)
+    if not os.path.isfile(os.path.join(vdir, "mangatl", "window.py")):
+        log("%s has no window module; browser it is" % version)
+        return None
+    cmd = [p["python"], "-m", "mangatl.window", "--port", str(port)]
+    try:
+        logfp = os.path.join(p["logs"], "window-%s.log" % _dt.date.today().isoformat())
+        out = open(logfp, "a", encoding="utf-8", errors="replace")
+        return subprocess.Popen(cmd, cwd=vdir, env=editor_env(p), stdout=out,
+                                stderr=subprocess.STDOUT, creationflags=_no_window())
+    except OSError as e:
+        log("window did not start: %r" % e)
+        return None
+
+
+def window_alive(proc: subprocess.Popen | None, grace: float = WINDOW_GRACE) -> bool:
+    """True once the window has outlived its grace period. A quick exit is
+    read for its meaning and logged."""
+    if proc is None:
+        return False
+    end = time.time() + grace
+    while time.time() < end:
+        code = proc.poll()
+        if code is not None:
+            log("window exited %d: %s" % (code, WINDOW_EXITS.get(code, "see logs\\window-*.log")))
+            return False
+        time.sleep(0.1)
+    return True
+
+
+def stop_window(proc: subprocess.Popen | None) -> None:
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(5)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
 def stop_editor(proc: subprocess.Popen) -> None:
     if proc.poll() is not None:
         return
@@ -640,6 +717,8 @@ class Startup:
         self.fetched = None
         self.error = ""
         self.fell_back = False
+        self.window = None       # the window process, when there is one
+        self.shown_in = ""       # "window" or "browser" - what the person got
 
 
 def choose_and_prepare(p: dict, progress=None) -> tuple[str | None, bool, str]:
@@ -661,9 +740,13 @@ def choose_and_prepare(p: dict, progress=None) -> tuple[str | None, bool, str]:
 
 
 def run(p: dict | None = None, manifest_url: str = MANIFEST_URL,
-        progress=None, open_browser=True) -> Startup:
-    """The whole start, without the window. `progress(text)` is told what is
-    happening; the window draws it."""
+        progress=None, open_browser=True, window=True) -> Startup:
+    """The whole start, without the launcher's own little window.
+    `progress(text)` is told what is happening; that window draws it.
+
+    `window`: show the editor in its own window (`mangatl.window`); when it
+    cannot, or when False, `open_browser` says whether the browser is opened
+    instead. Tests pass both False and read `s.port`."""
     p = p or paths()
     ensure_dirs(p)
     start_log(p)
@@ -714,9 +797,18 @@ def run(p: dict | None = None, manifest_url: str = MANIFEST_URL,
         stop_editor(s.proc)
         return s
     log("up at %d" % s.port)
-    if open_browser:
+    if window:
+        if progress:
+            progress("Opening MangaTCT %s…" % v)
+        s.window = start_window(p, v, s.port)
+        if window_alive(s.window):
+            s.shown_in = "window"
+        else:
+            s.window = None
+    if not s.window and open_browser:
         import webbrowser
         webbrowser.open("http://127.0.0.1:%d" % s.port)
+        s.shown_in = "browser"
     threading.Thread(target=watch_for_updates, args=(p, manifest_url, s.proc),
                      daemon=True).start()
     return s
@@ -753,7 +845,8 @@ def main(argv=None) -> int:
         print("MangaTCT launcher %s" % LAUNCHER_VERSION)
         return 0
     if "--headless" in argv:
-        s = run(progress=lambda t: print(t, file=sys.stderr), open_browser="--no-browser" not in argv)
+        s = run(progress=lambda t: print(t, file=sys.stderr),
+                open_browser="--no-browser" not in argv, window=want_window(argv))
         if not s.proc:
             print(s.error, file=sys.stderr)
             return 1
@@ -790,8 +883,10 @@ def main(argv=None) -> int:
             pass
 
     def quit_it():
-        if state["s"] and state["s"].proc:
-            stop_editor(state["s"].proc)
+        if state["s"]:
+            stop_window(state["s"].window)
+            if state["s"].proc:
+                stop_editor(state["s"].proc)
         root.destroy()
 
     b_open = ttk.Button(frame, text="Open in browser", command=open_it, state="disabled")
@@ -805,7 +900,7 @@ def main(argv=None) -> int:
         root.after(0, status.set, text)
 
     def go():
-        s = run(progress=progress)
+        s = run(progress=progress, window=want_window(argv))
         state["s"] = s
 
         def done():
@@ -819,12 +914,37 @@ def main(argv=None) -> int:
                 status.set(line)
                 b_open.config(state="normal")
                 title.config(text="MangaTCT %s" % s.version)
+                # The app has its own window now; this one would only be a
+                # second MangaTCT on the taskbar. It comes back if the app's
+                # window goes away while the editor is still running, with
+                # the browser button on it - the browser is always there.
+                if s.window is not None:
+                    root.withdraw()
             else:
                 status.set(s.error or "MangaTCT could not start.")
         root.after(0, done)
 
+        if s.proc and s.window is not None:
+            # Two things can end a session: the person closing the window,
+            # which is quitting, or the window dying on its own, which is
+            # not - then the launcher shows itself again and the editor,
+            # still running, is one click away in the browser.
+            def watch_window():
+                s.window.wait()
+                if s.proc.poll() is None:
+                    if s.window.returncode == 0:
+                        stop_editor(s.proc)
+                    else:
+                        log("window ended with %d while the editor runs" % s.window.returncode)
+                        root.after(0, root.deiconify)
+                        root.after(0, status.set,
+                                   "The MangaTCT window closed unexpectedly. The editor is "
+                                   "still running - open it in the browser, or quit.")
+            threading.Thread(target=watch_window, daemon=True).start()
+
         if s.proc:
             s.proc.wait()
+            stop_window(s.window)
             root.after(0, root.destroy)
 
     threading.Thread(target=go, daemon=True).start()

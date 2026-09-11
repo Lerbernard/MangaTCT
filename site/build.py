@@ -42,11 +42,15 @@ def app_version():
 
 
 VERSION, CHANNEL, SUPPORT = app_version()
-#: The project's own repository. Releases live on it and `manifest.json`
-#: sits on its main branch - lee: *"we alredy have a github repo, we dont
-#: need a newone"*. One place, and it is also where the GPL source offer
-#: points.
-RELEASES = "https://github.com/Lerbernard/MangaTCT"
+#: Where the site sends people for files. lee: *"there should be no link to
+#: github on the website"*. The releases themselves still live on the
+#: project's repository - that is where the workflow publishes and where
+#: installed copies fetch updates - but every address the site prints is
+#: its own: `/get/<version>/<what>` is answered by the `get` Cloud Function
+#: (a 302 to the file), `releases.html` lists every version with checksums,
+#: and `license.html` carries the GPL. The source offer the license asks
+#: for is the app zip, which IS the source.
+SOURCE = "/get/latest/app"
 
 
 # The two glyphs, drawn once. Discord's mark is theirs and used as their brand
@@ -1202,8 +1206,9 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
       <b>Help</b>
       {('<a href="' + SUPPORT["discord"] + '" target="_blank" rel="noopener">' + DISCORD_SVG + 'Discord</a>') if SUPPORT.get("discord") else ""}
       {('<a href="mailto:' + SUPPORT["email"] + '">' + MAIL_SVG + SUPPORT["email"] + '</a>') if SUPPORT.get("email") else ""}
-      <a href="{RELEASES}" target="_blank" rel="noopener">Source on GitHub</a>
-      <a href="{RELEASES}/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 license</a>
+      <a href="releases.html">All releases</a>
+      <a href="{SOURCE}">Source (GPL-3.0)</a>
+      <a href="license.html">License</a>
     </nav>
   </div>
   <div class="footbar">

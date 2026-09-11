@@ -764,9 +764,10 @@ def test_the_guide_says_which_of_the_two_translation_screens_is_which():
 def test_the_guide_covers_the_beta_pill_and_how_an_update_arrives():
     """Somebody on a self-updating beta needs to know what the pill says, that
     an update never lands mid-chapter, and that the old version is kept."""
+    from mangatl import version as V
     page = _rendered(_tutorial())
     low = page.lower()
-    for phrase in ("beta 1.0.0", "next start", "previous version"):
+    for phrase in ("beta " + V.__version__, "next start", "previous version"):
         assert phrase in low, phrase
     assert "checks when it starts" in low or "checks for a new version" in low
 

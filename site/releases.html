@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Releases | MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Every version of MangaTCT, with checksums.">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints - same boot as every other page. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t}catch(e){}</script>
+
+<style>
+/* `rl` names only - style.css owns the short ones. */
+.rlrel{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+ padding:18px 20px;margin:0 0 16px}
+.rlrel h2{margin:0;font-size:20px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.rlrel h2 .rlwhen{color:var(--mut);font:400 13.5px/1.4 system-ui,sans-serif}
+.rlrel h2 .rlnow{font:700 11px/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--on-accent);background:var(--accent);border-radius:999px;padding:3px 9px}
+.rlnotes{color:var(--dim);font-size:14.5px;margin:10px 0 0;white-space:pre-line}
+.rlget{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:16px 0 0}
+.rlbtn{font-size:15px;padding:11px 20px;background:linear-gradient(160deg,
+ var(--accent),var(--accent2));color:var(--on-accent);border:1px solid var(--accent);
+ border-radius:11px;font-weight:800;text-decoration:none;display:inline-block}
+.rlbtn:hover{color:var(--on-accent);filter:brightness(1.06)}
+.rlbtn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.rlsz{color:var(--mut);font-size:13.5px}
+.rlmuted{color:var(--mut);font-size:13.5px}
+code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+ padding:1px 6px;font:13px/1.6 ui-monospace,Consolas,monospace;color:var(--ink)}
+</style>
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb" href="download.html">Download</a>
+    <a class="navb" href="tutorial.html">Guide</a>
+    <a class="navb" href="fonts.html">Fonts</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <a class="navb cta" id="acct" href="account.html">Account</a>
+    <button class="navb icon" id="theme" type="button" aria-label="Theme"></button>
+  </nav>
+</header>
+
+<main>
+  <h1>Releases</h1>
+  <p class="lede">Every version of MangaTCT, newest first. Installed copies
+    update themselves; this page is for a first install or a reinstall.</p>
+
+  <div id="rllist"><p class="rlmuted">Loading the list...</p></div>
+
+  <p class="rlmuted" style="margin-top:26px">MangaTCT is free software under the
+    <a href="license.html">GNU GPL v3</a>. <a href="/get/latest/app">The source</a>
+    is one download: unzip it, <code>pip install -r requirements.txt</code>,
+    <code>python -m mangatl.editor</code>.</p>
+
+</main>
+
+<footer style="max-width:1040px;margin:0 auto;padding:0 22px 40px;color:var(--mut);font-size:13px">
+  Built by <b>LMB Technology</b>.
+  <a href="index.html">Home</a> &middot;
+  <a href="tutorial.html">Guide</a> &middot;
+  <a href="pricing.html">Coins</a> &middot;
+  <a href="releases.html">Releases</a> &middot;
+  <a href="/get/latest/app">Source</a> &middot;
+  <a href="license.html">GPL-3.0</a>
+</footer>
+
+<script>
+/* Two sources, both read live, neither typed into the page.
+
+   The list comes from the project's release index, which is where the release
+   workflow publishes and where the installed app fetches updates from. Only
+   the installer is offered per version - lee: *"make it just be the installer
+   and remove the long string at the end"* - the source zip is the Source link
+   in the footer, and the checksums stay on the release itself for whoever
+   wants them.
+
+   Every link on this page is this site's own: /get/<version>/installer. Where
+   the bytes are served from is not something a person downloading needs to
+   see or type. */
+var RELEASES = 'https://api.github.com/repos/Lerbernard/MangaTCT/releases?per_page=30';
+var MANIFEST = 'https://raw.githubusercontent.com/Lerbernard/MangaTCT/main/manifest.json';
+
+function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mb(n){ n = Number(n) || 0; return n >= 1e6 ? Math.round(n / 1e6) + ' MB' : n >= 1e3 ? Math.round(n / 1e3) + ' KB' : ''; }
+function when(iso){
+  var d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+}
+/* The release notes are written for the GitHub page, which links the files by
+   their names. Here the files are the table below, so the bullet lines that
+   only name a file are dropped and the rest is shown as it was written. */
+function notes(body){
+  return String(body || '').split(/\r?\n/).filter(function(l){
+    return !/^\s*\*\s*\*?\*?(MangaTCT-Setup|mangatct-app|SHA256SUMS)/.test(l);
+  }).join('\n').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\n{3,}/g, '\n\n').trim();
+}
+function which(name){
+  return /^MangaTCT-Setup-.*\.exe$/.test(name) ? 'installer' : null;
+}
+function draw(rels){
+  var out = [];
+  rels.forEach(function(r, i){
+    if (r.draft) return;
+    var v = String(r.tag_name || '').replace(/^v/, '');
+    if (!/^\d+\.\d+\.\d+$/.test(v)) return;
+    var inst = (r.assets || []).filter(function(a){ return which(a.name) === 'installer'; })[0];
+    out.push('<section class="rlrel"><h2>MangaTCT ' + esc(v) +
+      (i === 0 ? ' <span class="rlnow">current</span>' : '') +
+      ' <span class="rlwhen">' + esc(when(r.published_at)) + '</span></h2>' +
+      (notes(r.body) ? '<p class="rlnotes">' + esc(notes(r.body)) + '</p>' : '') +
+      (inst ? '<p class="rlget"><a class="rlbtn" href="/get/' + esc(v) + '/installer">Download ' +
+        esc(v) + ' for Windows</a><span class="rlsz">' + mb(inst.size) + '</span></p>' : '') +
+      '</section>');
+  });
+  document.getElementById('rllist').innerHTML = out.join('') ||
+    '<p class="rlmuted">No releases yet.</p>';
+}
+/* If the index cannot be read - it is rate-limited for anonymous readers,
+   sixty a minute per address - the current version is still shown from the
+   manifest, with its checksums, and the links still work. */
+function fallback(){
+  fetch(MANIFEST, {cache:'no-cache'}).then(function(r){ return r.json(); }).then(function(m){
+    var v = m.app && m.app.version; if (!v) throw new Error('no version');
+    document.getElementById('rllist').innerHTML =
+      '<section class="rlrel"><h2>MangaTCT ' + esc(v) + ' <span class="rlnow">current</span></h2>' +
+      '<p class="rlget"><a class="rlbtn" href="/get/' + esc(v) + '/installer">Download ' + esc(v) +
+      ' for Windows</a><span class="rlsz">' + (m.installer ? mb(m.installer.size) : '') + '</span></p></section>' +
+      '<p class="rlmuted">Older versions are not listed just now. Try again in a minute.</p>';
+  }).catch(function(){
+    document.getElementById('rllist').innerHTML =
+      '<p class="rlmuted">The list could not be loaded. The <a href="/get/latest/installer">current installer</a> ' +
+      'still downloads from here.</p>';
+  });
+}
+fetch(RELEASES, {headers:{'Accept':'application/vnd.github+json'}}).then(function(r){
+  if (!r.ok) throw new Error(r.status); return r.json();
+}).then(draw).catch(fallback);
+
+/* The theme button: same storage key as every other page, no CDN needed. */
+(function(){
+  var d = document.documentElement, b = document.getElementById('theme');
+  function paint(){ b.textContent = (d.dataset.theme !== 'light') ? '☼' : '☾'; }
+  b.addEventListener('click', function(){
+    var next = (d.dataset.theme !== 'light') ? 'light' : 'dark';
+    d.dataset.theme = next;
+    try{ localStorage.setItem('tct-theme', next); }catch(e){}
+    paint();
+  });
+  paint();
+})();
+</script>
+</html>

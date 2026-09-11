@@ -22,6 +22,15 @@
       "mangatct-logos.zip"
     ],
     "cleanUrls": true,
+    "rewrites": [
+      {
+        "source": "/get/**",
+        "function": {
+          "functionId": "get",
+          "region": "us-central1"
+        }
+      }
+    ],
     "headers": [
       {
         "source": "**/*.@(js|css|html)",

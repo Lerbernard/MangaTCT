@@ -220,6 +220,70 @@ export const usernameFree = onCall(async (req) => {
     ? 'that name is taken' : '' };
 });
 
+/* ------------------------------------------------------------ the downloads
+ *
+ * lee: *"there should be no link to github on the website"*. The files live
+ * on GitHub Releases - that is where the release workflow puts them and where
+ * every installed launcher fetches updates from - but the website never says
+ * so. Every download on the site is `/get/<version>/<what>`, served by this:
+ * a 302 to the real file, worked out from the version alone, because the
+ * release names are fixed (`MangaTCT-Setup-<v>.exe`, `mangatct-app-<v>.zip`,
+ * `SHA256SUMS`). `latest` is read off the same manifest the launcher reads,
+ * cached for five minutes, so the button on the download page works with
+ * JavaScript off and needs no version typed into any page.
+ *
+ * A plain HTTP function and not a Hosting redirect rule, because a redirect
+ * rule cannot know what "latest" is, and cannot splice a version into the
+ * middle of a file name.
+ */
+const REPO = 'Lerbernard/MangaTCT';
+const MANIFEST = `https://raw.githubusercontent.com/${REPO}/main/manifest.json`;
+const NAMES = {
+  installer: (v) => `MangaTCT-Setup-${v}.exe`,
+  app: (v) => `mangatct-app-${v}.zip`,
+  checksums: () => 'SHA256SUMS',
+};
+let latestCache = { at: 0, version: '' };
+
+async function latestVersion() {
+  if (Date.now() - latestCache.at < 5 * 60 * 1000 && latestCache.version) {
+    return latestCache.version;
+  }
+  const r = await fetch(MANIFEST, { headers: { 'cache-control': 'no-cache' } });
+  if (!r.ok) throw new Error(`manifest ${r.status}`);
+  const m = await r.json();
+  const v = m && m.app && String(m.app.version || '');
+  if (!/^\d+\.\d+\.\d+$/.test(v)) throw new Error('manifest has no version');
+  latestCache = { at: Date.now(), version: v };
+  return v;
+}
+
+export function downloadTarget(path, latest) {
+  const m = /^\/get\/(latest|\d+\.\d+\.\d+)\/(installer|app|checksums)\/?$/.exec(path || '');
+  if (!m) return null;
+  const v = m[1] === 'latest' ? latest : m[1];
+  if (!v) return null;
+  return `https://github.com/${REPO}/releases/download/v${v}/${NAMES[m[2]](v)}`;
+}
+
+export const get = onRequest({ memory: '128MiB', maxInstances: 5 }, async (req, res) => {
+  let latest = '';
+  if (req.path.startsWith('/get/latest/')) {
+    try { latest = await latestVersion(); } catch (e) {
+      console.error('latestVersion', e);
+      res.status(503).set('Retry-After', '60')
+        .send('The download is not reachable just now. Try again in a minute.');
+      return;
+    }
+  }
+  const to = downloadTarget(req.path, latest);
+  if (!to) { res.status(404).send('No such download.'); return; }
+  // Cached at Hosting's edge for five minutes: a burst of clicks is one
+  // function call, and a new release is visible within the same five.
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+  res.redirect(302, to);
+});
+
 /* ------------------------------------------------------------------ the till
  *
  * The two calls the editor makes. Both are one Firestore transaction around

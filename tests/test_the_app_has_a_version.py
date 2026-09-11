@@ -16,8 +16,9 @@ from where import PKG, JS, CSS
 from mangatl import version as V
 
 
-def test_it_is_one_point_oh():
-    assert V.__version__ == "1.0.0"
+def test_it_is_one_point_something():
+    """1.0.0 shipped on 2026-09-10; every number since is a release tag."""
+    assert V.parse(V.__version__) >= (1, 0, 0)
     assert re.fullmatch(r"\d+\.\d+\.\d+", V.__version__), "plain semver"
     assert V.CHANNEL == "beta"
 

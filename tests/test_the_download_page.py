@@ -11,8 +11,14 @@ Two things this file is here to stop.
 **A version number typed into a page.** The site deploys when the site
 changes; the app releases when the app changes. A number written into the
 HTML is wrong from the first release after it, so the page reads the SAME
-manifest the installed app reads, and the button falls back to
-`/releases/latest`, which is right whatever the version is.
+manifest the installed app reads, and the button is `/get/latest/installer`
+- this site's own address, answered by a function that reads that same
+manifest - which is right whatever the version is.
+
+**A link to GitHub.** lee: *"there should be no link to github on the
+website"*. The files live on the project's releases, but no address the
+site prints says so: downloads go through `/get/`, the list of versions and
+checksums is `releases.html`, the license is `license.html`.
 
 **A link that goes nowhere.** `before-deploying-the-site.md` listed two
 buttons pointing at `#` with yellow chips beside them. They point somewhere
@@ -29,7 +35,8 @@ from where import PKG
 SITE = PKG / "site"
 DOWNLOAD = SITE / "download.html"
 PAGES = ("index.html", "download.html", "tutorial.html", "fonts.html",
-         "pricing.html", "account.html", "signin.html")
+         "pricing.html", "account.html", "signin.html", "releases.html",
+         "license.html")
 
 
 def _build():
@@ -71,12 +78,15 @@ def test_it_reads_the_same_manifest_the_launcher_does(page):
 
 
 def test_the_button_works_with_the_script_off(page):
-    """Fetch blocked, JS off, GitHub down for the raw file - the button in
-    the HTML still lands on a page with the installer on it."""
+    """Fetch blocked, JS off - the button in the HTML is the site's own
+    address for the current installer, answered by the `get` function, so
+    it is right whatever the version is and nothing is typed into it."""
     btn = page[page.index('id="dlbtn"'):]
     btn = btn[:btn.index("</a>")]
-    assert "/releases/latest" in btn
+    assert 'href="/get/latest/installer"' in btn
     assert 'href="#"' not in page
+    js = page[page.index("<script>"):]
+    assert "b.href" not in js, "the script fills the label and the size, never the address"
 
 
 # ---------------------------------------------------------------- the truth
@@ -105,9 +115,56 @@ def test_it_says_where_the_persons_own_things_live(page):
 
 
 def test_it_makes_the_source_offer_the_license_asks_for(page):
+    """The GPL asks that whoever gets the binary can get the source. The app
+    zip IS the source, and it is offered from this site's own address, with
+    the license itself a page of this site."""
     assert "GNU GPL v3" in page
-    assert "github.com/Lerbernard/MangaTCT" in page, \
-        "the source is the project's own repo - there is no second one"
+    assert 'href="/get/latest/app"' in page
+    assert 'href="license.html"' in page
+    lic = (SITE / "license.html").read_text(encoding="utf-8")
+    assert "GNU GENERAL PUBLIC LICENSE" in lic and "Version 3, 29 June 2007" in lic
+    import html
+    assert html.escape((PKG / "LICENSE").read_text(encoding="utf-8"))[:2000] in lic, \
+        "the license page carries the repo's LICENSE, unchanged"
+
+
+def test_nothing_on_the_site_links_to_github(index):
+    """lee: *"there should be no link to github on the website"*. Files
+    still live on the project's releases - the workflow puts them there and
+    installed copies fetch updates from there - but no address the site
+    prints says so. Every download is `/get/<version>/<what>`; the releases
+    list and the license are pages of this site. A `fetch` of data is not a
+    link and is allowed; an `href` is what a person sees, and is not."""
+    for name in PAGES:
+        text = index if name == "index.html" else (SITE / name).read_text(encoding="utf-8")
+        hrefs = re.findall(r'href="([^"]+)"', text)
+        bad = [h for h in hrefs if "github" in h.lower()]
+        assert not bad, (name, bad)
+        assert "Source on GitHub" not in text, name
+
+
+def test_every_download_goes_through_the_sites_own_door(page):
+    """`/get/**` is a Hosting rewrite to the `get` function, which turns a
+    version and a file kind into the real file. Held here: the rewrite is
+    in firebase.json, the function knows the three kinds and `latest`, and
+    the releases page links the same way."""
+    import json
+    fb = json.loads((PKG / "firebase.json").read_text(encoding="utf-8"))
+    rw = fb["hosting"].get("rewrites", [])
+    assert any(r.get("source") == "/get/**" and r.get("function", {}).get("functionId") == "get"
+               for r in rw), rw
+    fn = (PKG / "firebase" / "functions" / "index.js").read_text(encoding="utf-8")
+    assert "export const get = onRequest" in fn
+    assert "(latest|\\d+\\.\\d+\\.\\d+)\\/(installer|app|checksums)" in fn
+    assert "const REPO = 'Lerbernard/MangaTCT'" in fn
+    assert "https://raw.githubusercontent.com/${REPO}/main/manifest.json" in fn, \
+        "latest is what the launcher's manifest says it is"
+    rel = (SITE / "releases.html").read_text(encoding="utf-8")
+    assert "/get/' + esc(v) + '/installer" in rel
+    # lee: *"make it just be the installer and remove the long string at the
+    # end"* - one button a version, no checksum column, no source row
+    assert "/get/' + esc(v) + '/app" not in rel and "digest" not in rel
+    assert 'href="releases.html"' in page
 
 
 # ----------------------------------------------------------- the site links
@@ -161,24 +218,32 @@ def test_a_door_that_does_not_exist_yet_is_not_drawn(index):
 
 # ------------------------------------------------------ borrowed stylesheet
 
-def test_it_coins_no_class_style_css_already_owns(page):
+PREFIXED = {"download.html": "dl", "releases.html": "rl", "license.html": "lc"}
+
+
+@pytest.mark.parametrize("name,prefix", sorted(PREFIXED.items()))
+def test_it_coins_no_class_style_css_already_owns(name, prefix):
     """The lesson from the guide page's three bugs: a page that loads
-    style.css must not name a class or a variable somebody else owns."""
+    style.css must not name a class or a variable somebody else owns. The
+    three pages built on the download page's chrome each own a prefix."""
     css = (SITE / "style.css").read_text(encoding="utf-8")
     theirs = set(re.findall(r"\.([a-zA-Z][\w-]*)\s*[,{:]", css))
-    block = page[page.index("<style>"):page.index("</style>")]
+    text = (SITE / name).read_text(encoding="utf-8")
+    block = text[text.index("<style>"):text.index("</style>")]
     mine = set(re.findall(r"\.([a-zA-Z][\w-]*)\s*[,{:]", block))
     clash = mine & theirs
     assert clash <= {"brand", "mk", "wm", "navb", "lede", "mut", "on"}, clash
-    assert all(m.startswith("dl") for m in mine - theirs), sorted(mine - theirs)
+    assert all(m.startswith(prefix) for m in mine - theirs), (name, sorted(mine - theirs))
 
 
-def test_it_names_no_variable_style_css_does_not_define(page):
+@pytest.mark.parametrize("name", sorted(PREFIXED))
+def test_it_names_no_variable_style_css_does_not_define(name):
     css = (SITE / "style.css").read_text(encoding="utf-8")
     defined = set(re.findall(r"(--[\w-]+)\s*:", css))
-    block = page[page.index("<style>"):page.index("</style>")]
+    text = (SITE / name).read_text(encoding="utf-8")
+    block = text[text.index("<style>"):text.index("</style>")]
     used = set(re.findall(r"var\((--[\w-]+)\)", block))
-    assert used <= defined, used - defined
+    assert used <= defined, (name, used - defined)
 
 
 def test_the_guide_page_lost_its_undefined_variable_too():

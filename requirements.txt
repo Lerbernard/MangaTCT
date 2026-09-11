@@ -50,6 +50,13 @@ pyclipper>=1.3
 shapely>=2.0
 ultralytics>=8.2
 
+# The app's own window on Windows (window.py): a WebView2 view of the editor,
+# opened by the launcher instead of the browser. Windows only, because that is
+# where the installer goes and where WebView2 is already on the machine; on a
+# Mac or Linux the editor opens in the browser as it always did. pythonnet
+# comes with it.
+pywebview>=6.0; sys_platform == "win32"
+
 # dev
 pytest>=8.0
 fonttools>=4.40
