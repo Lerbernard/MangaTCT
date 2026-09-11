@@ -1,10 +1,10 @@
 {
  "app": {
-  "version": "1.0.0",
-  "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.0/mangatct-app-1.0.0.zip",
-  "sha256": "15a069938cced823d58c68f1ef4778cc34687d0dd462dd89eae4f82c7df951de",
-  "size": 5979296,
-  "notes": "https://github.com/Lerbernard/MangaTCT/releases/tag/v1.0.0"
+  "version": "1.0.1",
+  "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.1/mangatct-app-1.0.1.zip",
+  "sha256": "f993ef8f30c90c017cb8e00bdd5b685a17c0f0952cc4b497c504a0b277d9f3df",
+  "size": 5985152,
+  "notes": "https://github.com/Lerbernard/MangaTCT/releases/tag/v1.0.1"
  },
  "models": [
   {
@@ -57,9 +57,9 @@
  ],
  "minimum_launcher": "1.0.0",
  "installer": {
-  "version": "1.0.0",
-  "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.0/MangaTCT-Setup-1.0.0.exe",
-  "sha256": "8e8d309c03fe9dddd2bffd8fb38ecc68d759651a5e504f0b535d89428ce0b01b",
-  "size": 241269980
+  "version": "1.0.1",
+  "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.0.1/MangaTCT-Setup-1.0.1.exe",
+  "sha256": "894e2c56274797f293426467fc8e10e60a1cd40f33fedf0ad20c2841e257d4a6",
+  "size": 242627748
  }
 }
