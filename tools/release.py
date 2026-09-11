@@ -96,9 +96,21 @@ def files_for_zip() -> list[tuple[str, str]]:
                     rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
                     if not _skip(rel):
                         out.append((fp, "mangatl/" + rel))
+    # The launcher's own module rides along, as `mangatl/launcher/`: the
+    # editor's Settings > Updates runs its check/download code from here,
+    # which is always the current copy even when the exe on disk is old.
+    out.append((os.path.join(ROOT, "launcher", "mangatct_launcher.py"),
+                "mangatl/launcher/mangatct_launcher.py"))
     out.append((os.path.join(ROOT, "requirements.txt"), "requirements.txt"))
     out.append((os.path.join(HERE, "models.json"), "models.json"))
     return out
+
+
+def launcher_version() -> str:
+    """`LAUNCHER_VERSION` out of the launcher file, without importing it."""
+    src = open(os.path.join(ROOT, "launcher", "mangatct_launcher.py"), encoding="utf-8").read()
+    m = re.search(r'^LAUNCHER_VERSION\s*=\s*"([^"]+)"', src, re.M)
+    return m.group(1) if m else "0.0.0"
 
 
 def scan_for_leaks(pairs) -> list[str]:
@@ -244,7 +256,12 @@ def build_manifest(base: str, out_dir: str, need_installer: bool = False) -> str
             "notes": base.replace("/download/", "/tag/").rstrip("/"),
         },
         "models": json.load(open(os.path.join(HERE, "models.json"), encoding="utf-8"))["models"],
+        # The oldest launcher that can run this app zip at all...
         "minimum_launcher": "1.0.0",
+        # ...and the launcher this release's installer carries. An installed
+        # copy running an older one is offered the installer in
+        # Settings > Updates; below the minimum it is told it has to.
+        "launcher": {"version": launcher_version()},
     }
     setup = os.path.join(out_dir, "MangaTCT-Setup-%s.exe" % v)
     if need_installer and not os.path.isfile(setup):

@@ -671,7 +671,7 @@ table.keys td:first-child{white-space:nowrap;width:1%}
 
     <h3>The pill in the header</h3>
     <p>Next to the MangaTCT wordmark, top left, is a small pill. It is the
-      version you are running &mdash; <b>beta 1.0.2</b> today. Hover it and it
+      version you are running &mdash; <b>beta 1.0.3</b> today. Hover it and it
       says the same thing in full. It is the first thing to quote in any
       message about a problem, because almost every answer starts with knowing
       which build you are on.</p>
@@ -691,14 +691,26 @@ table.keys td:first-child{white-space:nowrap;width:1%}
         never run the installer again. The app fetches the new version, checks
         it against a published checksum, and unpacks it beside the one you are
         running.</p></li>
-      <li><b>It swaps over at the next start.</b><p>Never mid-session. If an
+      <li><b>It swaps over when you restart.</b><p>Never mid-session. If an
         update lands while you have a chapter open, the pill gets a dot to say
-        so and nothing else moves. Close the app and open it again when you
-        are ready.</p></li>
+        so and nothing else moves. Click the pill, or open <b>Settings &rsaquo;
+        Updates</b>, and press <b>Restart now</b> when you are ready &mdash;
+        the new version is up in the same window a few seconds later.</p></li>
       <li><b>The previous version stays on disk.</b><p>If a new one cannot
         start, the app falls back to the old one by itself. You do not have to
         do anything, and you do not lose the chapter.</p></li>
     </ol>
+
+    <h3 style="margin-top:30px">Settings &rsaquo; Updates</h3>
+    <p>The page where all of that is visible: which version is running, when
+      it last looked, and a <b>Check now</b> button. <b>Download updates
+      automatically</b> is on unless you turn it off; off, the app tells you a
+      version exists and waits for you to press <b>Download</b>. Once in a
+      while a release changes the small program that starts the app or the
+      Python underneath it &mdash; then the page offers <b>Get the new
+      setup</b>, which fetches the installer, checks it, runs it quietly and
+      starts MangaTCT again. That is the only time the full setup is
+      downloaded, and it is never something you have to find yourself.</p>
 
     <h3 style="margin-top:30px">Report a problem</h3>
     <p><b>File &rsaquo; Report a problem</b> builds the message for you. Say

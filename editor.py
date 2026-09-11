@@ -5480,6 +5480,11 @@ class Handler(BaseHTTPRequestHandler):
                                    **_update_state()})
             if path == "/api/diagnostics":
                 return self._json(_diagnostics(p))
+            if path == "/api/updates":
+                # Settings > Updates. What the launcher knows, what the
+                # channel has, and what is on its way. See `updates.py`.
+                from . import updates
+                return self._json(updates.state())
             if path == "/api/queue":
                 return self._json({"ok": True, **queue_state()})
 
@@ -6418,6 +6423,22 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"error": str(e), "code": e.code}, 400)
                 from . import coins
                 return self._json({"ok": True, **coins.state()})
+
+            if path == "/api/updates":
+                # Check now / Download / the automatic switch / Restart now /
+                # Get the new setup. Everything long-running goes to a
+                # thread and GET /api/updates watches it.
+                from . import updates
+                do = str(body.get("do") or "")
+                if do == "check":
+                    return self._json(updates.check(force=bool(body.get("force"))))
+                if do == "auto":
+                    return self._json(updates.set_auto(bool(body.get("on"))))
+                if do == "restart":
+                    return self._json(updates.restart())
+                if do == "install":
+                    return self._json(updates.install_setup())
+                return self._json({"error": "do what?"}, 400)
 
             if path == "/api/settings":
                 new = body.get("settings") or {}

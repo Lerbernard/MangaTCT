@@ -149,8 +149,10 @@ first checksum, but a person reinstalling would find the button dead.
   logs\editor-<date>.log the editor's console, one file a day
   logs\window-<date>.log the app window's, usually empty; says why the
                          browser opened instead when it did
-  state.json             installed version, last check, requirements hash
-  update.json            what the header pill reads (only while one waits)
+  state.json             installed version, last check, requirements hash,
+                         auto_update (Settings > Updates switch)
+  update.json            what the pill and Settings > Updates read (only
+                         while one is offered, downloading or ready)
 ~\.mangatl\              THEIRS: fonts, prefs, API keys - untouched by all of this
   window.json            where the app's window was last (size, place, maximised)
   webview\               the window's own storage (localStorage, cache)
@@ -160,10 +162,27 @@ first checksum, but a person reinstalling would find the button dead.
 A support message should start with the version (the pill) and attach
 `logs\editor-<date>.log`; *Open logs folder* is on the launcher window.
 
+## Updates from inside the app
+
+Settings > Updates (1.0.3+) is the launcher's updating made visible: the
+app zip carries `launcher/mangatct_launcher.py` as `mangatl.launcher`, and
+`mangatl/updates.py` runs its `check_for_update` from the editor — same
+manifest, same checksum rule, same folders. *Check now* checks (and, with
+*Download updates automatically* on, fetches); *Restart now* ends the editor
+with exit code 75 (`EDITOR_RESTART`) and a 1.0.3+ launcher makes another
+pass, which is when the fetched version is switched to. The manifest also
+carries `launcher.version`, the launcher the release's installer shipped;
+when it is newer than the one running, the page offers *Get the new setup*,
+which downloads the installer to `%TEMP%` (checksum checked), runs it
+`/SILENT /relaunch=1`, and leaves — the installer's `PrepareToInstall` stops
+whatever still runs out of `%LOCALAPPDATA%\MangaTCT`, and `/relaunch=1`
+starts MangaTCT again at the end. **Bump `LAUNCHER_VERSION` whenever the
+launcher file changes**; that is the whole signal.
+
 ## What the launcher will not do
 
 * switch versions while the editor is running — a mid-session download is
-  used on the next start;
+  used on the next start, or when the person presses Restart now;
 * use a zip whose sha256 is not the manifest's;
 * delete the version that is running, or the one before it;
 * wait on the network to start: four seconds, then it starts what it has.

@@ -14,7 +14,19 @@ source. This program's job, every time somebody double-clicks the icon:
        changed, bring the runtime up to them;
     3. start the editor on a free port, wait until it answers, and show it -
        in a window of its own (`mangatl.window`, WebView2), or in the
-       browser if that window cannot open or `--browser` was asked for.
+       browser if that window cannot open or `--browser` was asked for;
+    4. and if the editor ends asking to be started again (exit code
+       `EDITOR_RESTART` - Settings > Updates > Restart now), do all of this
+       once more, which is how a fetched version is switched to without the
+       person finding the icon.
+
+The app's Settings page has an Updates section that talks to the same code:
+the app zip carries a copy of this file (`mangatl/launcher/`), so *Check
+now* and *Download* there are `check_for_update` below, run by the editor,
+writing the same `update.json` and `state.json`. `state.json` also holds
+`auto_update`: when a person turns automatic downloads off there, the
+checks here still happen but only SAY that a version exists ("offered");
+the download waits for the button.
 
 WHY A LAUNCHER AND NOT AN INSTALLER PER VERSION. An update to the app is a
 zip of Python files a few megabytes big. Making people download a gigabyte
@@ -69,7 +81,16 @@ import urllib.error
 import urllib.request
 import zipfile
 
-LAUNCHER_VERSION = "1.0.0"
+#: Bumped when THIS file changes in a way an installed copy should hear about;
+#: the manifest carries the launcher version each release shipped, and the
+#: app's Updates section offers the installer when the one running is older.
+#: (1.0.2's launcher - the own window, the mark - shipped still saying 1.0.0;
+#: from here on the number moves with the file.)
+LAUNCHER_VERSION = "1.0.3"
+
+#: The editor's exit code that means "start me again": Settings > Updates >
+#: Restart now, after a version was fetched. Anything else ends the session.
+EDITOR_RESTART = 75
 
 #: Where the manifest is: a plain file on the project's own repository, main
 #: branch. No API, no token, no rate limit worth mentioning, and GitHub's CDN
@@ -238,16 +259,30 @@ def write_state(p: dict, **changes) -> dict:
 
 
 def say_update(p: dict, available: str | None, state: str = "ready",
-               notes: str = "") -> None:
-    """The one line the editor's header pill reads. `None` clears it."""
+               notes: str = "", percent: int | None = None) -> None:
+    """The one line the editor's header pill and Updates section read.
+    `None` clears it. `state` is one of:
+
+        offered      the channel has it; automatic downloads are off
+        downloading  on its way (`percent` when the editor is the one fetching)
+        ready        unpacked beside the running version; next start runs it
+    """
     if not available:
         try:
             os.remove(p["update"])
         except OSError:
             pass
         return
-    write_json(p["update"], {"available": available, "state": state,
-                             "notes": notes})
+    d = {"available": available, "state": state, "notes": notes}
+    if percent is not None:
+        d["percent"] = int(percent)
+    write_json(p["update"], d)
+
+
+def auto_update(p: dict) -> bool:
+    """Whether a newer version is fetched without being asked. On unless the
+    person turned it off in Settings > Updates."""
+    return bool(read_state(p).get("auto_update", True))
 
 
 # --------------------------------------------------------------- network
@@ -392,10 +427,15 @@ def prune_old(p: dict, running: str) -> None:
 
 # ------------------------------------------------------------- the check
 
-def check_for_update(p: dict, manifest: dict | None, progress=None) -> str | None:
+def check_for_update(p: dict, manifest: dict | None, progress=None,
+                     force: bool = False) -> str | None:
     """If the channel has a newer app than anything on disk, fetch it and
     unpack it beside the current version. Returns the version fetched, or
-    None. Never touches the version that is running."""
+    None. Never touches the version that is running.
+
+    With automatic downloads off (`auto_update`), a newer version is only
+    written down as "offered" - unless `force`, which is the Download button
+    in Settings > Updates."""
     if not manifest:
         return None
     app = manifest.get("app") or {}
@@ -412,6 +452,11 @@ def check_for_update(p: dict, manifest: dict | None, progress=None) -> str | Non
     url, sha, size = app.get("url"), app.get("sha256"), app.get("size")
     if not url or not sha:
         log("manifest names %s but no url/sha256" % ver)
+        return None
+    if not force and not auto_update(p):
+        log("%s is on the channel; automatic downloads are off" % ver)
+        say_update(p, ver, "offered", app.get("notes") or "")
+        write_state(p, last_check=time.time(), channel_version=ver)
         return None
     say_update(p, ver, "downloading", app.get("notes") or "")
     dest = os.path.join(p["app"], "mangatct-app-%s.zip" % ver)
@@ -710,6 +755,13 @@ def stop_editor(proc: subprocess.Popen) -> None:
             pass
 
 
+def restart_wanted(proc: subprocess.Popen | None) -> bool:
+    """Did the editor end asking to be started again? (Settings > Updates >
+    Restart now: the version fetched beside the running one is switched to
+    by the next pass, exactly as a start from the icon would.)"""
+    return proc is not None and proc.returncode == EDITOR_RESTART
+
+
 # ------------------------------------------------------------- the start
 
 class Startup:
@@ -744,7 +796,7 @@ def choose_and_prepare(p: dict, progress=None) -> tuple[str | None, bool, str]:
                         "connection and start MangaTCT again, or see logs\\launcher.log.")
 
 
-def run(p: dict | None = None, manifest_url: str = MANIFEST_URL,
+def run(p: dict | None = None, manifest_url: str | None = None,
         progress=None, open_browser=True, window=True) -> Startup:
     """The whole start, without the launcher's own little window.
     `progress(text)` is told what is happening; that window draws it.
@@ -753,6 +805,7 @@ def run(p: dict | None = None, manifest_url: str = MANIFEST_URL,
     cannot, or when False, `open_browser` says whether the browser is opened
     instead. Tests pass both False and read `s.port`."""
     p = p or paths()
+    manifest_url = manifest_url or MANIFEST_URL
     ensure_dirs(p)
     start_log(p)
     s = Startup()
@@ -927,16 +980,20 @@ def main(argv=None) -> int:
         print("MangaTCT launcher %s" % LAUNCHER_VERSION)
         return 0
     if "--headless" in argv:
-        s = run(progress=lambda t: print(t, file=sys.stderr),
-                open_browser="--no-browser" not in argv, window=want_window(argv))
-        if not s.proc:
-            print(s.error, file=sys.stderr)
-            return 1
-        try:
-            s.proc.wait()
-        except KeyboardInterrupt:
-            stop_editor(s.proc)
-        return 0
+        while True:
+            s = run(progress=lambda t: print(t, file=sys.stderr),
+                    open_browser="--no-browser" not in argv, window=want_window(argv))
+            if not s.proc:
+                print(s.error, file=sys.stderr)
+                return 1
+            try:
+                s.proc.wait()
+            except KeyboardInterrupt:
+                stop_editor(s.proc)
+            stop_window(s.window)
+            if not restart_wanted(s.proc):
+                return 0
+            log("the editor asked to be started again")
 
     import tkinter as tk
     from tkinter import ttk
@@ -988,6 +1045,23 @@ def main(argv=None) -> int:
         root.after(0, status.set, text)
 
     def go():
+        # One session per pass; another pass when the editor ends asking
+        # for one (Restart now, after an update was fetched). A start that
+        # failed leaves this window up with the reason on it.
+        while True:
+            how = go_once()
+            if how == "again":
+                root.after(0, root.deiconify)
+                root.after(0, b_open.config, {"state": "disabled"})
+                continue
+            if how == "ended":
+                root.after(0, root.destroy)
+            return
+
+    def go_once() -> str:
+        """One session: "again" when the editor asked to be started again,
+        "ended" when it ended any other way, "failed" when it never
+        started."""
         s = run(progress=progress, window=want_window(argv))
         state["s"] = s
 
@@ -1030,10 +1104,14 @@ def main(argv=None) -> int:
                                    "still running - open it in the browser, or quit.")
             threading.Thread(target=watch_window, daemon=True).start()
 
-        if s.proc:
-            s.proc.wait()
-            stop_window(s.window)
-            root.after(0, root.destroy)
+        if not s.proc:
+            return "failed"
+        s.proc.wait()
+        stop_window(s.window)
+        if restart_wanted(s.proc):
+            log("the editor asked to be started again")
+            return "again"
+        return "ended"
 
     threading.Thread(target=go, daemon=True).start()
     root.mainloop()

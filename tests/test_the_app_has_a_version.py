@@ -70,7 +70,10 @@ def test_the_pill_shows_the_number_and_the_waiting_update():
     assert "api('/api/version')" in body
     assert "pill.textContent=(v.channel?v.channel+' ':'')+v.version" in body
     assert "hasupdate" in body
-    assert "next time you start" in body, "the switch is the launcher's, on the next start"
+    # The switch is the launcher's, on a restart - which Settings > Updates
+    # can now ask for, so the pill points there and leads there.
+    assert "Restart now" in body and "Settings > Updates" in body
+    assert "setSettingsTab('updates')" in body, "clicking the pill opens the Updates section"
     assert "showVersion();" in js[js.index("async function loadProject"):][:200]
     css = CSS.joinpath("editor.css").read_text(encoding="utf-8")
     assert ".brand .betapill.hasupdate::after" in css

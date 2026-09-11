@@ -736,6 +736,22 @@ carries that sentence, and guards this pass by its promise rather than by a
 list of names - which is what let a new pass under new names walk straight past
 it.
 
+## 4.9b Settings ▸ Updates
+
+Only meaningful under the launcher (a checkout says "updates come from
+git"). One line of what is running and which launcher; one line of what the
+channel says: *You have the latest version* / *Version X is available*
+(Download) / *Downloading X… 37%* / *Version X is ready* (**Restart now**, or
+*Quit and start again* under a launcher older than 1.0.3). **Check now** asks
+the channel; opening the section asks too when the last check is over ten
+minutes old. **Download updates automatically** (on by default, kept in the
+launcher's `state.json` as `auto_update`, applies at once, not part of Save)
+— off, a new version is only offered. Below a rule, when the release's
+installer carries a newer launcher than the one running: **Get the new
+setup** — fetches the installer, checks it, runs it silently, and the app
+comes back by itself. The version pill in the header opens this section.
+`mangatl/updates.py`, `/api/updates`.
+
 ## 4.10 Settings with no control
 
 `compact_margin` 0.60; `export_dir`, `export_name` "pages", `project_file`,

@@ -420,8 +420,7 @@ FAQ = [
      "Windows 10 or 11. The installer brings its own Python, and the first "
      "start downloads the text models - about 200 MB, once. No graphics card "
      "needed. Reading and translating need credits or your own API key; "
-     "everything else runs offline. On macOS or Linux it runs from source - "
-     "see the download page."),
+     "everything else runs offline."),
     ("Does it upload my raws?",
      "Finding text, cleaning, typesetting and exporting never leave your "
      "machine. Reading and translating send the page - or just the text - to "

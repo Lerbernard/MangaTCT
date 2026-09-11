@@ -721,6 +721,7 @@
       <button class="setnav-btn" data-sec="translation" onclick="setSettingsTab('translation')">AI models</button>
       <button class="setnav-btn" data-sec="cleaning" onclick="setSettingsTab('cleaning')">Page cleaning</button>
       <button class="setnav-btn" data-sec="fonts" onclick="setSettingsTab('fonts')">Fonts &amp; typesetting</button>
+      <button class="setnav-btn" data-sec="updates" onclick="setSettingsTab('updates')">Updates</button>
     </nav>
     <div class="setmain">
     <div id="setBody">
@@ -1475,6 +1476,32 @@
           <input id="chDesc" placeholder="pronouns · how they speak"
                  style="flex:2">
           <button class="pri" onclick="addCharacter()">Add</button>
+        </div>
+      </section>
+
+      <!-- Updates. lee: *"add an updates tab in the settings that downloads
+           the update automatically"*. The launcher already fetched new
+           versions on its own; this is where that becomes visible and
+           pressable. Filled by `renderUpdates` from /api/updates; the
+           automatic switch takes effect at once and is not part of Save. -->
+      <section class="set-section" data-sec="updates">
+        <h2 class="set-h">Updates</h2>
+        <div class="updnow"><span id="updVersion">MangaTCT</span>
+          <span id="updLauncher" class="muted"></span></div>
+        <div class="updstate" id="updState">Looking…</div>
+        <div class="updbar" id="updBar" hidden><i></i></div>
+        <div class="row updrow">
+          <button id="updCheck" onclick="checkUpdates()">Check now</button>
+          <button id="updAct" class="pri" hidden onclick="actOnUpdate()"></button>
+          <span id="updWhen" class="muted"></span>
+        </div>
+        <label class="swx" id="updAutoRow">
+          <input type="checkbox" id="updAuto" checked onchange="setAutoUpdates(this.checked)">
+          <i></i><span>Download updates automatically</span></label>
+        <p class="sethint">Off: you are told when there is one and choose when to get it.</p>
+        <div id="updSetup" class="updsetup" hidden>
+          <div id="updSetupLine"></div>
+          <button id="updSetupBtn" onclick="getNewSetup()">Get the new setup</button>
         </div>
       </section>
 

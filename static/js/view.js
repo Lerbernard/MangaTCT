@@ -627,6 +627,8 @@ function _pickSection(nav, body, name){
 }
 function setSettingsTab(name){
   _pickSection('#setNav','#setBody',name);
+  // The Updates section asks the server what it knows each time it opens.
+  if(name==='updates' && typeof refreshUpdates==='function') refreshUpdates();
   // The synopsis lives on one of these sections and cannot be measured until
   // that section is the visible one - a textarea inside a hidden page measures
   // as zero.

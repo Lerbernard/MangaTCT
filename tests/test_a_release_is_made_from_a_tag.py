@@ -40,11 +40,14 @@ def test_the_zip_is_the_package_and_nothing_private(tmp_path):
             "mangatl/static/editor.html", "mangatl/static/js/vendor/prosemirror.js",
             "mangatl/detect/webtoon.py", "mangatl/paintread/trba/LICENSE",
             "mangatl/hyph_en_US.dic", "mangatl/LICENSE", "mangatl/NOTICE",
-            "mangatl/fonts/LICENSES.md"]
+            "mangatl/fonts/LICENSES.md",
+            # the launcher's module, and only it: Settings > Updates runs
+            # the launcher's own check/download code from the app
+            "mangatl/launcher/mangatct_launcher.py"]
     for m in must:
         assert m in names, m
     never = re.compile(r"(_clean_modal\.py$|/\.env$|^mangatl/tests/|^mangatl/site/|"
-                       r"^mangatl/docs/|^mangatl/tools/|^mangatl/launcher/|"
+                       r"^mangatl/docs/|^mangatl/tools/|^mangatl/launcher/(?!mangatct_launcher\.py$)|"
                        r"\.(onnx|pt|pth|ckpt|dat)$|__pycache__|^mangatl/_sb\.py$|"
                        r"node_modules|^mangatl/firebase)")
     bad = [n for n in names if never.search(n)]

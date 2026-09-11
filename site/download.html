@@ -48,11 +48,12 @@ if(t)d.dataset.theme=t}catch(e){}</script>
  justify-content:center;font-size:14px}
 .dlsteps b{color:var(--ink)}
 .dlsteps li>b:first-child{display:block;margin-bottom:2px}
-.dlwhere{width:100%;border-collapse:collapse;font-size:14px}
-.dlwhere td{padding:8px 10px;border-top:1px solid var(--line);
- vertical-align:top;color:var(--dim)}
-.dlwhere td:first-child{white-space:nowrap;width:1%;color:var(--ink);
- font:600 13px/1.6 ui-monospace,Consolas,monospace}
+.dlwhere{font-size:14px}
+.dlwhere>div{padding:9px 0 10px;border-top:1px solid var(--line)}
+.dlwhere>div:first-child{border-top:0;padding-top:2px}
+.dlwhere b{display:block;color:var(--ink);
+ font:600 13px/1.5 ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.dlwhere span{display:block;color:var(--dim);margin-top:2px;line-height:1.5}
 .dlmuted{color:var(--mut);font-size:13.5px}
 code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
  padding:1px 6px;font:13px/1.6 ui-monospace,Consolas,monospace;color:var(--ink)}
@@ -129,7 +130,8 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
       <p>Every time you start MangaTCT it checks for a new version, and a new
         version is a few megabytes, not another 250. You never reinstall.</p>
       <p>An update that arrives while you are working is used the next time you
-        start - a chapter open on screen is never swapped out from under
+        start, or right away with <b>Settings &rsaquo; Updates &rsaquo; Restart
+        now</b> - a chapter open on screen is never swapped out from under
         you.</p>
     </div>
     <div class="dlcard">
@@ -142,23 +144,16 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
     </div>
     <div class="dlcard">
       <h3>Where things go</h3>
-      <table class="dlwhere">
-        <tr><td>%LOCALAPPDATA%\MangaTCT</td><td>the app, its Python and the models</td></tr>
-        <tr><td>~\.mangatl</td><td>your fonts, settings and keys - untouched by updates and by uninstalling</td></tr>
-        <tr><td>Documents\MangaTCT</td><td>exported pages, unless you pick a folder</td></tr>
-      </table>
+      <!-- Path above its line, never beside it: in a card a third of the
+           page wide the two-column table squeezed every description into a
+           column of single words. lee: *"fix this"*. -->
+      <div class="dlwhere">
+        <div><b>%LOCALAPPDATA%\MangaTCT</b><span>the app, its Python and the models</span></div>
+        <div><b>~\.mangatl</b><span>your fonts, settings and keys - untouched by updates and by uninstalling</span></div>
+        <div><b>Documents\MangaTCT</b><span>exported pages, unless you pick a folder</span></div>
+      </div>
     </div>
   </div>
-
-  <h2>Not on Windows?</h2>
-  <p class="dlmuted" style="max-width:70ch">The app is Python and runs on macOS
-    and Linux, but there is no installer for them yet and the beta is not
-    tested there. If you are comfortable with a terminal,
-    <a href="/get/latest/app">download the source of the current release</a>
-    (every version's is on the <a href="releases.html">releases page</a>) -
-    unzip it, <code>pip install -r requirements.txt</code>, and
-    <code>python -m mangatl.editor</code>. MangaTCT is free software under the
-    <a href="license.html">GNU GPL v3</a>.</p>
 
   <p class="dlmuted" style="margin-top:26px" id="dlcontact"></p>
 </main>
@@ -170,7 +165,7 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
   <a href="pricing.html">Coins</a> &middot;
   <a href="releases.html">Releases</a> &middot;
   <a href="/get/latest/app">Source</a> &middot;
-  <a href="license.html">GPL-3.0</a>
+  <a href="license.html">GNU GPL v3</a>
 </footer>
 
 <script>

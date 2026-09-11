@@ -17,6 +17,17 @@
 ; signing certificate is bought; the download page says so and says what to
 ; click. The uninstaller removes this folder and nothing else - the person's
 ; fonts, keys and preferences are in ~\.mangatl and stay.
+;
+; WHEN THIS RUNS OVER A RUNNING APP. 1.0.2's installer stopped at "Setup was
+; unable to automatically close all applications": Windows' Restart Manager
+; asks programs to close and the launcher, the editor (python.exe) and the
+; window process do not answer it. lee: *"when i download 1.2 it dont update
+; 1.2 it reinstalls everything"*. So `PrepareToInstall` below stops
+; everything running out of {app} itself, before Setup looks. The app also
+; runs this installer by itself now (Settings > Updates > Get the new setup):
+; silently, with `/relaunch=1`, which is what starts MangaTCT again at the
+; end. The full copy of the runtime is still what an installer does; app
+; versions in between come through the launcher, a few megabytes at a time.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -91,6 +102,9 @@ Root: HKCU; Subkey: "Software\Classes\MangaTCT.Project\shell\open\command"; Valu
 
 [Run]
 Filename: "{app}\MangaTCT.exe"; Description: "Start MangaTCT"; Flags: nowait postinstall skipifsilent
+; The app updating itself: the setup was run silently by MangaTCT with
+; /relaunch=1, and the person is waiting for it to come back.
+Filename: "{app}\MangaTCT.exe"; Flags: nowait skipifnotsilent; Check: Relaunch
 
 [UninstallDelete]
 ; what the launcher made after install: fetched app versions, weights, logs
@@ -99,3 +113,46 @@ Type: filesandordirs; Name: "{app}\models"
 Type: filesandordirs; Name: "{app}\logs"
 Type: files; Name: "{app}\state.json"
 Type: files; Name: "{app}\update.json"
+
+[Code]
+{ Everything running out of the install folder - MangaTCT.exe, the runtime's
+  python.exe (the editor, the window), pip - stopped, so the files they hold
+  can be replaced. PowerShell because it is on every Windows this installs
+  on and can match a process by the path of its exe; taskkill can only match
+  by name, and "python.exe" is not ours alone. Nothing here is allowed to
+  fail the install: if PowerShell is missing, Setup's own check runs next
+  and says what it always said. }
+procedure StopTheApp(Folder: String);
+var
+  Cmd: String;
+  Code: Integer;
+begin
+  if Copy(Folder, Length(Folder), 1) <> '\' then
+    Folder := Folder + '\';
+  Cmd := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
+    '$app = ''' + Folder + '''; ' +
+    'Get-Process -ErrorAction SilentlyContinue | ' +
+    'Where-Object { $_.Path -and $_.Path.StartsWith($app, [System.StringComparison]::OrdinalIgnoreCase) } | ' +
+    'Stop-Process -Force -ErrorAction SilentlyContinue"';
+  if Exec('powershell.exe', Cmd, '', SW_HIDE, ewWaitUntilTerminated, Code) then
+    Sleep(1500);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  StopTheApp(ExpandConstant('{app}'));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    StopTheApp(ExpandConstant('{app}'));
+end;
+
+{ /relaunch=1 on the command line: start MangaTCT when the silent install
+  is done. Only the app itself passes it. }
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;

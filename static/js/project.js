@@ -42,11 +42,109 @@ async function showVersion(){
     const u=v.update;
     if(u&&u.available){
       pill.title+='\n'+(u.state==='ready'
-        ?'Version '+u.available+' is ready and will install the next time you start MangaTCT.'
+        ?'Version '+u.available+' is ready - Settings > Updates > Restart now.'
+        :u.state==='offered'
+        ?'Version '+u.available+' is available - Settings > Updates.'
         :'Version '+u.available+' is downloading.');
       pill.classList.add('hasupdate');
     }
+    // The pill is the way to the Updates section from anywhere.
+    pill.style.cursor='pointer';
+    pill.onclick=()=>{ if(typeof openSettingsDlg==='function'){ openSettingsDlg(); setSettingsTab('updates'); } };
   }catch(e){}
+}
+
+/* ---------------- updates ----------------
+   Settings > Updates. lee: *"add an updates tab in the settings that
+   downloads the update automatically"*. The server side (`updates.py`) runs
+   the launcher's own check/download code; this only shows it and presses
+   it. While something downloads the section polls every second. */
+let _updTimer=null, _upd=null;
+function _ago(t){
+  if(!t) return '';
+  const s=Math.max(0,(Date.now()/1000)-t);
+  if(s<90) return 'Checked just now';
+  if(s<5400) return 'Checked '+Math.round(s/60)+' min ago';
+  if(s<172800) return 'Checked '+Math.round(s/3600)+' h ago';
+  return 'Checked '+Math.round(s/86400)+' days ago';
+}
+function renderUpdates(u){
+  _upd=u;
+  const st=$('updState'), act=$('updAct'), bar=$('updBar'), chk=$('updCheck');
+  if(!st) return;
+  $('updVersion').textContent='MangaTCT '+u.version+(u.channel?' ('+u.channel+')':'');
+  $('updLauncher').textContent=u.launcher?'launcher '+u.launcher:'';
+  act.hidden=true; bar.hidden=true; $('updSetup').hidden=true;
+  if(!u.launched){
+    st.textContent='Started from a checkout - updates come from git.';
+    chk.disabled=true; $('updAutoRow').style.display='none'; $('updWhen').textContent='';
+    return;
+  }
+  chk.disabled=!!u.busy;
+  $('updAuto').checked=!!u.auto;
+  $('updWhen').textContent=u.busy?'':_ago(u.last_check);
+  const up=u.update, pct=(u.percent!=null?u.percent:(up&&up.percent!=null?up.percent:null));
+  if(u.busy==='install'){
+    st.textContent='Downloading the new setup…'+(pct!=null?' '+pct+'%':'');
+    bar.hidden=false; bar.firstElementChild.style.width=(pct||0)+'%';
+  }else if(up&&up.state==='downloading'||u.busy==='check'&&up){
+    st.textContent='Downloading '+(up?up.available:'')+'…'+(pct!=null?' '+pct+'%':'');
+    bar.hidden=false; bar.firstElementChild.style.width=(pct||0)+'%';
+  }else if(u.busy==='check'){
+    st.textContent='Checking…';
+  }else if(up&&up.state==='ready'){
+    st.textContent='Version '+up.available+' is ready.';
+    act.hidden=false; act.textContent=u.can_restart?'Restart now':'Quit and start again';
+    act.dataset.do='restart';
+  }else if(up&&up.state==='offered'){
+    st.textContent='Version '+up.available+' is available.';
+    act.hidden=false; act.textContent='Download'; act.dataset.do='download';
+  }else if(u.problem){
+    st.textContent=u.problem;
+  }else{
+    st.textContent='You have the latest version.';
+  }
+  const inst=u.installer;
+  if(inst&&!u.busy){
+    $('updSetup').hidden=false;
+    $('updSetupLine').textContent=(inst.required
+      ?'This version needs the new setup (launcher '+inst.launcher+').'
+      :'A new setup is available (launcher '+inst.launcher+') - it replaces the launcher and runtime, about '
+        +Math.round((inst.size||0)/1048576)+' MB.');
+  }
+  if(u.busy){ if(!_updTimer) _updTimer=setTimeout(()=>{_updTimer=null;refreshUpdates();},1000); }
+}
+async function refreshUpdates(){
+  try{
+    const u=await api('/api/updates');
+    renderUpdates(u);
+    // Opening the section is asking. A check that is older than ten
+    // minutes is asked again, which - with the switch on - is the download.
+    if(u.launched && !u.busy && (Date.now()/1000-(u.last_check||0))>600) checkUpdates();
+  }catch(e){}
+}
+async function checkUpdates(force){
+  try{ renderUpdates(await api('/api/updates','POST',{do:'check',force:!!force})); }catch(e){}
+}
+async function setAutoUpdates(on){
+  try{ renderUpdates(await api('/api/updates','POST',{do:'auto',on:!!on})); }catch(e){}
+}
+async function actOnUpdate(){
+  const act=$('updAct');
+  if(act.dataset.do==='download') return checkUpdates(true);
+  if(act.dataset.do==='restart'){
+    const r=await api('/api/updates','POST',{do:'restart'});
+    $('updState').textContent=r.restarting?'Restarting…':'Quitting - start MangaTCT again to run the new version.';
+    act.hidden=true;
+  }
+}
+async function getNewSetup(){
+  $('updSetupBtn').disabled=true;
+  try{
+    const r=await api('/api/updates','POST',{do:'install'});
+    if(r.error){ $('updSetupLine').textContent=r.error; $('updSetupBtn').disabled=false; return; }
+    renderUpdates(r);
+  }catch(e){ $('updSetupBtn').disabled=false; }
 }
 
 /* ---------------- help ---------------- */
