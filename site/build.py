@@ -415,8 +415,15 @@ FORMATS = [
     },
 ]
 
+# The screens, in the order the app shows them. Home first, because it is
+# what the app opens on. lee: *"upadet the website to be accurate with whats
+# acculy on teh app"*. Its picture is the app signed out with nothing opened
+# yet - what somebody who has just installed it sees.
 TABS = [
-    ("File", "Open a chapter, add pages, reorder them. One screen, one job.",
+    ("Home", "Where the app opens: start a new project or open a project "
+     "file, sign in, and pick up the chapters you opened before.",
+     "ui-home-real.jpg", "The Home screen of a new install"),
+    ("File","Open a chapter, add pages, reorder them. One screen, one job.",
      "ui-pages.jpg", "The File screen: what the chapter is, what it is "
      "written in, and where the pages come from"),
     ("Workspace", "The page. Boxes on the left of the split, typesetting on "
