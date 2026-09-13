@@ -23,8 +23,12 @@ The welcome and rules messages are posted only into channels this run made.
 The token is read from the environment and nowhere else: an argument would sit
 in the shell history. It is never printed. The webhook's address, which is a
 secret of its own, is printed once, to the terminal the script runs in, when
-the webhook is made - it is what the release announcement posts to
-(`tools/pending/discord-release-announcement.md`).
+the webhook is made - it is what the last step of `.github/workflows/release.yml`
+posts to, from the repository secret DISCORD_RELEASE_WEBHOOK. Set that with
+`gh secret set DISCORD_RELEASE_WEBHOOK`, which asks for the value without
+showing it. If it ever leaks: delete "MangaTCT Releases" under #announcements >
+Edit Channel > Integrations > Webhooks, run this again with --apply for a new
+one, and set the secret again.
 
 Standard library only, so it runs on the Python the app already needs.
 """
@@ -365,7 +369,7 @@ def run(call, apply=False, say=print, guild_id=None):
             say(f'+ webhook "{HOOK_NAME}". Its address is a secret - anyone with it can post as it:')
             say(f"    https://discord.com/api/webhooks/{hook['id']}/{hook['token']}")
             say("    Save it in GitHub as the repository secret DISCORD_RELEASE_WEBHOOK "
-                "(see tools/pending/discord-release-announcement.md).")
+                "(gh secret set DISCORD_RELEASE_WEBHOOK asks for it without showing it).")
 
     if apply:
         say(f"Done: {count['new']} added, {count['kept']} already there.")

@@ -179,3 +179,29 @@ jobs:
           git diff --cached --quiet && { echo "manifest unchanged"; exit 0; }
           git commit -m "MangaTCT ${{ needs.check.outputs.version }} [skip ci]"
           git push origin HEAD:main
+
+      # 3. a note in the Discord server's #announcements, through the webhook
+      #    tools/discord_setup.py made. lee: *"can you set up the whole
+      #    server?"* Last, because the note says installed copies update
+      #    themselves - true only once the manifest above names the version.
+      #    With no DISCORD_RELEASE_WEBHOOK secret it says so and stops; a
+      #    Discord that is down does not fail a release that is already out
+      #    (continue-on-error). The address reaches the step only through env,
+      #    so the log masks it; allowed_mentions is empty so nobody is pinged.
+      - name: Announce the release on Discord
+        continue-on-error: true
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_RELEASE_WEBHOOK is not set; the release was not announced on Discord"
+            exit 0
+          fi
+          jq -n --arg v "$VERSION" --arg repo "$GITHUB_REPOSITORY" '{
+            username: "MangaTCT",
+            content: ("**MangaTCT \($v)** is out.\n"
+              + "Installed copies update themselves. New here? https://mangatct.com/download\n"
+              + "What is in it: https://github.com/\($repo)/releases/tag/v\($v)"),
+            allowed_mentions: {parse: []}
+          }' | curl -fsS -X POST -H "Content-Type: application/json" --data @- "$WEBHOOK"
