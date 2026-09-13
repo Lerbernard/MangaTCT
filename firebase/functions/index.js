@@ -279,7 +279,14 @@ export function downloadTarget(path, latest) {
   return `https://github.com/${REPO}/releases/download/v${v}/${NAMES[m[2]](v)}`;
 }
 
-export const get = onRequest({ memory: '128MiB', maxInstances: 5 }, async (req, res) => {
+// 256 MiB, the same as every other function here, not the 128 it had. It
+// only redirects, but a function's memory is paid at START, not per line:
+// this file loads firebase-admin and Stripe for all of them, and on Node 22
+// that alone sits near 128 MiB. Once the relay joined the file the download
+// link died with Google's own "Server Error - try again in 30 seconds",
+// which is what a container that ran out of memory while starting looks
+// like from outside (lee's screenshot of mangatct.com/get/latest/installer).
+export const get = onRequest({ memory: '256MiB', maxInstances: 5 }, async (req, res) => {
   let latest = '';
   if (req.path.startsWith('/get/latest/')) {
     try { latest = await latestVersion(); } catch (e) {

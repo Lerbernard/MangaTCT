@@ -133,6 +133,7 @@ To check before you tag that the tag will be accepted:
 ```powershell
 git status --short          # should be empty
 python tools/release.py version
+python -m pytest tests -q   # from the repository folder; pytest.ini finds the package
 ```
 
 The first of those two is the one that bites. `git status --short` empty means

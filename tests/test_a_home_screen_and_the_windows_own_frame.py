@@ -66,9 +66,9 @@ class _Win:
 
 def test_the_page_api_is_the_three_buttons_and_the_frame_hit(monkeypatch):
     api = W.Api()
-    api.frameless = True
+    api._frameless = True
     w = _Win()
-    api.win = w
+    api._win = w
     assert api.state() == {"frameless": True, "maximized": False}
     api.minimize(); assert w.calls[-1] == "min"
     assert api.toggle_maximize() is True and w.calls[-1] == "max"
@@ -86,6 +86,56 @@ def test_the_page_api_is_the_three_buttons_and_the_frame_hit(monkeypatch):
     assert api.hit(2) is False
     assert W.HTCAPTION == 2 and W.HIT_CODES == {2, 10, 11, 12, 13, 14, 15, 16, 17}
     assert W.WM_NCLBUTTONDOWN == 0xA1
+
+
+def test_the_api_object_holds_nothing_pywebview_would_walk_into():
+    """lee: *"the app is crashing when opening"* - pages of `[pywebview]
+    Error while processing win.native.AccessibilityObject.Bounds.Empty.Empty
+    ... maximum recursion depth exceeded`. pywebview builds the page's
+    `pywebview.api` by walking every PUBLIC attribute of the object and
+    recursing into any that is itself an object; `api.win` was the window,
+    whose `.native` is a WinForms object graph with no bottom. So: the
+    window and the flag are underscored, and the walk pywebview does (the
+    same rule it uses, run here over an object shaped like the real one)
+    finds exactly the verbs and nothing to recurse into."""
+    import inspect
+
+    class Bottomless:                    # `.native`: every attribute is another one
+        def __getattr__(self, name):
+            if name.startswith("_"):
+                raise AttributeError(name)
+            return Bottomless()
+
+        def __dir__(self):
+            return ["Bounds", "Empty", "Parent"]
+
+    class Win:
+        native = Bottomless()
+        def minimize(self): pass
+
+    api = W.Api()
+    api._win = Win()
+    api._frameless = True
+    seen, functions = [], {}
+
+    def walk(obj, base="", depth=0):     # pywebview's get_functions, in short
+        assert depth < 5, "walked into " + base
+        if id(obj) in seen:
+            return
+        seen.append(id(obj))
+        for name in dir(obj):
+            if name.startswith("_"):
+                continue
+            attr = getattr(obj, name)
+            full = base + "." + name if base else name
+            if inspect.ismethod(attr) or inspect.isfunction(attr):
+                functions[full] = True
+            elif inspect.isclass(attr) or (not callable(attr) and hasattr(attr, "__module__")):
+                walk(attr, full, depth + 1)
+    walk(api)
+    assert set(functions) == {"state", "minimize", "toggle_maximize", "close", "hit", "focus"}
+    assert not [n for n in vars(api) if not n.startswith("_")], \
+        "every attribute on the Api object is private"
 
 
 def test_the_native_drag_is_release_capture_then_nc_lbutton_down(monkeypatch):
@@ -121,7 +171,7 @@ def test_on_windows_the_window_is_made_frameless_with_the_api(monkeypatch, tmp_p
     assert W.main(["--port", "1"]) == W.EXIT_CLOSED
     kw = made[0].kw
     assert kw["frameless"] is True and kw["easy_drag"] is False
-    assert isinstance(kw["js_api"], W.Api) and kw["js_api"].win is made[0]
+    assert isinstance(kw["js_api"], W.Api) and kw["js_api"]._win is made[0]
     assert dressed == [True], "rounded corners asked for on the frameless window"
     assert kept == [1], "maximise stops at the taskbar"
     # ...and with --frame the system frame stays, and none of that happens

@@ -172,29 +172,37 @@ class Api:
     down on, Windows runs the drag itself. `focus` is the odd one: the page
     asking to be brought back to the front after a sign-in in the browser."""
 
+    # UNDERSCORES, ON PURPOSE. pywebview builds `window.pywebview.api` by
+    # walking every public attribute of this object and recursing into any
+    # that is an object - and the window is an object whose `.native` is the
+    # whole WinForms form, an object graph with no bottom. With `win` public
+    # the walk went `win.native.AccessibilityObject.Bounds.Empty.Empty...`
+    # until Python's recursion limit, once per attribute, and the app never
+    # came up (lee: *"the app is crashing when opening"*). Names that start
+    # with `_` are skipped by that walk.
     def __init__(self):
-        self.win = None
-        self.frameless = False
+        self._win = None
+        self._frameless = False
 
     def state(self) -> dict:
-        return {"frameless": bool(self.frameless), "maximized": _is_maximized(self.win)}
+        return {"frameless": bool(self._frameless), "maximized": _is_maximized(self._win)}
 
     def minimize(self) -> None:
-        if self.win is not None:
-            self.win.minimize()
+        if self._win is not None:
+            self._win.minimize()
 
     def toggle_maximize(self) -> bool:
-        if self.win is None:
+        if self._win is None:
             return False
-        if _is_maximized(self.win):
-            self.win.restore()
+        if _is_maximized(self._win):
+            self._win.restore()
             return False
-        self.win.maximize()
+        self._win.maximize()
         return True
 
     def close(self) -> None:
-        if self.win is not None:
-            self.win.destroy()
+        if self._win is not None:
+            self._win.destroy()
 
     def focus(self) -> bool:
         """Come to the front. Asked once a sign-in made in the browser has
@@ -202,9 +210,9 @@ class Api:
         says "go back to the app". Windows only lets a process take the
         foreground when it is allowed to; when it is not, the taskbar entry
         flashes instead, which is the right thing to happen."""
-        if self.win is None or sys.platform != "win32":
+        if self._win is None or sys.platform != "win32":
             return False
-        hwnd = _hwnd_of(self.win)
+        hwnd = _hwnd_of(self._win)
         if not hwnd:
             return False
         try:
@@ -224,12 +232,12 @@ class Api:
             code = int(code)
         except (TypeError, ValueError):
             return False
-        if code not in HIT_CODES or sys.platform != "win32" or self.win is None:
+        if code not in HIT_CODES or sys.platform != "win32" or self._win is None:
             return False
-        hwnd = _hwnd_of(self.win)
+        hwnd = _hwnd_of(self._win)
         if not hwnd:
             return False
-        return _begin_native_drag(self.win, hwnd, code)
+        return _begin_native_drag(self._win, hwnd, code)
 
 
 def _begin_native_drag(win, hwnd: int, code: int) -> bool:
@@ -374,14 +382,14 @@ def main(argv=None) -> int:
     width, height = g.get("width", DEFAULT_SIZE[0]), g.get("height", DEFAULT_SIZE[1])
     frameless = not want_frame(a)
     api = Api()
-    api.frameless = frameless
+    api._frameless = frameless
     win = webview.create_window(
         a.title, url_for(a), width=width, height=height,
         x=g.get("x"), y=g.get("y"), maximized=g.get("maximized", False),
         min_size=MIN_SIZE, background_color=BACKGROUND,
         text_select=True, zoomable=True,
         frameless=frameless, easy_drag=False, js_api=api)
-    api.win = win
+    api._win = win
 
     state = {"maximized": g.get("maximized", False)}
 
