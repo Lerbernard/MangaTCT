@@ -78,26 +78,103 @@ def contact_links(cls="btn ghost"):
     return "".join(out)
 
 
-def contact_icons():
-    """The same two doors, as icons for the header. lee: *"add thse as button
-    on the top bar so taht they are easy to access"*. Icons and not words,
-    because the header had just been got back down to one row and two more
-    text pills would put it on two again. Each carries its label as a title
-    and an aria-label, so it is a real button to a screen reader and a
-    tooltip to everyone else. Drawn only when the door exists, same as the
-    text version."""
+#: The page in chapters. lee: *"make it not be a long scroll break up the
+#: scroll"*, and then *"organisze teh website better so that teer are nt so
+#: many tabs and crete sub tave if needed"*. Ten sections that were one long
+#: scroll are five chapters, one on screen at a time, and a chapter with more
+#: than one part has sub tabs. Every old anchor still lands - `#how`,
+#: `#formats`, `#control`, `#rules`, `#compare`, `#credits` - the page opens
+#: the chapter and the sub tab it lives in first. With no script at all
+#: nothing is hidden: the bars go and the chapters stand one after another.
+CHAPTERS = [
+    ("how", "How it works", [("how", "Before and after"), ("steps", "The seven steps"),
+                             ("screens", "The screens")]),
+    ("formats", "Formats", [("formats", "Formats")]),
+    ("control", "Your control", [("control", "Editorial control"), ("rules", "Six rules")]),
+    ("models", "Models and coins", [("models", "The models"), ("credits", "Coins")]),
+    ("compare", "Compare", [("compare", "Compared"), ("faq", "Questions")]),
+]
+
+#: What the Product menu says under each chapter's name.
+CHAPTER_LINES = {
+    "how": "Before and after, the seven steps, the screens",
+    "formats": "Manga, manhwa and manhua",
+    "control": "Edit every decision, and six rules",
+    "models": "The AI you can use, and what it costs",
+    "compare": "Against the other ways, and questions",
+}
+
+
+def chapbar():
+    """The chapter strip under the hero. The open chapter's tab fills yellow
+    and pops. The fill belongs to the tab itself rather than to a highlight
+    slid underneath it: a highlight measured a moment too early was narrower
+    than its tab, and the dark label ran off it into the dark. With no script
+    the whole bar is hidden and the chapters simply follow each other."""
+    tabs = "".join(
+        f'<button class="ch" role="tab" aria-selected="{str(i == 0).lower()}" '
+        f'aria-controls="c-{cid}" id="ct-{cid}"><em>{i + 1:02d}</em>{title}</button>'
+        for i, (cid, title, _subs) in enumerate(CHAPTERS))
+    return ('<nav class="chapbar" aria-label="Chapters"><div class="wrap">'
+            f'<div class="chaps" role="tablist" id="chaptabs">{tabs}</div></div></nav>')
+
+
+def chap_open(cid):
+    """A chapter, and its sub tabs when it has more than one part."""
+    title, subs = next((ti, s) for ch, ti, s in CHAPTERS if ch == cid)
+    html = (f'<section class="pan chap" role="tabpanel" id="c-{cid}" '
+            f'aria-labelledby="ct-{cid}">')
+    if len(subs) > 1:
+        html += ('<div class="subbar"><div class="wrap">'
+                 f'<div class="subtabs" role="tablist" id="subs-{cid}" aria-label="{title}">'
+                 + "".join(
+                     f'<button class="sb" role="tab" aria-selected="{str(i == 0).lower()}" '
+                     f'aria-controls="{sid}" id="sb-{sid}">{label}</button>'
+                     for i, (sid, label) in enumerate(subs))
+                 + '<span class="ink" aria-hidden="true"></span></div></div></div>')
+    return html
+
+
+def product_links():
+    return "".join(
+        f'<a href="#{cid}"><b>{title}</b><span>{CHAPTER_LINES[cid]}</span></a>'
+        for cid, title, _subs in CHAPTERS)
+
+
+# Written out rather than generated, so the source itself carries the link to
+# the guide that a test asks of it.
+RESOURCE_LINKS = (
+    '<a href="tutorial.html"><b>Guide</b><span>Every screen and tool, step by step</span></a>'
+    '<a href="fonts.html"><b>Fonts</b><span>The typefaces the app ships with</span></a>'
+    '<a href="releases.html"><b>Releases</b><span>Every version, with checksums</span></a>')
+
+
+def help_links():
+    """The Help menu. The Discord and email doors used to be two icons of their
+    own on the top bar (lee: *"add thse as button on the top bar so taht they
+    are easy to access"*); with the bar cut down to a few menus they live here,
+    one press away and with their names written out, beside the privacy page.
+    A door SUPPORT leaves empty is still not drawn."""
     out = []
     if SUPPORT.get("discord"):
-        out.append(
-            f'<a class="navb icon" href="{SUPPORT["discord"]}" target="_blank" '
-            f'rel="noopener" title="Ask on Discord" aria-label="Ask on Discord">'
-            f'{DISCORD_SVG}</a>')
+        out.append(f'<a class="row" href="{SUPPORT["discord"]}" target="_blank" rel="noopener">'
+                   f'{DISCORD_SVG}<span class="t"><b>Ask on Discord</b>'
+                   '<span>Questions, bugs and requests</span></span></a>')
     if SUPPORT.get("email"):
-        out.append(
-            f'<a class="navb icon" href="mailto:{SUPPORT["email"]}" '
-            f'title="Email us" aria-label="Email us">'
-            f'{MAIL_SVG}</a>')
+        out.append(f'<a class="row" href="mailto:{SUPPORT["email"]}">{MAIL_SVG}'
+                   f'<span class="t"><b>Email us</b><span>{SUPPORT["email"]}</span></span></a>')
+    out.append('<a href="privacy.html"><b>Privacy</b><span>What is kept, and what is not</span></a>')
     return "".join(out)
+
+
+def menu(label, mid, links, right=False, cls="mgrp"):
+    """One menu on the top bar. Hover or keyboard focus opens it with no script
+    (the stylesheet); the script adds click, Escape and click-away, which is
+    what a phone needs."""
+    return (f'<div class="menu {cls}">'
+            f'<button class="navb mbtn" type="button" aria-expanded="false" '
+            f'aria-controls="{mid}">{label}<i class="car" aria-hidden="true"></i></button>'
+            f'<div class="drop{" right" if right else ""}" id="{mid}">{links}</div></div>')
 
 
 def lmb_mark():
@@ -155,24 +232,28 @@ def shot(name, alt, cap=None, want="", ratio="16 / 9", cls=""):
 AIS = [
     ("Gemini 2.5 Flash-Lite", "Google", "Cheapest",
      "The cheapest thing that does the job. Fine for reading text off a page."),
-    ("Gemini 3.5 Flash-Lite", "Google", "Good default",
-     "A generation newer for not much more. A good default."),
+    ("Gemini 3.5 Flash-Lite", "Google", "Default for reading",
+     "Cheap and quick. The default for reading text."),
     ("Claude Haiku 4.5", "Anthropic", "Small and careful",
      "Claude's small one. Better at holding a voice than its price suggests."),
-    ("Gemini 3.7 Flash", "Google", "The usual choice",
-     "Fast, and it thinks before it answers. The usual choice for translating."),
-    ("Claude Sonnet 5", "Anthropic", "For proofreading",
-     "The one most people proofread with. Catches what the others miss."),
-    ("Claude Opus 5", "Anthropic", "The best there is",
-     "The best there is, and priced like it. Worth it on a page that matters."),
+    ("Gemini 3.7 Flash", "Google", "Default for translating",
+     "Fast, and it thinks before it answers. The default for translating."),
+    ("Gemini 3.8 Flash", "Google", "Newest Flash",
+     "Google's newest Flash, at the same price as 3.7 Flash."),
+    ("Claude Sonnet 5", "Anthropic", "Default for proofreading",
+     "The default for proofreading. Catches what the others miss."),
+    ("Claude Opus 5", "Anthropic", "Large",
+     "Anthropic's large model. Worth it on a page that matters."),
+    ("Claude Fable 5", "Anthropic", "Most expensive",
+     "The most expensive model on the menu, for the page that has to be right."),
 ]
 
 STEPS = [
     ("Translation", [
         ("1", "Find text", "Every block of writing on the page, boxed - "
          "dialogue, captions, thoughts on the art, sound effects."),
-        ("2", "Read text", "The Japanese, Korean or Chinese out of each box. "
-         "Whole page in one request, or the page cut up for the small print."),
+        ("2", "Read text", "The Japanese, Korean or Chinese out of each box, "
+         "read as a close-up of every box. Or read on your own computer, for nothing."),
         ("3", "Translate", "Every box on the page in one go, with the "
          "synopsis, the character sheet and the glossary in front of it - so "
          "honorifics and names stay the same on page 39 as on page 1."),
@@ -184,15 +265,15 @@ STEPS = [
          "works exactly the same."),
     ]),
     ("Image", [
-        ("5", "Clean", "The Japanese comes off. Flat fill for a plain "
-         "balloon, tone copied under a screentone, the AI cleaner for the "
-         "hard bits."),
+        ("5", "Clean", "The Japanese comes off. A plain white balloon is "
+         "filled on your computer; everything else goes to the hosted AI "
+         "cleaner, a few coins a chapter."),
         ("6", "Typeset", "The English goes in, fitted to the balloon. Line "
          "breaks first, then size - the words themselves are never touched."),
     ]),
-    ("Out", [
-        ("7", "Export", "The finished pages. Or the cleaned plates. Or a "
-         "sheet with every box numbered, for someone else to typeset."),
+    ("Export", [
+        ("7", "Export", "The finished pages. Or the cleaned pages with no "
+         "text. Or the original art with every box drawn on, for checking."),
     ]),
 ]
 
@@ -219,10 +300,10 @@ FORMATS = [
              "Boxes are ordered inside their panel first, and the cut is found "
              "by measuring the gutter - including slanted ones, which is most "
              "of an action page. Drag a row and the whole chapter renumbers."),
-            ("Read locally by manga-ocr, no key and no upload",
+            ("Can be read locally by manga-ocr, free and offline",
              "It installs with the app and it is the strongest reader there is "
-             "for Japanese comic typesetting. Or point Read text at a vision "
-             "model instead - that works for all three formats."),
+             "for Japanese comic typesetting. Or use the AI reader instead - "
+             "that works for all three formats."),
             ("Honorifics survive, or come off - your call",
              "-san, -sama, -kun, -chan, -senpai. And the chapter audit catches "
              "one welded onto a name where it should not be."),
@@ -263,7 +344,7 @@ FORMATS = [
         "id": "webtoon",
         "media": ["manhwa", "manhua"],
         "tab": "Manhwa &amp; manhua",
-        "lang": "Korean &middot; Chinese",
+        "lang": "Korean | Chinese",
         "dir": "Left to right",
         # Two pictures, one panel. The claim this panel makes is "one route,
         # two languages", and two chapters side by side is the only way to
@@ -345,8 +426,8 @@ TABS = [
      "pass found, page by page, with the original beside it.",
      "ui-results-real.jpg",
      "The Results tab showing the proofread report on your own chapter"),
-    ("Settings", "Fonts, box types, languages, models, cleaning. Per chapter, "
-     "and remembered.", "ui-settings-fonts-real.jpg",
+    ("Settings", "The story, languages, detection and reading, AI models, "
+     "cleaning, fonts, your account and updates.", "ui-settings-fonts-real.jpg",
      "Settings ▸ Fonts &amp; typesetting"),
 ]
 
@@ -369,10 +450,10 @@ RULES = [
      "Draw a text box and it is independent: no detection behind it, not in "
      "the translation list, not counted as text to translate. Uploading a new "
      "translation does not sweep it away."),
-    ("Nothing is uploaded that you did not send.",
-     "Finding text, cleaning and typesetting run locally. Reading and "
-     "translating go to whichever model you point them at - including one on "
-     "your own machine."),
+    ("Nothing is uploaded without a step that says so.",
+     "Finding text, typesetting and exporting run on your computer. Reading, "
+     "translating, proofreading and cleaning send only what that step needs, "
+     "through MangaTCT, to the service doing it."),
 ]
 
 CONTROL = [
@@ -387,7 +468,7 @@ CONTROL = [
      "outline colour, both as gradients. Shadow, outer glow, inner glow. Per "
      "block - not per page, not per chapter.",
      "ui-typesetting.jpg", "The typesetting rail with one block selected"),
-    ("Every bubble, cleaned your way",
+    ("Every bubble, and how it was cleaned",
      "The page says which route cleaned each bubble - filled flat, tone "
      "copied, locally, by the AI - so you can see what it did before you trust "
      "it. Or drop in your own cleaned plate and skip the step.",
@@ -407,7 +488,7 @@ COMPARE = [
     ("Glossary and character sheet applied to every page", "you remember",
      "you remember", "carried into every request"),
     ("Runs the model you choose, or none at all", "no model",
-     "fixed", "per step, including local"),
+     "fixed", "per step, from five AI companies"),
     ("Translate it entirely by hand", "yes", "no",
      "yes - a labelled file out, filled in, back"),
     ("Webtoon strips cut into pages", "you cut them", "rarely",
@@ -419,13 +500,15 @@ FAQ = [
     ("What do I need to run it?",
      "Windows 10 or 11. The installer brings its own Python, and the first "
      "start downloads the text models - about 300 MB, once. No graphics card "
-     "needed. Reading and translating are paid in TCT Coins; "
-     "everything else runs offline."),
+     "needed. Reading, translating, proofreading and the hosted cleaner are "
+     "paid in TCT Coins; finding text, typesetting and exporting run offline."),
     ("Does it upload my raws?",
-     "Finding text, cleaning, typesetting and exporting never leave your "
-     "machine. Reading and translating send the page - or just the text - to "
-     "the model you chose. Point them at something running on your own "
-     "computer and nothing leaves at all."),
+     "Finding text, typesetting and exporting never leave your machine. "
+     "Reading, translating and proofreading send the page, or its text, "
+     "through MangaTCT to the AI company you picked. Cleaning sends the parts "
+     "of a page that are not plain white balloons to the hosted cleaner. Read "
+     "on your computer, translate by hand and stay signed out, and nothing "
+     "leaves at all."),
     ("What about long webtoon strips?",
      "A chapter uploaded as identical tiles is re-cut into pages near 2,400px "
      "on upload, at the gutters, and your tiles are kept. It is done because "
@@ -440,7 +523,8 @@ FAQ = [
     ("Can I use it without any AI?",
      "Yes. Turn on manual translation and the three model steps go quiet. "
      "Download a labelled text file with every box numbered, fill it in, "
-     "upload it back - or type straight into the page."),
+     "upload it back - or type straight into the page. Sign out and cleaning "
+     "uses the local fill too."),
     ("Is it finished?",
      "No. It typesets a chapter today and it is being worked on most days. "
      "The parts that have settled - finding text, reading it, translating, "
@@ -566,7 +650,7 @@ def build():
           + "".join(cells) + '</div>')
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en" class="nojs">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MangaTCT Beta - translate, clean, typeset</title>
@@ -665,9 +749,9 @@ section.band>.wrap:before{{content:"";position:absolute;left:24px;top:-6px;
  width:54px;height:3px;border-radius:2px;
  background:linear-gradient(90deg,var(--accent),transparent)}}
 .hero+.band{{border-top:1px solid var(--line)}}
-/* Every anchored section has to clear the sticky header, or following a nav
-   link lands with the heading tucked underneath it. */
-[id]{{scroll-margin-top:84px}}
+/* Every anchored section has to clear the sticky header AND the chapter bar
+   under it, or following a link lands with the heading tucked underneath. */
+[id]{{scroll-margin-top:128px}}
 .kicker{{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
  color:var(--accent);margin:0 0 12px;font-weight:700}}
 
@@ -716,23 +800,25 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 .navb.icon{{padding:6px;width:30px;height:30px;justify-content:center;
  color:var(--dim)}}
 .navb svg{{display:block}}
-.btn{{display:inline-block;background:var(--accent);color:var(--on-accent);
- padding:11px 20px;border-radius:9px;font-weight:700;text-decoration:none;
- font-size:15px;border:1px solid var(--accent);white-space:nowrap;
- transition:transform .12s ease,background .12s ease}}
+.btn{{display:inline-block;background:linear-gradient(160deg,var(--accent),var(--accent2));
+ color:var(--on-accent);padding:12px 21px;border-radius:10px;font-weight:700;
+ text-decoration:none;font-size:15px;border:0;white-space:nowrap;
+ transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,filter .18s ease,
+ background .18s ease}}
 /* The two in the header are smaller than the ones in the page body. */
-.hd .btn{{padding:8px 14px;font-size:13.5px;border-radius:8px}}
-.btn:hover{{filter:brightness(1.07);transform:translateY(-1px)}}
-.btn.ghost{{background:transparent;color:var(--fg);border-color:var(--line2)}}
+.hd .btn{{padding:9px 15px;font-size:13.5px;border-radius:9px}}
+.btn:hover{{filter:brightness(1.07);transform:translateY(-2px);box-shadow:0 10px 26px var(--glow)}}
+.btn.ghost{{background:var(--panel2);color:var(--fg)}}
 .btn.withmark{{display:inline-flex;align-items:center;gap:9px}}
 .btn.withmark svg{{flex:none}}
-.btn.ghost:hover{{background:var(--panel2)}}
+.btn.ghost:hover{{background:var(--line);box-shadow:0 10px 26px rgba(0,0,0,.22)}}
 
 /* ------------------------------------------------------------------ hero */
 .hero{{padding:clamp(56px,7vw,92px) 0 0;position:relative;overflow:hidden}}
 .hero:before{{content:"";position:absolute;inset:-30% 30% 55% -10%;
  background:radial-gradient(closest-side,var(--glow),transparent 70%);
- pointer-events:none}}
+ pointer-events:none;animation:drift 16s ease-in-out infinite alternate}}
+@keyframes drift{{from{{transform:translate(0,0) scale(1)}}to{{transform:translate(18%,12%) scale(1.15)}}}}
 .hero .wrap{{position:relative}}
 .hero h1{{font-size:clamp(38px,5.2vw,66px);margin:0 0 18px;max-width:24ch}}
 .hero h1 em{{font-style:normal;
@@ -742,7 +828,8 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 .cta{{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0 10px;align-items:center}}
 .note{{color:var(--dim2);font-size:13.5px}}
 .heroshot{{margin-top:44px;border:1px solid var(--line);border-radius:var(--r);
- overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}}
+ overflow:hidden;background:var(--panel);box-shadow:var(--shadow);
+ transition:transform .3s ease-out;will-change:transform}}
 .stats{{display:flex;gap:40px;flex-wrap:wrap;margin:26px 0 0}}
 .stat b{{display:block;font-size:30px;color:var(--fg);line-height:1}}
 .stat span{{color:var(--dim);font-size:14px}}
@@ -760,14 +847,14 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
  color:var(--dim2);font-weight:700}}
 .ai h4{{margin:6px 0 6px}}
 .ai .for{{display:inline-block;font-size:11.5px;font-weight:700;
- color:var(--accent);border:1px solid var(--line2);border-radius:999px;
- padding:2px 9px;margin-bottom:9px}}
+ color:var(--accent);background:var(--glow);border-radius:999px;
+ padding:3px 10px;margin-bottom:9px}}
 .ai p{{margin:0;color:var(--dim);font-size:14px}}
 
 /* A step that is a choice says so in the heading, not in a footnote. */
 .opt{{font-family:inherit;font-size:11px;letter-spacing:.1em;
  text-transform:uppercase;font-weight:700;color:var(--accent);
- border:1px solid var(--line2);border-radius:999px;padding:2px 8px;
+ background:var(--glow);border-radius:999px;padding:3px 9px;
  margin-left:8px;vertical-align:middle;white-space:nowrap}}
 
 /* -------------------------------------------------------- picture holes */
@@ -831,17 +918,17 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 
 /* --------------------------------------------------------------- tabs */
 .tabs{{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 26px}}
-.tb{{appearance:none;background:var(--panel);color:var(--dim);
- border:1px solid var(--line);border-radius:999px;padding:9px 18px;
+.tb{{appearance:none;background:var(--panel2);color:var(--dim);
+ border:0;border-radius:999px;padding:10px 19px;
  font:inherit;font-size:15px;font-weight:600;cursor:pointer;
  display:flex;align-items:baseline;gap:8px;
- transition:color .15s ease,border-color .15s ease,background .15s ease}}
+ transition:color .18s ease,background .18s ease,transform .18s cubic-bezier(.2,.8,.2,1),
+ box-shadow .18s ease}}
 .tb span{{font-size:12px;font-weight:400;color:var(--dim2)}}
-.tb:hover{{color:var(--fg);border-color:var(--line2);background:var(--panel2)}}
-.tb[aria-selected=true]{{color:#141821;background:var(--accent);
- border-color:var(--accent)}}
-.tb[aria-selected=true]:hover{{color:#141821;background:var(--accent2);
- border-color:var(--accent2)}}
+.tb:hover{{color:var(--fg);background:var(--line);transform:translateY(-2px)}}
+.tb[aria-selected=true]{{color:#141821;
+ background:linear-gradient(160deg,var(--accent),var(--accent2));box-shadow:0 8px 22px var(--glow)}}
+.tb[aria-selected=true]:hover{{color:#141821;filter:brightness(1.06)}}
 .tb[aria-selected=true] span{{color:#4a3d00}}
 .pan[hidden]{{display:none}}
 .pan-img img{{max-height:330px;object-fit:cover;object-position:top}}
@@ -850,7 +937,7 @@ header{{position:sticky;top:0;z-index:60;background:var(--bg);
 .pantop .sub{{margin-top:0}}
 .panlead{{color:var(--dim);font-size:17px;margin:0 0 12px}}
 .chips{{display:flex;gap:8px;flex-wrap:wrap;margin:0}}
-.chip{{border:1px solid var(--line2);border-radius:999px;padding:4px 12px;
+.chip{{background:var(--panel2);border-radius:999px;padding:5px 13px;
  font-size:12.5px;color:var(--dim)}}
 .two{{display:grid;grid-template-columns:1fr 1fr;gap:36px}}
 .two.tight{{grid-template-columns:1fr 1.15fr;align-items:center}}
@@ -928,7 +1015,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
  font-size:13px;color:var(--dim2);flex-wrap:wrap}}
 .built{{display:inline-flex;align-items:center;gap:9px;color:var(--dim2);
  text-decoration:none;padding:8px 12px;border-radius:10px;border:1px solid transparent}}
-.built:hover{{border-color:var(--line);background:var(--panel2);color:var(--dim)}}
+.built:hover{{background:var(--panel2);color:var(--dim)}}
 .built img.lmb{{display:block;width:26px;height:26px;border-radius:7px}}
 .built b{{color:var(--fg);font-weight:650}}
 /* The footer links. They replaced a placeholder chip, so every one of them
@@ -950,10 +1037,12 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
  .foot{{grid-template-columns:1fr 1fr;gap:28px}} .footabout{{grid-column:1 / -1}}
  .ba4{{grid-template-columns:1fr 1fr!important}}
  .ais{{grid-template-columns:1fr}}
- /* The in-page anchors go; Pricing and the theme control stay. Hiding the
-    whole nav took the theme button with it, which is the one thing on this
-    bar a phone is MORE likely to want than a desktop. */
- .hd nav a[href^="#"]{{display:none}}
+ /* The three menus and Pricing fold into one Menu; the theme control stays.
+    Hiding the whole nav took the theme button with it, which is the one thing
+    on this bar a phone is MORE likely to want than a desktop. */
+ .hd nav .menu.mgrp,.hd nav>a.top{{display:none}}
+ .hd nav .menu.all{{display:block}}
+ .ch{{padding:9px 13px;font-size:14px}}
  .hd nav{{gap:6px}}
 }}
 @media(max-width:560px){{
@@ -961,20 +1050,141 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
  .stats{{gap:22px}}
  .cta .btn{{width:100%}}
 }}
+
+/* ------------------------------------------------- the top bar, organised
+   lee: *"organisze teh website better so that teer are nt so many tabs and
+   crete sub tave if needed"*. A few things across the top instead of eleven:
+   Product, Resources and Help open menus, Pricing is a link. The thin bar along
+   the top edge is how far down the page you are. */
+.progress{{position:absolute;left:0;right:0;top:0;height:2px;transform-origin:0 50%;
+ transform:scaleX(0);background:linear-gradient(90deg,var(--accent),var(--accent2));
+ pointer-events:none;z-index:2}}
+.menu{{position:relative}}
+.mbtn .car{{width:6px;height:6px;border-right:1.6px solid currentColor;
+ border-bottom:1.6px solid currentColor;transform:translateY(-2px) rotate(45deg);
+ transition:transform .22s ease;margin-left:3px;display:inline-block}}
+.menu.open .car,.menu:hover .car{{transform:translateY(1px) rotate(225deg)}}
+.drop{{position:absolute;top:calc(100% + 10px);left:0;min-width:300px;padding:6px;
+ background:var(--panel);border-radius:14px;box-shadow:var(--shadow);
+ display:flex;flex-direction:column;gap:2px;z-index:70;
+ opacity:0;visibility:hidden;transform:translateY(-8px) scale(.98);transform-origin:top left;
+ transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1),visibility 0s linear .22s}}
+.drop.right{{left:auto;right:0;transform-origin:top right}}
+.drop:before{{content:"";position:absolute;left:0;right:0;top:-12px;height:12px}}
+.menu:hover .drop,.menu:focus-within .drop,.menu.open .drop{{opacity:1;visibility:visible;
+ transform:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1),visibility 0s}}
+/* A menu row is a row, not a pill. lee: *"not a big fan of this it lloks ugly
+   cnag ethe digning to smothing else"* - the header's own link style (a grey
+   pill, centered, one line) was reaching into the menus and turning every
+   entry into a fat grey capsule. These rules are scoped to the menus so it
+   cannot: left-aligned, a name and one line under it, nothing behind them
+   until the pointer arrives - then a soft fill and a yellow bar slide in. */
+.hd nav .drop a{{display:grid;grid-template-columns:1fr;row-gap:3px;align-items:start;
+ justify-items:start;text-align:left;padding:10px 14px 10px 16px;border:0;border-radius:10px;
+ background:transparent;color:var(--fg);font-size:14px;line-height:1.3;white-space:normal;
+ position:relative;transform:none;
+ transition:background .16s ease,padding-left .22s cubic-bezier(.2,.8,.2,1)}}
+.hd nav .drop a:before{{content:"";position:absolute;left:6px;top:11px;bottom:11px;width:3px;
+ border-radius:2px;background:linear-gradient(var(--accent),var(--accent2));
+ transform:scaleY(0);transition:transform .22s cubic-bezier(.2,.8,.2,1)}}
+.hd nav .drop a b{{color:var(--fg);font-weight:650;font-size:14px}}
+.hd nav .drop a span{{color:var(--dim);font-size:12.5px;font-weight:400}}
+.hd nav .drop a.row{{grid-template-columns:auto 1fr;column-gap:12px;align-items:center}}
+.hd nav .drop a.row .t{{display:grid;row-gap:3px}}
+.hd nav .drop a svg{{color:var(--accent)}}
+.hd nav .drop a:hover,.hd nav .drop a:focus-visible{{background:var(--panel2);
+ padding-left:22px;transform:none;color:var(--fg)}}
+.hd nav .drop a:hover:before,.hd nav .drop a:focus-visible:before{{transform:scaleY(1)}}
+.menu.all .drop{{max-height:calc(100vh - 90px);overflow-y:auto}}
+/* On a phone the one Menu opens as a panel under the bar, the width of the
+   screen less a margin. Anchored to its button it was wider than the room to
+   the button's left, and the first letters of every line were off the screen. */
+@media(max-width:980px){{
+ .menu.all .drop{{position:fixed;left:12px;right:12px;top:calc(var(--hh,60px) + 6px);
+  min-width:0;transform-origin:top center}}
+}}
+.menu.all{{display:none}}
+
+/* ---------------------------------------------------------------- chapters
+   lee: *"make it not be a long scroll break up the scroll"*. One chapter on
+   screen at a time; the open one's tab fills yellow and pops, and the new
+   chapter slides in from the side it is on. */
+.chapbar{{position:sticky;top:var(--hh,56px);z-index:55;background:var(--bg);
+ border-bottom:1px solid var(--line);backdrop-filter:blur(12px) saturate(1.3)}}
+.chaps,.subtabs{{position:relative;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}}
+.chaps::-webkit-scrollbar,.subtabs::-webkit-scrollbar{{display:none}}
+.chaps{{padding:8px 0}}
+.ch,.sb{{appearance:none;border:0;background:transparent;color:var(--dim);font:inherit;
+ font-weight:650;cursor:pointer;white-space:nowrap;position:relative;z-index:1;
+ transition:color .22s ease,transform .18s cubic-bezier(.2,.8,.2,1)}}
+.ch{{padding:10px 17px;border-radius:12px;font-size:15px;display:inline-flex;gap:9px;
+ align-items:baseline;overflow:hidden}}
+.ch em{{font-style:normal;font-size:11.5px;color:var(--dim2);letter-spacing:.08em;
+ transition:color .22s ease}}
+.ch:hover,.sb:hover{{color:var(--fg)}}
+.ch[aria-selected=true]{{color:var(--on-accent);background:linear-gradient(160deg,var(--accent),var(--accent2));
+ box-shadow:0 8px 24px var(--glow);animation:pop .34s cubic-bezier(.2,.8,.2,1)}}
+@keyframes pop{{from{{transform:scale(.9)}}to{{transform:none}}}}
+.ch[aria-selected=true] em{{color:var(--on-accent)}}
+.subbar{{padding:26px 0 0}}
+.subtabs{{background:var(--panel2);border-radius:14px;padding:5px;width:fit-content;max-width:100%}}
+.sb{{padding:8px 17px;border-radius:10px;font-size:14px;overflow:hidden}}
+.sb[aria-selected=true]{{color:var(--fg)}}
+.subtabs .ink{{position:absolute;left:0;top:5px;bottom:5px;width:0;border-radius:10px;z-index:0;
+ background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.28);
+ transition:transform .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1)}}
+.nojs .chapbar,.nojs .subbar{{display:none}}
+.chap>.band:first-of-type{{border-top:0}}
+@keyframes panIn{{from{{opacity:0;transform:translateX(calc(var(--dir,1) * 28px))}}
+ to{{opacity:1;transform:none}}}}
+.pan.enter{{animation:panIn .44s cubic-bezier(.2,.8,.2,1) both}}
+
+/* -------------------------------------------------------- the page, alive
+   lee: *"make teh website moreinterractive and add animaation and makethe
+   website dynamoic and add better on hover animation and on click animationa
+   nd remove this faint outline on these on te button s on teh website"*.
+   Fills instead of outlines; a lift and a glow on hover; a press and a ripple
+   on click; a light that follows the pointer across a card. The focus ring
+   stays - it is how somebody on a keyboard knows where they are. */
+.btn,.tb,.navb{{position:relative;overflow:hidden}}
+.btn:active,.tb:active,.navb:active,.ch:active,.sb:active{{transform:scale(.95)}}
+.rip{{position:absolute;border-radius:50%;pointer-events:none;background:currentColor;
+ opacity:.22;transform:scale(0);animation:rip .6s ease-out forwards}}
+@keyframes rip{{to{{transform:scale(1);opacity:0}}}}
+.spot{{position:relative;overflow:hidden}}
+.spot:after{{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
+ background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%),var(--glow),transparent 65%);
+ transition:opacity .3s ease}}
+.spot:hover:after{{opacity:1}}
+.card,.rule,.clip{{transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .22s ease}}
+.card:hover,.rule:hover,.clip:hover{{transform:translateY(-4px);border-color:var(--line2);
+ box-shadow:0 18px 40px rgba(0,0,0,.25)}}
+.ai:hover,.step:hover{{box-shadow:0 18px 40px rgba(0,0,0,.25)}}
+@keyframes heroIn{{from{{opacity:0;transform:translateY(20px)}}to{{opacity:1;transform:none}}}}
+.hero .wrap>*{{animation:heroIn .75s cubic-bezier(.2,.8,.2,1) backwards}}
+.hero .wrap>*:nth-child(2){{animation-delay:.07s}}
+.hero .wrap>*:nth-child(3){{animation-delay:.14s}}
+.hero .wrap>*:nth-child(4){{animation-delay:.21s}}
+.hero .wrap>*:nth-child(5){{animation-delay:.26s}}
+.hero .wrap>*:nth-child(6){{animation-delay:.32s}}
+.hero .wrap>*:nth-child(7){{animation-delay:.4s}}
+.hero h1 em{{background-size:200% 100%;animation:shine 6s ease-in-out infinite alternate}}
+@keyframes shine{{from{{background-position:0 0}}to{{background-position:100% 0}}}}
+@media(prefers-reduced-motion:reduce){{
+ .hero:before,.hero .wrap>*,.hero h1 em,.pan.enter,.rip,.ch[aria-selected=true]{{animation:none}}
+ .drop,.subtabs .ink,.btn,.tb,.ch,.sb,.card,.rule,.clip{{transition:none}}
+ .heroshot{{transition:none;transform:none!important}}
+}}
 </style>
 
-<header><div class="wrap hd">
+<header><div class="progress" id="progress" aria-hidden="true"></div><div class="wrap hd">
   <a class="brand" href="#top">{mark(24)}<span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
-  <nav>
-    <a href="#how">How it works</a>
-    <a href="#formats">Formats</a>
-    <a href="#control">Control</a>
-    <a href="#compare">Compare</a>
-    <a href="#credits">Coins</a>
-    <a href="tutorial.html">Guide</a>
-    <a href="fonts.html">Fonts</a>
-    <a href="pricing.html">Pricing</a>
-    {contact_icons()}
+  <nav aria-label="Site">
+    {menu("Product", "m-product", product_links())}
+    {menu("Resources", "m-res", RESOURCE_LINKS)}
+    <a class="navb top" href="pricing.html">Pricing</a>
+    {menu("Help", "m-help", help_links(), right=True)}
+    {menu("Menu", "m-all", product_links() + RESOURCE_LINKS + '<a href="pricing.html"><b>Pricing</b><span>Coin packs, and what a chapter costs</span></a>' + help_links(), right=True, cls="all")}
     <button class="navb icon" id="theme" type="button"></button>
   </nav>
   <a class="btn ghost" href="signin.html">Sign in</a>
@@ -1003,11 +1213,14 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
     <span class="stat"><b>3</b><span>formats, end to end</span></span>
     <span class="stat"><b>7</b><span>steps, run in any order</span></span>
     <span class="stat"><b>4</b><span>languages out</span></span>
-    <span class="stat"><b>0</b><span>hyphens, ever</span></span>
   </div>
 </div></section>
 
-<section class="band" id="how"><div class="wrap">
+{chapbar()}
+
+<div class="chapters">
+{chap_open("how")}
+<section class="pan spn band" role="tabpanel" id="how" aria-labelledby="sb-how"><div class="wrap">
   <p class="kicker">Drag it</p>
   <h2 class="rise">A raw page in. A typeset page out.</h2>
   <p class="lead rise">One file, both ends of the pipeline. Pull the handle
@@ -1035,8 +1248,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
       one bubble and nothing else moves.</p></div>
   </div>
 </div></section>
-
-<section class="band"><div class="wrap">
+<section class="pan spn band" role="tabpanel" id="steps" aria-labelledby="sb-steps"><div class="wrap">
   <p class="kicker">The pipeline</p>
   <h2 class="rise">Seven steps, in three groups.</h2>
   <p class="lead rise" style="margin-bottom:38px">The bar says where the chapter
@@ -1054,7 +1266,15 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
     'A real chapter: six of the seven steps done on every page of it.',
     'The step bar with every step reading 23 of 23', '21 / 4')}</div>
 </div></section>
+<section class="pan spn band" role="tabpanel" id="screens" aria-labelledby="sb-screens"><div class="wrap">
+  <p class="kicker">The screens</p>
+  <h2 class="rise">Home, then four tabs - and you work in one of them.</h2>
+  <div class="tabs rise" role="tablist" id="scrtabs" style="margin-top:24px">{screens}</div>
+  <div class="rise">{screen_panels}</div>
+</div></section>
+</section>
 
+{chap_open("formats")}
 <section class="band" id="formats"><div class="wrap">
   <p class="kicker">Three formats, two jobs</p>
   <h2 class="rise">Manga, manhwa and manhua - what changes between them.</h2>
@@ -1069,15 +1289,10 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
   export do not know which format they are working on, and that is deliberate.
   Out comes English, Spanish, Portuguese or French.</p>
 </div></section>
+</section>
 
-<section class="band"><div class="wrap">
-  <p class="kicker">The screens</p>
-  <h2 class="rise">Four tabs, and only one of them is ever in your way.</h2>
-  <div class="tabs rise" role="tablist" id="scrtabs" style="margin-top:24px">{screens}</div>
-  <div class="rise">{screen_panels}</div>
-</div></section>
-
-<section class="band" id="control"><div class="wrap">
+{chap_open("control")}
+<section class="pan spn band" role="tabpanel" id="control" aria-labelledby="sb-control"><div class="wrap">
   <p class="kicker">Editorial control</p>
   <h2 class="rise">The machine does the typing. You do the editing.</h2>
   <p class="lead rise">This is the part most tools skip. Everything the pipeline
@@ -1089,8 +1304,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
     'One block picked, and every control that applies to it.',
     'The workspace with a block selected and the typesetting rail open')}</div>
 </div></section>
-
-<section class="band" id="rules"><div class="wrap">
+<section class="pan spn band" role="tabpanel" id="rules" aria-labelledby="sb-rules"><div class="wrap">
   <p class="kicker">What it will not do</p>
   <h2 class="rise">Six rules it will not break to make your life easier.</h2>
   <p class="lead rise">A tool that quietly edits your translation to make it fit
@@ -1112,33 +1326,62 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
       'A sound effect running across a panel, from a real chapter', '3 / 1')}
   </div>
 </div></section>
+</section>
 
-<section class="band"><div class="wrap">
+{chap_open("models")}
+<section class="pan spn band" role="tabpanel" id="models" aria-labelledby="sb-models"><div class="wrap">
   <p class="kicker">The models</p>
-  <h2 class="rise">Bring your own AI. Or none.</h2>
+  <h2 class="rise">Pick the AI for each step. Or none.</h2>
   <div class="two tight rise" style="margin-top:28px">
     <div>
-      <p>Reading, translating and proofreading each take their own service and
-      their own model, so you can put a cheap fast one on the reading and a
-      careful one on the words. <b>Claude, Google AI Studio or OpenRouter</b>,
-      paid in TCT Coins with nothing to set up - or a model running on your
-      own machine, which costs nothing.</p>
-      <p>The menu shows the price of every model beside its name, so you
-      know what a chapter will cost before you press the button.</p>
+      <p>Reading, translating and proofreading each take their own AI company
+      and their own model, so you can put a cheap fast one on the reading and a
+      careful one on the words. <b>Claude, Google AI Studio (Gemini), or
+      OpenAI, DeepSeek and Qwen through OpenRouter</b>. Every call goes through
+      MangaTCT and is paid in TCT Coins, with no key to set up.</p>
+      <p>Every step's run dialog shows its price in coins before you start,
+      for the whole chapter and for the page on screen.</p>
     </div>
     <figure class="shot">{slot('ui-settings-models-real.jpg',
       'Per-step model settings',
       'Settings ▸ the model for each step, with the three services', '4 / 3')}</figure>
   </div>
   <h3 class="rise" style="margin-top:44px">What you can point them at</h3>
-  <p class="lead rise">Six, from about a penny a chapter to about four dollars.
-  Every one of them is priced per text box on what it really costs to run, and
-  the calculator on the coins page will tell you the number before you spend
+  <p class="lead rise">Eight of them, from about 12 coins to several hundred
+  for a 23-page chapter, depending on the model. A hundred coins is a dollar,
+  every one is priced per text box on what it really costs to run, and the
+  calculator on the coins page tells you the number before you spend
   anything.</p>
   <div class="ais rise">{ais}</div>
 </div></section>
+<section class="pan spn band" role="tabpanel" id="credits" aria-labelledby="sb-credits"><div class="wrap">
+  <p class="kicker">TCT Coins</p>
+  <h2 class="rise">Free to try. Then you pay for what you actually run.</h2>
+  <p class="lead rise">Make an account and verify your email, and it comes with
+  100 free TCT Coins - enough to read and translate a chapter on a cheap Gemini
+  model before you decide anything. After that you top up, and only the steps
+  that call a model cost anything.</p>
+  <div class="grid g3 rise" style="margin-top:28px">
+    <div class="card"><h4>100 free coins</h4>
+      <p class="mut">Once your email is verified. No card.</p></div>
+    <div class="card"><h4>Pay as you go</h4>
+      <p class="mut">Coins are spent by the steps that call a model: reading,
+      translating, proofreading, and the hosted cleaner.</p></div>
+    <div class="card"><h4>Always free</h4>
+      <p class="mut">Finding text, typesetting and exporting. Read text can run
+      on your computer for nothing, and manual translation skips the AI
+      steps.</p></div>
+  </div>
+  <div class="cta" style="margin-top:28px">
+    <a class="btn" href="signin.html">Create an account</a>
+    <a class="btn ghost" href="download.html">Download the app</a>
+    {contact_links()}
+  </div>
+</div></section>
+</section>
 
-<section class="band" id="compare"><div class="wrap">
+{chap_open("compare")}
+<section class="pan spn band" role="tabpanel" id="compare" aria-labelledby="sb-compare"><div class="wrap">
   <p class="kicker">Compared</p>
   <h2 class="rise">Against the two ways people do this now.</h2>
   <p class="lead rise">Doing it by hand gives you total control and costs you a
@@ -1152,38 +1395,14 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
   <p class="note" style="margin-top:14px">The middle column describes the
   general class of one-click page translators, not any single product.</p>
 </div></section>
-
-<section class="band" id="credits"><div class="wrap">
-  <p class="kicker">Credits</p>
-  <h2 class="rise">Free to try. Then you pay for what you actually run.</h2>
-  <p class="lead rise">Make an account and it comes with credits - enough to
-  take a chapter through end to end before you decide anything. After that you
-  top up, and only the steps that call a model cost anything.</p>
-  <div class="grid g3 rise" style="margin-top:28px">
-    <div class="card"><h4>Free credits</h4>
-      <p class="mut">On signup. No card. Run a real chapter, not a demo
-      page.</p></div>
-    <div class="card"><h4>Pay as you go</h4>
-      <p class="mut">Credits are spent by the steps that call a model -
-      reading, translating, proofreading, and AI cleaning if you turn it
-      on.</p></div>
-    <div class="card"><h4>Free forever, if you want</h4>
-      <p class="mut">Point the steps at a model running on your own machine
-      and it costs you nothing here. Finding text, cleaning and typesetting
-      never cost credits.</p></div>
-  </div>
-  <div class="cta" style="margin-top:28px">
-    <a class="btn" href="signin.html">Create an account</a>
-    <a class="btn ghost" href="download.html">Download the app</a>
-    {contact_links()}
-  </div>
-</div></section>
-
-<section class="band"><div class="wrap">
+<section class="pan spn band" role="tabpanel" id="faq" aria-labelledby="sb-faq"><div class="wrap">
   <p class="kicker">Questions</p>
   <h2 class="rise">The ones worth answering.</h2>
   <div class="rise" style="margin-top:22px">{faq}</div>
 </div></section>
+</section>
+
+</div>
 
 <footer><div class="wrap">
   <div class="foot">
@@ -1275,33 +1494,216 @@ document.documentElement.classList.remove('nojs');
     document.querySelectorAll('.rise').forEach(function(el){{ el.classList.add('in'); }});
   }}
 
-  /* ---- tabs. One handler, both tab strips: they behave identically and a
-     second copy of this is a second place for them to stop doing so. */
-  function wire(stripId){{
-    var strip = document.getElementById(stripId);
-    if (!strip) return;
-    var tabs = [].slice.call(strip.querySelectorAll('[role=tab]'));
-    function show(t){{
-      tabs.forEach(function(o){{
-        var on = o === t;
-        o.setAttribute('aria-selected', on ? 'true' : 'false');
-        var p = document.getElementById(o.getAttribute('aria-controls'));
-        if (p) p.hidden = !on;
-      }});
-    }}
-    strip.addEventListener('click', function(e){{
-      var t = e.target.closest('[role=tab]');
-      if (t) show(t);
-    }});
-    strip.addEventListener('keydown', function(e){{
-      var i = tabs.indexOf(document.activeElement);
-      if (i < 0) return;
-      var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;
-      if (n < 0 || n >= tabs.length) return;
-      e.preventDefault(); tabs[n].focus(); show(tabs[n]);
+  /* ---- the menus on the top bar. Hover or keyboard focus opens them with
+     no script at all (the stylesheet); this adds click, Escape and click-away,
+     which is what a phone, with no hover, needs. */
+  var menus = [].slice.call(document.querySelectorAll('.menu'));
+  function closeMenus(except){{
+    menus.forEach(function(m){{
+      if (m === except) return;
+      m.classList.remove('open');
+      var b = m.querySelector('.mbtn');
+      if (b) b.setAttribute('aria-expanded', 'false');
     }});
   }}
-  wire('fmttabs'); wire('scrtabs');
+  menus.forEach(function(m){{
+    var b = m.querySelector('.mbtn');
+    if (!b) return;
+    b.addEventListener('click', function(e){{
+      e.stopPropagation();
+      var open = !m.classList.contains('open');
+      closeMenus(m);
+      m.classList.toggle('open', open);
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }});
+  }});
+  document.addEventListener('click', function(){{ closeMenus(); }});
+  document.addEventListener('keydown', function(e){{ if (e.key === 'Escape') closeMenus(); }});
+
+  /* ---- tab strips: the chapters, their sub tabs, the formats and the
+     screens. One handler for all of them - they behave identically, and a
+     second copy of this is a second place for them to stop doing so. */
+  var hdr = document.querySelector('header');
+  function hh(){{ return hdr ? hdr.offsetHeight : 56; }}
+  function setHH(){{ document.documentElement.style.setProperty('--hh', hh() + 'px'); }}
+  setHH(); addEventListener('resize', setHH);
+
+  function play(el, dir){{
+    if (reduce || !el) return;
+    el.style.setProperty('--dir', dir);
+    el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter');
+  }}
+  function woke(el){{
+    el.querySelectorAll('.rise').forEach(function(r){{ r.classList.add('in'); }});
+    // The before/after handles measure their own width, and a panel that was
+    // hidden measured nothing.
+    dispatchEvent(new Event('resize'));
+  }}
+  function inkTo(s, tab){{
+    var ink = s.querySelector('.ink');
+    if (!ink || !tab) return;
+    ink.style.width = tab.offsetWidth + 'px';
+    ink.style.transform = 'translateX(' + tab.offsetLeft + 'px)';
+  }}
+  function landOn(p){{
+    // Switching while deep in a chapter lands at the top of the new one,
+    // not somewhere in its middle.
+    var bar = document.querySelector('.chapbar');
+    if (!p || !bar) return;
+    var top = p.getBoundingClientRect().top;
+    if (top < hh() + bar.offsetHeight)
+      scrollTo({{top: top + scrollY - hh() - bar.offsetHeight + 1,
+                behavior: reduce ? 'auto' : 'smooth'}});
+  }}
+  function strip(id, lands){{
+    var s = document.getElementById(id);
+    if (!s) return null;
+    var tabs = [].slice.call(s.querySelectorAll('[role=tab]'));
+    var cur = Math.max(0, tabs.findIndex(function(t){{
+      return t.getAttribute('aria-selected') === 'true'; }}));
+    function show(i, quiet){{
+      var dir = i >= cur ? 1 : -1;
+      tabs.forEach(function(t, k){{
+        var on = k === i;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        var p = document.getElementById(t.getAttribute('aria-controls'));
+        if (!p) return;
+        p.hidden = !on;
+        if (on) {{ woke(p); if (!quiet) {{ play(p, dir); if (lands) landOn(s.closest('.chap') || p); }} }}
+      }});
+      cur = i;
+      inkTo(s, tabs[i]);
+      if (tabs[i].scrollIntoView && !quiet)
+        tabs[i].scrollIntoView({{block: 'nearest', inline: 'nearest'}});
+    }}
+    s.addEventListener('click', function(e){{
+      var t = e.target.closest('[role=tab]');
+      if (t) show(tabs.indexOf(t));
+    }});
+    s.addEventListener('keydown', function(e){{
+      var i = tabs.indexOf(document.activeElement);
+      if (i < 0) return;
+      var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 :
+              e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+      if (n < 0 || n >= tabs.length) return;
+      e.preventDefault(); tabs[n].focus(); show(n);
+    }});
+    addEventListener('resize', function(){{ inkTo(s, tabs[cur]); }});
+    addEventListener('load', function(){{ inkTo(s, tabs[cur]); }});
+    if ('ResizeObserver' in window)
+      new ResizeObserver(function(){{ inkTo(s, tabs[cur]); }}).observe(s);
+    show(cur, true);
+    return {{tabs: tabs, show: show, index: function(){{ return cur; }}}};
+  }}
+  var chap = strip('chaptabs', true);
+  var subs = {{}};
+  document.querySelectorAll('.subtabs').forEach(function(s){{ subs[s.id] = strip(s.id, true); }});
+  strip('fmttabs'); strip('scrtabs');
+
+  /* Every anchor on the page names a part of it. Open the chapter, and the
+     sub tab, that part lives in - then go there. */
+  function openFor(id, smooth){{
+    var el = id && document.getElementById(id);
+    var c = el && el.closest('.chap');
+    if (!c || !chap) return false;
+    var ci = chap.tabs.findIndex(function(t){{ return t.getAttribute('aria-controls') === c.id; }});
+    if (ci >= 0 && ci !== chap.index()) chap.show(ci, true);
+    var sp = el.closest('.spn');
+    var st = sp && subs['subs-' + c.id.slice(2)];
+    if (st) {{
+      var si = st.tabs.findIndex(function(t){{ return t.getAttribute('aria-controls') === sp.id; }});
+      if (si >= 0 && si !== st.index()) st.show(si, true);
+    }}
+    play(c, 1); woke(c);
+    // `instant` and not `auto`: the page's own scroll-behavior is smooth, and
+    // `auto` means whatever the page says - so arriving on a link animated a
+    // long scroll instead of simply being there.
+    el.scrollIntoView({{behavior: smooth && !reduce ? 'smooth' : 'instant', block: 'start'}});
+    return true;
+  }}
+  document.addEventListener('click', function(e){{
+    var a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    var id = a.getAttribute('href').slice(1);
+    if (openFor(id, true)) {{ e.preventDefault(); history.pushState(null, '', '#' + id); closeMenus(); }}
+  }});
+  addEventListener('hashchange', function(){{ openFor(location.hash.slice(1), true); }});
+  if (location.hash) openFor(location.hash.slice(1), false);
+  // ...and again once the pictures are in. A picture that loads after the
+  // jump pushes the section down, and somebody following a link to #rules
+  // landed in the hero instead.
+  addEventListener('load', function(){{ if (location.hash) openFor(location.hash.slice(1), false); }});
+
+  /* ---- a press you can see: a ripple from where the pointer went down. */
+  document.addEventListener('pointerdown', function(e){{
+    var b = !reduce && e.target.closest('.btn,.tb,.navb,.ch,.sb');
+    if (!b) return;
+    var r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2;
+    var i = document.createElement('i');
+    i.className = 'rip';
+    i.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' +
+      (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
+    b.appendChild(i);
+    setTimeout(function(){{ i.remove(); }}, 650);
+  }});
+
+  /* ---- a light that follows the pointer across a card. */
+  if (!reduce) document.querySelectorAll('.ai,.step,.rule,.card,.clip').forEach(function(el){{
+    el.classList.add('spot');
+    el.addEventListener('pointermove', function(e){{
+      var r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    }});
+  }});
+
+  /* ---- the numbers under the hero count up the first time they are seen. */
+  if (!reduce && 'IntersectionObserver' in window) {{
+    var co = new IntersectionObserver(function(es){{
+      es.forEach(function(e){{
+        if (!e.isIntersecting) return;
+        co.unobserve(e.target);
+        var el = e.target, to = parseInt(el.textContent, 10);
+        if (!(to > 0)) return;
+        var t0 = performance.now();
+        (function tick(now){{
+          var k = Math.min(1, (now - t0) / 900);
+          el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
+          if (k < 1) requestAnimationFrame(tick);
+        }})(t0);
+        setTimeout(function(){{ el.textContent = String(to); }}, 1400);
+      }});
+    }}, {{threshold: 0.6}});
+    document.querySelectorAll('.stat b').forEach(function(s){{ co.observe(s); }});
+  }}
+
+  /* ---- how far down the page you are, along the top edge. */
+  var prog = document.getElementById('progress');
+  if (prog) {{
+    var ticking = false;
+    addEventListener('scroll', function(){{
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function(){{
+        var h = document.documentElement.scrollHeight - innerHeight;
+        prog.style.transform = 'scaleX(' + (h > 0 ? Math.min(1, scrollY / h) : 0) + ')';
+        ticking = false;
+      }});
+    }}, {{passive: true}});
+  }}
+
+  /* ---- the hero picture leans a little toward the pointer. */
+  var heroshot = document.querySelector('.heroshot'), hero = document.querySelector('.hero');
+  if (heroshot && hero && !reduce && matchMedia('(pointer: fine)').matches) {{
+    hero.addEventListener('pointermove', function(e){{
+      var r = hero.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      heroshot.style.transform = 'perspective(1600px) rotateX(' + (-y * 3).toFixed(2) +
+        'deg) rotateY(' + (x * 4).toFixed(2) + 'deg)';
+    }});
+    hero.addEventListener('pointerleave', function(){{ heroshot.style.transform = ''; }});
+  }}
 
   /* ---- the step rail follows the step you are looking at */
   var rail = document.getElementById('rail');

@@ -38,7 +38,7 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
   <h1>Coins</h1>
   <p class="lede">One currency, no plan, nothing that expires. A hundred coins
     is a dollar, every AI step is priced on what it really costs to run, and
-    anything that runs on your own machine costs nothing at all. A new account
+    finding text, typesetting and exporting cost nothing at all. A new account
     starts with 100 coins, free, once its email is verified.</p>
 
   <div id="balance"></div>
@@ -90,12 +90,12 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
           <button class="chip on" disabled title="Always on">Read the text</button>
           <button class="chip on" disabled title="Always on">Translate</button>
           <button class="chip" data-step="proofread">Proofread</button>
-          <button class="chip" data-step="clean">Hosted cleaner</button>
+          <button class="chip on" data-step="clean">Hosted cleaner</button>
         </div>
         <p class="hint">Proofreading is optional. It is a second pass for
           quality, not a part of translating, and plenty of chapters never need
-          it. Cleaning and typesetting run on your own machine for nothing
-          unless you ask for the hosted cleaner on a hard page.</p>
+          it. Signed in, the hosted cleaner cleans every page that is not a
+          plain white balloon.</p>
       </div>
 
       <div class="out">
@@ -122,14 +122,14 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
           no coins, however many pages you throw at it.</p>
       </div>
       <div class="card lift">
-        <h3>Cleaning and typesetting</h3>
-        <p class="dim">Flat fill, tone copy, the local inpainter, line
-          breaking, fitting, fonts, export. All local, all free.</p>
+        <h3>Typesetting and export</h3>
+        <p class="dim">Line breaking, fitting, fonts, export. All on your
+          computer, all free.</p>
       </div>
       <div class="card lift">
-        <h3>Your own models</h3>
-        <p class="dim">Point a step at a model running on your own machine and
-          that step costs nothing. The coins are only for the hosted ones.</p>
+        <h3>Reading on your computer</h3>
+        <p class="dim">Pick On this computer for Read text and reading costs
+          nothing. The coins are only for the hosted steps.</p>
       </div>
       <div class="card lift">
         <h3>Everything you redo</h3>
@@ -198,7 +198,7 @@ async function buy(what, btn) {
 /* -------------------------------------------------------- the calculator */
 
 let model = MODELS[3] || MODELS[0];
-const on = { ocr: true, translate: true, proofread: false, clean: false };
+const on = { ocr: true, translate: true, proofread: false, clean: true };
 
 // The sliders start on the chapter every "about a chapter" claim on this site
 // is measured against, taken from the same file as the prices so the two

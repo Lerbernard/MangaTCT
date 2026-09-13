@@ -40,20 +40,24 @@ CHAPTER = (23, 217)
 
 # What to offer, in the order the page shows them, cheapest first. Not every
 # model the app can reach - a menu of thirty on a pricing page is a menu
-# nobody reads. One from each rung of the ladder, both vendors represented.
+# nobody reads. One from each rung of the ladder, cheapest to most expensive.
 SHOW = [
     ("gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite", "gemini",
      "The cheapest thing that does the job. Fine for reading text off a page."),
     ("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", "gemini",
-     "A generation newer for not much more. A good default."),
+     "Cheap and quick. The default for reading text."),
     ("claude-haiku-4-5", "Claude Haiku 4.5", "anthropic",
      "Claude's small one. Better at holding a voice than its price suggests."),
     ("gemini-3.7-flash", "Gemini 3.7 Flash", "gemini",
-     "Fast, and it thinks before it answers. The usual choice for translating."),
+     "Fast, and it thinks before it answers. The default for translating."),
+    ("gemini-3.8-flash", "Gemini 3.8 Flash", "gemini",
+     "Google's newest Flash, at the same price as 3.7 Flash."),
     ("claude-sonnet-5", "Claude Sonnet 5", "anthropic",
-     "The one most people proofread with. Catches what the others miss."),
+     "The default for proofreading. Catches what the others miss."),
     ("claude-opus-5", "Claude Opus 5", "anthropic",
-     "The best there is, and priced like it. Worth it on a page that matters."),
+     "Anthropic's large model. Worth it on a page that matters."),
+    ("claude-fable-5", "Claude Fable 5", "anthropic",
+     "The most expensive model on the menu, for the page that has to be right."),
 ]
 
 STEPS = ("ocr", "translate", "proofread")

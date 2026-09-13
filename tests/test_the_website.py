@@ -96,15 +96,19 @@ def test_the_holes_are_on_the_page_and_named(html):
 # --------------------------------------------------- what the page claims
 
 def test_the_page_offers_the_services_the_app_offers(html):
-    """Three, since the day OpenAI, Groq, Cerebras and Ollama came out of the
-    menus. A landing page naming a service the app cannot reach is a support
-    ticket that starts with "but your website says"."""
+    """Three services, and OpenAI, DeepSeek and Qwen reached THROUGH one of
+    them, OpenRouter. Groq, Cerebras and a model on your own machine are gone
+    from the menus and stay off the page. A landing page naming a service the
+    app cannot reach is a support ticket that starts with "but your website
+    says". lee: *"upadet the website to be accurate with whats acculy on teh
+    app like for exmale the models"*."""
     from mangatl.project import SERVICES
     for _svc, label in [("anthropic", "Claude"), ("gemini", "Google AI Studio"),
                         ("openrouter", "OpenRouter")]:
         assert label in html, label
     assert len(SERVICES) == 3
-    for gone in ("OpenAI", "Groq", "Cerebras"):
+    assert "OpenAI, DeepSeek and Qwen through OpenRouter" in html
+    for gone in ("Groq", "Cerebras", "own machine, which costs nothing", "Free forever"):
         assert gone not in html, gone
 
 
@@ -299,7 +303,12 @@ def test_the_page_works_with_no_javascript(html):
         "the reveal must start visible for a reader whose observer never runs"
     # The only thing hidden without JS is the inactive tab panel, and each one
     # is a real section with a heading — reachable, just not on top.
-    assert html.count("<section class=\"pan\"") == html.count("role=\"tabpanel\"")
+    assert html.count('<section class="pan') == html.count('role="tabpanel"')
+    # ...and the chapters are hidden by the SCRIPT, never by the markup: with no
+    # script the chapter bar goes and every chapter stands on the page.
+    assert '<html lang="en" class="nojs">' in html
+    assert ".nojs .chapbar,.nojs .subbar{display:none}" in style.replace("\n", "")
+    assert not re.search(r'class="pan (?:chap|spn)[^"]*"[^>]*hidden', html)
 
 
 def test_the_tabs_are_reachable_from_a_keyboard(html):
@@ -309,7 +318,8 @@ def test_the_tabs_are_reachable_from_a_keyboard(html):
     assert 'role="tablist"' in html
     # Counted off the tables rather than typed, so merging two format panels
     # into one (manhwa + manhua) moves this on its own.
-    assert html.count('role="tab"') == len(b.FORMATS) + len(b.TABS)
+    assert html.count('role="tab"') == len(b.FORMATS) + len(b.TABS) + len(b.CHAPTERS) + \
+        sum(len(subs) for _c, _t, subs in b.CHAPTERS if len(subs) > 1)
     assert 'aria-controls=' in html and 'aria-selected=' in html
     assert "ArrowRight" in html and "ArrowLeft" in html
 
@@ -824,3 +834,59 @@ def test_the_guide_says_manhua_now_that_there_is_one():
     assert "manhua" in low
     assert "41 pages" in low, "the honest size of the Chinese evidence"
     assert "korean has had many" in low
+
+
+# ------------------------------------------------------- the page, organised
+
+def test_the_top_bar_is_a_few_menus_not_a_row_of_pills(html):
+    """lee: *"organisze teh website better so that teer are nt so many tabs and
+    crete sub tave if needed"*."""
+    head = html.split("<header>", 1)[1].split("</header>", 1)[0]
+    nav = head.split("<nav", 1)[1].split("</nav>", 1)[0]
+    menus = re.findall(r'<button class="navb mbtn"[^>]*>([A-Za-z]+)<', nav)
+    assert menus == ["Product", "Resources", "Help", "Menu"], menus
+    assert nav.count('class="navb top"') == 1, "Pricing is the one plain link"
+    assert 'href="tutorial.html"' in nav and 'href="fonts.html"' in nav
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    assert ".menu:hover .drop,.menu:focus-within .drop" in style, \
+        "a menu opens from the keyboard, and with no script"
+
+
+def test_the_page_is_chapters_with_sub_tabs_not_one_long_scroll(html):
+    """lee: *"make it not be a long scroll break up the scroll"*."""
+    b = _build()
+    assert len(b.CHAPTERS) == 5
+    assert html.count('class="pan chap"') == len(b.CHAPTERS)
+    for cid, _title, subs in b.CHAPTERS:
+        assert f'id="c-{cid}"' in html, cid
+        assert (f'id="subs-{cid}"' in html) == (len(subs) > 1), cid
+        for sid, _label in subs:
+            assert f'id="{sid}"' in html, sid
+    for old in ("how", "formats", "control", "rules", "compare", "credits"):
+        assert f'id="{old}"' in html, "an old link still lands: " + old
+    assert "function openFor(" in html and "hashchange" in html
+
+
+def test_the_motion_is_there_and_stops_for_whoever_asked_it_to(html):
+    """lee: *"add animaation ... add better on hover animation and on click
+    animationa"*. And none of it for somebody whose system asks for less."""
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    for k in ("@keyframes panIn", "@keyframes rip", "@keyframes heroIn", "@keyframes pop",
+              ".subtabs .ink", ".spot:after"):
+        assert k in style, k
+    calm = style[style.rindex("@media(prefers-reduced-motion:reduce)"):]
+    assert "animation:none" in calm and "transition:none" in calm
+    assert "var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;" in html
+
+
+def test_buttons_and_tabs_carry_no_faint_outline(html):
+    """lee: *"remove this faint outline on these on te button s on teh
+    website"*."""
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0].replace("\n", "")
+    for sel in (".tb{", ".btn{", ".btn.ghost{", ".chip{"):
+        rule = style[style.index(sel):].split("}", 1)[0]
+        assert "border:1px solid" not in rule and "border-color:var(--line" not in rule, sel
+    from where import PKG
+    css = (PKG / "site" / "style.css").read_text(encoding="utf-8")
+    rule = css[css.index("button,.btn{"):].split("}", 1)[0]
+    assert "border:1px solid transparent" in rule

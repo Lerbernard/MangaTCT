@@ -41,7 +41,7 @@ export const MODELS = [
   {
     id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite",
     backend: "gemini",
-    blurb: "A generation newer for not much more. A good default.",
+    blurb: "Cheap and quick. The default for reading text.",
     ocr: [0.0032928, 6.34e-05, 0],
     translate: [0.0016503, 0.00018971, 6.3e-06],
     proofread: [0.0007041, 0.0001799, 0],
@@ -57,15 +57,23 @@ export const MODELS = [
   {
     id: "gemini-3.7-flash", name: "Gemini 3.7 Flash",
     backend: "gemini",
-    blurb: "Fast, and it thinks before it answers. The usual choice for translating.",
+    blurb: "Fast, and it thinks before it answers. The default for translating.",
     ocr: [0.016464, 0.000192, 0],
     translate: [0.0081315, 0.00039843, 3.15e-05],
     proofread: [0.0035205, 0.000387, 0],
   },
   {
+    id: "gemini-3.8-flash", name: "Gemini 3.8 Flash",
+    backend: "gemini",
+    blurb: "Google's newest Flash, at the same price as 3.7 Flash.",
+    ocr: [0.016464, 0.000192, 0],
+    translate: [0.0081315, 0.00058593, 3.15e-05],
+    proofread: [0.0035205, 0.0005745, 0],
+  },
+  {
     id: "claude-sonnet-5", name: "Claude Sonnet 5",
     backend: "anthropic",
-    blurb: "The one most people proofread with. Catches what the others miss.",
+    blurb: "The default for proofreading. Catches what the others miss.",
     ocr: [0.0147258, 0.000984, 0],
     translate: [0.0043074, 0.00117186, 6.3e-05],
     proofread: [0.002343, 0.001149, 0],
@@ -73,10 +81,18 @@ export const MODELS = [
   {
     id: "claude-opus-5", name: "Claude Opus 5",
     backend: "anthropic",
-    blurb: "The best there is, and priced like it. Worth it on a page that matters.",
+    blurb: "Anthropic's large model. Worth it on a page that matters.",
     ocr: [0.024543, 0.00349, 0],
     translate: [0.007179, 0.0038031, 0.000105],
     proofread: [0.003905, 0.003765, 0],
+  },
+  {
+    id: "claude-fable-5", name: "Claude Fable 5",
+    backend: "anthropic",
+    blurb: "The most expensive model on the menu, for the page that has to be right.",
+    ocr: [0.049086, 0.00328, 0],
+    translate: [0.014358, 0.0039062, 0.00021],
+    proofread: [0.00781, 0.00383, 0],
   },
 ];
 

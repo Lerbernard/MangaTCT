@@ -165,14 +165,17 @@ h3{font-size:17px;margin:0 0 6px}
 
 /* ---------------------------------------------------------------- buttons */
 
+/* No outline on a button: the fill says it is one. lee: *"remove this faint
+   outline on these on te button s on teh website"*. The border stays in the
+   box model, transparent, so nothing moves when a page gives one a colour. */
 button,.btn{font:inherit;font-weight:650;color:var(--ink);
-  background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+  background:var(--panel2);border:1px solid transparent;border-radius:11px;
   padding:10px 16px;cursor:pointer;display:inline-flex;align-items:center;
   justify-content:center;gap:9px;text-align:center;
   transition:border-color .16s,background .16s,transform .16s,box-shadow .16s}
-button:hover,.btn:hover{border-color:var(--line2);color:var(--ink);
-  transform:translateY(-1px)}
-button:active,.btn:active{transform:translateY(0)}
+button:hover,.btn:hover{background:var(--line);color:var(--ink);
+  transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.18)}
+button:active,.btn:active{transform:scale(.96)}
 button:disabled{opacity:.5;cursor:default;transform:none}
 .pri{background:linear-gradient(160deg,var(--accent),var(--accent2));
   color:var(--on-accent);border-color:transparent;font-weight:750}
