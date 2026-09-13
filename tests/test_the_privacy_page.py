@@ -46,3 +46,14 @@ def test_what_it_says_about_the_account_matches_the_account_service():
     assert "body" not in log and "and not the content" in PAGE
     # no pictures to pick any more, so none is promised
     assert "picture you pick" not in PAGE
+
+
+def test_what_it_says_about_deleting_matches_the_account_service():
+    flat = " ".join(PAGE.split())
+    assert "Delete your account on your account page on this website" in flat
+    assert "cannot be undone" in flat
+    assert "the one-way hash that says an address has had its free coins" in flat
+    assert "email us from the address" not in flat, "there is a button now"
+    fn = (PKG / "firebase" / "functions" / "index.js").read_text(encoding="utf-8")
+    body = fn[fn.index("export const deleteAccount = onCall("):]
+    assert "db.recursiveDelete(userRef(uid))" in body and "getAuth().deleteUser(uid)" in body

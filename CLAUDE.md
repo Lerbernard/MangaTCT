@@ -185,6 +185,16 @@ Cloud, and on `mangatct.com` being an authorized domain in Firebase
 Authentication - lee added them on 2026-09-13. Take either away and Google
 sign-in on the website stops working.
 
+After 1.0.8: `hidden` always hides on the website now (`[hidden]{display:none
+!important}` in `site/style.css`) - `.forapp` and `.forapp-row` set `display`
+and beat the attribute, so the sign-in page offered "Use this account" to
+somebody signed out. The app opens the website through its own window
+(`Api.open_url`, which calls `AllowSetForegroundWindow` first), so the browser
+comes to the front. Deleting an account happens only on the website's account
+page: a warning that it is permanent, DELETE typed, a second "Are you sure?",
+then the `deleteAccount` function; the app's Account page links there. A
+refresh token Google says is dead (`account.SIGN_IN_GONE`) signs the app out.
+
 The launcher is 1.0.3 and does not need rebuilding for an app-only release.
 
 ## Driving the app window from a Claude Code session

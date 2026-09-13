@@ -173,11 +173,12 @@ def want_frame(a: argparse.Namespace) -> bool:
 class Api:
     """What the page may ask of its window: `window.pywebview.api.*`.
 
-    Five verbs and one question, and all but one of them is something the
-    system frame used to do - now the page's top bar does it. `hit` is the
+    Six verbs and one question, and all but two of them are things the
+    system frame used to do - now the page's top bar does them. `hit` is the
     move and the resize both: told which part of a frame the mouse went
-    down on, Windows runs the drag itself. `focus` is the odd one: the page
-    asking to be brought back to the front after a sign-in in the browser."""
+    down on, Windows runs the drag itself. `focus` and `open_url` are the odd ones: the
+    page asking to be brought back to the front after a sign-in in the browser,
+    and asking for the website to be opened in front of it."""
 
     # UNDERSCORES, ON PURPOSE. pywebview builds `window.pywebview.api` by
     # walking every public attribute of this object and recursing into any
@@ -231,6 +232,39 @@ class Api:
             return bool(u.SetForegroundWindow(hwnd))
         except Exception:
             return False
+
+    def open_url(self, url: str) -> bool:
+        """Open a page of the website in the person's own browser, IN FRONT.
+        lee: *"when i click sign in with google in teh app it signltly opnes teh
+        tab but sindt make teh brwoser show up on top so i dont realize it
+        oppened"*.
+
+        Windows lets a program put another window in front only while it is
+        the one being used. The editor's server opened the sign-in page before,
+        and it never is, so the browser took the tab and stayed behind the app.
+        This window IS the one that was just clicked, so it can hand that
+        permission on - `AllowSetForegroundWindow(ASFW_ANY)` - before the shell
+        opens the address, and a browser that was already running, which is
+        what takes the tab, is allowed to come forward with it.
+
+        Only https addresses: the page's scripts can call this, and nothing on
+        it has any business opening a file or a program."""
+        url = str(url or "")
+        if not url.startswith("https://"):
+            return False
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.user32.AllowSetForegroundWindow(-1)     # ASFW_ANY
+            except Exception:
+                pass
+            try:
+                os.startfile(url)
+                return True
+            except (OSError, AttributeError):
+                pass
+        import webbrowser
+        return bool(webbrowser.open(url))
 
     def hit(self, code: int) -> bool:
         """The mouse went down on the frame at `code` (WM_NCHITTEST): hand

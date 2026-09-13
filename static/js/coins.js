@@ -312,10 +312,16 @@ async function walletGoogle(making){
   const say = $('acSay');
   const warn = msg => { if(say){ say.className = 'wnote warn'; say.textContent = msg; } };
   if(say){ say.className = 'wnote'; say.textContent = 'Opening the browser…'; }
-  const got = await acPost({do:'google', making: !!making});
+  // In the app's window the WINDOW opens the page, so the browser comes to the
+  // front (`walletOpenUrl`); in a plain browser tab the server does, as it
+  // always did - a tab that opens another after a wait is a popup, and most
+  // browsers block those.
+  const inApp = !!(window.pywebview && window.pywebview.api && window.pywebview.api.open_url);
+  const got = await acPost({do:'google', making: !!making, open: !inApp});
   if(got.error){ warn(got.error); return; }
   _hand = got.state;
   _handUrl = got.url || '';
+  if(inApp && _handUrl) walletOpenUrl(_handUrl);
   // The page's address as a BUTTON, not as two small words of link at the end
   // of a grey sentence. lee: *"make teh go here link more visible"*. The
   // browser does not always come to the front, and then this is the way to it.
@@ -357,8 +363,23 @@ async function walletGoogle(making){
 
 /* In the app's window this opens the system browser (links that leave the
    app do); in a browser tab, a new tab. */
+/* A page of the website, from the app: in the person's own browser, and IN
+   FRONT. lee: *"when i click sign in with google in teh app it signltly opnes
+   teh tab but sindt make teh brwoser show up on top so i dont realize it
+   oppened"*. Windows lets only the program somebody is using put another
+   window in front; the app's window is that program, and `open_url` there
+   hands the permission on before it opens the address (window.py). In a plain
+   browser tab there is no window to ask, and the tab opens it itself. */
+async function walletOpenUrl(url){
+  const api = window.pywebview && window.pywebview.api;
+  if(api && typeof api.open_url === 'function'){
+    try{ if(await api.open_url(url)) return; }catch(e){}
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
 function walletOpenHand(){
-  if(_handUrl) window.open(_handUrl, '_blank', 'noopener');
+  if(_handUrl) walletOpenUrl(_handUrl);
 }
 
 function walletCancelHand(){
@@ -485,7 +506,16 @@ async function renderAccount(){
     `<h3 class="accth">Everything that moved</h3>` +
     (v.ledger_problem ? `<p class="muted">${coinEsc(v.ledger_problem)}</p>` : ledger) +
     `<div class="acctfoot"><span class="muted">Signed in as ${coinEsc(w.email||'')}</span>` +
-    `<button onclick="walletSignOut()">Sign out</button></div>`;
+    `<button onclick="walletSignOut()">Sign out</button></div>` +
+    `<div class="acctdel muted">Deleting your account happens on the website: ` +
+    `<button type="button" onclick="acctDeleteOnSite()">open your account page</button>.</div>`;
+}
+
+/* lee: *"delete account shoud only happen on teh website"*. No delete button
+   here; the website's account page has it, with the warning that it is
+   permanent and the second question. This opens that page, in front. */
+function acctDeleteOnSite(){
+  walletOpenUrl('https://mangatct.com/account');
 }
 
 async function acctSaveName(){

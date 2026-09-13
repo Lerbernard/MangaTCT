@@ -133,7 +133,8 @@ def test_the_api_object_holds_nothing_pywebview_would_walk_into():
             elif inspect.isclass(attr) or (not callable(attr) and hasattr(attr, "__module__")):
                 walk(attr, full, depth + 1)
     walk(api)
-    assert set(functions) == {"state", "minimize", "toggle_maximize", "close", "hit", "focus"}
+    assert set(functions) == {"state", "minimize", "toggle_maximize", "close", "hit", "focus",
+                              "open_url"}
     assert not [n for n in vars(api) if not n.startswith("_")], \
         "every attribute on the Api object is private"
 
@@ -416,3 +417,24 @@ def test_there_is_no_picture_to_pick_anywhere():
     assert 'do == "photo"' not in src
     assert not hasattr(account, "set_photo") and not hasattr(account, "ICONS")
     assert '"photo"' not in inspect.getsource(account.state)
+
+
+def test_the_website_opens_in_front_of_the_app(monkeypatch):
+    """lee: *"when i click sign in with google in teh app it signltly opnes teh
+    tab but sindt make teh brwoser show up on top so i dont realize it
+    oppened"*. The window hands on its permission to come to the front, and
+    only then opens the address - and only an https one."""
+    import ctypes
+    calls = []
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "windll", types.SimpleNamespace(user32=types.SimpleNamespace(
+        AllowSetForegroundWindow=lambda n: calls.append(("allow", n)))), raising=False)
+    monkeypatch.setattr(W.os, "startfile", lambda u: calls.append(("open", u)), raising=False)
+    api = W.Api()
+    assert api.open_url("https://mangatct.com/signin?hand=ab") is True
+    assert calls == [("allow", -1), ("open", "https://mangatct.com/signin?hand=ab")], \
+        "permission first, then the page"
+    calls.clear()
+    for bad in ("file:///C:/Windows/System32/calc.exe", "javascript:alert(1)", "", "http://x"):
+        assert api.open_url(bad) is False, bad
+    assert calls == []

@@ -73,9 +73,48 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
     </div>
   </section>
 
+  <!-- lee: *"delete account shoud only happen on teh website and add a warning
+       that its perminmt and add a secons are yu sure message"*. Here and
+       nowhere else - the app's Account page links to this page. Three steps on
+       purpose: the warning is read, the word is typed, and a second box asks
+       again before anything is sent. The account service does the deleting
+       (`deleteAccount` in the functions). -->
+  <section class="sect reveal plain">
+    <div class="delzone">
+      <p class="eyebrow">Danger zone</p>
+      <h2>Delete your account</h2>
+      <p class="dim" style="margin-top:0;max-width:62ch"><b>This is permanent.</b>
+        Your sign-in, your username, your coins and your coin history are
+        deleted, on this website and in the app, and none of it can be brought
+        back. Coins left on the account are not refunded.</p>
+      <div style="max-width:420px">
+        <label for="delWord">Type DELETE to confirm</label>
+        <input id="delWord" autocomplete="off" spellcheck="false" placeholder="DELETE">
+        <p class="hint bad" id="delHint" role="alert"></p>
+        <button id="delGo" class="delbtn" type="button" style="margin-top:12px">Delete my account</button>
+      </div>
+    </div>
+  </section>
+
   <p class="foot"><a href="pricing.html">Buy more coins</a> &middot;
     <span class="dim">Signed in as</span> <span id="mail" class="dim"></span></p>
 </main>
+
+<!-- The second question. The typed word shows the person meant to type it;
+     this shows they meant it. "No" is the button with the focus. -->
+<div class="veil" id="delVeil" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+    <h2 id="delTitle">Are you sure?</h2>
+    <p class="dim" style="margin-top:0">This deletes your account for good. Your
+      coins, your username and your coin history cannot be recovered, and the
+      app on your computer signs out too.</p>
+    <p class="hint bad" id="delSay" role="alert"></p>
+    <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button id="delYes" class="delbtn" type="button">Yes, delete it forever</button>
+      <button id="delNo" class="pri" type="button">No, keep my account</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast" class="toast"></div>
 
@@ -288,6 +327,41 @@ async function drawLedger() {
   $('saveName').onclick = saveName;
   $('name').oninput = typing;
   $('name').onkeydown = (e) => { if (e.key === 'Enter') saveName(); };
+
+  // Deleting: the word first, then the second question, then the call.
+  const delOpen = (on) => {
+    $('delVeil').classList.toggle('on', on);
+    $('delVeil').setAttribute('aria-hidden', String(!on));
+  };
+  $('delGo').onclick = () => {
+    if ($('delWord').value.trim() !== 'DELETE') {
+      $('delHint').textContent = 'Type DELETE, in capitals, to confirm.';
+      $('delWord').focus();
+      return;
+    }
+    $('delHint').textContent = '';
+    $('delSay').textContent = '';
+    delOpen(true);
+    setTimeout(() => $('delNo').focus(), 60);
+  };
+  $('delNo').onclick = () => delOpen(false);
+  $('delVeil').onclick = (e) => { if (e.target === $('delVeil')) delOpen(false); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') delOpen(false); });
+  $('delYes').onclick = async () => {
+    $('delYes').disabled = true;
+    $('delNo').disabled = true;
+    $('delSay').textContent = 'Deleting...';
+    try {
+      await call('deleteAccount')({ confirm: 'DELETE' });
+    } catch (e) {
+      $('delSay').textContent = saysWhat(e);
+      $('delYes').disabled = false;
+      $('delNo').disabled = false;
+      return;
+    }
+    await signOut(auth).catch(() => {});
+    location.href = 'index.html';
+  };
 
   watchMe(uid, (d) => {
     if (!d) return;

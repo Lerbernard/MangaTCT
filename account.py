@@ -278,6 +278,7 @@ SAYS = {
     "WEAK_PASSWORD": "Six characters at least.",
     "TOO_MANY_ATTEMPTS_TRY_LATER": "Too many tries. Wait a minute and go again.",
     "USER_DISABLED": "That account has been disabled.",
+    "USER_NOT_FOUND": "That account no longer exists.",
     "TOKEN_EXPIRED": "Signed out. Sign in again.",
     "INVALID_REFRESH_TOKEN": "Signed out. Sign in again.",
 }
@@ -330,6 +331,12 @@ def _keep(got: dict, **extra) -> None:
     _write(d)
 
 
+#: What Google answers when a refresh token will never work again. Anything
+#: else - a moment offline, a busy server - leaves the sign-in where it is.
+SIGN_IN_GONE = ("TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN", "USER_NOT_FOUND",
+                "USER_DISABLED")
+
+
 def token(force: bool = False) -> str:
     """A live ID token, refreshed if the one on disk has run out.
 
@@ -345,9 +352,19 @@ def token(force: bool = False) -> str:
     if not force and d.get("idToken") and float(d.get("expires") or 0) > time.time() + EARLY:
         return d["idToken"]
     c = config()
-    got = _post("%s?key=%s" % (REFRESH, urllib.parse.quote(c.get("apiKey", ""))),
-                {"grant_type": "refresh_token",
-                 "refresh_token": d["refreshToken"]})
+    try:
+        got = _post("%s?key=%s" % (REFRESH, urllib.parse.quote(c.get("apiKey", ""))),
+                    {"grant_type": "refresh_token",
+                     "refresh_token": d["refreshToken"]})
+    except AccountError as e:
+        if e.code in SIGN_IN_GONE:
+            # Google says this sign-in is over for good: the account was
+            # deleted on the website, disabled, or signed out everywhere. A
+            # screen that went on saying "signed in" could do nothing with it,
+            # so this machine forgets it and the app shows the sign-in form.
+            sign_out()
+            raise NotSignedIn() from None
+        raise
     _keep(got)
     return _read().get("idToken") or ""
 

@@ -303,7 +303,8 @@ def test_the_app_form_has_the_google_button_and_a_real_way_to_the_page():
     assert "or with an email" in body
     assert "function walletGoogle(" in JS and "const GOOGLE_MARK" in JS
     wait = JS[JS.index("async function walletGoogle("):JS.index("function walletOpenHand(")]
-    assert "{do:'google', making: !!making}" in wait
+    assert "{do:'google', making: !!making, open: !inApp}" in wait
+    assert "if(inApp && _handUrl) walletOpenUrl(_handUrl);" in wait, "the window opens it, in front"
     assert "/api/account/hand?state=" in wait and "setTimeout(r, 2000)" in wait
     assert "10*60*1000" in wait, "asks for as long as the hand lives"
     for after in ("refreshCoins()", "drawWallet()", "renderAccount()", "renderHome()", "winFocus()"):
@@ -311,7 +312,8 @@ def test_the_app_form_has_the_google_button_and_a_real_way_to_the_page():
     # lee: *"make teh go here link more visible"* - a button, and a way out
     assert "Open the sign-in page" in wait and "walletOpenHand()" in wait
     assert "walletCancelHand()" in wait
-    assert "window.open(_handUrl, '_blank', 'noopener')" in JS
+    assert "async function walletOpenUrl(" in JS and "api.open_url(url)" in JS
+    assert "if(_handUrl) walletOpenUrl(_handUrl);" in JS
     assert "go there" not in JS and "127.0.0.1" not in JS
     css = (PKG / "static" / "css" / "editor.css").read_text(encoding="utf-8")
     assert ".wnote.whand{" in css and ".whandrow{" in css
@@ -320,3 +322,27 @@ def test_the_app_form_has_the_google_button_and_a_real_way_to_the_page():
     assert "async function winFocus(" in chrome and "api.focus()" in chrome
     win = (PKG / "window.py").read_text(encoding="utf-8")
     assert "def focus(self)" in win and "SetForegroundWindow" in win
+
+
+def test_a_sign_in_google_says_is_dead_signs_the_app_out(service):
+    """The account deleted on the website, disabled, or signed out everywhere:
+    the next turn of the token signs this machine out, instead of leaving a
+    screen that says signed in and can do nothing."""
+    account._keep({"refreshToken": "made-up", "idToken": "", "localId": "u1",
+                   "email": "lee@x.y", "expiresIn": 0})
+    assert account.signed_in()
+    with pytest.raises(account.NotSignedIn):
+        account.token(force=True)
+    assert not account.signed_in()
+    assert "INVALID_REFRESH_TOKEN" in account.SIGN_IN_GONE and "USER_NOT_FOUND" in account.SIGN_IN_GONE
+
+
+def test_the_site_offers_this_account_only_to_somebody_signed_in():
+    """lee: *"that sjoud ony be an option while im accly signed in teh ine
+    websiet because hwo does it knwo which account to sign in to"*."""
+    css = (PKG / "site" / "style.css").read_text(encoding="utf-8")
+    assert "[hidden]{display:none !important}" in css, "a class with display must not un-hide"
+    assert '<div class="forapp-row" id="forAppRow" hidden>' in SIGNIN
+    assert 'id="handed" hidden' in SIGNIN
+    who = SIGNIN[SIGNIN.index("whoAmI().then((u) => {"):]
+    assert who.index("if (!u) return;") < who.index("$('forAppRow').hidden = false;")

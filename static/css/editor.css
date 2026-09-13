@@ -1854,6 +1854,9 @@ body.laydragging .lay{cursor:grabbing}
 .wnote.whand>span:not(.whandrow){color:var(--dim)}
 .whandrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
 .whandrow button{flex:1 1 auto}
+/* The way to delete the account, which happens on the website. */
+.acctdel{margin-top:18px;font-size:12px}
+.acctdel button{background:none;border:none;padding:0;color:var(--ink);text-decoration:underline;cursor:pointer;font:inherit}
 
 /* A line of explanation under a settings heading. Grey, small, and never a
    label - a label names a control and this names the shape of a group. */

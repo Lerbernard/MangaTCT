@@ -141,6 +141,15 @@ h3{font-size:17px;margin:0 0 6px}
 
 /* --------------------------------------------------------------- surfaces */
 
+/* `hidden` means hidden, whatever else a rule says. The attribute's own
+   display:none is the browser's weakest rule, and every class here that sets
+   `display` beat it - .forapp, .forapp-row - so the sign-in page offered "Use
+   this account" to somebody who was signed out, and said "You are signed in"
+   before anybody was. lee: *"that sjoud ony be an option while im accly
+   signed in teh ine websiet because hwo does it knwo which account to sign in
+   to"*. */
+[hidden]{display:none !important}
+
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
   padding:20px;transition:border-color .16s,transform .16s,box-shadow .16s}
 .sect .card{background:var(--panel2)}
@@ -287,6 +296,11 @@ td.minus{color:var(--bad);font-weight:650}
 .forapp-row button{font-size:13px;padding:8px 14px}
 .forapp.done{padding:26px 22px;font-size:15px}
 .forapp.done h2{margin:0 0 6px;color:var(--accent)}
+/* Deleting an account (account.html): fenced off, and red. */
+.delzone{border:1px solid var(--bad);border-radius:16px;padding:20px 22px}
+.delzone h2{margin-top:0}
+.delbtn{border-color:var(--bad);color:var(--bad)}
+.delbtn:hover{background:var(--bad);color:#fff}
 
 /* ------------------------------------------------------------------ modal
 

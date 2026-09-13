@@ -779,8 +779,13 @@ the website"*): the balance and **Buy coins** (opens `mangatct.com/pricing`),
 the free-coins box while they are owed, **Your name** (the username, saved
 through `claimUsername` - the same field the website's account page has),
 **Everything that moved** (the account's ledger, through the `ledgerLines`
-function — newest first, plus in green), and **Sign out**. No picture, in the
-app or on the site (lee: *"keeo teh cutomizality simeple no picture"*). The
+function — newest first, plus in green), **Sign out**, and a link to the
+website's account page for deleting the account: deleting happens there and
+nowhere else (lee: *"delete account shoud only happen on teh website"*), after
+a warning that it is permanent, DELETE typed, and a second **Are you sure?**,
+through the `deleteAccount` function. A sign-in Google says is over for good
+(the account deleted, disabled, or signed out everywhere) signs the app out
+the next time its token is turned over. No picture, in the app or on the site (lee: *"keeo teh cutomizality simeple no picture"*). The
 page asks the account service afresh every time it opens, and the coins and
 the page catch up again whenever the window comes back to the front, so a
 name changed or coins bought on the website are there without pressing
@@ -792,8 +797,10 @@ somebody is signed in.
 form, as on the website (lee: *"sign in / sign up and login with google like
 in the website"*). Google's sign-in is a popup on a Google page and wants a
 real browser, so the app does not draw it: the server makes a secret and
-keeps it, opens `mangatct.com/signin?hand=<sha256 of the secret>` in the
-system browser, and the site's page — Google, or an email typed there — files
+keeps it, and the app's window opens `mangatct.com/signin?hand=<sha256 of the
+secret>` in the system browser and lets the browser come to the front
+(`Api.open_url`; lee: *"it signltly opnes teh tab but sindt make teh brwoser
+show up on top"*), and the site's page — Google, or an email typed there — files
 the sign-in with the `handToApp` function and says **You are signed in** on
 the website. No browser is ever sent to an address on this computer (lee:
 *"the app shoud bnever send teh user to a link like thsi with 127.654. etc it

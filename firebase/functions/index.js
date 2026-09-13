@@ -546,6 +546,56 @@ export const takeHand = onCall({ maxInstances: 10 }, async (req) => {
   });
 });
 
+/* ------------------------------------------------------ deleting an account
+ *
+ * lee: *"can we have a delete account button"*, and then *"delete account
+ * shoud only happen on teh website and add a warning that its perminmt and add
+ * a secons are yu sure message"*. So the website's account page is the only
+ * caller: it warns that this is permanent, wants DELETE typed, and asks a
+ * second time before it calls. The client cannot delete anything itself - the
+ * rules let nobody delete a user document, because a client that could delete
+ * one could delete somebody else's - so it asks here, with the person's own ID
+ * token, and this deletes, in this order:
+ *
+ *   the username, so somebody else can take it
+ *   any sign-in still waiting to be handed to the app
+ *   the account document and everything under it (coin history, runs)
+ *   the sign-in itself (Firebase Authentication)
+ *
+ * The sign-in goes last: if anything before it fails, the person can still
+ * sign in and press the button again, and every step is safe to repeat. With
+ * the sign-in gone, the app's own copy of it stops working the next time it is
+ * turned over, and the app signs itself out (`account.token`).
+ *
+ * Two things are kept, and the privacy page says so. `welcomed/<hash>` - a
+ * one-way hash of the address, not the address - so deleting and signing up
+ * again does not pay the free coins twice; and whatever Stripe holds about past
+ * purchases, which is Stripe's record and not this database's.
+ *
+ * `confirm` must be the word DELETE, so a stray call cannot delete an account.
+ */
+export const deleteAccount = onCall(async (req) => {
+  const uid = must(req.auth);
+  if (String((req.data && req.data.confirm) || '') !== 'DELETE') {
+    throw new HttpsError('failed-precondition', 'Type DELETE to confirm.');
+  }
+  const snap = await userRef(uid).get();
+  const key = snap.exists ? String(snap.data().usernameKey || '') : '';
+  if (key) {
+    const name = db.doc(`usernames/${key}`);
+    const taken = await name.get();
+    if (taken.exists && taken.data().uid === uid) await name.delete();
+  }
+  const waiting = await db.collection('hands').where('uid', '==', uid).get();
+  await Promise.all(waiting.docs.map((d) => d.ref.delete()));
+  await db.recursiveDelete(userRef(uid));
+  await getAuth().deleteUser(uid).catch((e) => {
+    if (e && e.code === 'auth/user-not-found') return;
+    throw e;
+  });
+  return { ok: true };
+});
+
 /* A verified email is a claim on the token, and a token lasts an hour. The
  * page that just came back from the link in the mail refreshes its token and
  * calls `me`; the editor does the same. Nothing else is needed - there is no
