@@ -146,14 +146,18 @@ def test_nothing_that_ships_looks_like_a_key():
          re.compile(r"discord(?:app)?\.com/api/webhooks/\d{15,22}/[A-Za-z\d_\-]{40,}")),
     ]
     bad = []
-    for p in PKG.rglob("*"):
+    from where import package_files
+    for p in package_files():
         if not p.is_file() or p.suffix in skip:
             continue
         if any(part in ign for part in p.relative_to(PKG).parts):
             continue
         if p.name == ".env" or p.name == "test_the_workflows.py":
             continue
-        t = p.read_text(encoding="utf-8", errors="ignore")
+        try:
+            t = p.read_text(encoding="utf-8", errors="ignore")
+        except FileNotFoundError:
+            continue    # gone between the listing and the reading
         for what, rx in pats:
             if rx.search(t):
                 bad.append(f"{p.relative_to(PKG)}: {what}")

@@ -13,6 +13,7 @@ Asking the package where it lives has neither problem. `mangatl.__file__` is
 the `__init__.py` that was actually imported, so this is right in a checkout,
 in an installed copy, and in whatever layout comes next.
 """
+import os
 from pathlib import Path
 
 import mangatl
@@ -22,3 +23,24 @@ STATIC = PKG / "static"
 JS = STATIC / "js"
 CSS = STATIC / "css"
 EDITOR_HTML = STATIC / "editor.html"
+
+
+def package_files(root: Path = PKG):
+    """Every file in the tree, for the tests that read the whole package.
+
+    Not `rglob`. On Python 3.11, which CI runs, `rglob` catches only
+    PermissionError around each folder it lists, so a folder that vanishes
+    while it is being walked raises FileNotFoundError out of the loop - and
+    under `-n auto` a test on another worker deletes its working folder at
+    exactly that moment. It failed CI as `_tmp_warm_silentgw3`. `os.walk`
+    passes over a folder that is gone. The `_tmp...` folders at the top, which
+    `.gitignore` already keeps out of the repository, are not walked at all.
+    A file can still go between being listed and being read, so a reader
+    catches FileNotFoundError as well.
+    """
+    for here, dirs, names in os.walk(root):
+        if Path(here) == Path(root):
+            dirs[:] = [d for d in dirs if not d.startswith("_tmp")]
+        dirs.sort()
+        for name in sorted(names):
+            yield Path(here) / name

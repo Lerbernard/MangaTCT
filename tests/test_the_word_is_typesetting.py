@@ -19,7 +19,7 @@ import re
 
 import pytest
 
-from where import PKG
+from where import PKG, package_files
 
 SKIP = {"node_modules", "__pycache__", ".pytest_cache", ".firebase", "out",
         "models", "detect", "fonts", "_to_delete", ".git", "assets"}
@@ -44,7 +44,7 @@ FORBIDDEN = re.compile(
 
 
 def _sources():
-    for p in sorted(PKG.rglob("*")):
+    for p in sorted(package_files()):
         if not p.is_file() or p.suffix not in EXT:
             continue
         if any(part in SKIP for part in p.parts):
@@ -68,7 +68,11 @@ def _one_long_line(text: str) -> str:
 def test_nothing_letters_anything():
     bad = []
     for p in _sources():
-        line = _one_long_line(p.read_text(encoding="utf-8", errors="ignore"))
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except FileNotFoundError:
+            continue    # gone between the listing and the reading
+        line = _one_long_line(text)
         for m in FORBIDDEN.finditer(line):
             bad.append("%s: …%s…" % (p.relative_to(PKG),
                                      line[max(0, m.start() - 40):m.end() + 40]))

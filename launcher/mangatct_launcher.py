@@ -86,7 +86,7 @@ import zipfile
 #: app's Updates section offers the installer when the one running is older.
 #: (1.0.2's launcher - the own window, the mark - shipped still saying 1.0.0;
 #: from here on the number moves with the file.)
-LAUNCHER_VERSION = "1.0.3"
+LAUNCHER_VERSION = "1.0.4"
 
 #: The editor's exit code that means "start me again": Settings > Updates >
 #: Restart now, after a version was fetched. Anything else ends the session.
@@ -681,18 +681,30 @@ def start_editor(p: dict, version: str, port: int) -> subprocess.Popen:
 
 
 def wait_for_editor(port: int, proc: subprocess.Popen, timeout: float = EDITOR_WAIT) -> bool:
+    # A quick look at the port first. Asking a port nobody listens on yet for
+    # a page is not refused at once on Windows - the connection is retried and
+    # the answer takes about two seconds - so the editor was usually found a
+    # beat after it was ready. A bare connect is told straight away, and only
+    # once something is listening is it asked for its version. lee:
+    # *"optimaze the app make it faster and moother"*.
     url = "http://127.0.0.1:%d/api/version" % port
     end = time.time() + timeout
     while time.time() < end:
         if proc.poll() is not None:
             return False
         try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                pass
+        except OSError:
+            time.sleep(0.1)
+            continue
+        try:
             with urllib.request.urlopen(url, timeout=2) as r:
                 if r.status == 200:
                     return True
         except (urllib.error.URLError, OSError, socket.timeout):
             pass
-        time.sleep(0.5)
+        time.sleep(0.1)
     return False
 
 
@@ -737,16 +749,50 @@ def start_window(p: dict, version: str, port: int) -> subprocess.Popen | None:
     try:
         logfp = os.path.join(p["logs"], "window-%s.log" % _dt.date.today().isoformat())
         out = open(logfp, "a", encoding="utf-8", errors="replace")
-        return subprocess.Popen(cmd, cwd=vdir, env=editor_env(p), stdout=out,
+        env = editor_env(p)
+        # A window that knows how says when it is on screen, and waits for the
+        # editor's port before it loads the page (see `window_waits`). An older
+        # app's window ignores both, and is only ever started once the editor
+        # is already up.
+        marker = shown_marker(p)
+        try:
+            os.remove(marker)
+        except OSError:
+            pass
+        env["MANGATCT_WINDOW_SHOWN"] = marker
+        env["MANGATCT_WINDOW_WAITS"] = str(EDITOR_WAIT)
+        return subprocess.Popen(cmd, cwd=vdir, env=env, stdout=out,
                                 stderr=subprocess.STDOUT, creationflags=_no_window())
     except OSError as e:
         log("window did not start: %r" % e)
         return None
 
 
-def window_alive(proc: subprocess.Popen | None, grace: float = WINDOW_GRACE) -> bool:
-    """True once the window has outlived its grace period. A quick exit is
-    read for its meaning and logged."""
+def shown_marker(p: dict) -> str:
+    """The file a window that has shown itself leaves (`mangatl.window.say_shown`)."""
+    return os.path.join(p["logs"], "window-shown")
+
+
+def window_waits(p: dict, version: str) -> bool:
+    """Does this app version's window wait for the editor's port itself?
+
+    Only then can it be started alongside the editor. An older app's window
+    loads the page the moment it opens, so it has to be started after the
+    editor answers, the way it always was - a launcher runs whatever version
+    it is given, including the one it falls back to."""
+    try:
+        with open(os.path.join(app_dir(p, version), "mangatl", "window.py"),
+                  encoding="utf-8") as fh:
+            return "MANGATCT_WINDOW_WAITS" in fh.read()
+    except OSError:
+        return False
+
+
+def window_alive(proc: subprocess.Popen | None, grace: float = WINDOW_GRACE,
+                 shown: str | None = None) -> bool:
+    """True once the window has outlived its grace period - or, sooner, once
+    it has said it is on screen (`shown`), which a window that could not
+    start never does. A quick exit is read for its meaning and logged."""
     if proc is None:
         return False
     end = time.time() + grace
@@ -755,6 +801,8 @@ def window_alive(proc: subprocess.Popen | None, grace: float = WINDOW_GRACE) -> 
         if code is not None:
             log("window exited %d: %s" % (code, WINDOW_EXITS.get(code, "see logs\\window-*.log")))
             return False
+        if shown and os.path.exists(shown):
+            return True
         time.sleep(0.1)
     return True
 
@@ -878,18 +926,26 @@ def run(p: dict | None = None, manifest_url: str | None = None,
     if progress:
         progress("Starting MangaTCT %s…" % v)
     s.proc = start_editor(p, v, s.port)
+    # The window starts NOW when it can wait for the editor itself, so the two
+    # processes start up side by side instead of one after the other.
+    early = bool(window and window_waits(p, v))
+    if early:
+        s.window = start_window(p, v, s.port)
     if not wait_for_editor(s.port, s.proc):
         s.error = ("MangaTCT did not start. The last lines of logs\\editor-%s.log "
                    "say why." % _dt.date.today().isoformat())
         log(s.error)
+        stop_window(s.window)
+        s.window = None
         stop_editor(s.proc)
         return s
     log("up at %d" % s.port)
     if window:
         if progress:
             progress("Opening MangaTCT %s…" % v)
-        s.window = start_window(p, v, s.port)
-        if window_alive(s.window):
+        if not early:
+            s.window = start_window(p, v, s.port)
+        if window_alive(s.window, shown=shown_marker(p)):
             s.shown_in = "window"
         else:
             s.window = None

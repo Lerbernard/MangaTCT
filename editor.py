@@ -364,6 +364,37 @@ def _scan_key(p: Project, i: int) -> str:
     return _page_fingerprint(p, i)
 
 
+# The scan, as the browser is sent it. `/img` encoded the page again on every
+# request - 30 to 160 ms on a big scan - for bytes that cannot change while the
+# file does not. lee: *"optimaze the app make it faster and moother dont chnage
+# teh fuctionality"*. Kept against the scan's own fingerprint, so a different
+# picture can never be answered with these bytes, and only while the file is
+# there to have been fingerprinted: with no file the key falls back to the
+# page's name, which two chapters can share.
+_jpeg_cache: "OrderedDict[str, bytes]" = OrderedDict()
+_jpeg_lock = threading.Lock()
+JPEG_CACHE_MAX = 8
+
+
+def _scan_jpeg(p: Project, i: int) -> bytes:
+    key = _scan_key(p, i) if os.path.isfile(p.pages[i].path) else None
+    if key:
+        with _jpeg_lock:
+            got = _jpeg_cache.get(key)
+            if got is not None:
+                _jpeg_cache.move_to_end(key)
+                return got
+    ok, buf = cv2.imencode(".jpg", p.image(i), [cv2.IMWRITE_JPEG_QUALITY, 90])
+    data = buf.tobytes()
+    if key:
+        with _jpeg_lock:
+            _jpeg_cache[key] = data
+            _jpeg_cache.move_to_end(key)
+            while len(_jpeg_cache) > JPEG_CACHE_MAX:
+                _jpeg_cache.popitem(last=False)
+    return data
+
+
 _plate_cache: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
 
 
@@ -2477,13 +2508,13 @@ def do_clean(p: Project, i: int, force: bool = False) -> None:
     tries = CLEAN_TRIES if _hosted_cleaning(p) else 1
     if _CLEAN_GIVEUP["on"]:
         tries = 1                      # an earlier page already waited it out
-    was = _MAY_CLEAN["on"]
-    _MAY_CLEAN["on"] = True
+    was = getattr(_MAY_CLEAN, "on", False)
+    _MAY_CLEAN.on = True
     _KEEP_BEST.update(on=True, fails=None, plate=None)
     try:
         _do_clean_tries(p, i, tries)
     finally:
-        _MAY_CLEAN["on"] = was
+        _MAY_CLEAN.on = was
         _KEEP_BEST.update(on=False, fails=None, plate=None)
 
 
@@ -2690,7 +2721,11 @@ def warm_ocr(p: Project) -> None:
 
     The model takes long to load, and paying for that inside the first
     "Read text" made the whole feature feel slow. Loading starts as soon as
-    the app does; by the time anyone presses the button it is usually ready.
+    the app does when the offline reader is the one chosen, and the moment the
+    setting is switched to it otherwise; by the time anyone presses the button
+    it is usually ready. With the AI reader chosen it is never loaded at all -
+    lee: *"optimaze the app make it faster and moother dont chnage teh
+    fuctionality"* - and `get_engine` still loads it on first use regardless.
     """
     def worker():
         try:
@@ -2754,7 +2789,17 @@ def _hosted_cleaning(p: Project) -> bool:
 # Set while `do_clean` is running - the Clean button, and the Clean step of a
 # pipeline run. Everything else that wants a plate gets one that already
 # exists, or the scan. See `clean_page`.
-_MAY_CLEAN = {"on": False}
+#
+# PER THREAD. It was one flag for the whole process, so while a Clean ran on
+# the dispatcher, every other thread that happened to build a plate read it as
+# permission too: the background warm-up's page in flight, a page opened from
+# the browser, a warm-up still finishing a project that has since been
+# replaced. Those builds went to the hosted cleaner for pages nobody pressed
+# Clean on, could be charged the page fee, and wrote their "fell back" boxes
+# and their failures into the report and the warning of the run the person
+# was watching. `do_clean` and the `clean_page` it calls run on one thread, so
+# the permission stays exactly where the button put it.
+_MAY_CLEAN = threading.local()
 # ...and the best of the goes it makes, kept in case none of them comes out
 # whole. `fails` is how many boxes the endpoint refused on that go.
 _KEEP_BEST = {"on": False, "fails": None, "plate": None}
@@ -2768,7 +2813,7 @@ def _may_spend_the_cleaner(p: Project) -> bool:
     The hosted cleaner costs money and time, so it is spent by the one action
     that asks for it.
     """
-    return _MAY_CLEAN["on"] or not _hosted_cleaning(p)
+    return getattr(_MAY_CLEAN, "on", False) or not _hosted_cleaning(p)
 
 
 def _worth_warming(p: Project, i: int, hosted: bool | None = None) -> bool:
@@ -3834,10 +3879,31 @@ def _run_one(p: Project, item: dict) -> None:
         p.job["cancel"] = False
         # Whatever the step changed, the pages now look different - get them
         # all rebuilt before anyone clicks on one.
-        try:
-            warm_pages(p, indices[0] if indices else 0)
-        except Exception:
-            pass
+        #
+        # ON ITS OWN THREAD, not this one. This is the dispatcher, and the run
+        # already reads as finished: `running` went down above. Deciding what
+        # needs building is not free - the balloon check imports its model
+        # runner the first time it is asked, and every page is stamped and
+        # looked for on disk - and it took seven seconds under the suite. For
+        # all of that the line still belonged to a run the bar called done, so
+        # the next action pressed waited behind nothing anybody could see. Under
+        # the suite it ran after its own test had ended and deleted its folder,
+        # failed, and its failure dropped the next test's run from the line.
+        # `warm_pages` starts a worker of its own anyway; this only takes the
+        # deciding off the line.
+        threading.Thread(target=_warm_after_a_run,
+                         args=(p, indices[0] if indices else 0),
+                         daemon=True).start()
+
+
+def _warm_after_a_run(p: Project, start: int) -> None:
+    """`warm_pages`, for `_run_one` to start beside the line rather than on it.
+    A warm-up that cannot start is not worth a traceback: the page is built
+    when somebody asks for it, as it would have been anyway."""
+    try:
+        warm_pages(p, start)
+    except Exception:
+        pass
 
 
 def _dispatch() -> None:
@@ -5460,8 +5526,53 @@ def import_translation(p: Project, text: str) -> dict:
 class Handler(BaseHTTPRequestHandler):
     server_version = "mangatl"
 
+    # ONE CONNECTION FOR MANY REQUESTS. HTTP/1.0 opened a new connection for
+    # every poll, every picture and every save, and the editor makes a lot of
+    # those. lee: *"can you do these"* - of keep-alive, which was left out
+    # first time round because a connection kept open is a connection that can
+    # hang. Two things make it safe, and both are here rather than in every
+    # route:
+    #
+    # * the BODY is read before the route runs (`parse_request`), so a route
+    #   that answers early - a 404 before it ever looks at what was posted -
+    #   cannot leave half a request on the wire to be read as the next one;
+    # * a request that ends without an ANSWER closes its connection
+    #   (`handle_one_request`), which is what every request did before. A
+    #   browser waiting on a kept-open connection that will never be written
+    #   to is the hang; a closed one it simply asks again on.
+    #
+    # And an idle connection is let go after a minute, so a window left open
+    # all day does not hold threads for connections it stopped using.
+    protocol_version = "HTTP/1.1"
+    timeout = 60
+
     def log_message(self, *a):  # quiet
         pass
+
+    def parse_request(self) -> bool:
+        ok = super().parse_request()
+        self._raw = b""
+        if ok:
+            if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
+                # Nothing here reads a chunked body; say so by closing.
+                self.close_connection = True
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                n, self.close_connection = 0, True
+            if n > 0:
+                self._raw = self.rfile.read(n)
+        return ok
+
+    def send_response(self, code, message=None) -> None:
+        self._answered = True
+        super().send_response(code, message)
+
+    def handle_one_request(self) -> None:
+        self._answered = False
+        super().handle_one_request()
+        if not self._answered:
+            self.close_connection = True
 
     # -- plumbing
 
@@ -5476,12 +5587,15 @@ class Handler(BaseHTTPRequestHandler):
     GONE = (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)
 
     def _send(self, code: int, body: bytes, ctype: str,
-              cache: str = "no-store", filename: str = "") -> None:
+              cache: str = "no-store", filename: str = "",
+              extra: dict | None = None) -> None:
         try:
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", cache)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
             if filename:
                 # A file to keep, not a page to look at. Without this the
                 # browser shows the template as a wall of text and the person
@@ -5506,8 +5620,8 @@ class Handler(BaseHTTPRequestHandler):
                    "application/json; charset=utf-8")
 
     def _body(self) -> dict:
-        n = int(self.headers.get("Content-Length") or 0)
-        return json.loads(self.rfile.read(n) or b"{}")
+        # Already read off the connection, whole, by `parse_request`.
+        return json.loads(getattr(self, "_raw", b"") or b"{}")
 
     # Every route that names a page by number. `/api/page/7`, `/api/page/7/ocr`,
     # `/img/7`, `/render/7` - the number is always the first path segment after
@@ -5549,8 +5663,27 @@ class Handler(BaseHTTPRequestHandler):
                 or not os.path.isfile(path):
             return self._send(404, b"not found", "text/plain")
         ctype = mimetypes.guess_type(path)[0] or "application/octet-stream"
+        # Asked for again every time, answered in full only when it changed.
+        # These went out `no-store`, so every time the window opened the page,
+        # its scripts and its styles - well over a megabyte - were read off the
+        # disk, sent and compiled from nothing. lee: *"optimaze the app make it
+        # faster and moother dont chnage teh fuctionality"*. `no-cache` still
+        # makes the browser check before it uses its copy, so a new version is
+        # never missed; when the file is the one it already has, the answer is
+        # an empty 304 and the copy it compiled last time is used.
+        st = os.stat(path)
+        tag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+        if self.headers.get("If-None-Match") == tag:
+            try:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+            except self.GONE:
+                self.close_connection = True
+            return
         with open(path, "rb") as fh:
-            self._send(200, fh.read(), ctype)
+            self._send(200, fh.read(), ctype, "no-cache", extra={"ETag": tag})
 
     # -- GET
     def do_GET(self):
@@ -6088,10 +6221,8 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/img/(\d+)", path)
             if m:
                 i = int(m.group(1))
-                img = p.image(i)
-                ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
                 keyed = bool(q.get("v"))
-                return self._send(200, buf.tobytes(), "image/jpeg",
+                return self._send(200, _scan_jpeg(p, i), "image/jpeg",
                                   self.IMMUTABLE if keyed else "no-store")
 
             m = re.fullmatch(r"/render/(\d+)", path)
@@ -6137,8 +6268,7 @@ class Handler(BaseHTTPRequestHandler):
                 # chapter is a hundred megabytes and base64 is a third again
                 # on top of that, in memory, twice.
                 from . import bundle
-                n = int(self.headers.get("Content-Length") or 0)
-                raw = self.rfile.read(n) if n else b""
+                raw = getattr(self, "_raw", b"")    # read whole in parse_request
                 try:
                     state = bundle.read(raw, p.output_dir)
                 except ValueError as e:
@@ -6671,6 +6801,12 @@ class Handler(BaseHTTPRequestHandler):
                             else:
                                 new.get("fonts", {}).pop(label, None)
                 p.settings.update(new)
+                # The offline reader is loaded at start only when it is the
+                # chosen one (see `main`), so choosing it is when it starts
+                # loading. Asking again once it is loaded costs nothing:
+                # `get_engine` keeps the one it made.
+                if "ocr_reader" in new and reading_offline(p):
+                    warm_ocr(p)
                 if "custom_kinds" in new:
                     # Sub-types arrive from the browser, so what is stored is
                     # checked here rather than trusted: every one lands in a
@@ -8418,7 +8554,12 @@ def main(argv=None) -> int:
     atexit.register(PROJECT.flush)
     if a.font:
         PROJECT.settings["font"] = a.font
-    warm_ocr(PROJECT)
+    # Only when the reader on this computer is the one chosen. Loading it is
+    # about ten seconds of every core and 800 MB of memory, and it started with
+    # every launch while the AI reader - the default - never touches it. The
+    # settings route starts it the moment somebody switches to it.
+    if reading_offline(PROJECT):
+        warm_ocr(PROJECT)
     warm_pages(PROJECT, 0)
 
     url = f"http://127.0.0.1:{a.port}"

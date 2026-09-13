@@ -577,6 +577,11 @@ function _resetCancelBtn(){
 async function pollWarm(){
   clearTimeout(pollWarm._t);
   const again=ms=>{ pollWarm._t=setTimeout(pollWarm, ms); };
+  // A minimized window has no bar anybody can read, so it does not ask the
+  // server once a second what to paint on it. The listener after this function
+  // asks straight away when the window comes back, so nothing is stale for
+  // longer than it takes to look.
+  if(document.hidden){ again(4000); return; }
   let w;
   try{
     const r=await fetch(apiUrl('/api/warm'));
@@ -609,6 +614,9 @@ async function pollWarm(){
   $('fill').style.width=pct+'%';
   again(1000);
 }
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && pollWarm._t !== undefined) pollWarm();
+});
 
 /* THE STEP'S OWN NAME, out of whatever the run is currently saying.
 

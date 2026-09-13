@@ -72,9 +72,16 @@ def test_and_it_is_marked_as_leaving_its_box():
 
 def test_it_really_is_wider_than_the_box_it_belongs_to():
     """The point of the round. If the block still fitted, nothing has
-    changed."""
+    changed.
+
+    50px wide, not the shared column's 60. The widest word, WRETCHED, is
+    60.9px at the minimum in Comic Neue Bold when Pillow measures through
+    HarfBuzz (raqm), and exactly 60.0 when it measures in whole pixels, which
+    it does on a Windows install without fribidi. So against a 60px box this
+    passed in CI and failed on lee's machine with the app doing the same thing
+    on both. Ten pixels of room answers the same everywhere."""
     from mangatl.typeset import _text_w
-    r, lay = _fit("freefloat")
+    r, lay = _fit("freefloat", box=(150, 150, 50, 100))
     widest = max(_text_w(lay.font_path or default_font_path(),
                          lay.font_size, ln) for ln in lay.lines)
     assert widest > r.bbox[2], (widest, r.bbox[2])

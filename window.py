@@ -651,6 +651,40 @@ def _hwnd_of(win) -> int:
         return 0
 
 
+def wait_for_the_editor(host: str, port: int, timeout: float) -> bool:
+    """Until something is listening on the editor's port, or `timeout`.
+
+    A launcher from 1.0.4 starts this window BESIDE the editor rather than
+    after it, so the window's own start - Python, pywebview, pythonnet - runs
+    while the editor is still importing, instead of queueing behind it. lee:
+    *"optimaze the app make it faster and moother"*. The page must not be
+    loaded before there is a server to load it from, so the window waits here,
+    and only when the launcher says it started it early (MANGATCT_WINDOW_WAITS):
+    run by hand, or by an older launcher, the editor is already up."""
+    import socket
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        try:
+            with socket.create_connection((host, port), timeout=0.25):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
+
+def say_shown() -> None:
+    """Leave the mark a 1.0.4 launcher waits for (MANGATCT_WINDOW_SHOWN): the
+    window is on screen, so the launcher's own window can go now rather than
+    after its four-second grace. Nothing to do when nobody is waiting."""
+    path = os.environ.get("MANGATCT_WINDOW_SHOWN", "")
+    if path:
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(str(os.getpid()))
+        except OSError:
+            pass
+
+
 def _icon() -> str | None:
     here = os.path.dirname(os.path.abspath(__file__))
     p = os.path.join(here, "static", "icon.ico")
@@ -684,6 +718,13 @@ def main(argv=None) -> int:
     webview.settings["ALLOW_DOWNLOADS"] = True
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
 
+    waits = os.environ.get("MANGATCT_WINDOW_WAITS", "")
+    if waits:
+        try:
+            wait_for_the_editor(a.host, a.port, float(waits))
+        except ValueError:
+            pass
+
     g = _on_screen(load_geometry(), _screens(webview))
     width, height = g.get("width", DEFAULT_SIZE[0]), g.get("height", DEFAULT_SIZE[1])
     frameless = not want_frame(a)
@@ -715,17 +756,36 @@ def main(argv=None) -> int:
                 keep[k] = state[k]
         save_geometry(keep)
 
-    win.events.resized += remember
-    win.events.moved += remember
+    # While the window is being dragged or sized these fire for every step of
+    # it, and each `remember` is five reads across into .NET - on the same
+    # thread, and under the same lock, as the frame hook answering Windows for
+    # that very drag. lee: *"optimaze the app make it faster and moother"*. So
+    # it looks at most ten times a second. Nothing is lost by it: the size is
+    # only WRITTEN on closing, and `closing` remembers once more first.
+    last = {"at": 0.0}
+
+    def remember_soon(*_):
+        now = time.monotonic()
+        if now - last["at"] >= 0.1:
+            last["at"] = now
+            remember()
+
+    win.events.resized += remember_soon
+    win.events.moved += remember_soon
     win.events.closing += closing
 
     def shown(*_):
+        say_shown()
         dress_the_frame(_hwnd_of(win), frameless)
         if frameless:
             keep_off_the_taskbar(win)
     win.events.shown += shown
     if frameless:
-        win.events.moved += lambda *_: keep_off_the_taskbar(win)
+        # Only until the hook is in. `keep_off_the_taskbar` asks the form for
+        # its handle before it can see that it has nothing to do, and that was
+        # a round trip into .NET on every step of every move for the life of
+        # the window.
+        win.events.moved += lambda *_: _HOOKED or keep_off_the_taskbar(win)
     webview.start(gui=gui, debug=a.debug, private_mode=False,
                   storage_path=os.path.join(userdata.user_dir(), "webview"),
                   icon=_icon())

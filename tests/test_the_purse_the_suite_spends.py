@@ -40,7 +40,15 @@ def test_the_suite_is_not_spending_the_real_purse():
     home = os.environ.get("MANGATL_HOME") or ""
     assert home, "MANGATL_HOME is unset - the suite is on the real home"
     assert "test" in os.path.basename(home), home
-    assert os.path.expanduser("~") not in os.path.dirname(home) or "tmp" in home
+    # Asked of the path `coins` really opens, against the folder
+    # `userdata.user_dir` falls back to. It used to be asked of the SHAPE of
+    # the path - "not under ~, or it says tmp" - which is the shape of /tmp on
+    # Linux and nothing else: on Windows `gettempdir()` is %LOCALAPPDATA%\Temp,
+    # inside the profile and spelled "Temp", so a suite nowhere near the real
+    # purse failed this line on lee's machine on every run.
+    real = os.path.normcase(os.path.join(os.path.expanduser("~"), ".mangatl"))
+    where = os.path.normcase(os.path.abspath(coins._path()))
+    assert where != real and not where.startswith(real + os.sep), where
 
 
 def test_nothing_in_the_purse_was_spent_before_this_run_began():

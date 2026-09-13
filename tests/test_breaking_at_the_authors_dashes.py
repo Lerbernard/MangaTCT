@@ -472,10 +472,16 @@ def test_the_warning_only_says_shrunk_when_it_shrank():
     stop reading the red bars. This path used to flag every layout it
     returned, including the ones that came back AT the minimum size, and the
     message named a shrink that had not happened."""
-    # 40x40, down from 55x60 for the same reason as above: the narrower face
-    # reached 13pt in the old box, and this test is about what happens AT the
-    # floor.
-    r, m = _tight("GLOW-SAN!", 40, 40)
+    # 46x40. It was 55x60, where the narrower face reached 13pt, and this test
+    # is about what happens AT the floor. Then it was 40x40, which left 36.8px
+    # for GLOW- at 12pt - and Pillow's basic layout, the one a Windows install
+    # has, measures GLOW- at 37.0 in whole pixels, while CI's Linux build
+    # measured it a hair under. The same code set 11pt on one machine and 12
+    # on the other, so the test failed on lee's and passed in CI. 46 is the
+    # middle of the widths that come back at exactly 12 with no flag however
+    # the widths are measured: 43 to 50 all do, with every width five percent
+    # wider or five percent narrower.
+    r, m = _tight("GLOW-SAN!", 46, 40)
     lay = fit_region(r, _cfg(), mask=m)
     assert lay.font_size == _cfg().min_font, lay.font_size
     assert not lay.fit_ok, "the fixture stopped exercising the plain wrap"

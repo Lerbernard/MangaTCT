@@ -291,7 +291,9 @@ function onShowText(){
 window.addEventListener('resize',()=>{
   // Recompute the fit through the zoom code; setting scale directly here left
   // the overlay and the image disagreeing about how big the page was.
-  if($('img').naturalWidth){ fitZoom=fitScale(); applyZoom(); drawOverlay(); }
+  // `applyZoom` already redraws the overlay (it ends in `drawBoxes`); a second
+  // `drawOverlay()` rebuilt all the text again on every resize event.
+  if($('img').naturalWidth){ fitZoom=fitScale(); applyZoom(); }
 });
 const $=id=>document.getElementById(id);
 /* Every server URL - api calls, page images, exports - goes through apiUrl().

@@ -188,7 +188,11 @@ async function showPage(i){
     // truth: *"ok make the defaut zoom fit the page"*. The whole page in front
     // of you is the right thing to start from; 100% is a keypress away.
     if(!keep) zoom = 1;
-    applyZoom(); drawOverlay();
+    // `applyZoom` ends in `drawBoxes`, which ends in `drawText` - the whole
+    // overlay. A `drawOverlay()` after it built every block on the page a
+    // second time for the same picture. lee: *"optimaze the app make it
+    // faster and moother dont chnage teh fuctionality"*.
+    applyZoom();
     // a NEW page opens centred in the pan slack; reloading the same page
     // (tab switch, save) keeps exactly the view you had
     if(keep){ wrapEl.scrollLeft=keep.l; wrapEl.scrollTop=keep.t; }
@@ -809,7 +813,10 @@ function moveFrame(e){
     const er=regions.find(x=>x.id===editing);
     if(er) placeEditor($('canvasEdit'), er);
   }
-  drawText();          // drawText redraws the frame itself
+  // Only this block: a drag moves one box (`setFrame`, `localFit` and
+  // `localWrap` touch `r` alone), so rebuilding every other block's letters
+  // on each move was work nobody could see. drawText redraws the frame itself.
+  drawText(fdrag.id);
 }
 
 /* How much of a block has to stay on the paper. The same number as

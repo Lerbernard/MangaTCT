@@ -277,8 +277,9 @@ function centerPageSoon(){
       wasW=w; wasH=h;
       if(centerPending && moved && w>1 && h>1
          && typeof fitScale==='function' && typeof applyZoom==='function'){
+        // No `drawOverlay()` after it: `applyZoom` ends in `drawBoxes`, which
+        // draws the text, so a second call only built the same overlay twice.
         fitZoom=fitScale(); applyZoom();
-        if(typeof drawOverlay==='function') drawOverlay();
       }
       enforce();
     });

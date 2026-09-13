@@ -1147,16 +1147,38 @@ class PageState:
     def n_proofread(self) -> int:
         return sum(1 for r in self.active if r.get("proofread"))
 
+    def tally(self) -> dict:
+        """Every count the page list shows, and the status, from ONE read of
+        `active`.
+
+        `active` is built afresh on every read - it filters the boxes and fills
+        in the automatic glow - and the page list used to read it seven times a
+        page: once for the box count, once in each of the four counts above,
+        and three more in `status`. On a 60-page chapter that was nine tenths
+        of the time the project took to send. lee: *"optimaze the app make it
+        faster and moother dont chnage teh fuctionality"*. The counts are the
+        properties' own, over the same list."""
+        act = self.active
+        return {"regions": sum(1 for r in act if not r.get("own_text")),
+                "ocr": sum(1 for r in act if r.get("src_text")),
+                "translated": sum(1 for r in act if r.get("dst_text")),
+                "typeset": sum(1 for r in act if r.get("layout")),
+                "proofread": sum(1 for r in act if r.get("proofread")),
+                "status": self._status_of(act)}
+
     def status(self) -> str:
-        n = len(self.active)
+        return self._status_of(self.active)
+
+    def _status_of(self, act: list[dict]) -> str:
+        n = len(act)
         if not n:
             # A page with no text once it has been checked is DONE, not an
             # error - nothing to translate, so it passes green. A page whose
             # every box is hidden is the same case: there is nothing to do.
             return "done" if self.detected else "pending"
-        if self.n_translated == n:
+        if all(r.get("dst_text") for r in act):
             return "translated"
-        if self.n_ocr:
+        if any(r.get("src_text") for r in act):
             return "ocr"
         return "detected"
 
@@ -2777,12 +2799,50 @@ class Project:
         # trim is the part that matters: `pop(next(iter(...)))` on a dict two
         # threads are both trimming raises, and the loading itself is worth
         # doing once rather than twice.
-        with self._img_lock:
-            if i not in self._img_cache:
-                if len(self._img_cache) > 6:
-                    self._img_cache.pop(next(iter(self._img_cache)), None)
-                self._img_cache[i] = load_page(self.pages[i].path).image
-            return self._img_cache[i]
+        #
+        # The READ happens outside the lock. A page-sized scan takes a tenth of
+        # a second or more to decode, and holding the lock across it meant the
+        # background warm-up reading one page made the page somebody had just
+        # clicked wait its turn behind it. lee: *"optimaze the app make it
+        # faster and moother dont chnage teh fuctionality"*. The lock guards
+        # the dict only. And a page that is asked for again moves to the back
+        # of the queue, so the page being worked on is the last one let go,
+        # not whichever happened to be loaded first.
+        #
+        # ...and still ONE read per file, however many threads ask at once:
+        # the first to miss reads it, and the rest wait for that read rather
+        # than each decoding their own copy (`test_one_slow_page_is_one_page`).
+        # Waiting is per file, so the page being clicked never waits on a
+        # different page the warm-up is reading.
+        while True:
+            with self._img_lock:
+                got = self._img_cache.pop(i, None)
+                if got is not None:
+                    self._img_cache[i] = got
+                    return got
+                path = self.pages[i].path
+                loading = self.__dict__.setdefault("_img_loading", {})
+                ev = loading.get(path)
+                if ev is None:
+                    ev = loading[path] = threading.Event()
+                    break
+            ev.wait(60)
+        try:
+            img = load_page(path).image
+            with self._img_lock:
+                # Kept only while this number is still that file. A page
+                # removed, renamed or cut while it was being read has already
+                # emptied the cache, and the old file's picture must not go
+                # back in under the number another page has now.
+                if i < len(self.pages) and self.pages[i].path == path:
+                    if i not in self._img_cache and len(self._img_cache) > 6:
+                        self._img_cache.pop(next(iter(self._img_cache)), None)
+                    img = self._img_cache.setdefault(i, img)
+            return img
+        finally:
+            with self._img_lock:
+                loading.pop(path, None)
+            ev.set()
 
     def repaired(self, i: int) -> np.ndarray:
         """The scan with the touch-up strokes that go UNDER the typesetting
@@ -3781,18 +3841,21 @@ class Project:
                 # you added, with nothing under it to read and nothing to
                 # translate, and counting it made the rail say a page had two
                 # pieces of text when it had one.
-                "regions": len([r for r in p.active if not r.get("own_text")]),
+                # (`t` is `p.tally()`: all of these counts from one read of
+                # the page's active boxes. See `PageState.tally`.)
+                "regions": t["regions"],
                 "boxes": len(p.regions),
                 "hidden_boxes": len(p.hidden),
                 "kinds": p.groups_present,
                 "hidden": list(p.hidden_kinds or []),
-                "ocr": p.n_ocr,
-                "translated": p.n_translated, "typeset": p.n_typeset,
-                "proofread": p.n_proofread, "cleaned": bool(p.cleaned),
+                "ocr": t["ocr"],
+                "translated": t["translated"], "typeset": t["typeset"],
+                "proofread": t["proofread"], "cleaned": bool(p.cleaned),
                 # A page whose cleaned plate the person supplied. It is not
                 # cleaned and never will be, so the Clean step has to count it
                 # as done or it never reaches the end and Typeset stays locked.
                 "custom_clean": bool(p.custom_clean),
-                "status": p.status(), "exported": p.exported,
-            } for i, p in enumerate(self.pages)],
+                "status": t["status"], "exported": p.exported,
+            } for i, p, t in ((i, p, p.tally())
+                              for i, p in enumerate(self.pages))],
         }

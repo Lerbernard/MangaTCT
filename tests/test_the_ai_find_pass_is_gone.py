@@ -54,7 +54,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 
-from where import PKG
+from where import PKG, package_files
 
 ROOT = PKG
 GONE = ("aidetect", "detect_ai", "_detect_ai", "find_with", "finding_with_ai",
@@ -86,7 +86,9 @@ def test_nothing_imports_the_removed_module():
     """Not just `detect` - nothing in the package. An import anywhere else is
     a second door into it."""
     hits = []
-    for f in sorted(ROOT.rglob("*.py")):
+    for f in sorted(package_files(ROOT)):
+        if f.suffix != ".py":
+            continue
         if f.name in ("aidetect.py", "test_the_ai_find_pass_is_gone.py"):
             continue
         # `_to_delete/` is where a file goes on its way out, on one machine,
@@ -98,7 +100,9 @@ def test_nothing_imports_the_removed_module():
             continue
         try:
             tree = ast.parse(f.read_text(encoding="utf-8"))
-        except SyntaxError:
+        except (SyntaxError, FileNotFoundError):
+            # FileNotFoundError: gone between the listing and the reading,
+            # which only a test's scratch file does.
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

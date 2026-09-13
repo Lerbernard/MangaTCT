@@ -393,7 +393,12 @@ input.bad::placeholder{color:var(--warn)}
    to report, so the bar paces instead of inventing a number. */
 #pkBarOuter.wait #pkBarFill{width:35%;
  animation:flow 1.4s linear infinite, slide 1.1s ease-in-out infinite alternate}
-@keyframes slide{from{margin-left:0}to{margin-left:65%}}
+/* Moved with a transform, not `margin-left`: a margin is layout, so the old
+   keyframes laid the bar out again on every frame of a model load that can run
+   close to a minute. Both bars that pace are 35% wide while they do it, and a
+   translate is measured against the element's own width, so 65 / 35 of it is
+   exactly where the margin used to end. */
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(185.714%)}}
 
 /* ---------- layout ---------- */
 #main{flex:1;display:flex;min-height:0}

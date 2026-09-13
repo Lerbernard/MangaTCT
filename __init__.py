@@ -54,9 +54,28 @@ DOTENV_PATH = _load_dotenv()
 from . import cores as _cores                          # noqa: E402
 _cores.claim_env()
 
-from .pipeline import RunConfig, report, run          # noqa: E402
-from .translate import SeriesContext                  # noqa: E402
-from .models import Page, TextLayout, TextRegion       # noqa: E402
+# The names below are handed out on first use rather than imported here.
+# `import mangatl` happens before anything else in every process - the app
+# window's too - and importing `pipeline` pulled in OpenCV, NumPy, PIL and the
+# whole reading-and-typesetting stack, about half a second, for a window that
+# only needs to know where the person's folder is. lee: *"optimaze the app make
+# it faster and moother dont chnage teh fuctionality"*. `from mangatl import
+# run` and `mangatl.Page` work exactly as before; the import simply happens the
+# first time one of them is asked for.
+_LAZY = {"RunConfig": "pipeline", "report": "pipeline", "run": "pipeline",
+         "SeriesContext": "translate",
+         "Page": "models", "TextLayout": "models", "TextRegion": "models"}
+
+
+def __getattr__(name: str):
+    where = _LAZY.get(name)
+    if where is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+    value = getattr(importlib.import_module(f".{where}", __name__), name)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "Page",

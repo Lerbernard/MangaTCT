@@ -41,6 +41,17 @@ MIN_ELONGATION = 1.5
 GLYPH_STROKE = 3
 # A break longer than the effect is wide means the box holds more than one thing.
 SPLIT_GAP = 1.0
+# A line of writing fills the rotated box around it; its hull covers 0.85 or
+# more of that box whatever the face. An effect that turns a corner covers
+# about 0.6, because the rest is the empty triangle inside the bend, and the
+# long side of that box is the diagonal across the bend - a line nobody wrote
+# along. Elongation alone did not catch it: how long an L's diagonal box is
+# depends on the face's own glyph widths (1.58 in MS Gothic and 1.66 in Yu
+# Gothic, both over MIN_ELONGATION), and the gap test sees no break because
+# the two arms meet. On lee's machine, which has those faces, the L came out
+# turned 40 degrees; CI has no Japanese face, so the test that says so was
+# skipped there and only ever failed on his.
+MIN_FILL = 0.75
 
 
 @dataclass
@@ -252,6 +263,9 @@ def sfx_frame(gray: np.ndarray, box, text_mask=None) -> SfxFrame:
         # effects, or an effect and something else. The line drawn between two
         # far-apart clusters is not an angle anybody wrote at.
         trusted = False
+    if trusted and _fill(pxy, length, width) < MIN_FILL:
+        # An L, not a slant: see MIN_FILL.
+        trusted = False
     if not trusted or abs(tilt) < DEAD_ZONE_DEG:
         tilt = 0.0
     tilt = max(-MAX_TILT_DEG, min(MAX_TILT_DEG, tilt))
@@ -272,6 +286,15 @@ def _longest_gap(along: np.ndarray) -> float:
     if len(idx) < 2:
         return 0.0
     return float(np.max(np.diff(idx)) - 1)
+
+
+def _fill(pxy: np.ndarray, length: float, width: float) -> float:
+    """How much of the rotated box around the ink its convex hull covers."""
+    area = length * width
+    if area <= 0.0:
+        return 1.0
+    hull = cv2.convexHull(pxy.astype(np.float32))
+    return float(cv2.contourArea(hull)) / area
 
 
 # --------------------------------------------------------------------------

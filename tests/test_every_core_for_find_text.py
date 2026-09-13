@@ -44,20 +44,37 @@ def test_claim_env_names_the_cores_and_respects_a_person_who_set_it(monkeypatch)
 
 def test_importing_the_package_first_keeps_ultralytics_from_throttling_torch():
     """In a fresh interpreter, the way the editor starts: the package, then
-    the thing that would set the threads to one, then torch's own count."""
+    the thing that would set the threads to one, then torch's own count.
+
+    Torch's count is held up against what torch picks in another fresh
+    interpreter where a person named every core themselves, not against the
+    core count. The two are not always the same number. The Windows torch
+    wheel is built with MKL, torch sizes its pool to MKL's thread count when
+    it starts, and MKL (MKL_DYNAMIC, on by default) stops at the physical
+    cores: on lee's machine, 14 cores and 20 threads, OMP_NUM_THREADS=20
+    gives 14 with ultralytics or without it. That is torch's own default,
+    not the throttle - the throttle is one - and `cores.claim()` still puts
+    each detector on all 20 before it runs. CI never saw it: it installs
+    neither torch nor ultralytics, so this is skipped there."""
     pytest.importorskip("ultralytics")
     pytest.importorskip("torch")
-    code = ("import os, sys\n"
-            "os.environ.pop('OMP_NUM_THREADS', None)\n"
-            "import mangatl\n"
-            "import ultralytics, torch\n"
-            "print(os.environ.get('OMP_NUM_THREADS'), torch.get_num_threads(), os.cpu_count())\n")
-    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                       cwd=str(PKG.parent), timeout=600,
-                       env={**os.environ, "PYTHONPATH": str(PKG.parent)})
-    assert r.returncode == 0, r.stderr[-2000:]
-    env, threads, n = r.stdout.strip().split()[-3:]
-    assert env == n and threads == n, r.stdout
+
+    def fresh(code, **env):
+        r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                           cwd=str(PKG.parent), timeout=600,
+                           env={**os.environ, "PYTHONPATH": str(PKG.parent), **env})
+        assert r.returncode == 0, r.stderr[-2000:]
+        return r.stdout.strip().split()
+
+    env, threads, n = fresh(
+        "import os, sys\n"
+        "os.environ.pop('OMP_NUM_THREADS', None)\n"
+        "import mangatl\n"
+        "import ultralytics, torch\n"
+        "print(os.environ.get('OMP_NUM_THREADS'), torch.get_num_threads(), os.cpu_count())\n")[-3:]
+    assert env == n, "ultralytics found OMP_NUM_THREADS=%s, not the core count %s" % (env, n)
+    person = fresh("import torch; print(torch.get_num_threads())\n", OMP_NUM_THREADS=n)[-1]
+    assert threads == person, (threads, person, n)
 
 
 @pytest.mark.parametrize("path", [

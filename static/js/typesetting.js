@@ -644,6 +644,10 @@ function paintRamps(g, size, fam, centred){
 
 function drawText(){
   const o=$('overlay');
+  // The block to redraw alone, when one is named (see below). Read off
+  // `arguments` so the signature stays `drawText()`, which the tests that read
+  // this function's source look for by name.
+  const onlyId=arguments[0];
   // THE ONE CHOKE POINT. Every redraw of the typesetting is a moment the page
   // may have changed - an edit, a zoom, a selection, a page turn - so the
   // exported page goes off the screen here and is asked for again a moment
@@ -652,14 +656,28 @@ function drawText(){
   // every redraw is also the moment the page's typesetting can have appeared or
   // gone, so the switch that hides it follows along here
   if(typeof syncTextToggle==='function') syncTextToggle();
-  o.innerHTML='';
+  // ONE BLOCK, WHEN ONE BLOCK IS ALL THAT CHANGED. Dragging or resizing a text
+  // box changes that box alone, and rebuilding every block on the page - each
+  // line, each run, each shadow - on every mouse move is what made a drag on a
+  // busy page fall behind the pointer. lee: *"optimaze the app make it faster
+  // and moother dont chnage teh fuctionality"*. So `drawText(id)` rebuilds only
+  // that block, in the same place in the stack; with no id, or when that block
+  // has nothing on screen to replace, it is the whole page exactly as before.
+  // An id is a number or a string - anything else (an event, when this is
+  // handed to a listener) is no id.
+  const only=(typeof onlyId==='number'||typeof onlyId==='string')
+    ? String(onlyId) : null;
+  const prev=(only!==null && inText())
+    ? [...o.children].find(n=>n.dataset.block===only) : null;
+  if(!prev) o.innerHTML='';
+  const put=n=>{ if(prev) o.insertBefore(n, prev); else o.appendChild(n); };
   o.classList.toggle('on', inText());
   if(!inText()){
     drawFrame();
     if(typeof exactSoon === 'function') exactSoon();
     return;                              // also puts the frame away
   }
-  regions.forEach(r=>{
+  (prev ? regions.filter(r=>String(r.id)===only) : regions).forEach(r=>{
     const L=r.layout;
     if(!L||!L.lines) return;
     if(r._hideText) return;              // its layer-eye is switched off
@@ -670,10 +688,10 @@ function drawText(){
       // clicked, typed into again or deleted.
       const [ex,ey,ew,eh]=frameOf(r);
       const ph=document.createElement('div');
-      ph.className='temptyph'; ph.dataset.id=r.id;
+      ph.className='temptyph'; ph.dataset.id=r.id; ph.dataset.block=r.id;
       ph.style.cssText=`left:${ex*scale}px;top:${ey*scale}px;`+
         `width:${ew*scale}px;height:${eh*scale}px`;
-      o.appendChild(ph);
+      put(ph);
       return;
     }
     const org=layoutOrigins(r,L);
@@ -712,6 +730,10 @@ function drawText(){
     const gx=fr[0]*scale-P, gy=fr[1]*scale-P;
     const g=document.createElement('div');
     g.className='tgrp';
+    // `data-block`, not `data-id`: `region-ops.js` looks for a `.tgrp[data-id]`
+    // to slide while a box is dragged, and giving it one here would switch that
+    // on - a change in what a drag does, not only in how fast it is.
+    g.dataset.block=r.id;
     g.style.cssText=`position:absolute;left:${gx}px;top:${gy}px;`+
       `width:${fr[2]*scale+2*P}px;height:${fr[3]*scale+2*P}px;`+
       (rot?`transform:rotate(${-rot}deg);`:'')+
@@ -818,9 +840,10 @@ function drawText(){
       }
       g.appendChild(d);
     });
-    o.appendChild(g);
+    put(g);
     paintRamps(g, size, fam, true);
   });
+  if(prev) prev.remove();
   drawFrame();
   if(typeof exactSoon === 'function') exactSoon();
 }

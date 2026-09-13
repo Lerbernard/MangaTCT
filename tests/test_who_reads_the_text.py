@@ -285,7 +285,14 @@ def test_the_ten_per_cent_result_is_stated_as_a_wash_not_as_a_win():
     code."""
     doc = _read_here_doc()
     assert "not an improvement" in doc
-    assert "one box\n    gained" in doc and "one lost" in doc
+    # The words, not where the line wraps. Since Python 3.13 the compiler
+    # strips a docstring's indentation, so on lee's 3.14 `__doc__` has no four
+    # spaces after the line break and on CI's 3.11 it still does: this line
+    # failed on his machine for as long as he had had that Python, with
+    # nothing wrong in the docstring. Whitespace folded to single spaces reads
+    # the same on both.
+    flat = " ".join(doc.split())
+    assert "one box gained" in flat and "one lost" in flat
 
 
 def test_and_nothing_in_the_reading_path_actually_pads():
