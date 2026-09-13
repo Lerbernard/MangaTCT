@@ -138,6 +138,12 @@ def test_nothing_that_ships_looks_like_a_key():
         ("a Stripe secret", re.compile(r"sk_(?:live|test)_[0-9A-Za-z]{20,}")),
         ("a Stripe webhook secret", re.compile(r"whsec_[0-9A-Za-z]{20,}")),
         ("a service account", re.compile(r'"type"\s*:\s*"service_account"')),
+        # tools/discord_setup.py reads one of these and prints the other; the
+        # webhook's address goes in a GitHub secret, never in a file here.
+        ("a Discord bot token",
+         re.compile(r"\b[MNO][A-Za-z\d_\-]{23,27}\.[A-Za-z\d_\-]{6}\.[A-Za-z\d_\-]{27,40}\b")),
+        ("a Discord webhook address",
+         re.compile(r"discord(?:app)?\.com/api/webhooks/\d{15,22}/[A-Za-z\d_\-]{40,}")),
     ]
     bad = []
     for p in PKG.rglob("*"):
