@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Privacy | MangaTCT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="What MangaTCT keeps, where it goes, and what it never does.">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<!-- The theme, before the stylesheet paints - same boot as every other page. -->
+<script>try{var d=document.documentElement,t=localStorage.getItem('tct-theme');
+if(t)d.dataset.theme=t}catch(e){}</script>
+
+<!-- lee: *"wriet teh rpivacy page"*. Google asks for one before it will put
+     the MangaTCT name on its sign-in screen, and it is worth having anyway.
+     Every sentence here is something the code does - the account service in
+     `firebase/functions/index.js`, the rules in `firebase/firestore.rules`,
+     the app in `account.py` and `editor.py`. When one of those changes what
+     it keeps or sends, this page changes in the same commit;
+     `tests/test_the_privacy_page.py` holds the parts that can be checked. -->
+<style>
+.pv{max-width:760px}
+.pv h2{margin-top:36px}
+.pv ul{padding-left:20px;line-height:1.65}
+.pv li{margin:6px 0}
+.pvmuted{color:var(--mut);font-size:13.5px}
+</style>
+
+<header>
+  <a class="brand" href="index.html"><svg class="mk" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs>
+  <linearGradient id="ag" x1="0" y1="0" x2=".25" y2="1">
+    <stop offset="0" stop-color="#ffc400"/><stop offset="1" stop-color="#ff9d00"/>
+  </linearGradient></defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span></a>
+  <nav>
+    <a class="navb" href="index.html">Home</a>
+    <a class="navb" href="download.html">Download</a>
+    <a class="navb" href="tutorial.html">Guide</a>
+    <a class="navb" href="fonts.html">Fonts</a>
+    <a class="navb" href="pricing.html">Coins</a>
+    <a class="navb cta" id="acct" href="account.html">Account</a>
+    <button class="navb icon" id="theme" type="button" aria-label="Theme"></button>
+  </nav>
+</header>
+
+<main class="pv">
+  <h1>Privacy</h1>
+  <p class="lede">MangaTCT is made by LMB Technology. This page says what the
+    app and this website keep, where your pages go when you ask for something
+    that runs on our servers, and what we never do.</p>
+  <p class="pvmuted">Last updated September 13, 2026.</p>
+
+  <h2>The short version</h2>
+  <ul>
+    <li>Your chapters, pages and translations stay on your computer.</li>
+    <li>An account holds your email, your username and your coins - nothing
+      about what you translate.</li>
+    <li>A page leaves your computer only when you run a step that uses our
+      servers: the AI steps paid for with coins, or the hosted cleaner.</li>
+    <li>No analytics, no advertising, no tracking cookies, and nothing is
+      sold.</li>
+  </ul>
+
+  <h2>On your computer</h2>
+  <p>The app works on files you already have. Projects, page images, text
+    boxes, translations and exports are saved in folders you choose, and stay
+    there. The app runs without an account for everything it can do on your
+    own computer.</p>
+  <p>If you sign in, the app keeps the sign-in on your computer, in a file
+    only your user account can read. Signing out in the app deletes it. Your
+    settings, fonts you add, and the app's window position are kept in the
+    same folder.</p>
+
+  <h2>Your account</h2>
+  <p>An account is needed only for TCT Coins. If you make one, it is held by
+    Firebase, a Google service:</p>
+  <ul>
+    <li><b>Sign-in.</b> Your email address and a password (stored by Google,
+      never by us in readable form). If you sign in with Google, Google shares
+      your email address, and your name and profile picture as your Google
+      account has them.</li>
+    <li><b>Profile.</b> The username you pick. It is the one thing about you
+      other people could see.</li>
+    <li><b>Coins.</b> Your balance, and a history of every coin in and out:
+      what it was for, when, and the name of the page a spend was for.</li>
+    <li><b>Free coins.</b> A note that an email address has had its free
+      coins, kept as a one-way hash of the address rather than the address.</li>
+    <li><b>Signing in the app.</b> When you sign in to the app through this
+      website, the website passes your sign-in to the app through our server.
+      It is held for at most ten minutes and deleted as soon as the app
+      collects it.</li>
+  </ul>
+
+  <h2>When your pages leave your computer</h2>
+  <p>Only when you run one of these, and only the part that step needs:</p>
+  <ul>
+    <li><b>AI steps paid with coins</b> - reading text, translating,
+      proofreading. The page image or its text goes through our server to the
+      AI company that runs the model you picked: Anthropic, Google (Gemini) or
+      OpenRouter. It is handled there under that company's own terms.</li>
+    <li><b>The hosted cleaner</b> - the part of a page being cleaned goes
+      through our server to our cleaning service, and the cleaned image comes
+      back.</li>
+  </ul>
+  <p>Our server does not store what passes through it. For each request it
+    records which service was used, your account ID, whether it worked, its
+    size and how many tokens it used - so coins can be charged and problems
+    found - and not the content.</p>
+
+  <h2>Payments</h2>
+  <p>Coins are bought through Stripe. Your card or other payment details go
+    to Stripe and never reach us. We keep what was bought and the reference
+    Stripe gives us for your purchases, so the coins land on the right account
+    and a refund can find its purchase.</p>
+
+  <h2>This website</h2>
+  <ul>
+    <li>No analytics, no advertising and no tracking cookies.</li>
+    <li>Your browser stores your light or dark choice, and, if you sign in,
+      the sign-in Firebase needs to keep you signed in.</li>
+    <li>The site and the account service run on Google's servers, which
+      receive the ordinary details of every request, such as your IP address.
+      The sign-in code is loaded from Google's servers too.</li>
+    <li>The Fonts page shows previews loaded from Google Fonts.</li>
+  </ul>
+
+  <h2>Updates and downloads</h2>
+  <p>The app checks for a new version by reading a file on GitHub, where the
+    downloads are also kept, and fetches the models it needs from GitHub or
+    from the models' own publishers. Like any download, those sites see your
+    IP address.</p>
+
+  <h2>What we do not do</h2>
+  <ul>
+    <li>We do not sell or rent anything about you.</li>
+    <li>We do not use your pages or translations to train anything.</li>
+    <li>We do not share your information for advertising.</li>
+  </ul>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Sign out in the app, and the sign-in is deleted from your computer.</li>
+    <li>Change your username on your account page, in the app or here.</li>
+    <li>To delete your account and everything it holds, email us from the
+      address the account uses.</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>Questions about this page, or a request about your account:
+    <a href="mailto:mangatct@gmail.com">mangatct@gmail.com</a>. If this page
+    changes, the date at the top changes with it.</p>
+</main>
+
+<footer style="max-width:1040px;margin:0 auto;padding:0 22px 40px;color:var(--mut);font-size:13px">
+  Built by <b>LMB Technology</b>.
+  <a href="index.html">Home</a> &middot;
+  <a href="tutorial.html">Guide</a> &middot;
+  <a href="pricing.html">Coins</a> &middot;
+  <a href="releases.html">Releases</a> &middot;
+  <a href="license.html">GPL-3.0</a> &middot;
+  <a href="privacy.html">Privacy</a>
+</footer>
+
+<script>
+/* The theme button: same storage key as every other page, no CDN needed. */
+(function(){
+  var d = document.documentElement, b = document.getElementById('theme');
+  function paint(){ b.textContent = (d.dataset.theme !== 'light') ? '☼' : '☾'; }
+  b.addEventListener('click', function(){
+    var next = (d.dataset.theme !== 'light') ? 'light' : 'dark';
+    d.dataset.theme = next;
+    try{ localStorage.setItem('tct-theme', next); }catch(e){}
+    paint();
+  });
+  paint();
+})();
+</script>
+</html>

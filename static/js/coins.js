@@ -299,23 +299,34 @@ const GOOGLE_MARK = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
 
 /* lee: *"sign in / sign up and login with google like in the website"*.
    Google's sign-in happens in the system browser, on the website's own
-   sign-in page, opened by the server with a one-time nonce in its address
-   (`account.begin_handoff`). This waits: it asks `/api/account/hand?state=`
-   every couple of seconds until the page has handed the sign-in over, then
-   paints the purse, the Account page and Home as signed in. Ten minutes and
-   it stops asking - the nonce is dead by then anyway. */
-let _hand = null;                        // the nonce being waited on
+   sign-in page (`account.begin_handoff`). The page files the sign-in with the
+   account service and says "go back to the app" - on mangatct.com, never on
+   an address of this computer. This waits: it asks `/api/account/hand?state=`
+   every couple of seconds, the server collects the sign-in as soon as the
+   page has filed it, and then the purse, the Account page and Home paint as
+   signed in. Ten minutes and it stops asking - the hand is gone by then. */
+let _hand = null;                        // the hand being waited on
+let _handUrl = '';
 
 async function walletGoogle(making){
   const say = $('acSay');
-  const tell = (msg, warn) => { if(say){ say.className = 'wnote' + (warn ? ' warn' : '');
-                                          say.innerHTML = msg; } };
-  tell('Opening the browser…');
+  const warn = msg => { if(say){ say.className = 'wnote warn'; say.textContent = msg; } };
+  if(say){ say.className = 'wnote'; say.textContent = 'Opening the browser…'; }
   const got = await acPost({do:'google', making: !!making});
-  if(got.error){ tell(got.error, true); return; }
+  if(got.error){ warn(got.error); return; }
   _hand = got.state;
-  const link = got.url ? ` If it did not open, <a href="${got.url}" target="_blank" rel="noopener">go there</a>.` : '';
-  tell('Finish signing in in the browser that just opened; this fills in by itself.' + link);
+  _handUrl = got.url || '';
+  // The page's address as a BUTTON, not as two small words of link at the end
+  // of a grey sentence. lee: *"make teh go here link more visible"*. The
+  // browser does not always come to the front, and then this is the way to it.
+  if(say){
+    say.className = 'wnote whand';
+    say.innerHTML = `<b>Finish signing in in your browser.</b>` +
+      `<span>The sign-in page is on mangatct.com. This fills in by itself when you are done.</span>` +
+      `<span class="whandrow">` +
+      (_handUrl ? `<button class="pri" onclick="walletOpenHand()">Open the sign-in page</button>` : '') +
+      `<button onclick="walletCancelHand()">Cancel</button></span>`;
+  }
   const until = Date.now() + 10*60*1000;
   while(_hand === got.state && Date.now() < until){
     await new Promise(r => setTimeout(r, 2000));
@@ -324,6 +335,7 @@ async function walletGoogle(making){
       const r = await fetch(apiUrl('/api/account/hand?state=' + encodeURIComponent(got.state)));
       st = await r.json();
     }catch(e){ continue; }
+    if(_hand !== got.state) return;        // cancelled while it was asking
     if(st && st.done){
       _hand = null;
       await refreshCoins();
@@ -334,9 +346,24 @@ async function walletGoogle(making){
       toast('Signed in' + (st.who ? ' as ' + st.who : '') + '.');
       return;
     }
-    if(st && st.known === false){ _hand = null; tell('That sign-in ran out. Press the button again.', true); return; }
+    if(st && st.known === false){
+      _hand = null;
+      warn(st.problem || 'That sign-in ran out. Press the button again.');
+      return;
+    }
   }
-  if(_hand === got.state){ _hand = null; tell('Nobody came back from the browser. Press the button to try again.', true); }
+  if(_hand === got.state){ _hand = null; warn('Nobody came back from the browser. Press the button to try again.'); }
+}
+
+/* In the app's window this opens the system browser (links that leave the
+   app do); in a browser tab, a new tab. */
+function walletOpenHand(){
+  if(_handUrl) window.open(_handUrl, '_blank', 'noopener');
+}
+
+function walletCancelHand(){
+  _hand = null;
+  const say = $('acSay'); if(say){ say.className = 'wnote'; say.textContent = ''; }
 }
 
 /* Its own fetch and not `api`, for one reason: `api` toasts whatever the
@@ -399,19 +426,16 @@ async function walletSignOut(){
 
 /* Settings > Account, the website's page in the app. lee: *"there isn't a
    place to sign in in the app"*, then *"have an account view like on the
-   website"*. The purse, the free coins if owed, the receipt, and the
-   profile - the same picture set and the same username rules the site has.
-   Drawn from /api/account; the receipt comes through the `ledgerLines`
-   function, the picture is written the way the website writes it. */
-const ACCT_ICONS = ['fox','cat','moon','star','bolt','leaf','wave','ink','panel','brush'];
-function acctIconSvg(id, size){
-  const n = Math.max(0, ACCT_ICONS.indexOf(id));
-  const hue = (n * 36 + 20) % 360;
-  const ch = String.fromCodePoint(0x2726 + (n % 4));
-  return `<svg class="pic" width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true">` +
-    `<circle cx="20" cy="20" r="20" fill="hsl(${hue} 70% 42%)"/>` +
-    `<text x="20" y="27" text-anchor="middle" font-size="19" fill="#fff">${ch}</text></svg>`;
-}
+   website"*, and then *"imprebv teh whoe account situatly and keeo teh
+   cutomizality simeple no picture and make sure everything syncs"*.
+
+   So: the coins, the free coins while they are owed, ONE thing about you -
+   the username, the same field the website's page has - and the receipt. No
+   picture, here or on the site. Drawn from /api/account, which asks the
+   account service afresh every time it opens instead of repeating the top
+   bar's last number; and when the window comes back to the front after the
+   website (`acctResync`), the coins and this page catch up without anybody
+   pressing anything. */
 const ACCT_IN = new Set(['credit','refund']);
 const ACCT_WORDS = {spend:'Spent on', refund:'Given back', credit:'Bought', clawback:'Taken back'};
 function acctSays(r, packs){
@@ -447,27 +471,19 @@ async function renderAccount(){
           `<td>${coinEsc(acctSays(r, v.packs))}${r.page ? ` <span class="muted">${coinEsc(r.page)}</span>` : ''}</td>` +
           `<td class="n ${plus ? 'plus' : 'minus'}">${plus ? '+' : '−'}${Number(r.coins||0)}</td></tr>`; }).join('') +
       `</table>`;
-  const icons = (v.icons && v.icons.length) ? v.icons : ACCT_ICONS;
   box.innerHTML =
     `<div class="acctpurse">` +
     `<div class="acctcoins"><svg class="coinface" width="18" height="18" aria-hidden="true"><use href="#tctcoin"/></svg>` +
     `<b>${Number(w.balance||0)}</b><span>TCT Coins</span></div>` +
     `<button class="pri" onclick="buyCoins()">Buy coins</button></div>` +
     (typeof welcomeRow === 'function' ? welcomeRow(w) : '') +
+    `<h3 class="accth">Your name</h3>` +
+    `<div class="acctname"><div class="row"><input id="acctName" maxlength="20" spellcheck="false" autocomplete="off" ` +
+    `value="${coinEsc(w.username||'')}" placeholder="pick a name">` +
+    `<button class="pri" onclick="acctSaveName()">Save</button></div>` +
+    `<div class="muted" id="acctNameHint">How anyone else sees you, here and on the website. Letters, numbers, dot, dash and underscore.</div></div>` +
     `<h3 class="accth">Everything that moved</h3>` +
     (v.ledger_problem ? `<p class="muted">${coinEsc(v.ledger_problem)}</p>` : ledger) +
-    `<h3 class="accth">How people see you</h3>` +
-    `<div class="acctprofile">` +
-    `<div id="acctPicNow">${acctIconSvg(w.photo || icons[0], 72)}</div>` +
-    `<div class="acctname"><label>Username</label>` +
-    `<div class="row"><input id="acctName" maxlength="20" spellcheck="false" autocomplete="off" ` +
-    `value="${coinEsc(w.username||'')}" placeholder="pick a name">` +
-    `<button class="pri" onclick="acctSaveName()">Save name</button></div>` +
-    `<div class="muted" id="acctNameHint">Letters, numbers, dot, dash and underscore. Everyone's is different.</div></div></div>` +
-    `<label style="margin-top:14px">Picture</label>` +
-    `<div class="acctpicks">` + icons.map(id =>
-      `<button type="button" class="${id === w.photo ? 'on' : ''}" data-p="${id}" onclick="acctSetPic('${id}')">${acctIconSvg(id, 40)}</button>`).join('') +
-    `</div>` +
     `<div class="acctfoot"><span class="muted">Signed in as ${coinEsc(w.email||'')}</span>` +
     `<button onclick="walletSignOut()">Sign out</button></div>`;
 }
@@ -483,12 +499,29 @@ async function acctSaveName(){
   if(typeof renderHome === 'function') renderHome();
 }
 
-async function acctSetPic(id){
-  const got = await acPost({do:'photo', photo: id});
-  if(got.error){ toast(got.error); return; }
-  const now = $('acctPicNow'); if(now) now.innerHTML = acctIconSvg(id, 72);
-  document.querySelectorAll('.acctpicks button').forEach(b => b.classList.toggle('on', b.dataset.p === id));
+/* Back to the window after the website - a name changed there, a pack bought
+   there - and the numbers catch up at once instead of on the next page turn.
+   lee: *"make sure everything syncs"*. At most every five seconds: focus comes
+   and goes with every dialog, and each of these is a call to the service. */
+let _acctSynced = 0;
+async function acctResync(){
+  if(!wallet || !wallet.signed_in) return;
+  if(Date.now() - _acctSynced < 5000) return;
+  _acctSynced = Date.now();
+  const got = await acPost({do: 'sync'});
+  if(got.error) return;
+  await refreshCoins();
+  drawWallet();
+  const box = $('acctBox');
+  const typing = document.activeElement && document.activeElement.id === 'acctName';
+  if(box && box.offsetParent !== null && !typing) renderAccount();
+  const home = $('home');
+  if(home && home.offsetParent !== null && typeof renderHome === 'function') renderHome();
 }
+window.addEventListener('focus', acctResync);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') acctResync();
+});
 
 /* lee: *"just have a buy coin button that will link to oa page on the
    website"*. A new tab, and the address comes from the server so there is one

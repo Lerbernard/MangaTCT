@@ -776,29 +776,36 @@ frameless). `MANGATCT_FRAME=1` brings the system frame back. lee:
 
 The website's account page, in the app (lee: *"have an account view like on
 the website"*): the balance and **Buy coins** (opens `mangatct.com/pricing`),
-the free-coins box while they are owed, **Everything that moved** (the
-account's ledger, through the `ledgerLines` function — newest first, plus in
-green), **How people see you** (username, saved through `claimUsername`; the
-ten pictures, written to the account document the way the site writes them),
-and **Sign out**. Signed out, the same sign-in / make-an-account form the
-coin's panel shows (`renderAccount`, coins.js). The coin in the header reads
-**0** until somebody is signed in.
+the free-coins box while they are owed, **Your name** (the username, saved
+through `claimUsername` - the same field the website's account page has),
+**Everything that moved** (the account's ledger, through the `ledgerLines`
+function — newest first, plus in green), and **Sign out**. No picture, in the
+app or on the site (lee: *"keeo teh cutomizality simeple no picture"*). The
+page asks the account service afresh every time it opens, and the coins and
+the page catch up again whenever the window comes back to the front, so a
+name changed or coins bought on the website are there without pressing
+anything. Signed out, the same sign-in / make-an-account form the coin's panel
+shows (`renderAccount`, coins.js). The coin in the header reads **0** until
+somebody is signed in.
 
 **Continue with Google** / **Sign up with Google** sits at the top of that
 form, as on the website (lee: *"sign in / sign up and login with google like
 in the website"*). Google's sign-in is a popup on a Google page and wants a
-real browser, so the app does not draw it: the button asks the server for a
-one-time nonce (`account.begin_handoff`), the server opens
-`mangatct.com/signin?app=<port>&state=<nonce>` in the system browser, and
-the site's page — Google, or an email typed there — hands the credential to
-the app as a form post to `127.0.0.1:<port>/api/account/hand`. The app has
-been asking `/api/account/hand?state=` every two seconds; when the hand is
-in, it paints the purse, Account and Home, and asks its window to come to
-the front. The hand is checked before it is kept: the nonce is ours and
-under ten minutes old, the posting page is the site (the `Origin` header),
-and Google turns the refresh token into a real ID token — a made-up one
-leaves nothing on disk. If the browser did not open, the note under the
-button carries the link.
+real browser, so the app does not draw it: the server makes a secret and
+keeps it, opens `mangatct.com/signin?hand=<sha256 of the secret>` in the
+system browser, and the site's page — Google, or an email typed there — files
+the sign-in with the `handToApp` function and says **You are signed in** on
+the website. No browser is ever sent to an address on this computer (lee:
+*"the app shoud bnever send teh user to a link like thsi with 127.654. etc it
+shidu always be teh offical websuet"*). The app has been asking
+`/api/account/hand?state=` every two seconds; the server collects the sign-in
+from `takeHand` with the secret (the hash in the address bar cannot collect
+anything), then the purse, Account and Home paint as signed in and the window
+comes to the front. A hand lasts ten minutes and is taken once, and Google
+turns the refresh token into a real ID token for the same account before
+anything is kept. While it waits the form shows **Open the sign-in page** (for
+when the browser did not come to the front) and **Cancel**. An older copy of
+the app that opens the page the old way is told to let the app update.
 
 ## 4.9b Settings ▸ Updates
 
@@ -2156,7 +2163,7 @@ The editor never writes a balance. It only asks.
 | Action | How |
 |---|---|
 | Sign in, sign up, reset password | Firebase Identity Toolkit directly |
-| Sign in with Google | The website's sign-in page, in the system browser, hands a refresh token to `/api/account/hand` on 127.0.0.1 with a nonce the app minted (§4.9a) |
+| Sign in with Google | The website's sign-in page, in the system browser, files the sign-in with the `handToApp` function; the app collects it with `takeHand` and a secret it never sent anywhere (§4.9a) |
 | Claim a username | A Cloud Function |
 | Ask who I am and what I have | A Cloud Function |
 | Spend, refund | Cloud Functions |

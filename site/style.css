@@ -248,10 +248,6 @@ input[type=range]{padding:0;background:transparent;border:0;accent-color:var(--a
 .row{display:flex;align-items:center;gap:12px}
 .row+.row{margin-top:10px}
 .spread{justify-content:space-between;flex-wrap:wrap}
-.pic{border-radius:50%;display:block}
-.picks{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.picks button{padding:5px;line-height:0;border-radius:50%}
-.picks button.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
 
 table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line)}
@@ -289,6 +285,8 @@ td.minus{color:var(--bad);font-weight:650}
 .forapp b{color:var(--accent)}
 .forapp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .forapp-row button{font-size:13px;padding:8px 14px}
+.forapp.done{padding:26px 22px;font-size:15px}
+.forapp.done h2{margin:0 0 6px;color:var(--accent)}
 
 /* ------------------------------------------------------------------ modal
 

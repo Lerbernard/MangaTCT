@@ -40,18 +40,25 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
 
   <!-- The app sent us. lee: *"sign in / sign up and login with google like
        in the website"*: the app opens THIS page in the browser and, once the
-       person is in, the page hands the sign-in back to the app on this
-       computer. Shown only with `?app=` in the address. -->
+       person is in, the page files the sign-in with the account service for
+       the app to collect (`handToApp` in the functions). The browser stays on
+       this site the whole way - lee: *"the app shoud bnever send teh user to a
+       link like thsi with 127.654. etc it shidu always be teh offical
+       websuet"*. Shown only with `?hand=` in the address. -->
   <div class="card forapp" id="forApp" hidden>
-    <b>For the MangaTCT app on this computer.</b>
-    <span id="forAppSay">Sign in here, and this tab passes it to the app.</span>
+    <b>Signing in the MangaTCT app.</b>
+    <span id="forAppSay">Sign in here, and the app on your computer signs in with you.</span>
     <div class="forapp-row" id="forAppRow" hidden>
       <button class="pri" id="useMe" type="button">Use this account</button>
       <button id="notMe" type="button">Sign in as somebody else</button>
     </div>
   </div>
+  <div class="card forapp done" id="handed" hidden>
+    <h2>You are signed in</h2>
+    <span>Go back to MangaTCT - it has signed in by itself. You can close this tab.</span>
+  </div>
 
-  <div class="card">
+  <div class="card" id="signCard">
     <div class="tabs" role="tablist">
       <button id="tabIn" class="on" role="tab" aria-selected="true">Sign in</button>
       <button id="tabUp" role="tab" aria-selected="false">Create an account</button>
@@ -139,47 +146,50 @@ let mode = 'in';
 
 /* ------------------------------------------------------- for the app */
 
-/* `?app=<port>&state=<nonce>`: the MangaTCT app on this computer opened this
-   page and is waiting, on 127.0.0.1:<port>, for the sign-in. Once the person
-   is in, the credential goes to the app as a FORM POST - a plain navigation
-   to the loopback, which every browser allows from a page like this one -
-   with the nonce the app minted, and the app checks the nonce before it
-   keeps anything. A port that is not a port, or a nonce that does not look
-   like one, means this page is an ordinary sign-in page. */
+/* `?hand=<challenge>`: the MangaTCT app on this computer opened this page and
+   is waiting. The challenge is the hash of a secret the app kept, so this page
+   can file a sign-in under it and cannot collect one - see `handToApp` in the
+   functions. Anything that is not 64 hex characters means this is an ordinary
+   sign-in page.
+
+   `?app=<port>` with no `hand` is an older copy of the app, which waited for
+   this page to send the browser to it on this computer. Nothing is sent there
+   any more; the person is told to let the app update itself. */
 const forApp = (() => {
   const q = new URLSearchParams(location.search);
-  const port = String(q.get('app') || ''), state = String(q.get('state') || '');
-  if (!/^\d{2,5}$/.test(port) || !/^[A-Za-z0-9_-]{16,80}$/.test(state)) return null;
-  return { port: Number(port), state };
+  const hand = String(q.get('hand') || '').toLowerCase();
+  if (/^[0-9a-f]{64}$/.test(hand)) return { hand };
+  if (q.get('app')) return { old: true };
+  return null;
 })();
 if (forApp) {
   $('forApp').hidden = false;
   $('lede').hidden = true;
+  if (forApp.old) {
+    $('forAppSay').textContent = 'This copy of the app signs in a way that no longer works. '
+      + 'Close MangaTCT and open it again - it updates itself - then press Continue with Google again.';
+  }
 }
 
 async function handToApp(user) {
-  const f = document.createElement('form');
-  f.method = 'POST';
-  f.action = 'http://127.0.0.1:' + forApp.port + '/api/account/hand';
-  f.style.display = 'none';
-  const put = (k, v) => {
-    const i = document.createElement('input');
-    i.type = 'hidden'; i.name = k; i.value = v == null ? '' : String(v);
-    f.appendChild(i);
-  };
-  put('state', forApp.state);
-  put('refreshToken', user.refreshToken || '');
-  put('idToken', await user.getIdToken().catch(() => ''));
-  put('uid', user.uid || '');
-  put('email', user.email || '');
-  $('forAppSay').textContent = 'Passing the sign-in to the app...';
-  document.body.appendChild(f);
-  f.submit();
+  $('forAppRow').hidden = true;
+  $('forAppSay').textContent = 'Signing the app in...';
+  try {
+    await call('handToApp')({ challenge: forApp.hand, refreshToken: user.refreshToken || '' });
+  } catch (e) {
+    $('forAppSay').textContent = saysWhat(e);
+    return;
+  }
+  $('forApp').hidden = true;
+  $('signCard').hidden = true;
+  $('handed').hidden = false;
+  document.title = 'Signed in | MangaTCT';
 }
 
-/* Signed in: on to `next`, or, for the app, to the app. */
+/* Signed in: for the app, the app is signed in and this page says so, on this
+   site; otherwise on to `next`. */
 function arrive(user) {
-  if (forApp && user) handToApp(user);
+  if (forApp && forApp.hand && user) handToApp(user);
   else location.href = next;
 }
 
@@ -327,13 +337,14 @@ $('forgot').onclick = async () => {
 whoAmI().then((u) => {
   if (!u) return;
   if (!forApp) { location.href = next; return; }
+  if (forApp.old) return;              // told to update; nothing to hand
   $('forAppSay').textContent = 'This browser is signed in as ' + (u.email || 'you') + '.';
   $('forAppRow').hidden = false;
   $('useMe').onclick = () => arrive(u);
   $('notMe').onclick = async () => {
     await signOut(auth).catch(() => {});
     $('forAppRow').hidden = true;
-    $('forAppSay').textContent = 'Sign in here, and this tab passes it to the app.';
+    $('forAppSay').textContent = 'Sign in here, and the app on your computer signs in with you.';
   };
 });
 if (new URLSearchParams(location.search).get('new')) setMode('up');

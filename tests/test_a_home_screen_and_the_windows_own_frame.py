@@ -351,60 +351,68 @@ def test_the_account_route_is_the_websites_page_without_a_token(serving, monkeyp
     from mangatl import account
     monkeypatch.setattr(account, "signed_in", lambda: False)
     v = _get(base, "/api/account")
-    assert v["icons"] == list(account.ICONS) and v["ledger"] == [] and v["packs"] == {}
+    assert v["ledger"] == [] and v["packs"] == {} and "icons" not in v, "no pictures"
     assert "token" not in json.dumps(v).lower().replace("tokens", "")
-    # signed in: the receipt comes from the function, packs beside it
+    # signed in: asked afresh, the receipt from the function, packs beside it
+    asked = []
     monkeypatch.setattr(account, "signed_in", lambda: True)
+    monkeypatch.setattr(account, "refresh_me", lambda: asked.append(1) or {})
     monkeypatch.setattr(account, "state", lambda: {"configured": True, "signed_in": True,
                                                     "email": "a@b.c", "username": "lee",
-                                                    "photo": "cat", "balance": 12})
+                                                    "balance": 12})
     monkeypatch.setattr(account, "ledger", lambda n=50: {"rows": [{"kind": "credit", "what": "welcome",
                                                                      "coins": 100, "at": 1, "page": ""}],
                                                           "packs": {"pack1": "small"}})
     v = _get(base, "/api/account")
+    assert asked, "opening Account asks the account service, not the top bar's cache"
     assert v["ledger"][0]["what"] == "welcome" and v["packs"] == {"pack1": "small"}
-    assert v["account"]["photo"] == "cat"
+    assert v["account"]["username"] == "lee"
+
+
+def test_coming_back_to_the_window_syncs_the_account(serving, monkeypatch):
+    """lee: *"make sure everything syncs"*. A name changed or coins bought on
+    the website are in the app as soon as its window is in front again."""
+    p, base = serving
+    from mangatl import account
+    asked = []
+    monkeypatch.setattr(account, "signed_in", lambda: True)
+    monkeypatch.setattr(account, "refresh_me", lambda: asked.append(1) or {})
+    monkeypatch.setattr(account, "state", lambda: {"configured": True, "signed_in": True,
+                                                    "email": "a@b.c", "username": "lee",
+                                                    "balance": 3})
+    got = _post(base, "/api/account", {"do": "sync"})
+    assert got["ok"] and asked == [1]
+    js = (PKG / "static" / "js" / "coins.js").read_text(encoding="utf-8")
+    assert "async function acctResync(" in js and "{do: 'sync'}" in js
+    assert "window.addEventListener('focus', acctResync);" in js
+    assert "document.visibilityState === 'visible'" in js
 
 
 def test_the_account_page_draws_what_the_website_draws():
     js = (PKG / "static" / "js" / "coins.js").read_text(encoding="utf-8")
-    body = js[js.index("const ACCT_ICONS"):]
-    for must in ("Everything that moved", "How people see you", "acctSaveName()", "acctSetPic(",
-                 "Free coins for signing up", "walletSignOut()", "buyCoins()"):
+    body = js[js.index("async function renderAccount("):]
+    for must in ("Everything that moved", "Your name", "acctSaveName()",
+                 "walletSignOut()", "buyCoins()"):
         assert must in body, must
-    assert "const ACCT_ICONS = ['fox','cat','moon','star','bolt','leaf','wave','ink','panel','brush'];" in js
-    assert "(n * 36 + 20) % 360" in js, "the same picture, drawn the same way as the site"
+    assert "Free coins for signing up" in js
     fn = (PKG / "firebase" / "functions" / "index.js").read_text(encoding="utf-8")
     assert "export const ledgerLines = onCall(" in fn and "orderBy('at', 'desc').limit(n)" in fn
-    src = (PKG / "editor.py").read_text(encoding="utf-8")
-    assert 'elif do == "photo":' in src
 
 
-def test_the_picture_is_written_the_way_the_website_writes_it(monkeypatch, tmp_path):
+def test_there_is_no_picture_to_pick_anywhere():
+    """lee: *"keeo teh cutomizality simeple no picture"*. The username is the
+    one thing about you, in the app and on the website."""
+    import inspect
     from mangatl import account
-    monkeypatch.setenv("MANGATL_HOME", str(tmp_path))
-    monkeypatch.setattr(account, "config", lambda: {"projectId": "mangatctproject", "apiKey": "k"})
-    monkeypatch.setattr(account, "_read", lambda: {"uid": "u1", "refreshToken": "r", "idToken": "t",
-                                                   "expires": 9e12})
-    monkeypatch.setattr(account, "token", lambda force=False: "ID")
-    written = []
-    monkeypatch.setattr(account, "_write", lambda d: written.append(d))
-    seen = {}
-
-    class R:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def read(self): return b"{}"
-
-    def fake_open(req, timeout=0):
-        seen["url"] = req.full_url; seen["method"] = req.get_method()
-        seen["body"] = json.loads(req.data); seen["auth"] = req.get_header("Authorization")
-        return R()
-    monkeypatch.setattr(account.urllib.request, "urlopen", fake_open)
-    assert account.set_photo("moon") == {"photo": "moon"}
-    assert seen["method"] == "PATCH" and seen["auth"] == "Bearer ID"
-    assert seen["url"].endswith("/documents/users/u1?updateMask.fieldPaths=photo")
-    assert seen["body"] == {"fields": {"photo": {"stringValue": "moon"}}}
-    assert written and written[0]["photo"] == "moon"
-    with pytest.raises(account.AccountError):
-        account.set_photo("dragon")
+    js = (PKG / "static" / "js" / "coins.js").read_text(encoding="utf-8")
+    for gone in ("ACCT_ICONS", "acctSetPic", "acctIconSvg", "acctpicks"):
+        assert gone not in js, gone
+    site = (PKG / "site" / "account.html").read_text(encoding="utf-8")
+    for gone in ('id="picks"', 'id="picNow"', "iconSvg", "setPic", "ICONS"):
+        assert gone not in site, gone
+    app = (PKG / "site" / "app.js").read_text(encoding="utf-8")
+    assert "export const ICONS" not in app and "iconSvg" not in app
+    src = (PKG / "editor.py").read_text(encoding="utf-8")
+    assert 'do == "photo"' not in src
+    assert not hasattr(account, "set_photo") and not hasattr(account, "ICONS")
+    assert '"photo"' not in inspect.getsource(account.state)

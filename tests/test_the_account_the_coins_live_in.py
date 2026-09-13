@@ -383,7 +383,6 @@ def test_signing_in_keeps_what_the_account_holds(project, monkeypatch):
     assert s["signed_in"] is True
     assert s["balance"] == 640
     assert s["username"] == "lee"
-    assert s["photo"] == "fox"
     assert s["plan"]["tier"] == "regular"
 
 

@@ -1845,6 +1845,15 @@ body.laydragging .lay{cursor:grabbing}
  width:13px;height:13px;margin-left:5px;border-radius:50%;font-size:9px;
  background:#ffc4001f;color:#ffc400;border:1px solid #ffc40055;cursor:help}
 .wnote.warn{color:#e2b871}
+/* Waiting on the browser for a Google sign-in: a notice with a real button in
+   it, not a link at the end of a grey sentence. lee: *"make teh go here link
+   more visible"*. */
+.wnote.whand{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding:10px 12px;
+  border:1px solid var(--accent);border-radius:8px;background:rgba(255,196,0,.07);
+  color:var(--ink);font-size:12px}
+.wnote.whand>span:not(.whandrow){color:var(--dim)}
+.whandrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.whandrow button{flex:1 1 auto}
 
 /* A line of explanation under a settings heading. Grey, small, and never a
    label - a label names a control and this names the shape of a group. */
@@ -1860,7 +1869,12 @@ html.framed #top{padding-right:0;padding-top:0;padding-bottom:0;min-height:38px;
   -webkit-user-select:none;user-select:none}
 html.framed #top>.side{padding:7px 0}
 html.framed #top>.side:first-child{padding-left:0}
-#winctl{display:flex;gap:0;align-self:stretch;margin-left:6px}
+/* Room between the window's three buttons and the page's own controls, and a
+   short rule between them, so the buttons read as the window's and not as more
+   of the bar. lee: *"chaneg teh layout of thsi coner of the app it donst look
+   good with teh 2 button being so clase to the other things"*. */
+#winctl{display:flex;gap:0;align-self:stretch;margin-left:20px;padding-left:10px;position:relative}
+#winctl::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:1px;background:var(--line)}
 #winctl[hidden]{display:none}
 .wbtn{width:46px;height:auto;align-self:stretch;min-height:38px;border:0;border-radius:0;
   background:transparent;color:var(--fg);padding:0;display:inline-flex;align-items:center;
@@ -1932,13 +1946,8 @@ html.maximized #winEdges{display:none}
 .acctprofile{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
 .acctname{flex:1 1 280px}
 .acctname .row{gap:8px} .acctname input{flex:1 1 auto;min-width:0}
-.acctpicks{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-.acctpicks button{padding:3px;border-radius:50%;background:transparent;border:2px solid transparent;line-height:0}
-.acctpicks button.on{border-color:var(--accent)}
-.acctpicks button:hover{border-color:var(--line)}
 .acctfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:26px;
   padding-top:14px;border-top:1px solid var(--line);max-width:720px}
-.pic{display:block;border-radius:50%}
 .acctwho{display:flex;align-items:baseline;gap:10px;font-size:15px}
 .acctwho .muted{font-size:12px}
 .acctcoins{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:15px}

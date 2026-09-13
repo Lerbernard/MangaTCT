@@ -1207,6 +1207,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
       <a href="releases.html">All releases</a>
       <a href="{SOURCE}">Source (GPL-3.0)</a>
       <a href="license.html">License</a>
+      <a href="privacy.html">Privacy</a>
     </nav>
   </div>
   <div class="footbar">

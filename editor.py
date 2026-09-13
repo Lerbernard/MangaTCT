@@ -948,26 +948,6 @@ def clean_note(p: Project) -> str:
             "nothing left to clean.")
 
 
-# The page the browser lands on after handing a sign-in to the app (see
-# `account.finish_handoff`). Plain on purpose: it is a tab the person is about
-# to close, and it says the one thing they need - it worked, go back to the
-# app - in the app's own colors.
-def _handed_page(what: str, ok: bool) -> str:
-    import html as _h
-    head = "You are signed in" if ok else "That did not work"
-    body = ("MangaTCT is signed in as <b>%s</b>. You can close this tab and go "
-            "back to the app." % _h.escape(what)) if ok else \
-           ("%s" % _h.escape(what))
-    return ("<!doctype html><meta charset=utf-8><title>MangaTCT</title>"
-            "<meta name=viewport content='width=device-width,initial-scale=1'>"
-            "<style>body{margin:0;min-height:100vh;display:grid;place-items:center;"
-            "background:#1b1c20;color:#e8e6df;font:15px/1.6 system-ui,sans-serif}"
-            ".card{max-width:420px;padding:32px 36px;border:1px solid #33353c;"
-            "border-radius:12px;background:#22242a}h1{font-size:20px;margin:0 0 10px}"
-            "b{color:#fff}p{margin:0;color:#b9b7ae}</style>"
-            "<div class=card><h1>%s</h1><p>%s</p></div>" % (head, body))
-
-
 def _current_project(p: Project) -> dict:
     """What is open right now, for the Home screen's Continue card."""
     try:
@@ -5529,25 +5509,6 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
-    def _form_or_json(self) -> dict:
-        """The body as a dict, whether it came as a form post or as JSON."""
-        n = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(n) if n else b""
-        ctype = str(self.headers.get("Content-Type") or "")
-        if ctype.startswith("application/x-www-form-urlencoded"):
-            got = urllib.parse.parse_qs(raw.decode("utf8", "replace"),
-                                        keep_blank_values=True)
-            return {k: v[-1] for k, v in got.items()}
-        try:
-            got = json.loads(raw or b"{}")
-        except ValueError:
-            got = {}
-        return got if isinstance(got, dict) else {}
-
-    def _wants_html(self) -> bool:
-        """A browser navigating here (a form post) rather than a fetch."""
-        return "text/html" in str(self.headers.get("Accept") or "")
-
     # Every route that names a page by number. `/api/page/7`, `/api/page/7/ocr`,
     # `/img/7`, `/render/7` - the number is always the first path segment after
     # the prefix.
@@ -5631,8 +5592,9 @@ class Handler(BaseHTTPRequestHandler):
                     "current": _current_project(p),
                     "recent": userdata.recent_projects()})
             if path == "/api/account/hand":
-                # The app asking whether the browser has handed the sign-in
-                # over yet. `state` is the nonce it was given.
+                # The app asking whether the website has filed the sign-in
+                # yet - `account.handoff_state`, which asks the account
+                # service. `state` is the app's own name for the hand.
                 from . import account
                 q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
                 nonce = (q.get("state") or [""])[0]
@@ -5643,10 +5605,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(out)
             if path == "/api/account":
                 # Settings > Account, like the website's page: who, the
-                # coins, the receipt, the picture. Never a token.
+                # coins, the name, the receipt. Never a token.
+                #
+                # Asked FRESH when the page opens, not read off the top bar's
+                # cache: a name changed on the website, or coins bought there,
+                # are on this page the moment somebody looks.
+                # lee: *"make sure everything syncs"*.
                 from . import account, coins
-                out = {"account": coins.state(), "icons": list(account.ICONS),
-                       "ledger": [], "packs": {}}
+                if account.signed_in():
+                    try:
+                        account.refresh_me()
+                    except account.AccountError:
+                        pass            # offline: the last numbers known
+                out = {"account": coins.state(), "ledger": [], "packs": {}}
                 if account.signed_in():
                     try:
                         got = account.ledger(50)
@@ -6174,37 +6145,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"error": str(e)}, 400)
                 return self._json(_adopt(p, state))
 
-            if path == "/api/account/hand":
-                # The browser handing a sign-in to the app - see
-                # `account.finish_handoff`. This is the one route a page that
-                # is not the editor's own may post to, so it is the one that
-                # checks who is posting: the nonce, and the Origin header the
-                # browser sets on a cross-site post. The body is a form (a
-                # top-level post from the site's sign-in page), or JSON when
-                # a test speaks it.
-                from . import account
-                form = self._form_or_json()
-                try:
-                    got = account.finish_handoff(
-                        str(form.get("state") or ""),
-                        str(form.get("refreshToken") or ""),
-                        str(form.get("idToken") or ""),
-                        str(form.get("uid") or ""),
-                        str(form.get("email") or ""),
-                        origin=str(self.headers.get("Origin") or ""))
-                except account.AccountError as e:
-                    if self._wants_html():
-                        return self._send(400, _handed_page(str(e), False).encode("utf8"),
-                                          "text/html; charset=utf-8")
-                    return self._json({"error": str(e), "code": e.code}, 400)
-                who = account.who()
-                if self._wants_html():
-                    name = who.get("username") or who.get("email") or "you"
-                    return self._send(200, _handed_page(name, True).encode("utf8"),
-                                      "text/html; charset=utf-8")
-                from . import coins
-                return self._json({"ok": True, **coins.state()})
-
             body = self._body()
 
             if path == "/api/warm":
@@ -6610,10 +6550,11 @@ class Handler(BaseHTTPRequestHandler):
                     if do == "google":
                         # lee: *"sign in / sign up and login with google
                         # like in the website"*. The website's page, in the
-                        # system browser, marked for this app; the page
-                        # hands the sign-in back to `/api/account/hand`.
-                        port = int(self.server.server_address[1])
-                        got = account.begin_handoff(port, bool(body.get("making")))
+                        # system browser; the page files the sign-in with the
+                        # account service and the app collects it
+                        # (`account.handoff_state`). No browser is ever sent
+                        # to this machine's own address.
+                        got = account.begin_handoff(bool(body.get("making")))
                         if body.get("open", True):
                             threading.Thread(target=webbrowser.open,
                                              args=(got["url"],), daemon=True).start()
@@ -6635,12 +6576,18 @@ class Handler(BaseHTTPRequestHandler):
                         # The verification mail again. The hundred free coins
                         # wait on it - see `welcomeIfDue` in the functions.
                         account.send_verification()
+                    elif do == "sync":
+                        # The window came back to the front: ask the account
+                        # service now rather than when the cache next runs
+                        # out, so a name changed or coins bought on the
+                        # website show up at once.
+                        # lee: *"make sure everything syncs"*.
+                        if account.signed_in():
+                            account.refresh_me()
                     elif do == "claim":
                         # "I clicked the link": a fresh token, and the server
                         # gives the coins on the same call if it is so.
                         account.claim_welcome()
-                    elif do == "photo":
-                        account.set_photo(str(body.get("photo") or ""))
                     else:
                         return self._json({"error": "do what?"}, 400)
                 except account.AccountError as e:

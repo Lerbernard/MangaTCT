@@ -153,23 +153,6 @@ export function needSignIn(u) {
   return true;
 }
 
-/* The pictures somebody may choose. Presets and not an upload: an upload is a
- * storage bucket, a size limit, a content check and a moderation problem, and
- * none of that is what lee asked for - *"basic account custmization like
- * cnging username or picture icon etc"*. */
-export const ICONS = ['fox', 'cat', 'moon', 'star', 'bolt', 'leaf',
-                      'wave', 'ink', 'panel', 'brush'];
-
-export function iconSvg(id, size) {
-  const n = Math.max(0, ICONS.indexOf(id));
-  const hue = (n * 36 + 20) % 360;
-  const ch = String.fromCodePoint(0x2726 + (n % 4));
-  return `<svg class="pic" width="${size}" height="${size}" viewBox="0 0 40 40"
-     aria-hidden="true"><circle cx="20" cy="20" r="20"
-     fill="hsl(${hue} 70% 42%)"/><text x="20" y="27" text-anchor="middle"
-     font-size="19" fill="#fff">${ch}</text></svg>`;
-}
-
 /* ------------------------------------------------------------------ theme
 
    Three states, and only two of them are stored. "Follow the system" is the

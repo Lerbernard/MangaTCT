@@ -109,7 +109,7 @@ control and is kept current in the same commit as the control.
   prefs, `wallet.json` (developer purse only). Untouched by updates.
 * The launcher's log is beside it; the editor logs to the console it runs in.
 
-## State as of 2026-09-13 (1.0.7)
+## State as of 2026-09-13 (1.0.8)
 
 1.0.6 was tagged and published on 2026-09-11 from `ac7d874`, before the fix
 for the window crashing on open (`Api._win`), so installed 1.0.6 copies crash
@@ -166,6 +166,24 @@ fails when `test_clean_says_when_it_fails.py` runs before it; the suite's own
 order passes. Skipped on Windows on purpose, each with its reason: the
 launcher tests whose fake runtime is a shell script, and the end card, whose
 DejaVu fonts `tools/adcard.py` names by their Debian path.
+
+1.0.8, the same night. Sign-in from the app no longer sends the browser to
+127.0.0.1: the app keeps a secret, opens `mangatct.com/signin?hand=<sha256 of
+it>`, the page files the sign-in with the `handToApp` function and says "You
+are signed in" on the website, and the app collects it with `takeHand` (see
+the comment in `account.py`). The route a browser used to post to is gone.
+Account pictures are gone from the app and the site; the username is the one
+thing to customize. The app's Account page asks the account service afresh
+when it opens and whenever the window comes back to the front. The top bar
+has room and a short rule before the window buttons.
+
+`authDomain` in `site/config.js` is `mangatct.com`, so Google's sign-in popup
+and its "you shared data with" email name the website. That rests on
+`https://mangatct.com/__/auth/handler` being an authorized redirect URI (and
+`https://mangatct.com` a JavaScript origin) on the OAuth web client in Google
+Cloud, and on `mangatct.com` being an authorized domain in Firebase
+Authentication - lee added them on 2026-09-13. Take either away and Google
+sign-in on the website stops working.
 
 The launcher is 1.0.3 and does not need rebuilding for an app-only release.
 

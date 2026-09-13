@@ -238,7 +238,7 @@ def who() -> dict:
     """Who this machine is signed in as, from the file. No network."""
     d = _read()
     return {"uid": d.get("uid", ""), "email": d.get("email", ""),
-            "username": d.get("username", ""), "photo": d.get("photo", "")}
+            "username": d.get("username", "")}
 
 
 # ------------------------------------------------------------------ the wire
@@ -425,35 +425,41 @@ def sign_up(email: str, password: str, username: str = "") -> dict:
 # the app's window is a WebView with no address bar, and a Google password
 # typed into a box the app drew is the one thing the website's flow exists
 # to avoid. So the app does not draw it. It opens the website's own sign-in
-# page in the system browser, marked as being FOR THE APP -
-# `signin?app=<port>&state=<nonce>` - and the page, once the person is in
-# (with Google or with an email), hands the credential to the app: a form
-# post to 127.0.0.1:<port>, which a browser allows because a top-level post
-# to the loopback is not a cross-site fetch it polices. The nonce is what
-# makes a hand acceptable: minted here, sent out once, good for ten minutes,
-# spent on use. A post with no nonce, an old one, or one from a page that is
-# not ours, is refused.
+# page in the system browser, and the sign-in comes back THROUGH THE ACCOUNT
+# SERVICE - not through the browser.
+#
+# It used to come back through the browser: the page, once the person was in,
+# sent the browser itself to 127.0.0.1:<port> with the credential in a form.
+# The person saw an address that was not the website, and on lee's machine the
+# app refused the post as well, so what they saw was "That did not work" on a
+# tab called 127.0.0.1. lee: *"the app shoud bnever send teh user to a link
+# like thsi with 127.654. etc it shidu always be teh offical websuet"*. Now the
+# browser never leaves mangatct.com:
+#
+#   1. `begin_handoff` makes a secret VERIFIER, keeps it here, and opens
+#      `mangatct.com/signin?hand=<sha256 of it>`. Only the hash is in the
+#      address bar, so the link itself can collect nothing.
+#   2. The page, once the person is in (Google or email), files the sign-in
+#      with the `handToApp` function under that hash, with their own ID token,
+#      and says "go back to the app" - on the website.
+#   3. The screen asks `handoff_state` every couple of seconds, and this asks
+#      `takeHand` with the verifier. The first ask after the page has filed it
+#      gets the sign-in, and the function deletes it; after ten minutes it is
+#      gone either way.
 #
 # What is handed over is the same thing an email sign-in keeps: a refresh
 # token. Nothing about how the person signed in is different afterwards.
 
+#: The website. Every address the app sends a person to starts here.
 SITE = "https://mangatct.com"
-#: Pages allowed to hand a sign-in to the app: the site by its own name, and
-#: by the Firebase names the same pages are served under.
-HAND_ORIGINS = (SITE, "https://www.mangatct.com")
 #: A hand is good for this long after the browser opened.
 HAND_FOR = 600.0
+#: How often the account service may be asked about one hand. The screen asks
+#: every two seconds; this is the floor under it, so two windows waiting on
+#: one hand are still one call.
+HAND_ASK_EVERY = 1.5
 
-_HANDS: dict = {}       # nonce -> {"at": when minted, "done": bool, "who": ""}
-
-
-def hand_origins() -> tuple:
-    c = config()
-    extra: tuple = ()
-    if c.get("projectId"):
-        extra = ("https://%s.web.app" % c["projectId"],
-                 "https://%s.firebaseapp.com" % c["projectId"])
-    return HAND_ORIGINS + extra
+_HANDS: dict = {}   # state -> {"verifier", "at", "asked", "done", "who"}
 
 
 def _tidy_hands(now: float | None = None) -> None:
@@ -462,57 +468,111 @@ def _tidy_hands(now: float | None = None) -> None:
         _HANDS.pop(k, None)
 
 
-def begin_handoff(port: int, making: bool = False) -> dict:
-    """Mint a nonce and say where the browser should go. `making`: open the
-    page on its Create-an-account side (the site's `?new=1`)."""
+def hand_challenge(verifier: str) -> str:
+    """What goes in the address bar: the verifier's sha256, in hex - the same
+    hash `takeHand` makes of the verifier to find the hand."""
+    import hashlib
+    return hashlib.sha256(str(verifier).encode("utf8")).hexdigest()
+
+
+def begin_handoff(making: bool = False) -> dict:
+    """Make a verifier and say where the browser should go. `making`: open the
+    page on its Create-an-account side (the site's `?new=1`). `state` is this
+    app's own name for the hand, what the screen polls with; it is never sent
+    anywhere, and neither is the verifier."""
     if not configured():
         raise AccountError("No Firebase project is configured.", "unconfigured")
     import secrets
     with _LOCK:
         _tidy_hands()
-        nonce = secrets.token_urlsafe(24)
-        _HANDS[nonce] = {"at": time.time(), "done": False, "who": ""}
-    q = {"app": str(int(port)), "state": nonce}
+        state = secrets.token_urlsafe(18)
+        verifier = secrets.token_urlsafe(32)
+        _HANDS[state] = {"verifier": verifier, "at": time.time(), "asked": 0.0,
+                         "done": False, "who": ""}
+    q = {"hand": hand_challenge(verifier)}
     if making:
         q["new"] = "1"
-    return {"state": nonce, "url": SITE + "/signin?" + urllib.parse.urlencode(q)}
+    return {"state": state, "url": SITE + "/signin?" + urllib.parse.urlencode(q)}
 
 
-def handoff_state(nonce: str) -> dict:
-    """What the app polls: is this hand done, and who came in."""
+def _take_hand(verifier: str) -> dict:
+    """`takeHand`, called with no token: nobody is signed in yet."""
+    got = _post(function_url("takeHand"), {"data": {"verifier": verifier}})
+    if "error" in got:
+        raise _says(got)
+    result = got.get("result")
+    return result if isinstance(result, dict) else {}
+
+
+def handoff_state(state: str) -> dict:
+    """What the screen polls: has the website filed the sign-in yet, and who
+    came in. Asks the account service at most every `HAND_ASK_EVERY` seconds;
+    in between, and once it is done, the answer comes from here."""
+    state = str(state or "")
     with _LOCK:
         _tidy_hands()
-        h = _HANDS.get(str(nonce or ""))
+        h = _HANDS.get(state)
         if not h:
             return {"known": False, "done": False}
-        return {"known": True, "done": bool(h["done"]), "who": h["who"]}
+        if h["done"] or time.time() - h["asked"] < HAND_ASK_EVERY:
+            return {"known": True, "done": bool(h["done"]), "who": h["who"]}
+        h["asked"] = time.time()
+        verifier = h["verifier"]
+    try:
+        got = _take_hand(verifier)
+    except AccountError as e:
+        # A moment offline is not a failed sign-in. The page may already have
+        # filed it, and the next ask collects it.
+        return {"known": True, "done": False, "who": "", "problem": str(e)}
+    if got.get("expired"):
+        with _LOCK:
+            _HANDS.pop(state, None)
+        return {"known": False, "done": False,
+                "problem": "That sign-in ran out. Press the button again."}
+    if not got.get("refreshToken"):
+        return {"known": True, "done": False, "who": ""}
+    try:
+        finish_handoff(state, str(got["refreshToken"]), str(got.get("uid") or ""),
+                       str(got.get("email") or ""))
+    except AccountError as e:
+        # The account service has handed this sign-in out and deleted it, so
+        # there is nothing left to ask for: the hand is over, and the screen
+        # says why and offers the button again.
+        with _LOCK:
+            _HANDS.pop(state, None)
+        return {"known": False, "done": False, "problem": str(e)}
+    with _LOCK:
+        h = _HANDS.get(state) or {}
+        return {"known": True, "done": bool(h.get("done")), "who": h.get("who", "")}
 
 
-def finish_handoff(nonce: str, refresh_token: str, id_token: str = "",
-                   uid: str = "", email: str = "", origin: str = "") -> dict:
-    """The browser hands a credential over. Checked before it is kept: the
-    nonce is one we minted and still live, the page is ours, and the refresh
-    token gets a real ID token from Google - a made-up one is refused there,
-    and nothing of it is left on disk."""
-    nonce = str(nonce or "")
-    if origin and origin.rstrip("/") not in hand_origins():
-        raise AccountError("That page may not sign the app in.", "origin")
+def finish_handoff(state: str, refresh_token: str, uid: str = "",
+                   email: str = "") -> dict:
+    """Keep a sign-in the website filed. Checked before it is kept: the hand
+    is one this app opened and is still live, and Google turns the refresh
+    token into a real ID token FOR THE ACCOUNT THE SERVICE SAW SIGN IN. A
+    made-up token, or one for somebody else, leaves nothing on disk and does
+    not sign out whoever was in."""
+    state = str(state or "")
     with _LOCK:
         _tidy_hands()
-        h = _HANDS.get(nonce)
+        h = _HANDS.get(state)
         if not h:
-            raise AccountError("This sign-in link has expired. Press the "
-                               "button in the app again.", "stale")
+            raise AccountError("This sign-in has expired. Press the button in "
+                               "the app again.", "stale")
         if h["done"]:
             raise AccountError("This sign-in was already used.", "used")
         if not refresh_token:
             raise AccountError("No credential came with it.", "empty")
         before = _read()
-        _keep({"refreshToken": str(refresh_token), "idToken": str(id_token or ""),
+        _keep({"refreshToken": str(refresh_token), "idToken": "",
                "localId": str(uid or ""), "email": str(email or ""),
                "expiresIn": 0})
         try:
             token(force=True)            # proves the credential; keeps the token
+            if uid and _read().get("uid") != uid:
+                raise AccountError("That sign-in belongs to a different account.",
+                                   "mismatch")
             _MEM.pop("balance", None)
             got = refresh_me()
         except AccountError:
@@ -523,7 +583,8 @@ def finish_handoff(nonce: str, refresh_token: str, id_token: str = "",
                 sign_out()
             raise
         h["done"] = True
-        h["who"] = _read().get("email") or email
+        now = _read()
+        h["who"] = now.get("username") or now.get("email") or email
     return got
 
 
@@ -587,7 +648,6 @@ def refresh_me() -> dict:
     got = call("me")
     d = _read()
     d["username"] = got.get("username") or d.get("username", "")
-    d["photo"] = got.get("photo") or d.get("photo", "")
     d["plan"] = got.get("plan") or {}
     d["balance"] = int(got.get("coins") or 0)
     d["verified"] = bool(got.get("verified"))
@@ -682,43 +742,6 @@ def ledger(n: int = 50) -> dict:
     return call("ledgerLines", {"n": int(n)})
 
 
-#: The pictures the website offers, in its order. `iconSvg` there draws each
-#: from its index; `static/js/coins.js` draws the same ten the same way.
-ICONS = ("fox", "cat", "moon", "star", "bolt", "leaf", "wave", "ink", "panel", "brush")
-
-
-def set_photo(icon: str) -> dict:
-    """Pick the account's picture - one of `ICONS`. Written straight to the
-    account document over Firestore's REST face with the person's own token,
-    exactly as the website does with the client SDK: the rules let a person
-    write `photo` on their own document and nothing else."""
-    icon = str(icon or "").strip()
-    if icon not in ICONS:
-        raise AccountError("Not one of the pictures.", "bad-photo")
-    c = config()
-    d = _read()
-    uid = d.get("uid") or ""
-    if not uid:
-        raise NotSignedIn()
-    url = ("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/"
-           "documents/users/%s?updateMask.fieldPaths=photo"
-           % (urllib.parse.quote(c["projectId"]), urllib.parse.quote(uid)))
-    body = json.dumps({"fields": {"photo": {"stringValue": icon}}}).encode("utf8")
-    req = urllib.request.Request(url, data=body, method="PATCH", headers={
-        "Content-Type": "application/json", "Authorization": "Bearer " + token()})
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            r.read()
-    except urllib.error.HTTPError as e:
-        raise AccountError("The picture could not be saved (%d)." % e.code, "photo") from None
-    except (urllib.error.URLError, OSError) as e:
-        raise AccountError("No connection to the account server.", "offline") from e
-    d = _read()
-    d["photo"] = icon
-    _write(d)
-    return {"photo": icon}
-
-
 def refund(coins: int, run: str) -> int:
     """Give back part of a run that did not happen. Never more than that run
     took - the function checks, because this one is asked by the client."""
@@ -747,7 +770,7 @@ def state() -> dict:
     d = _read()
     return {"configured": configured(), "signed_in": live,
             "email": d.get("email", ""), "username": d.get("username", ""),
-            "photo": d.get("photo", ""), "plan": d.get("plan") or {},
+            "plan": d.get("plan") or {},
             "balance": coins,
             # The free coins: owed until the email is verified, and how many.
             # `welcome_due` and not `verified` is the state with a button in

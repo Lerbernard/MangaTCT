@@ -16,7 +16,13 @@
  */
 export const FIREBASE = {
   apiKey: 'AIzaSyDeoXBP0E1h3iQAq3pZ-txdOBYjWekjfHE',
-  authDomain: 'mangatctproject.firebaseapp.com',
+  // The website's own name, not the Firebase one, so Google's sign-in popup
+  // and its "you shared data with" email say mangatct.com. lee: *"also fix
+  // this it shodu say mangatct.com"*. It only works because
+  // https://mangatct.com/__/auth/handler is an authorized redirect URI on the
+  // OAuth web client in Google Cloud - take that away and Google sign-in on
+  // the site stops working.
+  authDomain: 'mangatct.com',
   projectId: 'mangatctproject',
   storageBucket: 'mangatctproject.firebasestorage.app',
   messagingSenderId: '255534738345',

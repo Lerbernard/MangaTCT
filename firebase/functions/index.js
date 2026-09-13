@@ -469,6 +469,83 @@ export const ledgerLines = onCall(async (req) => {
   };
 });
 
+/* ------------------------------------------------- signing the app in
+ *
+ * lee: *"the app shoud bnever send teh user to a link like thsi with
+ * 127.654. etc it shidu always be teh offical websuet"*.
+ *
+ * The app on somebody's computer cannot draw Google's sign-in, so it opens the
+ * website's sign-in page in their browser. What used to carry the result back
+ * was the browser itself, sent to 127.0.0.1 with the credential in a form - an
+ * address nobody recognises, in plain sight, and on lee's machine the app
+ * refused the post besides. Now the page never leaves mangatct.com, and the
+ * two halves meet here:
+ *
+ *   the app   makes a secret, the VERIFIER, and keeps it; opens
+ *             `signin?hand=<sha256 of it>` - the CHALLENGE
+ *   the page  once the person is in, `handToApp({challenge, refreshToken})`
+ *             with their own ID token: a sign-in, filed under the challenge
+ *   the app   asks `takeHand({verifier})` every couple of seconds; this hashes
+ *             it, and the first ask after the page has filed gets the sign-in,
+ *             which is deleted in the same transaction
+ *
+ * Only the hash is ever in an address bar, so a link read over somebody's
+ * shoulder or out of a browser's history collects nothing: that takes the
+ * verifier, which never left the app. A hand lasts ten minutes and has one
+ * taker. `hands/*` is closed to every client by the catch-all in the rules;
+ * these two functions are the only things that read or write it.
+ */
+const HAND_FOR_MS = 10 * 60 * 1000;
+const handRef = (challenge) => db.doc(`hands/${challenge}`);
+
+export const handToApp = onCall(async (req) => {
+  const uid = must(req.auth);
+  const challenge = String((req.data && req.data.challenge) || '');
+  const refreshToken = String((req.data && req.data.refreshToken) || '');
+  if (!/^[0-9a-f]{64}$/.test(challenge)) {
+    throw new HttpsError('invalid-argument', 'That sign-in link was not made by the app.');
+  }
+  if (!refreshToken || refreshToken.length > 4096) {
+    throw new HttpsError('invalid-argument', 'No sign-in came with it.');
+  }
+  // Hands nobody came back for - the app was closed before the page filed, or
+  // the page filed for an app that had given up. `takeHand` deletes a hand it
+  // finds, but one that is never asked for would sit here with a refresh
+  // token in it for ever. So every new hand clears the ones past their ten
+  // minutes first; a sign-in is the only thing that makes them.
+  const stale = await db.collection('hands')
+    .where('at', '<', Date.now() - HAND_FOR_MS).limit(100).get();
+  await Promise.all(stale.docs.map((d) => d.ref.delete()));
+  // `create`, so a second page cannot overwrite a hand that is already filed.
+  await handRef(challenge).create({
+    uid, email: (req.auth.token && req.auth.token.email) || '',
+    refreshToken, at: Date.now(),
+  }).catch((e) => {
+    if (e && e.code === 6) {
+      throw new HttpsError('already-exists', 'This sign-in was already passed to the app.');
+    }
+    throw e;
+  });
+  return { ok: true };
+});
+
+/* No `must` here, on purpose: nobody is signed in yet - that is the point. */
+export const takeHand = onCall({ maxInstances: 10 }, async (req) => {
+  const verifier = String((req.data && req.data.verifier) || '');
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(verifier)) {
+    throw new HttpsError('invalid-argument', 'Not a sign-in the app is waiting for.');
+  }
+  const challenge = createHash('sha256').update(verifier).digest('hex');
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(handRef(challenge));
+    if (!snap.exists) return { waiting: true };
+    tx.delete(handRef(challenge));
+    const h = snap.data() || {};
+    if (Date.now() - Number(h.at || 0) > HAND_FOR_MS) return { expired: true };
+    return { refreshToken: h.refreshToken, uid: h.uid, email: h.email || '' };
+  });
+});
+
 /* A verified email is a claim on the token, and a token lasts an hour. The
  * page that just came back from the link in the mail refreshes its token and
  * calls `me`; the editor does the same. Nothing else is needed - there is no

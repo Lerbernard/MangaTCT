@@ -55,24 +55,22 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
     <div id="ledger"><p class="dim" style="margin:0">Loading...</p></div>
   </section>
 
+  <!-- One thing about you, and it is the name. lee: *"keeo teh cutomizality
+       simeple no picture"*. The same field the app's Account page has, saved
+       through the same function, so a name changed in either place is the
+       name in both - this page watches the account and redraws when it
+       changes. -->
   <section class="sect reveal plain">
     <p class="eyebrow">Profile</p>
-    <h2>How people see you</h2>
-    <div class="row" style="align-items:flex-start;gap:22px;flex-wrap:wrap">
-      <div id="picNow"></div>
-      <div style="flex:1;min-width:260px">
-        <label for="name">Username</label>
-        <input id="name" autocomplete="off" spellcheck="false"
-               maxlength="20" placeholder="pick a name">
-        <p class="hint" id="nameHint">Letters, numbers, dot, dash and
-          underscore. Everyone's is different.</p>
-        <button id="saveName" class="pri" style="margin-top:12px">Save name</button>
-      </div>
+    <h2>Your name</h2>
+    <div style="max-width:420px">
+      <label for="name">Username</label>
+      <input id="name" autocomplete="off" spellcheck="false"
+             maxlength="20" placeholder="pick a name">
+      <p class="hint" id="nameHint">How anyone else sees you, here and in the
+        app. Letters, numbers, dot, dash and underscore.</p>
+      <button id="saveName" class="pri" style="margin-top:12px">Save name</button>
     </div>
-
-    <label style="margin-top:24px">Picture</label>
-    <div class="picks" id="picks"></div>
-    <p class="hint">Pick one. It saves as you press it.</p>
   </section>
 
   <p class="foot"><a href="pricing.html">Buy more coins</a> &middot;
@@ -83,8 +81,8 @@ setTimeout(function(){if(!d.dataset.chrome)d.classList.remove('js')},2500)}catch
 
 <script type="module">
 import {
-  call, $, toast, saysWhat, whoAmI, needSignIn, COIN, esc, ICONS, iconSvg,
-  auth, signOut, watchMe, db, doc, setDoc, collection, query, orderBy, limit,
+  call, $, toast, saysWhat, whoAmI, needSignIn, COIN, esc,
+  auth, signOut, watchMe, db, collection, query, orderBy, limit,
   getDocs, initChrome, sendVerifyMail, nowVerified,
 } from './app.js';
 
@@ -160,22 +158,6 @@ async function checkWelcome(pressed) {
 }
 
 /* ----------------------------------------------------------------- profile */
-
-function drawPic(id) {
-  $('picNow').innerHTML = iconSvg(id || ICONS[0], 96);
-  for (const b of $('picks').children) b.className = b.dataset.p === id ? 'on' : '';
-}
-
-async function setPic(id) {
-  drawPic(id);
-  try {
-    // Written straight to Firestore, not through a function. The rules let a
-    // person write these two fields on their own document and nothing else. A
-    // picture is not money, and routing it through a callable would only be a
-    // slower way to reach the same rule.
-    await setDoc(doc(db, 'users', uid), { photo: id }, { merge: true });
-  } catch (e) { toast(saysWhat(e), true); }
-}
 
 async function saveName() {
   const want = $('name').value.trim();
@@ -303,11 +285,6 @@ async function drawLedger() {
     location.href = 'signin.html';
   };
 
-  $('picks').innerHTML = ICONS.map((id) =>
-    `<button data-p="${esc(id)}" title="${esc(id)}">${iconSvg(id, 40)}</button>`
-  ).join('');
-  for (const b of $('picks').children) b.onclick = () => setPic(b.dataset.p);
-
   $('saveName').onclick = saveName;
   $('name').oninput = typing;
   $('name').onkeydown = (e) => { if (e.key === 'Enter') saveName(); };
@@ -319,7 +296,6 @@ async function drawLedger() {
     if (document.activeElement !== $('name')) $('name').value = d.username || '';
     $('who').textContent = d.username ? 'Hello, ' + d.username + '.'
       : 'Pick a username below. It is how anyone else sees you.';
-    drawPic(d.photo || ICONS[0]);
   });
 
   // The pack names, before the ledger is drawn with them in it. If this call
