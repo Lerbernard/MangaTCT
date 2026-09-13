@@ -2009,6 +2009,15 @@ LEDGER_MAX = 400
 
 _LOCK = threading.RLock()
 
+# The ledger, parsed once per version of the file. lee: *"the coins take a long
+# time to show up, can you speed it up?"* - the Account page and every quote
+# ask for it, and each ask was a full JSON parse of up to LEDGER_MAX rows. The
+# key is what os.stat says about the file (its mtime, size and inode, which
+# os.replace changes), so a wallet another process rewrote is seen on the next
+# ask; `_write` forgets it outright, so this process never waits on a clock
+# too coarse to tell two writes apart.
+_LEDGER = {"key": None, "rows": []}
+
 
 def _path() -> str:
     return os.path.join(userdata.user_dir(), WALLET)
@@ -2036,6 +2045,7 @@ def _write(w: dict) -> None:
         with open(tmp, "w", encoding="utf8") as fh:
             json.dump(w, fh, indent=1)
         os.replace(tmp, _path())
+        _LEDGER["key"] = None
     except OSError:
         pass
 
@@ -2082,7 +2092,24 @@ def ledger(n: int = 60) -> list:
         # checkout or the test purse has.
         return []
     with _LOCK:
-        return list(reversed((_read().get("ledger") or [])[-n:]))
+        # Copies, so a caller that edits a row does not edit the cache.
+        return [dict(r) if isinstance(r, dict) else r
+                for r in reversed(_ledger_rows()[-n:])]
+
+
+def _ledger_rows() -> list:
+    """The file's ledger, from `_LEDGER` while the file is the one it was
+    parsed from. No file yet: read every time, since `_read` then makes up
+    a welcome row stamped with the current time."""
+    try:
+        st = os.stat(_path())
+    except OSError:
+        return _read().get("ledger") or []
+    key = (_path(), st.st_mtime_ns, st.st_size, st.st_ino)
+    if _LEDGER["key"] != key:
+        _LEDGER["rows"] = list(_read().get("ledger") or [])
+        _LEDGER["key"] = key
+    return _LEDGER["rows"]
 
 
 def _entry(w: dict, **kw) -> None:

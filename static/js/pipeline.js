@@ -20,8 +20,15 @@ const SCOPE_STEP = {ocr_all:'ocr', translate_all:'translate',
    Both come from one request, priced server-side for exactly the pages each
    button would run: `prices` for the ones the button says, `one` for the page
    on screen. A free step shows nothing at all - a price of zero on a button
-   reads as a price nobody has worked out yet, not as free. */
-let scopeQuote = null;
+   reads as a price nobody has worked out yet, not as free.
+
+   `scopeQuoteKey` is the query that quote answered. lee: *"the coins take a
+   long time to show up, can you speed it up?"* - opening the dialog again for
+   the same pages keeps the prices it already had on screen while the fresh
+   quote comes, instead of blanking them for the length of a request.
+   `scopeAsked` is the query asked last, so an answer for other pages that
+   arrives late cannot put its prices under this dialog's buttons. */
+let scopeQuote = null, scopeQuoteKey = '', scopeAsked = '';
 
 function priceScope(){
   const all = $('scpAll'), one = $('scpOne');
@@ -71,10 +78,15 @@ function stepScope(endpoint, verb){
     ? `Every page (${proj.pages.length})`
     : `Selected pages (${selPages.size})`;
   $('scpOne').textContent = 'This page only';
-  scopeQuote = null;
+  const qk = scopeQuery();
+  if(scopeQuoteKey !== qk) scopeQuote = null;
+  scopeAsked = qk;
   priceScope();
   if(typeof quoteCoins === 'function')
-    quoteCoins(scopeQuery()).then(q => { scopeQuote = q; priceScope(); });
+    quoteCoins(qk).then(q => {
+      if(scopeAsked !== qk) return;
+      scopeQuote = q; scopeQuoteKey = qk; priceScope();
+    });
   // Translating through your own AI: the exact request is downloadable here,
   // and its reply can be pasted back.
   const own = endpoint==='translate_all';
