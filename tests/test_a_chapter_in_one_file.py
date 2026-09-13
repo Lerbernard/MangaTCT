@@ -434,9 +434,13 @@ def test_the_download_is_named_after_the_chapter(tmp_path, home):
 def _ui():
     import glob
     static = os.path.join(str(PKG), "static")
-    parts = [open(os.path.join(static, "editor.html")).read()]
+    # utf-8, said out loud: without it Windows reads with cp1252, and the page
+    # and its scripts are UTF-8 with dashes and arrows in them - seventeen tests
+    # here failed on lee's machine with a UnicodeDecodeError before asserting
+    # anything.
+    parts = [open(os.path.join(static, "editor.html"), encoding="utf-8").read()]
     for f in sorted(glob.glob(os.path.join(static, "js", "*.js"))):
-        parts.append(open(f).read())
+        parts.append(open(f, encoding="utf-8").read())
     return "\n".join(parts)
 
 

@@ -139,16 +139,25 @@ def test_the_api_object_holds_nothing_pywebview_would_walk_into():
 
 
 def test_the_native_drag_is_release_capture_then_nc_lbutton_down(monkeypatch):
+    """...with WHERE THE MOUSE IS in lParam. Sent as 0, a move by the bar still
+    worked, but a resize starts from that point: every edge did nothing on
+    the real window and the window stopped answering."""
+    import ctypes as real_ctypes
     calls = []
+
+    def cursor(pt):
+        pt[0], pt[1] = 1678, 580
     user32 = types.SimpleNamespace(ReleaseCapture=lambda: calls.append("release"),
-                                   SendMessageW=lambda h, m, w, l: calls.append(("send", m, w.value)))
+                                   GetCursorPos=cursor,
+                                   SendMessageW=lambda h, m, w, l: calls.append(("send", m, w.value, l)))
     fake_ctypes = types.SimpleNamespace(windll=types.SimpleNamespace(user32=user32),
+                                        c_long=real_ctypes.c_long,
                                         c_void_p=lambda v: v, c_size_t=lambda v: types.SimpleNamespace(value=v),
                                         c_ssize_t=lambda v: v)
     monkeypatch.setitem(sys.modules, "ctypes", fake_ctypes)
     win = types.SimpleNamespace(native=types.SimpleNamespace())      # no BeginInvoke: run inline
     assert W._begin_native_drag(win, 77, 17) is True
-    assert calls == ["release", ("send", 0xA1, 17)]
+    assert calls == ["release", ("send", 0xA1, 17, (580 << 16) | 1678)]
 
 
 def test_on_windows_the_window_is_made_frameless_with_the_api(monkeypatch, tmp_path):
@@ -180,6 +189,76 @@ def test_on_windows_the_window_is_made_frameless_with_the_api(monkeypatch, tmp_p
     assert made[0].kw["frameless"] is False and dressed == [False] and kept == []
 
 
+def test_a_double_click_on_the_bar_is_counted_by_the_window(monkeypatch):
+    """On the real window two quick clicks on the bar did nothing. The first
+    press hands the mouse to Windows' move loop, so the page never sees it
+    let go and its `dblclick` never fires. The second press does reach the
+    page, and `Api.hit` counts it: inside the system's double click time and
+    distance it maximizes instead of starting another drag."""
+    api = W.Api()
+    api._frameless = True
+    w = _Win()
+    api._win = w
+    monkeypatch.setattr(sys, "platform", "win32")
+    drags = []
+    monkeypatch.setattr(W, "_begin_native_drag", lambda win, hwnd, code: drags.append(code) or True)
+    now, at = [100.0], [(500, 20)]
+    monkeypatch.setattr(W, "_clock", lambda: now[0])
+    monkeypatch.setattr(W, "_press_point", lambda: at[0] + (0.5, 4, 4))
+    assert api.hit(2) is True and drags == [2] and w.calls == [], "one press is a drag"
+    now[0] += 0.2
+    assert api.hit(2) is True and drags == [2] and w.calls == ["max"], "two are a maximize"
+    now[0] += 0.2
+    assert api.hit(2) is True and drags == [2, 2], "a third press starts over"
+    now[0] += 0.9
+    assert api.hit(2) is True and drags == [2, 2, 2] and w.calls == ["max"], "too slow"
+    now[0] += 0.1
+    at[0] = (520, 20)
+    assert api.hit(2) is True and drags == [2, 2, 2, 2] and w.calls == ["max"], "too far"
+    now[0] += 0.1
+    at[0] = (520, 21)
+    assert api.hit(17) is True and drags[-1] == 17 and w.calls == ["max"], \
+        "an edge is never a double click"
+
+    def nowhere():
+        raise OSError("no user32")
+    monkeypatch.setattr(W, "_press_point", nowhere)
+    assert api.hit(2) is True and api.hit(2) is True and w.calls == ["max"], \
+        "where Windows cannot be asked, a press is a drag"
+
+
+def test_maximized_stops_at_the_working_area_and_short_of_a_hiding_taskbar():
+    """WM_GETMINMAXINFO wants the position relative to the MONITOR. And a
+    window covering a whole monitor is a full-screen app to Windows, so a
+    taskbar that hides itself - the working area is then the whole monitor -
+    could never slide up over the maximized app."""
+    # the taskbar along the bottom, always shown
+    assert W.maximized_rect((0, 0, 3456, 2088), (0, 0, 3456, 2160)) == (0, 0, 3456, 2088)
+    # lee's: it hides itself at the bottom, so the working area IS the monitor
+    assert W.maximized_rect((0, 0, 3456, 2160), (0, 0, 3456, 2160), ("bottom",)) == \
+        (0, 0, 3456, 2160 - W.AUTOHIDE_GAP)
+    # on the left
+    assert W.maximized_rect((48, 0, 1920, 1080), (0, 0, 1920, 1080)) == (48, 0, 1872, 1080)
+    # a second monitor to the right: relative to IT, not to the desktop
+    assert W.maximized_rect((1920, 0, 3840, 1040), (1920, 0, 3840, 1080)) == (0, 0, 1920, 1040)
+    assert W.EDGES == ("left", "top", "right", "bottom"), "ABE_LEFT..ABE_BOTTOM"
+
+
+def test_the_frame_windows_sizes_by_is_kept_and_hidden():
+    """FormBorderStyle None takes WS_THICKFRAME away, and without it Windows
+    ignored every edge the page sent and snapped nothing. The styles go back
+    on; the frame they would draw is answered away."""
+    for style in (0x40000, 0x80000, 0x20000, 0x10000):
+        assert W.FRAME_STYLES & style
+    src = (PKG / "window.py").read_text(encoding="utf-8")
+    assert "if msg == WM_NCCALCSIZE and wparam:" in src
+    assert "SetWindowSubclass" in src and "ABM_GETAUTOHIDEBAREX" in src
+    assert "MaximizedBounds =" not in src, "WinForms' own bound is relative to the wrong thing"
+    install = src.split("def _install_frame_hook")[1].split("def keep_off_the_taskbar")[0]
+    assert "IsZoomed" in install and "_maximized_for(hwnd)" in install, \
+        "a window that opened maximized is moved to where maximized ends now"
+
+
 # ------------------------------------------------------------------ the page
 
 def test_the_bar_carries_the_window_buttons_and_the_drag_strip():
@@ -190,7 +269,8 @@ def test_the_bar_carries_the_window_buttons_and_the_drag_strip():
     assert "window.addEventListener('pywebviewready'" in CHROME
     assert "if(st && st.frameless) wireChrome();" in CHROME, "only once the window says so"
     assert "api.hit(code)" in CHROME and "caption: 2" in CHROME and "bottomright: 17" in CHROME
-    assert "drag.addEventListener('dblclick', () => winCtl('max'))" in CHROME
+    assert "addEventListener('dblclick'" not in CHROME, \
+        "the page never sees a double click on its bar; Api.hit counts it"
     assert ".wbtn.close:hover{background:#c42b1c" in CSS, "Windows' red"
     assert "html.framed #top" in CSS and "#winEdges" in CSS
     assert '<script src="/static/js/chrome.js">' in HTML

@@ -48,6 +48,9 @@ What is deliberately done here, and why:
   (`Api.hit`, a WM_NCHITTEST code) and Windows runs its own move or resize
   loop, so dragging is smooth and Aero snap works. `MANGATCT_FRAME=1` or
   `--frame` keeps the system frame, for the day something needs it.
+  Windows only sizes and snaps a window that has a sizing frame, so the
+  frame's styles are kept and the frame itself is hidden (`the frame hook`,
+  below).
 """
 from __future__ import annotations
 
@@ -55,6 +58,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 from . import userdata
 
@@ -79,6 +83,9 @@ EXIT_CLOSED = 0          # the person closed the window
 EXIT_NO_WEBVIEW = 3      # pywebview is not installed in this runtime
 EXIT_NO_RUNTIME = 4      # no WebView2 on this Windows
 EXIT_BAD_ARGS = 2
+
+#: The clock a double click on the bar is timed by; the tests replace it.
+_clock = time.monotonic
 
 
 # ---------------------------------------------------------------- geometry
@@ -183,6 +190,7 @@ class Api:
     def __init__(self):
         self._win = None
         self._frameless = False
+        self._last_press = None
 
     def state(self) -> dict:
         return {"frameless": bool(self._frameless), "maximized": _is_maximized(self._win)}
@@ -234,23 +242,67 @@ class Api:
             return False
         if code not in HIT_CODES or sys.platform != "win32" or self._win is None:
             return False
+        # A DOUBLE CLICK ON THE BAR is counted here, because the page cannot
+        # count it. The first press has already handed the mouse to Windows'
+        # move loop, so the page never sees that press let go and its
+        # `dblclick` never fires - on the real window, two quick clicks on
+        # the bar did nothing at all. The second press does reach the page,
+        # and so arrives here: inside the system's own double click time and
+        # distance, it maximizes (or restores) instead of starting a drag.
+        if code == HTCAPTION and self._second_press():
+            self.toggle_maximize()
+            return True
         hwnd = _hwnd_of(self._win)
         if not hwnd:
             return False
         return _begin_native_drag(self._win, hwnd, code)
 
+    def _second_press(self) -> bool:
+        try:
+            x, y, limit, dx, dy = _press_point()
+        except Exception:
+            return False
+        now = _clock()
+        last, self._last_press = self._last_press, (now, x, y)
+        if last and now - last[0] <= limit and abs(x - last[1]) <= dx and abs(y - last[2]) <= dy:
+            self._last_press = None              # a third press starts over
+            return True
+        return False
+
+
+def _press_point():
+    """Where the mouse is, and what Windows calls a double click there:
+    `(x, y, seconds, dx, dy)`. Raises where there is no user32."""
+    import ctypes
+    u = ctypes.windll.user32
+    pt = (ctypes.c_long * 2)()
+    u.GetCursorPos(pt)
+    return (pt[0], pt[1], u.GetDoubleClickTime() / 1000.0,
+            u.GetSystemMetrics(36), u.GetSystemMetrics(37))     # SM_CX/CYDOUBLECLK
+
 
 def _begin_native_drag(win, hwnd: int, code: int) -> bool:
-    """ReleaseCapture, then WM_NCLBUTTONDOWN with the hit code - the oldest
-    trick for a borderless window, and the one the shell itself uses."""
+    """ReleaseCapture, then WM_NCLBUTTONDOWN with the hit code and where the
+    mouse is - the oldest trick for a borderless window, and the one the
+    shell itself uses.
+
+    WHERE THE MOUSE IS, in lParam, as the message says it should be. It went
+    as 0 at first, and a move by the bar never noticed (Windows reads the
+    cursor itself before a move), but a resize starts from that point: on
+    the real window every edge and corner did nothing, and the window
+    stopped answering until something else was clicked. With the point in
+    it, all eight edges size and dragging to the top of the screen snaps."""
     try:
         import ctypes
         user32 = ctypes.windll.user32
 
         def go():
+            pt = (ctypes.c_long * 2)()
+            user32.GetCursorPos(pt)
+            where = ((pt[1] & 0xFFFF) << 16) | (pt[0] & 0xFFFF)
             user32.ReleaseCapture()
             user32.SendMessageW(ctypes.c_void_p(hwnd), WM_NCLBUTTONDOWN,
-                                ctypes.c_size_t(code), ctypes.c_ssize_t(0))
+                                ctypes.c_size_t(code), ctypes.c_ssize_t(where))
         native = getattr(win, "native", None)
         invoke = getattr(native, "BeginInvoke", None)
         if invoke is not None:
@@ -326,14 +378,234 @@ def dress_the_frame(hwnd: int, frameless: bool = False) -> None:
         pass
 
 
+# ----------------------------------------------------------- the frame hook
+#
+# FormBorderStyle None is what makes the window frameless, and it also takes
+# away the styles Windows looks for before it will size a window or snap it.
+# Without WS_THICKFRAME the page's eight edges sent their hit codes and
+# Windows ignored every one: on the real window, not a pixel of resize at any
+# edge or corner, and dragging to the top or the side of the screen snapped
+# nothing. So the styles go back on, and the frame they would draw is taken
+# off again by answering WM_NCCALCSIZE with "all of it is page" - the way
+# Chromium, Electron and every other app that draws its own title bar does it.
+#
+# The same hook decides where a maximized window goes (WM_GETMINMAXINFO).
+# WinForms' MaximizedBounds used to, and was wrong twice over. It wants the
+# position relative to the MONITOR and was handed the working area in desktop
+# coordinates, which on a second monitor puts the maximized window off to one
+# side of it. And a window that covers a whole monitor is, to Windows, a
+# full-screen app, so a taskbar that hides itself - lee's does - can no longer
+# slide up over it: with the working area the size of the monitor, maximized
+# covered the taskbar for good. Maximized now stops at the working area, and
+# AUTOHIDE_GAP pixels short of any edge whose taskbar hides itself, which is
+# enough for Windows to see an ordinary window and for the mouse to reach it.
+
+GWL_STYLE = -16
+WS_THICKFRAME = 0x00040000
+WS_SYSMENU = 0x00080000
+WS_MINIMIZEBOX = 0x00020000
+WS_MAXIMIZEBOX = 0x00010000
+FRAME_STYLES = WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+WM_GETMINMAXINFO = 0x0024
+WM_NCDESTROY = 0x0082
+WM_NCCALCSIZE = 0x0083
+#: SWP_FRAMECHANGED | NOSIZE | NOMOVE | NOZORDER | NOACTIVATE
+SWP_FRAME_CHANGED = 0x0020 | 0x0001 | 0x0002 | 0x0004 | 0x0010
+ABM_GETAUTOHIDEBAREX = 0x0000000B
+AUTOHIDE_GAP = 2
+#: ABE_LEFT, ABE_TOP, ABE_RIGHT, ABE_BOTTOM, in that order.
+EDGES = ("left", "top", "right", "bottom")
+
+_HOOKED: set = set()
+_W32: dict = {}
+_AUTOHIDE: dict = {}
+
+
+def maximized_rect(work, monitor, autohide=()) -> tuple:
+    """Where a maximized window goes, the way WM_GETMINMAXINFO wants it:
+    `(x, y, width, height)` with x and y RELATIVE TO THE MONITOR. `work` and
+    `monitor` are `(left, top, right, bottom)` in desktop coordinates;
+    `autohide` names the edges of this monitor whose taskbar hides itself."""
+    left, top, right, bottom = work
+    if "left" in autohide:
+        left += AUTOHIDE_GAP
+    if "top" in autohide:
+        top += AUTOHIDE_GAP
+    if "right" in autohide:
+        right -= AUTOHIDE_GAP
+    if "bottom" in autohide:
+        bottom -= AUTOHIDE_GAP
+    return (left - monitor[0], top - monitor[1], right - left, bottom - top)
+
+
+def _win32() -> dict:
+    """The Win32 pieces the hook needs, made once. PRIVATE handles on the
+    DLLs: the argument types set here stay here, and pywebview's own calls
+    through `ctypes.windll` keep the conventions they were written for."""
+    if _W32:
+        return _W32
+    import ctypes
+    from ctypes import wintypes as wt
+
+    class MINMAXINFO(ctypes.Structure):
+        _fields_ = [("ptReserved", wt.POINT), ("ptMaxSize", wt.POINT),
+                    ("ptMaxPosition", wt.POINT), ("ptMinTrackSize", wt.POINT),
+                    ("ptMaxTrackSize", wt.POINT)]
+
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wt.DWORD), ("rcMonitor", wt.RECT),
+                    ("rcWork", wt.RECT), ("dwFlags", wt.DWORD)]
+
+    class APPBARDATA(ctypes.Structure):
+        _fields_ = [("cbSize", wt.DWORD), ("hWnd", wt.HWND), ("uCallbackMessage", wt.UINT),
+                    ("uEdge", wt.UINT), ("rc", wt.RECT), ("lParam", wt.LPARAM)]
+
+    LRESULT = ctypes.c_ssize_t
+    SUBCLASSPROC = ctypes.WINFUNCTYPE(LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM,
+                                      ctypes.c_size_t, ctypes.c_size_t)
+    user32 = ctypes.WinDLL("user32")
+    comctl32 = ctypes.WinDLL("comctl32")
+    shell32 = ctypes.WinDLL("shell32")
+    comctl32.SetWindowSubclass.argtypes = [wt.HWND, SUBCLASSPROC, ctypes.c_size_t, ctypes.c_size_t]
+    comctl32.SetWindowSubclass.restype = wt.BOOL
+    comctl32.RemoveWindowSubclass.argtypes = [wt.HWND, SUBCLASSPROC, ctypes.c_size_t]
+    comctl32.RemoveWindowSubclass.restype = wt.BOOL
+    comctl32.DefSubclassProc.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+    comctl32.DefSubclassProc.restype = LRESULT
+    user32.GetWindowLongPtrW.argtypes = [wt.HWND, ctypes.c_int]
+    user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+    user32.SetWindowLongPtrW.argtypes = [wt.HWND, ctypes.c_int, ctypes.c_ssize_t]
+    user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+    user32.SetWindowPos.argtypes = [wt.HWND, wt.HWND, ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int, wt.UINT]
+    user32.MonitorFromWindow.argtypes = [wt.HWND, wt.DWORD]
+    user32.MonitorFromWindow.restype = wt.HMONITOR
+    user32.GetMonitorInfoW.argtypes = [wt.HMONITOR, ctypes.POINTER(MONITORINFO)]
+    shell32.SHAppBarMessage.argtypes = [wt.DWORD, ctypes.POINTER(APPBARDATA)]
+    shell32.SHAppBarMessage.restype = ctypes.c_size_t
+
+    def proc(hwnd, msg, wparam, lparam, uid, ref):
+        try:
+            if msg == WM_NCCALCSIZE and wparam:
+                return 0                          # the whole window is page
+            if msg == WM_GETMINMAXINFO:
+                # WinForms first - it fills in the minimum size - then ours.
+                result = comctl32.DefSubclassProc(hwnd, msg, wparam, lparam)
+                try:
+                    _fit_maximized(hwnd, lparam)
+                except Exception:
+                    pass
+                return result
+            if msg == WM_NCDESTROY:
+                comctl32.RemoveWindowSubclass(hwnd, _W32["proc"], 1)
+        except Exception:
+            pass
+        return comctl32.DefSubclassProc(hwnd, msg, wparam, lparam)
+
+    _W32.update(ctypes=ctypes, user32=user32, comctl32=comctl32, shell32=shell32,
+                MINMAXINFO=MINMAXINFO, MONITORINFO=MONITORINFO, APPBARDATA=APPBARDATA,
+                proc=SUBCLASSPROC(proc))           # kept here: Windows holds only a pointer
+    return _W32
+
+
+def _autohide_edges(monitor) -> tuple:
+    """The edges of `monitor` with a taskbar that hides itself. Asked of the
+    shell at most every two seconds per monitor: WM_GETMINMAXINFO arrives on
+    every step of a resize, and each question is a message to Explorer."""
+    now = _clock()
+    seen = _AUTOHIDE.get(monitor)
+    if seen and now - seen[0] < 2.0:
+        return seen[1]
+    w = _win32()
+    ctypes = w["ctypes"]
+    found = []
+    for i, name in enumerate(EDGES):
+        abd = w["APPBARDATA"]()
+        abd.cbSize = ctypes.sizeof(abd)
+        abd.uEdge = i
+        abd.rc.left, abd.rc.top, abd.rc.right, abd.rc.bottom = monitor
+        if w["shell32"].SHAppBarMessage(ABM_GETAUTOHIDEBAREX, ctypes.byref(abd)):
+            found.append(name)
+    _AUTOHIDE[monitor] = (now, tuple(found))
+    return tuple(found)
+
+
+def _maximized_for(hwnd):
+    """`(monitor left, monitor top, x, y, width, height)` for the monitor the
+    window is on - x and y relative to that monitor - or None."""
+    w = _win32()
+    ctypes = w["ctypes"]
+    mon = w["user32"].MonitorFromWindow(hwnd, 2)           # MONITOR_DEFAULTTONEAREST
+    mi = w["MONITORINFO"]()
+    mi.cbSize = ctypes.sizeof(mi)
+    if not mon or not w["user32"].GetMonitorInfoW(mon, ctypes.byref(mi)):
+        return None
+    r, k = mi.rcMonitor, mi.rcWork
+    monitor = (r.left, r.top, r.right, r.bottom)
+    return (r.left, r.top) + maximized_rect((k.left, k.top, k.right, k.bottom), monitor,
+                                            _autohide_edges(monitor))
+
+
+def _fit_maximized(hwnd, lparam) -> None:
+    got = _maximized_for(hwnd)
+    if got is None:
+        return
+    _, _, x, y, cx, cy = got
+    mmi = _win32()["MINMAXINFO"].from_address(lparam)
+    mmi.ptMaxPosition.x, mmi.ptMaxPosition.y = x, y
+    mmi.ptMaxSize.x, mmi.ptMaxSize.y = cx, cy
+
+
+def _install_frame_hook(hwnd: int) -> bool:
+    """Subclass first, so the frame change below is already answered by the
+    hook and no frame is ever drawn; then the styles; then tell Windows the
+    frame changed."""
+    if hwnd in _HOOKED:
+        return True
+    w = _win32()
+    if not w["comctl32"].SetWindowSubclass(hwnd, w["proc"], 1, 0):
+        return False
+    _HOOKED.add(hwnd)
+    u = w["user32"]
+    u.SetWindowLongPtrW(hwnd, GWL_STYLE, u.GetWindowLongPtrW(hwnd, GWL_STYLE) | FRAME_STYLES)
+    u.SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_FRAME_CHANGED)
+    # A window that OPENED maximized - window.json remembers that - was
+    # maximized before the hook was here to say where maximized ends, so it
+    # took the whole monitor, over a taskbar that hides itself. Put it where
+    # maximized means now; it stays maximized, and Restore still knows its
+    # old size.
+    if u.IsZoomed(w["ctypes"].c_void_p(hwnd)):
+        got = _maximized_for(hwnd)
+        if got is not None:
+            mx, my, x, y, cx, cy = got
+            u.SetWindowPos(hwnd, None, mx + x, my + y, cx, cy, 0x0004 | 0x0010)   # NOZORDER | NOACTIVATE
+    return True
+
+
 def keep_off_the_taskbar(win) -> None:
-    """A borderless WinForms window maximises over the taskbar unless told
-    the screen's working area; told here, and again whenever it moves, so
-    a second monitor gets its own."""
+    """The frame hook on a frameless window: Windows sizes it and snaps it,
+    and maximized it stops at the taskbar (see above). Done on the form's
+    own thread, because a window can only be subclassed from the thread that
+    made it. Called when the window is shown, and again when it moves in case
+    the handle was not ready the first time; after that it is already done."""
+    if sys.platform != "win32":
+        return
+    hwnd = _hwnd_of(win)
+    if not hwnd or hwnd in _HOOKED:
+        return
+
+    def install():
+        try:
+            _install_frame_hook(hwnd)
+        except Exception:
+            pass
     try:
-        native = win.native
-        from System.Windows.Forms import Screen       # type: ignore
-        native.MaximizedBounds = Screen.FromControl(native).WorkingArea
+        invoke = getattr(getattr(win, "native", None), "Invoke", None)
+        if invoke is not None:
+            from System import Action                   # type: ignore
+            invoke(Action(install))
+        else:
+            install()
     except Exception:
         pass
 

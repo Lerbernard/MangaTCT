@@ -338,6 +338,34 @@ def test_a_live_dispatcher_is_not_doubled(proj):
     assert _wait(lambda: at_once == ["a", "b", "c"], 8), at_once
 
 
+def test_a_dispatcher_that_was_replaced_does_not_write_over_the_next_one(proj):
+    """The order-dependent failure: `test_what_is_running_is_not_in_the_line`
+    now and then read `running_qid` as 0 while its action was plainly running,
+    and only when other files had run first.
+
+    `_quiet` gives a dispatcher left over from before five seconds to leave -
+    a real Clean from another file can take longer - and then takes the claim
+    away from it; the next action starts a new dispatcher. When the old one
+    did finish, it came back round, found the line empty, and put the flag
+    down and the id to 0 over the new one, which was still running. This is
+    that state, built on purpose instead of waited for."""
+    old_gate, new_gate = threading.Event(), threading.Event()
+    started = []
+    editor.run_job(proj, "old", [0], lambda i: (started.append("old"),
+                                                old_gate.wait(5)))
+    assert _wait(lambda: started == ["old"])
+    editor._Q_RUN.update(on=False, qid=0, thread=None)   # what _quiet does when it gives up
+    new = editor.run_job(proj, "new", [0], lambda i: (started.append("new"),
+                                                      new_gate.wait(5)))
+    assert _wait(lambda: started == ["old", "new"]), started
+    old_gate.set()
+    time.sleep(0.4)                                      # the old one runs out
+    q = editor.queue_state()
+    assert q["running_qid"] == new, q
+    assert editor._Q_RUN["on"] is True, "the old dispatcher put the new one's flag down"
+    new_gate.set()
+
+
 def test_the_line_survives_an_action_that_finishes_with_an_error(proj):
     """The error path puts the flag down and clears the line in one turn of the
     lock. In two, an action arriving in the middle joins a line nobody is

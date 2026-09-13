@@ -30,7 +30,7 @@ from where import PKG
 sys.path.insert(0, str(PKG / "launcher"))
 import mangatct_launcher as L  # noqa: E402
 from test_the_launcher_keeps_the_app_current import (  # noqa: E402
-    channel, home, install, app_zip, sha, STUB_EDITOR)
+    channel, home, install, app_zip, sha, STUB_EDITOR, SHELL_RUNTIME)
 
 from mangatl import editor, updates  # noqa: E402
 
@@ -103,6 +103,7 @@ RESTARTING_EDITOR = STUB_EDITOR.replace(
     "print(\"stub editor\", VERSION, \"on\", a.port, flush=True)")
 
 
+@SHELL_RUNTIME
 def test_the_launcher_makes_another_pass_when_the_editor_asks(home, channel, monkeypatch):
     """Headless, because the tk window is Windows' business: the editor
     ends with `EDITOR_RESTART`, and instead of ending the launcher starts

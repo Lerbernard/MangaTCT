@@ -3874,9 +3874,21 @@ def _dispatch() -> None:
     that flag down on the way out; leaving it set would mean every later action
     joined the line and nothing ever ran it, which from outside is
     indistinguishable from the app being dead.
+
+    ...and ONLY the dispatcher `_Q_RUN` names may touch it. One whose claim
+    was taken away while it was still inside a long page - and a new
+    dispatcher started for the next action - used to come back round, find
+    the line empty, and put the flag down and the id to 0 over the one now
+    running. From outside that is a running action the queue says is not
+    running; under the suite it was the order-dependent failure in
+    tests/test_queue.py. A dispatcher that has been replaced leaves without a
+    word: the line belongs to the new one.
     """
+    me = threading.current_thread()
     while True:
         with _Q_LOCK:
+            if _Q_RUN.get("thread") is not me:
+                return
             if not _QUEUE:
                 _Q_RUN.update(on=False, qid=0)
                 return

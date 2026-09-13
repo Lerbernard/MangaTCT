@@ -59,8 +59,14 @@ def _run(tmp_path, ref_rows, cand_rows):
                  encoding="utf-8")
     b.write_text(json.dumps(_chapter(cand_rows), ensure_ascii=False),
                  encoding="utf-8")
+    # The CHILD's output is UTF-8 too, said out loud. Reading it as UTF-8 here
+    # was only half: on Windows a Python whose stdout is a pipe writes in the
+    # locale's code page, the katakana in the report cannot be written in
+    # cp1252, and the tool died with a traceback before printing a line.
+    import os
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     p = subprocess.run([sys.executable, str(TOOL), str(a), str(b)],
-                       capture_output=True, text=True, encoding="utf-8")
+                       capture_output=True, text=True, encoding="utf-8", env=env)
     assert p.returncode == 0, p.stderr
     return p.stdout
 

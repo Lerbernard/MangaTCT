@@ -121,6 +121,16 @@ def channel():
     c.close()
 
 
+#: The tests that EXECUTE the fake runtime `home` makes. It is a shell script,
+#: and Windows will not run a shell script as a program: on lee's machine the
+#: eight of them failed (pip "could not be installed", no editor process at
+#: all), and `test_the_launcher_makes_another_pass_when_the_editor_asks` in the
+#: Settings > Updates tests waited for an editor that could never start and
+#: hung the whole suite. They run wherever a shell script can - Linux, macOS.
+SHELL_RUNTIME = pytest.mark.skipif(
+    os.name == "nt", reason="the fake runtime is a shell script; Windows cannot run one")
+
+
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """A MangaTCT home with a runtime that is a shell script: `pip` calls
@@ -260,6 +270,7 @@ def test_old_versions_are_pruned_but_never_the_running_one(home):
 
 # ---------------------------------------------------------------- the pip
 
+@SHELL_RUNTIME
 def test_pip_runs_only_when_the_requirements_changed(home):
     p = home
     install(p, "1.0.0", "numpy\n")
@@ -274,6 +285,7 @@ def test_pip_runs_only_when_the_requirements_changed(home):
     assert open(piplog).read().count("install") == 2
 
 
+@SHELL_RUNTIME
 def test_a_version_whose_packages_cannot_be_installed_falls_back(home):
     p = home
     install(p, "1.0.0", "numpy\n")
@@ -295,6 +307,7 @@ def test_no_runtime_or_no_app_is_said_plainly(home):
 
 # -------------------------------------------------------------- the start
 
+@SHELL_RUNTIME
 def test_a_start_fetches_the_update_and_runs_it(home, channel):
     """Nothing is open yet when the start looks at the channel, so a version
     fetched then is the version started - the fix arrives now, not next
@@ -324,6 +337,7 @@ def test_a_start_fetches_the_update_and_runs_it(home, channel):
     assert L.read_state(p)["app"] == "1.0.1"
 
 
+@SHELL_RUNTIME
 def test_a_version_fetched_while_the_editor_runs_waits_for_the_next_start(home, channel):
     """The mid-session check puts the new version beside the running one and
     tells the pill; the switch is the next start's."""
@@ -351,6 +365,7 @@ def test_a_version_fetched_while_the_editor_runs_waits_for_the_next_start(home, 
         L.stop_editor(s2.proc)
 
 
+@SHELL_RUNTIME
 def test_a_fetched_version_that_cannot_be_prepared_is_not_advertised(home, channel):
     p = home
     install(p, "1.0.0", "numpy\n")
@@ -365,6 +380,7 @@ def test_a_fetched_version_that_cannot_be_prepared_is_not_advertised(home, chann
         L.stop_editor(s.proc)
 
 
+@SHELL_RUNTIME
 def test_offline_starts_what_is_installed(home):
     p = home
     install(p, "1.0.0")
@@ -378,6 +394,7 @@ def test_offline_starts_what_is_installed(home):
     assert os.path.exists(os.path.join(p["logs"], "editor-%s.log" % time.strftime("%Y-%m-%d")))
 
 
+@SHELL_RUNTIME
 def test_an_editor_that_dies_is_reported_not_waited_on(home):
     p = home
     install(p, "1.0.0")
@@ -422,6 +439,7 @@ def test_missing_weights_are_fetched_once_and_checked(home, channel):
     assert len(channel.hits) == hits, "already there: nothing fetched again"
 
 
+@SHELL_RUNTIME
 def test_a_required_weight_that_will_not_come_stops_the_start_plainly(home, channel):
     p = home
     install(p, "1.0.0")

@@ -747,9 +747,10 @@ def test_finishing_an_upload_tells_the_browser_what_happened(proj):
 def _ui_source():
     static = os.path.join(str(PKG), "static")
     import glob
-    parts = [open(os.path.join(static, "editor.html")).read()]
+    # utf-8, said out loud: Windows would read these UTF-8 files as cp1252.
+    parts = [open(os.path.join(static, "editor.html"), encoding="utf-8").read()]
     for f in sorted(glob.glob(os.path.join(static, "js", "*.js"))):
-        parts.append(open(f).read())
+        parts.append(open(f, encoding="utf-8").read())
     return "\n".join(parts)
 
 

@@ -86,20 +86,19 @@ function wireChrome(){
   framed = true;
   document.documentElement.classList.add('framed');
   const ctl = $('winctl'); if(ctl) ctl.hidden = false;
+  // No `dblclick` listener anywhere on the bar, on purpose. The first press
+  // hands the mouse to Windows' move loop, so the page never sees it let go
+  // and a dblclick never arrives - on the real window two quick clicks did
+  // nothing. The window counts the double click itself (`Api.hit`), and a
+  // listener here as well could one day fire too and undo it.
   const drag = $('tbDrag');
-  if(drag){
-    drag.addEventListener('mousedown', hitDown(HIT.caption));
-    drag.addEventListener('dblclick', () => winCtl('max'));
-  }
+  if(drag) drag.addEventListener('mousedown', hitDown(HIT.caption));
   // The bar's own empty parts drag too: the top bar minus its controls.
   const top = $('top');
   if(top){
     top.addEventListener('mousedown', ev => {
       if(ev.target !== top && !ev.target.classList.contains('side')) return;
       hitDown(HIT.caption)(ev);
-    });
-    top.addEventListener('dblclick', ev => {
-      if(ev.target === top || ev.target.classList.contains('side')) winCtl('max');
     });
   }
   buildEdges();

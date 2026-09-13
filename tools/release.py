@@ -260,7 +260,7 @@ def check_models() -> None:
 # ------------------------------------------------------------- the manifest
 
 def build_manifest(base: str, out_dir: str, need_installer: bool = False) -> str:
-    """What the launcher reads. `base` is where the release assets will be
+    r"""What the launcher reads. `base` is where the release assets will be
     served from, with a trailing slash.
 
     `need_installer`: refuse to write a manifest when `MangaTCT-Setup-<v>.exe`

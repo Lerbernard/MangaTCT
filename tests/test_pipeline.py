@@ -326,7 +326,7 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
     # Without it unused width on a line is free, so the block spreads into a
     # taller stack of stubs that each fill their own narrow chord and buys two
     # points of size with the raggedness.
-    ("w_ragged", 135, 240,        # see RE-PICKED below
+    ("w_ragged", 165, 290,        # see RE-PICKED below
      "MY HARD WORK PAID OFF TOO—"),
     # A TALL balloon with almost nothing in it, which is the only shape this
     # term speaks to. `vfill` is a one-sided ramp: it charges a block for the
@@ -356,11 +356,18 @@ def test_two_words_fill_a_small_bubble_on_two_lines():
 # 46 for w_balance - which is the reassuring half of the result. A weight that
 # had gone flat EVERYWHERE would have been a finding about the weight.
 #
-# `w_ragged` is the clearest of them: at 135x240 the term buys three balanced
-# lines at 20pt, and without it the block takes six one-word stubs to reach
-# 24pt. That is the trade the weight exists to refuse, which is what makes the
-# fixture a fair test of it rather than merely a red one - and it is the same
-# trade, at the same sizes, that it showed before the gap moved.
+# `w_ragged` is the clearest of them: at 165x290 the term buys three balanced
+# lines at 24pt, and without it the block takes six one-word stubs to reach
+# 29pt. That is the trade the weight exists to refuse, which is what makes the
+# fixture a fair test of it rather than merely a red one.
+#
+# It moved a FOURTH time on 2026-09-13, `w_ragged` alone. On lee's machine
+# (Python 3.14.5, Pillow 12.3.0, FreeType 2.14.3) its old 135x240 had gone
+# flat - and failed the same way on the commit before that day's changes, so
+# nothing in the fitter had moved; the letters measure a little differently.
+# The sweep found four sizes where it still decides; 165x290 sits between two
+# of the others on the diagonal (160x280, 170x300), so a small drift in
+# either direction still lands on one that decides.
 #
 # If this goes flat again, do NOT delete the case: sweep for a new size. A
 # weight that decides nothing anywhere is the finding; a weight that decides
@@ -2371,10 +2378,11 @@ def _ui_source():
     import glob
     import os
     static = os.path.join(str(PKG), "static")
-    parts = [open(os.path.join(static, "editor.html")).read(),
-             open(os.path.join(static, "css", "editor.css")).read()]
+    # utf-8, said out loud: Windows would read these UTF-8 files as cp1252.
+    parts = [open(os.path.join(static, "editor.html"), encoding="utf-8").read(),
+             open(os.path.join(static, "css", "editor.css"), encoding="utf-8").read()]
     for p in sorted(glob.glob(os.path.join(static, "js", "*.js"))):
-        parts.append(open(p).read())
+        parts.append(open(p, encoding="utf-8").read())
     return "\n".join(parts)
 
 
@@ -3956,7 +3964,7 @@ def test_tools_never_open_the_text_editor():
     import os
     static = os.path.join(str(PKG),
                           "static", "js", "typesetting.js")
-    src = open(static).read()
+    src = open(static, encoding="utf-8").read()    # not cp1252, on Windows
     down = src.split("addEventListener('mousedown'", 1)[1] \
               .split("addEventListener('dblclick'", 1)[0]
     dbl = src.split("addEventListener('dblclick'", 1)[1] \

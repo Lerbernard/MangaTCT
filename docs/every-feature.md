@@ -758,14 +758,19 @@ like Photoshop has"*. A chapter that is open comes back where it was left.
 ## 0.2 The window's own frame
 
 In its own window the app has no system title bar: the top bar is the title
-bar. The empty stretch of it drags the window, a double click maximises, and
-the three buttons at the far right minimise / maximise / close, drawn to
+bar. The empty stretch of it drags the window, a double click maximizes, and
+the three buttons at the far right minimize / maximize / close, drawn to
 Windows' measure. Eight thin strips round the edge resize. All of it is
 native — the page tells the window which part of a frame was pressed
 (`Api.hit`, a WM_NCHITTEST code) and Windows runs the drag, so it is smooth
-and Aero snap works. None of it appears in a browser tab (`chrome.js` waits
-for the window to say it is frameless). `MANGATCT_FRAME=1` brings the system
-frame back. lee: *"integrate it with the app"*.
+and Aero snap works. The window keeps the frame styles Windows sizes and
+snaps by and hides the frame they would draw (the frame hook in `window.py`);
+the double click is counted by the window, because the first press has
+already gone to Windows. Maximized, it stops at the taskbar — and two pixels
+short of a taskbar that hides itself, so that one can still slide up. None of
+it appears in a browser tab (`chrome.js` waits for the window to say it is
+frameless). `MANGATCT_FRAME=1` brings the system frame back. lee:
+*"integrate it with the app"*.
 
 ## 4.9a Settings ▸ Account
 

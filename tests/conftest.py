@@ -76,6 +76,45 @@ if _OURS:
 # state takes the switch away again with monkeypatch.
 os.environ.setdefault("MANGATL_TEST_PURSE", "1")
 
+# ...and the `.env` in the CHECKOUT ITSELF, which got in twice over on lee's
+# machine - his real `.env` lives in the repository folder - and seven tests in
+# test_clean_says_when_it_fails.py failed on his real cleaner token (the same
+# file passes in a checkout that has no `.env`):
+#
+# 1. `import mangatl` runs `_load_dotenv`, which copies every line of a `.env`
+#    in the working folder or beside the package into the environment - AFTER
+#    the names above were taken out. So the package is imported here, and what
+#    that import added is taken out again: every key name, and every name of
+#    ours. Nothing else - the import also sets thread counts, which are meant
+#    to stay.
+# 2. `userdata.env_paths` lists `<the app's own folder>/.env` whatever
+#    MANGATL_ENV says, and in a checkout the app's own folder IS the
+#    repository. That one file reads as empty for the whole run. The list of
+#    places is left as it is - a test checks it - and a test that wants a file
+#    beside the app makes one of its own (test_the_app_folder_is_read_too).
+_ENV_BEFORE_IMPORT = set(os.environ)
+
+import mangatl  # noqa: E402,F401
+from mangatl import userdata as _userdata  # noqa: E402
+
+_KEY_NAMES = {n for names in _userdata.ENV_NAMES.values() for n in names}
+for _n in set(os.environ) - _ENV_BEFORE_IMPORT:
+    if _n in _KEY_NAMES or _n.startswith("MANGATL_"):
+        os.environ.pop(_n, None)
+
+_CHECKOUT_ENV = os.path.normcase(os.path.join(
+    os.path.dirname(os.path.abspath(_userdata.__file__)), ".env"))
+_real_read_env = _userdata._read_env
+
+
+def _read_env_but_not_the_checkouts(path):
+    if os.path.normcase(os.path.abspath(str(path))) == _CHECKOUT_ENV:
+        return {}
+    return _real_read_env(path)
+
+
+_userdata._read_env = _read_env_but_not_the_checkouts
+
 import pytest  # noqa: E402
 
 import browserpool  # noqa: E402  (after the home is pointed somewhere safe)

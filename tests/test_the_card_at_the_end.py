@@ -31,6 +31,19 @@ def card():
     return mod
 
 
+# The card is drawn in Anton, which ships in `fonts/`, and DejaVu Sans, which
+# `tools/adcard.py` names by its Debian path. A machine without that file
+# cannot draw the card at all - on lee's Windows machine every test here died
+# in Pillow with "cannot open resource" before measuring anything - so the
+# file says which font is missing and skips, rather than eleven errors that
+# look like eleven bugs.
+_NEEDS = [getattr(card(), n) for n in ("ANTON", "BODY", "BODY_B")]
+pytestmark = pytest.mark.skipif(
+    not all(os.path.isfile(f) for f in _NEEDS),
+    reason="the card's fonts are not on this machine: %s"
+    % ", ".join(f for f in _NEEDS if not os.path.isfile(f)))
+
+
 SHAPES = ["page", "strip", "banner"]
 GROUNDS = ["dark", "light"]
 

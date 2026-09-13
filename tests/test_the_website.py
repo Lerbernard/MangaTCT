@@ -480,9 +480,12 @@ def _seed(*args):
     env = dict(os.environ,
                GOOGLE_CLOUD_PROJECT="mangatct-there-is-no-such-project",
                GOOGLE_APPLICATION_CREDENTIALS="")
+    # encoding="utf-8": node writes UTF-8 to a pipe, and Python on Windows
+    # would read it back in cp1252 - the "…" the guard quotes came back as
+    # three other characters and the check for it failed on lee's machine.
     return subprocess.run(
         [node, "seed.js", *args], cwd=str(PKG / "firebase" / "functions"),
-        capture_output=True, text=True, timeout=120, env=env)
+        capture_output=True, text=True, encoding="utf-8", timeout=120, env=env)
 
 
 def test_seed_stops_on_a_pasted_placeholder_and_says_what_it_wanted():

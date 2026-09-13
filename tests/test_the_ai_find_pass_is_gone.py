@@ -89,6 +89,13 @@ def test_nothing_imports_the_removed_module():
     for f in sorted(ROOT.rglob("*.py")):
         if f.name in ("aidetect.py", "test_the_ai_find_pass_is_gone.py"):
             continue
+        # `_to_delete/` is where a file goes on its way out, on one machine,
+        # and `.gitignore` keeps it out of the repository - so it is not "the
+        # package" either. On lee's machine the old test for the removed module
+        # was sitting in one, and this failed on the import it was there to
+        # retire.
+        if "_to_delete" in f.parts:
+            continue
         try:
             tree = ast.parse(f.read_text(encoding="utf-8"))
         except SyntaxError:

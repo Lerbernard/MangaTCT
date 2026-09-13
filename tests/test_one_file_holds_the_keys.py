@@ -218,7 +218,10 @@ def test_the_three_places_a_file_may_be(env, monkeypatch, tmp_path):
     assert len(got) == 3 and len(set(got)) == 3, got
     assert got[0] == os.path.normcase(str(tmp_path / "named.env"))
     assert got[1] == os.path.normcase(str(tmp_path / "home" / ".env"))
-    assert os.path.normcase(os.path.dirname(userdata.__file__)) == \
+    # abspath on this side too: run with pytest.ini's `pythonpath = ..`, the
+    # module's own __file__ is `...\mangatl\..\mangatl`, and env_paths hands
+    # back the tidy form of the same folder.
+    assert os.path.normcase(os.path.abspath(os.path.dirname(userdata.__file__))) == \
         os.path.normcase(os.path.dirname(got[2])), \
         "the third place is beside the app itself"
 
@@ -272,9 +275,26 @@ def test_a_half_written_file_does_not_switch_the_other_one_off(
 def test_the_app_never_ships_a_dot_env(env):
     """The app folder is READ but never written, and nothing in the build may
     put a file there - `.gitignore` names it, and this is the other half."""
+    import subprocess
+    import sys
     from where import PKG
-    assert not os.path.exists(os.path.join(str(PKG), ".env")), \
-        "a .env has appeared inside the app folder"
+    # What SHIPS, not what is on the disk. This used to assert that no `.env`
+    # existed beside the app at all - which is untrue on the machine that
+    # matters most: lee keeps his in the checkout, ignored by git, and the
+    # test failed there over a file that was never going anywhere. The two
+    # ways a `.env` can leave are a commit and the release zip, so those are
+    # what is checked.
+    sys.path.insert(0, os.path.join(str(PKG), "tools"))
+    import release
+    in_zip = [inzip for _, inzip in release.files_for_zip()]
+    assert not [f for f in in_zip if f.endswith(".env")], "a .env would be in the app zip"
+    try:
+        tracked = subprocess.run(["git", "ls-files", "--", ".env", "*/.env"], cwd=str(PKG),
+                                 capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        tracked = None                      # no git here: the zip is what ships
+    if tracked is not None and tracked.returncode == 0:
+        assert tracked.stdout.strip() == "", "a .env is committed"
     for d in (str(PKG), os.path.dirname(str(PKG))):
         ignore = os.path.join(d, ".gitignore")
         if os.path.isfile(ignore):
