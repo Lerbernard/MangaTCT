@@ -683,13 +683,28 @@ def _one_ground(gray: np.ndarray, bubble: np.ndarray,
     if int(((gray <= INK) & inside).sum()) > DARK_GROUND * n:
         g = 255 - g
     from .detect.balloon import BalloonConfig, _free_labels, _surrounding_label
-    cnt, labels = _free_labels(g, BalloonConfig())
+    bcfg = BalloonConfig()
+    cnt, labels = _free_labels(g, bcfg)
     if cnt <= 1:
         return bubble
     lab = _surrounding_label(labels, glyph[win])
     if lab <= 0:
         return bubble                     # no run to read: leave the outline
     run = ((labels == lab) & inside[win]).astype(np.uint8)
+    # THE WALK STANDS OFF EVERY MARK BY `close_px`, because `_free_labels`
+    # dilates the ink before it labels the paper. Round a letter in the middle
+    # of the field that halo is a hole and `_no_holes` fills it; round a letter
+    # the outline's own edge runs through - a balloon the detector cut straight
+    # across the writing - it is a notch open to the outside, nothing fills it,
+    # and the placement area comes back with slits down the Japanese column.
+    # The fitter then finds no chord wide enough and the renderer clips letters
+    # at every slit. So the stand-off is given back before anything is filled.
+    # lee, with page 027's second lobe set at 12pt against its neck and the
+    # letters cut away: *"can you loo at what ahpedn in teh 3rd screenshot with
+    # teh typeseetr"*. Over his chapter it moved five boxes, all on that page.
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                  (2 * bcfg.close_px + 1,) * 2)
+    run = cv2.dilate(run, k) & inside[win].astype(np.uint8)
     field = _no_holes(run) & inside[win]
     if int(field.sum()) >= OUTLINE_IS_THE_FIELD * n:
         # THE OUTLINE IS THE FIELD, which is what almost every outline is, and

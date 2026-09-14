@@ -1499,6 +1499,11 @@ class BubbleGeom:
         self.y0, self.y1 = (int(ys[0]), int(ys[-1])) if ys.size else (0, -1)
         self.height = self.y1 - self.y0 + 1 if ys.size else 0
         self._cache: dict = {}
+        # The mask's own box, so a measurement at an inset can be taken on that
+        # window rather than on the page it sits in. See `_measure`.
+        xs = np.flatnonzero(m.any(axis=0)) if ys.size else None
+        self._box = ((self.y0, self.y1 + 1, int(xs[0]), int(xs[-1]) + 1)
+                     if ys.size else None)
 
     def _measure(self, key: float):
         """Everything about the bubble at one inset, measured in one pass.
@@ -1509,6 +1514,38 @@ class BubbleGeom:
         accessors below.
         """
         got = self._cache.get(key)
+        # AT AN INSET, ON THE MASK'S OWN BOX. The distance to the outline is 0
+        # everywhere outside the mask, so for any inset above 0 nothing outside
+        # the mask's box can pass `dist >= key`, and the chords taken over that
+        # window are the page's chords exactly - with the empty rows filled in
+        # the way `_row_chords` fills them (0 and -1). The masks are page-sized
+        # whatever the balloon is, and this is asked hundreds of times a page.
+        # lee: *"optimaze the app make it faster and moother dont chnage teh
+        # fuctionality"*. An inset of 0 or less keeps the page-wide path,
+        # because `dist >= 0` is true outside the mask as well.
+        if got is None and key > 0 and self._box is not None:
+            ya, yb, xa, xb = self._box
+            sub = (self.dist[ya:yb, xa:xb] >= key).astype(np.uint8)
+            inner = np.zeros(self.dist.shape, np.uint8)
+            inner[ya:yb, xa:xb] = sub
+            rw, fw, lw = _row_chords(sub)
+            H = self.dist.shape[0]
+            rows = np.zeros(H, dtype=bool)
+            rows[ya:yb] = rw
+            first = np.zeros(H, dtype=np.int64)
+            first[ya:yb] = np.where(rw, fw + xa, 0)
+            last = np.full(H, -1, dtype=np.int64)
+            last[ya:yb] = np.where(rw, lw + xa, -1)
+            ys = np.flatnonzero(rows)
+            if ys.size:
+                y0, y1 = int(ys[0]), int(ys[-1])
+                widths = np.where(rows, last - first + 1, 0).astype(np.float32)
+            else:
+                y0 = y1 = 0
+                widths = np.zeros(0)
+            left = first.astype(np.float32)
+            right = last.astype(np.float32)
+            got = self._cache[key] = (inner, widths, y0, y1, left, right)
         if got is None:
             inner = (self.dist >= key).astype(np.uint8)
             rows, first, last = _row_chords(inner)

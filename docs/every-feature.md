@@ -242,9 +242,17 @@ chip with its colour dot, a link chip, and an eye that hides that one box.
 Below: the English, then the Japanese, with "not translated" and "no text read"
 where either is missing.
 
-**Selecting a row opens it in place** into: Main type, Sub-type, the Japanese
-and the English as editable fields, and **Split**, **Delete**, and **Link…** /
-**Link to next** or **Unlink**.
+**Selecting a row opens it in place** into: Main type, Sub-type, the input text
+and the output text as editable fields, and six buttons in three rows:
+**Read text** and **Translate** (this box alone, nothing else sent), **Link…** /
+**Link to next** or **Unlink**, a special character, and **Delete**.
+
+Each of the two AI buttons wears its price: one box priced at the model that
+step is set to, never less than 1 coin, and more on a dearer model - lee:
+*"make this price be dynamic too minimu is 1 and can grow bepending on what ai
+is picked"*. What the button says is what is taken, and the buttons follow a
+change of model as soon as Settings is saved. **Read text** on an
+offline-reader project is free and shows no coin.
 
 ### The inspector, by view
 

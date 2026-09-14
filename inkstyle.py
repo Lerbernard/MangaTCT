@@ -600,6 +600,14 @@ def _dist(a: str, b: str) -> int:
         return 999
 
 
+# How much page round a block's writing `measure_page` hands to
+# `measure_region`. The furthest any step of it reaches is 17px (the 17x17
+# dilation of the ink; the outline rings stop at EDGE_MAX, the band at
+# RING_NEAR, a shadow at SHADOW_MAX); this is more than twice that, so a
+# constant nudged later does not quietly start reading off the edge of a crop.
+MEASURE_REACH = 40
+
+
 def measure_page(page, seen: dict | None = None) -> int:
     """Fill in the colours for every region on a page. Returns how many.
 
@@ -616,13 +624,30 @@ def measure_page(page, seen: dict | None = None) -> int:
     if img is None or not regions:
         return 0
     owner, index_of = _pixel_owner(page)
+    H, W = img.shape[:2]
     done = 0
     for r in regions:
         block = block_of(page, r, owner, index_of.get(r.id, -1))
         if block is None:
             continue
+        # Measured on a crop round the writing, not on the page. Every step of
+        # `measure_region` looks at most a ring or a shadow's offset away from
+        # the ink - the widest is 17px - so the page beyond `MEASURE_REACH` is
+        # never read, and a 3000px page was being dilated and labelled in full
+        # once per box to answer a question about a few hundred pixels. That
+        # was most of the time Read text spent after the reader answered: 3.7s
+        # a page on lee's chapter, 0.17s this way, with the same colours on
+        # every one of its 276 boxes. lee: *"optimaze the app make it faster
+        # and moother dont chnage teh fuctionality"*.
+        x, y, w, h = cv2.boundingRect((np.asarray(block) > 0).astype(np.uint8))
+        if w and h:
+            x0, y0 = max(0, x - MEASURE_REACH), max(0, y - MEASURE_REACH)
+            x1, y1 = min(W, x + w + MEASURE_REACH), min(H, y + h + MEASURE_REACH)
+            img_c, block_c = img[y0:y1, x0:x1], block[y0:y1, x0:x1]
+        else:
+            img_c, block_c = img, block
         try:
-            got = measure_region(img, block)
+            got = measure_region(img_c, block_c)
         except Exception:
             continue
         if not got:

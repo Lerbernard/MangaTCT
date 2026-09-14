@@ -236,8 +236,12 @@ function growBox(t){
    silence: a read that happens on this computer is free, so the Read text
    button of an offline-reader project carries no number at all (the server
    agrees - see the `paid` rule on the endpoint). */
-function coinChip(n){
-  return ` <span class="rbcoin">${n} <svg class="coinpip" width="11"` +
+/* `what` marks a box button's chip ("read" or "translate"), so a fresh price
+   from the server can be written into a panel that is already open - the
+   price follows the model the step is set to. lee: *"make this price be
+   dynamic too minimu is 1 and can grow bepending on what ai is picked"*. */
+function coinChip(n, what){
+  return ` <span class="rbcoin"${what ? ` data-boxcoin="${what}"` : ''}>${n} <svg class="coinpip" width="11"` +
          ` height="11" aria-hidden="true"><use href="#tctcoin"/></svg></span>`;
 }
 
@@ -269,11 +273,11 @@ function regionInlineEditor(r){
         <button onclick="readBox(${r.id})" id="readBox_${r.id}"
                 title="${readFree
                   ? 'Re-read the writing in this box on this computer — free'
-                  : 'Re-read the writing in this box from the image, with the reader the project uses — 1 coin'}">
-          Read text${readFree ? '' : coinChip(1)}</button>
+                  : 'Re-read the writing in this box from the image, with the reader the project uses — ' + coinWord(boxCoins('read'))}">
+          Read text${readFree ? '' : coinChip(boxCoins('read'), 'read')}</button>
         <button onclick="translateBox(${r.id})" id="trBox_${r.id}"
-                title="Translate just this box, nothing else sent — 1 coin">
-          Translate${coinChip(1)}</button>
+                title="Translate just this box, nothing else sent — ${coinWord(boxCoins('translate'))}">
+          Translate${coinChip(boxCoins('translate'), 'translate')}</button>
         ${r.link
           ? `<button onclick="unlinkRegion(${r.id})"
                      title="Linked to #${r.link}">Unlink #${r.link}</button>

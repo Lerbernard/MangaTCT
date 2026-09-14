@@ -804,15 +804,20 @@ MUTANTS = [
     ("box-numbers-painted-out-by-the-restore", OCR,
      "        for r in here:\n"
      "            if r.id in ids:\n"
-     "                _draw_tag(vis, r, _shape(r, x0, y0, shapes.get(r.id)))",
+     "                _draw_tag(vis, r, _shape(r, x0, y0, shapes.get(r.id)),\n"
+     "                          [_shape(q, x0, y0, shapes.get(q.id))\n"
+     "                           for q in here if q.id != r.id])",
      "        pass", T_BOX),
     ("box-a-neighbour-is-drawn-red-too", OCR,
      "                          (0, 0, 255) if r.id in ids else (168, 168, 168), 2)",
      "                          (0, 0, 255), 2)", T_BOX),
     ("box-number-goes-back-on-the-top-left-corner", OCR,
-     "    tx, ty = _tag_spot(vis, pts, bw, bh)",
+     "    tx, ty = _tag_spot(vis, pts, bw, bh, others)",
      "    tx, ty = int(pts[:, 0].min()), max(0, int(pts[:, 1].min()) - bh)",
      T_BOX),
+    ("box-number-lands-on-the-neighbour", OCR,
+     "    return int(min(_off_shape(o, x, y) for o in others) <= own + margin)",
+     "    return 0", T_BOX),
     ("box-reader-not-told-about-slanted-outlines", "translate.py",
      '        "An outline follows the SHAPE of the words it holds, so a line of text "',
      '        "" or (', T_BOX),

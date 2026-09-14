@@ -481,23 +481,35 @@ def _complete_strokes(erase: np.ndarray, gray: np.ndarray, inverted: bool,
     # ink is SHARED between box and doorstep, which a long mark crossing a
     # small box passes comfortably, and it only runs where a balloon was found
     # - which is never, on the boxes this is about.
+    #
+    # Counted once for every label, not once per label over the whole page:
+    # `lab == li` is a page-sized comparison, and a box touching forty strokes
+    # made forty of them and summed each - up to five seconds of a page's clean
+    # on lee's chapter, for counts a single bincount gives exactly. lee:
+    # *"optimaze the app make it faster and moother dont chnage teh
+    # fuctionality"*; the same integers, so the same strokes are kept.
+    nlab = int(lab.max()) + 1
+    total_of = np.bincount(lab.ravel(), minlength=nlab)
+    in_room = np.bincount(lab[room], minlength=nlab)
     kept = set()
     for li in touching:
-        comp = lab == li
-        total = int(comp.sum())
-        if total and int((comp & ~room).sum()) > DOORSTEP_SHARE * total:
+        total = int(total_of[li])
+        if total and total - int(in_room[li]) > DOORSTEP_SHARE * total:
             continue
         kept.add(li)
     touching = kept
     if not touching:
         return m
     if inside is not None:
+        in_box = np.bincount(lab[box], minlength=nlab)
+        in_door = np.bincount(lab[doorstep], minlength=nlab)
         touching = {li for li in touching
-                    if int(((lab == li) & box).sum())
-                    >= int(((lab == li) & doorstep).sum())}
+                    if int(in_box[li]) >= int(in_door[li])}
         if not touching:
             return m
-    add = np.isin(lab, list(touching)) & doorstep
+    chosen = np.zeros(nlab, bool)
+    chosen[list(touching)] = True
+    add = chosen[lab] & doorstep
     out = m.copy()
     out[add] = 255
     return out
@@ -564,16 +576,22 @@ def glyphs_only(region, text_mask: np.ndarray,
     inside_labels = set(np.unique(lab[ink_in])) - {0}
 
     keep = np.zeros_like(text_mask)
+    # Counted for every label in one pass rather than a page-sized comparison
+    # per label - the same numbers, so the same components are kept. See
+    # `_complete_strokes`.
+    total_of = np.bincount(lab.ravel(), minlength=n)
+    in_grown = np.bincount(lab[grown], minlength=n)
+    chosen = np.zeros(n, bool)
     for li in inside_labels:
-        comp = lab == li
-        total = int(comp.sum())
-        outside = int((comp & ~grown).sum())
+        total = int(total_of[li])
+        outside = total - int(in_grown[li])
         # A letter that merely brushes the bubble outline joins it as one
         # component, so "touches the edge" is too strict. What marks a border
         # or a piece of artwork is that most of it lies outside the region.
         if total and outside > OUTSIDE_SHARE * total:
             continue
-        keep[comp & ink_in] = 255
+        chosen[li] = True
+    keep[chosen[lab] & ink_in] = 255
 
     if int((keep > 0).sum()) < 0.05 * int(ink_in.sum()):
         # Nothing survived - the box is probably tight around text touching its

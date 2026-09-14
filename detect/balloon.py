@@ -79,13 +79,25 @@ def _surrounding_label(labels: np.ndarray, glyph: np.ndarray,
     the ring lands entirely on the dilated glyphs - which are not paper and so
     carry no label - and the answer comes back as "nothing surrounds this".
     """
-    ring = cv2.dilate((glyph > 0).astype(np.uint8),
-                      cv2.getStructuringElement(
-                          cv2.MORPH_ELLIPSE, (2 * max(1, ring_px) + 1,) * 2))
-    sel = (ring > 0) & (glyph == 0) & (labels > 0)
+    # Dilated in a window round the glyphs, not over the whole page: outside
+    # the glyphs' box grown by the ring, a whole-page dilation is zeros anyway,
+    # so the selection and the majority are the same - at a fraction of the
+    # work on a big page. lee: *"optimaze the app make it faster and moother
+    # dont chnage teh fuctionality"*.
+    g8 = (glyph > 0).astype(np.uint8)
+    gx, gy, gw, gh = cv2.boundingRect(g8)
+    if gw == 0 or gh == 0:
+        return 0
+    rp = max(1, ring_px)
+    GH, GW = g8.shape[:2]
+    win = (slice(max(0, gy - rp), min(GH, gy + gh + rp)),
+           slice(max(0, gx - rp), min(GW, gx + gw + rp)))
+    ring = cv2.dilate(g8[win], cv2.getStructuringElement(
+                          cv2.MORPH_ELLIPSE, (2 * rp + 1,) * 2))
+    sel = (ring > 0) & (g8[win] == 0) & (labels[win] > 0)
     if not sel.any():
         return 0
-    vals, counts = np.unique(labels[sel], return_counts=True)
+    vals, counts = np.unique(labels[win][sel], return_counts=True)
     return int(vals[int(counts.argmax())])
 
 

@@ -305,7 +305,7 @@ def _shape(r, ox: int, oy: int, outline: np.ndarray | None) -> np.ndarray:
 
 
 def _draw_label(vis, r, ox: int, oy: int, tag_it: bool,
-                outline: np.ndarray | None = None) -> None:
+                outline: np.ndarray | None = None, others=()) -> None:
     """Outline one region on `vis`, whose top-left corner is page (ox, oy).
 
     A tagged region is the one being asked for - red outline, red number beside
@@ -317,20 +317,21 @@ def _draw_label(vis, r, ox: int, oy: int, tag_it: bool,
     cv2.polylines(vis, [_outset(pts)], True,
                   (0, 0, 255) if tag_it else (168, 168, 168), 2)
     if tag_it:
-        _draw_tag(vis, r, pts)
+        _draw_tag(vis, r, pts, others)
 
 
-def _draw_tag(vis, r, pts: np.ndarray) -> None:
+def _draw_tag(vis, r, pts: np.ndarray, others=()) -> None:
     tag = str(r.id)
     (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
     bw, bh = tw + 6, th + 6
-    tx, ty = _tag_spot(vis, pts, bw, bh)
+    tx, ty = _tag_spot(vis, pts, bw, bh, others)
     cv2.rectangle(vis, (tx, ty), (tx + bw, ty + bh), (0, 0, 255), -1)
     cv2.putText(vis, tag, (tx + 3, ty + th + 2),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
 
-def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
+def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int,
+              others=()) -> tuple[int, int]:
     """Where to print the number: the corner of the shape covering least ink.
 
     Each corner is nudged outwards from the shape's middle and the paper under
@@ -340,6 +341,18 @@ def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
     words it names, and on a page of overlapping boxes was frequently sitting
     on the NEIGHBOUR'S text. Ties go to the highest corner, which is where a
     label belongs when nothing else decides it.
+
+    ...and never NEARER A NEIGHBOUR than its own shape, which comes before the
+    ink. lee, with a balloon holding two columns side by side and each one's
+    reading filed under the other: *"make sure that the read text alway does to
+    the proper bubble"*. The emptiest paper beside a column is very often the
+    gutter between it and the next column, and a number printed there sits
+    against the neighbour's outline as much as its own - on his pages 004, 005
+    and 021 the reader took every one of those numbers for the column it was
+    touching, and swapped the two readings. `others` is every other shape on
+    the picture. If no corner is closer to its own shape than to all of them,
+    the number goes INSIDE its own shape, the one place nobody can read it as
+    somebody else's.
     """
     H, W = vis.shape[:2]
     cx, cy = float(pts[:, 0].mean()), float(pts[:, 1].mean())
@@ -352,11 +365,46 @@ def _tag_spot(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
         ax = max(0, min(ax, max(0, W - bw)))
         ay = max(0, min(ay, max(0, H - bh)))
         patch = vis[ay:ay + bh, ax:ax + bw]
-        # darkness first, height second: (ink under the tag, how far down it is)
-        s = (float(255 - patch.mean()) if patch.size else 1e9, ay)
+        # whose it would look like first, then darkness, then height: (nearer a
+        # neighbour than its own shape, ink under the tag, how far down it is)
+        s = (_nearer_a_neighbour(pts, others, ax + bw / 2.0, ay + bh / 2.0,
+                                 margin=float(max(8, bh))),
+             float(255 - patch.mean()) if patch.size else 1e9, ay)
         if score is None or s < score:
             best, score = (ax, ay), s
+    if score is not None and score[0]:
+        best = _inside_corner(vis, pts, bw, bh)
     return best
+
+
+def _off_shape(pts: np.ndarray, x: float, y: float) -> float:
+    """How far (x, y) lies outside a shape; 0 on it or inside it."""
+    d = cv2.pointPolygonTest(np.asarray(pts, np.float32).reshape(-1, 1, 2),
+                             (float(x), float(y)), True)
+    return max(0.0, -float(d))
+
+
+def _nearer_a_neighbour(pts: np.ndarray, others, x: float, y: float,
+                        margin: float = 0.0) -> int:
+    """1 when a tag centred at (x, y) is not clearly nearer its own shape than
+    every other one - within `margin` of a neighbour counts, and so do touching
+    both or sitting inside the other.
+
+    A tag a few pixels nearer its own column than the next one is still, to
+    anybody looking, sitting between the two; the margin is the tag's own
+    height, so the gap has to be one you can see."""
+    if others is None or len(others) == 0:
+        return 0
+    own = _off_shape(pts, x, y)
+    return int(min(_off_shape(o, x, y) for o in others) <= own + margin)
+
+
+def _inside_corner(vis, pts: np.ndarray, bw: int, bh: int) -> tuple[int, int]:
+    """The top-right corner just inside the shape's own box."""
+    H, W = vis.shape[:2]
+    ax = int(pts[:, 0].max()) - bw - 2
+    ay = int(pts[:, 1].min()) + 2
+    return (max(0, min(ax, max(0, W - bw))), max(0, min(ay, max(0, H - bh))))
 
 
 def _encode(vis, max_side: int) -> bytes:
@@ -594,7 +642,9 @@ def page_label_tiles(page: Page, max_side: int = MAX_SIDE, detail: str = "auto",
         # Numbers last, so they are not painted out by the line above.
         for r in here:
             if r.id in ids:
-                _draw_tag(vis, r, _shape(r, x0, y0, shapes.get(r.id)))
+                _draw_tag(vis, r, _shape(r, x0, y0, shapes.get(r.id)),
+                          [_shape(q, x0, y0, shapes.get(q.id))
+                           for q in here if q.id != r.id])
         out.append((_encode(vis, max_side), [r.id for r in mine]))
     return out
 
@@ -708,7 +758,9 @@ def page_box_crops(page: Page, glyph_px: int = BOX_GLYPH,
             vis[keep] = img[y0:y1, x0:x1][keep]
         for q in here:
             if q.id == r.id:
-                _draw_tag(vis, q, _shape(q, x0, y0, shapes.get(q.id)))
+                _draw_tag(vis, q, _shape(q, x0, y0, shapes.get(q.id)),
+                          [_shape(o, x0, y0, shapes.get(o.id))
+                           for o in here if o.id != q.id])
         # ...and now the only thing that makes this worth doing.
         s = float(glyph_px) / _glyph_px(page, r)
         ch, cw = vis.shape[:2]

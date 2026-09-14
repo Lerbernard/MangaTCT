@@ -32,20 +32,25 @@ async function boxAi(id, what, btn, busyLabel, doneLabel){
     if(typeof paintCount==='function' && j && j.coins!==undefined)
       paintCount(j.coins);
     if(typeof refreshCoins==='function') refreshCoins();
-    toast(doneLabel, 2200);
+    toast(typeof doneLabel === 'function' ? doneLabel(j) : doneLabel, 2200);
   } finally {
     if(b){ b.disabled=false; b.textContent=had; }
     renderList();
     if(typeof drawText==='function') drawText();
   }
 }
+/* The toast says what was actually taken - `charged` on the reply - rather
+   than a number typed here: the price follows the step's model now, and an
+   offline read is free and says nothing about coins. */
+const boxCharged = (done, j) =>
+  done + (j && j.charged ? ' — ' + coinWord(j.charged) : '') + '.';
 function readBox(id){
   return boxAi(id, 'read', 'readBox_'+id, 'Reading…',
-               'Box re-read — 1 coin.');
+               j => boxCharged('Box re-read', j));
 }
 function translateBox(id){
   return boxAi(id, 'translate', 'trBox_'+id, 'Translating…',
-               'Box translated — 1 coin.');
+               j => boxCharged('Box translated', j));
 }
 
 async function saveTypesetting(id, quiet, extra, norefresh, before){

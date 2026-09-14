@@ -146,7 +146,13 @@ def test_the_two_ai_buttons_wear_their_price():
     carries no number, because the endpoint takes none."""
     js = _read("static", "js", "panels.js")
     body = js.split("function regionInlineEditor(")[1].split("\nfunction ")[0]
-    assert "coinChip(1)" in body, "no price on the buttons"
+    # ...priced at the model the step is set to, not a typed-in 1. lee: *"make
+    # this price be dynamic too minimu is 1 and can grow bepending on what ai
+    # is picked"*.
+    assert "coinChip(boxCoins('read'), 'read')" in body, "no price on Read text"
+    assert "coinChip(boxCoins('translate'), 'translate')" in body, \
+        "no price on Translate"
+    assert "coinChip(1)" not in body, "a flat coin typed into the button again"
     assert "readFree" in body, "an offline read is priced like a bought one"
     assert "#tctcoin" in js.split("function coinChip(")[1] \
                            .split("\nfunction ")[0], \
@@ -197,6 +203,40 @@ def test_a_range_selection_outlives_a_click_on_the_side_panel():
 
 # ------------------------------------------------------------ the endpoint
 
+def test_a_box_costs_a_coin_at_least_and_more_on_a_dearer_model(monkeypatch):
+    """lee: *"make this price be dynamic too minimu is 1 and can grow
+    bepending on what ai is picked"*. The box is priced like a page of one
+    box at the step's own model: whatever that comes to, never under a coin,
+    and every coin of it when it comes to more. An offline read stays free."""
+    from mangatl import coins, editor
+    root = scratch("_tmp_boxprice")
+    p = _project(root)
+    try:
+        seen = []
+
+        def quote(step, boxes=0, model="", backend="", **kw):
+            seen.append((step, boxes, model))
+            return {"cheap-model": 0, "dear-model": 7}[model]
+
+        monkeypatch.setattr(coins, "quote_page", quote)
+        monkeypatch.setattr(editor, "reading_offline", lambda _p: False)
+        monkeypatch.setattr(editor, "step_engine",
+                            lambda _p, _s: ("cheap-model", "x"))
+        assert editor.box_price(p, "translate") == 1, "under a coin is a coin"
+        assert editor.box_price(p, "read") == 1
+        monkeypatch.setattr(editor, "step_engine",
+                            lambda _p, _s: ("dear-model", "x"))
+        assert editor.box_price(p, "translate") == 7, "the dearer AI costs more"
+        assert editor.box_price(p, "read") == 7, "a dearer reader costs more"
+        assert ("ocr", 1, "dear-model") in seen and \
+            ("translate", 1, "dear-model") in seen, \
+            "not priced as ONE box at the step's own model: %r" % seen
+        monkeypatch.setattr(editor, "reading_offline", lambda _p: True)
+        assert editor.box_price(p, "read") == 0, "an offline read is free"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def _project(root):
     from mangatl.project import Project
     shutil.rmtree(root, ignore_errors=True)
@@ -215,9 +255,10 @@ def _project(root):
 
 def test_one_box_one_coin_end_to_end(monkeypatch, tmp_path):
     """The read re-reads THIS box with the project's own reader; the
-    translate sends this box's line alone; each PAID step takes one coin, an
-    offline read takes none (the same rule the chapter buttons price by),
-    and an empty purse refuses before anything is sent."""
+    translate sends this box's line alone; each PAID step takes the price its
+    button shows (`editor.box_price`, a coin at least), an offline read takes
+    none (the same rule the chapter buttons price by), and an empty purse
+    refuses before anything is sent."""
     from mangatl import coins, editor
     root = scratch("_tmp_boxai")
     p = _project(root)
@@ -273,15 +314,21 @@ def test_one_box_one_coin_end_to_end(monkeypatch, tmp_path):
         monkeypatch.setattr(ed, "_read_with_ai",
                             lambda _p, _i, page, *_a, **_k:
                             fake_read(_p, page, None))
+        read_price = editor.box_price(p, "read")
+        assert read_price >= 1, "an AI read priced under a coin"
         code, j = post("/api/page/0/region/1/read")
         assert code == 200, j
-        assert coins.balance() == start - 1, \
-            "the AI read did not cost 1 coin"
+        assert j.get("charged") == read_price, j
+        assert coins.balance() == start - read_price, \
+            "the AI read did not cost what its button says"
 
+        tr_price = editor.box_price(p, "translate")
+        assert tr_price >= 1, "a translate priced under a coin"
         code, j = post("/api/page/0/region/1/translate")
         assert code == 200, j
-        assert coins.balance() == start - 2, \
-            "the translate did not cost 1 coin"
+        assert j.get("charged") == tr_price, j
+        assert coins.balance() == start - read_price - tr_price, \
+            "the translate did not cost what its button says"
         rec = next(r for r in p.pages[0].regions if r["id"] == 1)
         assert rec["dst_text"] == "NEW WORDS"
 

@@ -1224,6 +1224,9 @@ async function saveSettings(){
     synopsis:$('synopsis').value,
     characters:charSheet, glossary:glossSheet});
   proj=await api('/api/project');
+  // The prices follow the models, so a save that changed a step's AI changes
+  // what its buttons cost - the box buttons included. See `boxCoins`.
+  if(typeof refreshCoins==='function') refreshCoins();
   renderInspector();
   syncManualMode();
   const bad=(res&&res.bad_fonts)||[];

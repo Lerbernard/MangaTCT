@@ -3178,6 +3178,34 @@ def quote_run(p: Project, step: str, indices) -> int:
     return run_price(p, step, indices)[0]
 
 
+def box_price(p: Project, what: str) -> int:
+    """Coins ONE box's Read text or Translate button costs.
+
+    It was a flat coin whatever the model - lee: *"make it cost 1 coin"* - and
+    then: *"make this price be dynamic too minimu is 1 and can grow bepending
+    on what ai is picked"*. So it is priced like a page of one box, at the
+    model that step is set to, and never less than a coin. A read on this
+    computer is still free.
+
+    Priced at a TYPICAL box, not at this box's own words, deliberately: the
+    number is on the button before anybody presses it, and the charge has to
+    be that number. A price that moved with the length of the line would be
+    one number on the button and another off the purse.
+    """
+    step = "ocr" if what == "read" else "translate"
+    if step == "ocr" and reading_offline(p):
+        return 0
+    from . import coins
+    model, backend = step_engine(p, step)
+    try:
+        n = int(coins.quote_page(step, 1, model, backend,
+                                 detail=reading_detail(p) if step == "ocr"
+                                 else ""))
+    except Exception:
+        n = 1
+    return max(1, n)
+
+
 def _page_list(p: Project, arg: str, whole: bool = False) -> list:
     """A comma-separated list of page numbers from a query string.
 
@@ -3293,13 +3321,48 @@ def labels_boxes(p: Project) -> bool:
     return bool(p.settings.get("label_kinds")) and not reading_offline(p)
 
 
+def _price_page(p: Project, i: int):
+    """The page as a PRICE needs it: the boxes' words, kinds, order, speakers
+    and links, and no pictures.
+
+    lee: *"it takea few second for teh coin amount that will be charged to show
+    up in the pop up , it needs to be very fast less than a second"*. The price
+    beside "This page only" was building the page with `materialize` - reading
+    the scan, rebuilding every box's masks from it and running the balloon
+    finder - to get at strings that are all sitting in the records already.
+    That was 0.7 s for Translate and 0.7 s again for Proofread on a blank test
+    page, and more on a real scan, before the popup could show a number.
+
+    The prompts it counts read none of what `materialize` builds: see
+    `translate._base_payload` and `build_proofread_payload`, which take the
+    id, kind, panel, link, speaker and the two texts. The same active boxes, so
+    a hidden group stays out of the price exactly as it stays out of the run.
+    """
+    from .models import Page, TextRegion
+    regs = []
+    for rec in p.pages[i].active:
+        r = TextRegion(
+            id=rec["id"], bbox=tuple(rec.get("bbox") or (0, 0, 0, 0)),
+            bubble_bbox=(tuple(rec["bubble_bbox"])
+                         if rec.get("bubble_bbox") else None),
+            kind=rec.get("kind", "bubble"),
+            link=int(rec.get("link", 0) or 0),
+            link_kind=str(rec.get("link_kind", "") or ""),
+            order=rec.get("order", -1), src_text=rec.get("src_text", ""),
+            dst_text=rec.get("dst_text"), speaker=rec.get("speaker"))
+        r.own_text = bool(rec.get("own_text", False))  # type: ignore[attr-defined]
+        regs.append(r)
+    return Page(image=np.zeros((1, 1, 3), np.uint8),
+                source_path=p.pages[i].name, regions=regs)
+
+
 def _counted_page_price(p: Project, step: str, i: int, boxes: int,
                         src_chars: float, model: str, backend: str):
     """One page's price from its REAL strings, or None to use the shape."""
     from . import coins
     try:
         from . import translate as T
-        page = p.materialize(i)
+        page = _price_page(p, i)
         if step == "translate":
             chapter = run_context(p, [i])
             req = T.build_payload(page, p.ctx, chapter)
@@ -4195,6 +4258,87 @@ def empty_boxes(regs) -> list:
     return empty
 
 
+# Two readings swapped between neighbouring boxes. See
+# `_readings_that_belong_next_door`.
+SWAP_GAP = 60          # px between two boxes for them to be neighbours
+SWAP_NOW = 6.0         # how far apart their characters-per-ink must be as read
+SWAP_AFTER = 2.0       # ...and how close, once swapped
+SWAP_GLYPH = 1.6       # boxes whose letters differ more than this are not compared
+_UNCOUNTED = re.compile(r"[\s…・.。、,!?！？ー―~〜]")
+
+
+def _readings_that_belong_next_door(page, texts: dict) -> dict:
+    """Put back readings the AI reader filed under the neighbouring box.
+
+    lee, with a balloon of two columns side by side and each column's words in
+    the other's row: *"tdh etxt are not on the proper bubbles"* and *"make sure
+    that the read text alway does to the proper bubble"*. Three of those on his
+    27 pages (004, 005, 021), every one a pair of columns in one balloon. The
+    cause was where the number tags were printed (`ocr._tag_spot`), and that is
+    fixed; this is the check that catches it from any cause.
+
+    The WRITING in a box is measured, not guessed: the same typeface, at one size, puts
+    about the same number of characters into the same amount of ink. Read
+    right, two neighbouring boxes agree about that; read swapped, the short
+    line sits in the big block of ink and the long one in the thin column, and
+    they disagree by a factor of ten or more. So a pair is swapped back only
+    when they disagree by `SWAP_NOW` as read AND agree within `SWAP_AFTER` the
+    other way - on lee's chapter 17, 12 and 18 times apart against 1.2 to 1.3
+    swapped - and every one of the other 83 neighbouring pairs was left alone.
+
+    Not a sound effect (big drawn letters put far more ink into a character),
+    not two boxes whose letters are different sizes, not a locked line, and
+    each box at most once. Returns `{box id: the box its reading came from}`,
+    and `texts` is changed in place.
+    """
+    import math
+    from .ocr import _glyph_px
+    regs = [r for r in page.regions
+            if (texts.get(r.id) or "").strip()
+            and not getattr(r, "own_text", False)
+            and not (getattr(r, "locked", False) and r.src_text)
+            and _kinds.family_of(getattr(r, "kind", "") or "") != "sfx"]
+    if len(regs) < 2:
+        return {}
+
+    def chars(t: str) -> int:
+        return len(_UNCOUNTED.sub("", t or ""))
+
+    shape = page.image.shape[:2]
+    ink = {}
+    for r in regs:
+        m = getattr(r, "text_mask", None)
+        x, y, w, h = (int(v) for v in r.bbox)
+        ink[r.id] = (int((m[max(0, y):y + h, max(0, x):x + w] > 0).sum())
+                     if m is not None and m.shape[:2] == shape else 0)
+    found = []
+    for n, a in enumerate(regs):
+        for b in regs[n + 1:]:
+            ca, cb = chars(texts[a.id]), chars(texts[b.id])
+            if ink[a.id] <= 150 or ink[b.id] <= 150 or not ca or not cb:
+                continue
+            ax, ay, aw, ah = a.bbox
+            bx, by, bw, bh = b.bbox
+            gap = max(bx - (ax + aw), ax - (bx + bw),
+                      by - (ay + ah), ay - (by + bh), 0)
+            if gap > SWAP_GAP:
+                continue
+            ga, gb = _glyph_px(page, a), _glyph_px(page, b)
+            if max(ga, gb) > SWAP_GLYPH * max(1.0, min(ga, gb)):
+                continue
+            now = abs(math.log((ca / ink[a.id]) / (cb / ink[b.id])))
+            after = abs(math.log((cb / ink[a.id]) / (ca / ink[b.id])))
+            if now >= math.log(SWAP_NOW) and after <= math.log(SWAP_AFTER):
+                found.append((now - after, a.id, b.id))
+    moved: dict = {}
+    for _gain, a, b in sorted(found, reverse=True):
+        if a in moved or b in moved:
+            continue
+        texts[a], texts[b] = texts[b], texts[a]
+        moved[a], moved[b] = b, a
+    return moved
+
+
 @_steps_aside("ocr")
 def _read_with_ai(p: Project, i: int, page, say, detail_for, page_label_tiles,
                   looks_like_garbage, read_page_ocr) -> None:
@@ -4235,6 +4379,7 @@ def _read_with_ai(p: Project, i: int, page, say, detail_for, page_label_tiles,
                 r.flagged = f"AI read failed: {e}"
         p.commit(i, page)
         raise
+    swapped = _readings_that_belong_next_door(page, texts)
     for r in regs:
         # A hand-corrected, locked line is never overwritten by a re-read.
         if getattr(r, "locked", False) and r.src_text:
@@ -4246,6 +4391,10 @@ def _read_with_ai(p: Project, i: int, page, say, detail_for, page_label_tiles,
         else:
             r.ocr_ok = True
             r.flagged = looks_like_garbage(t, r)
+        if r.id in swapped:
+            r.flagged = ((r.flagged or "") + " ocr: the reader filed this "
+                         "under box %d; it was moved here, where its writing "
+                         "is - check it" % swapped[r.id]).strip()
 
 
 def label_page_kinds(p: Project, i: int, page, say) -> int:
@@ -5798,6 +5947,10 @@ class Handler(BaseHTTPRequestHandler):
                                if s != "clean"},
                     "pages": len(idx),
                     "boxes": sum(page_boxes(p, i) for i in idx),
+                    # What one box's own Read text and Translate buttons
+                    # cost, at the models those steps are set to.
+                    "box": {"read": box_price(p, "read"),
+                            "translate": box_price(p, "translate")},
                 }
                 # How long the quote took, on the reply and in the log when
                 # it is long: the run dialog waits on this for its prices,
@@ -7566,7 +7719,7 @@ class Handler(BaseHTTPRequestHandler):
                 p.save_soon()
                 return self._json({"region": rec, "regions": p.pages[i].active})
 
-            # ONE BOX, ONE COIN. Re-read the writing in a single box from
+            # ONE BOX, AT ITS MODEL'S PRICE. Re-read the writing in a single box from
             # the image, or translate a single box's line - each sends that
             # box and nothing else. lee: *"add a read text and traslate
             # buuton to each box and it shoud jut send that box and text
@@ -7588,9 +7741,13 @@ class Handler(BaseHTTPRequestHandler):
                 # buttons, said here so one box costs what the same box
                 # would inside a run. The button shows no coin for it either.
                 paid = (what == "translate") or not reading_offline(p)
-                if paid and not coins.can_afford(1):
+                # Priced at the model the step is set to, a coin at least -
+                # see `box_price`, which the button reads too.
+                price = box_price(p, what) if paid else 0
+                if paid and not coins.can_afford(price):
                     return self._json(
-                        {"error": "Not enough coins — this costs 1."}, 402)
+                        {"error": "Not enough coins — this costs %d." % price},
+                        402)
                 page = p.materialize(i)
                 region = next((q for q in page.regions if q.id == rid), None)
                 if region is None:
@@ -7645,7 +7802,7 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self._json({"error": str(e)}, 502)
                 if paid:
-                    coins.spend(1, f"{what} one box", page=p.pages[i].name,
+                    coins.spend(price, f"{what} one box", page=p.pages[i].name,
                                 run=coins.new_run())
                 p.commit(i, page)
                 rec = next((q for q in p.pages[i].regions
@@ -7671,7 +7828,9 @@ class Handler(BaseHTTPRequestHandler):
                 _page_cache.clear()
                 p.save_soon()
                 return self._json({"regions": p.pages[i].active,
-                                   "coins": coins.balance()})
+                                   "coins": coins.balance(),
+                                   # what was taken, so the toast says it
+                                   "charged": price if paid else 0})
 
             m = re.fullmatch(r"/api/page/(\d+)/region/(\d+)/split", path)
             if m:

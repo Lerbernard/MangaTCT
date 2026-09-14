@@ -33,6 +33,16 @@ function coinsForAll(){
                .reduce((a,b)=>a+b, 0);
 }
 
+/* One box's own Read text or Translate button, at the model that step is set
+   to: `box` on the same answer, priced by `editor.box_price`, which is also
+   what the server charges. A coin until the first answer arrives, because a
+   coin is the least it can be. */
+function boxCoins(what){
+  const n = +(((wallet && wallet.box) || {})[what]);
+  return n >= 1 ? n : 1;
+}
+function coinWord(n){ return n + (n === 1 ? ' coin' : ' coins'); }
+
 async function refreshCoins(){
   try{ paintCoins(await api('/api/coins')); }catch(e){}
 }
@@ -76,6 +86,11 @@ function paintCoins(w){
   if(!w) return;
   wallet = w;
   paintCount(w.balance);
+  // A panel already open keeps the price it was drawn with unless it is told:
+  // change the AI a step uses and the box buttons follow on the next answer.
+  document.querySelectorAll('.rbcoin[data-boxcoin]').forEach(el=>{
+    if(el.firstChild) el.firstChild.nodeValue = boxCoins(el.dataset.boxcoin) + ' ';
+  });
   if($('walletPop') && $('walletPop').classList.contains('open')) drawWallet();
 }
 

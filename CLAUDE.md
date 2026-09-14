@@ -195,7 +195,7 @@ page: a warning that it is permanent, DELETE typed, a second "Are you sure?",
 then the `deleteAccount` function; the app's Account page links there. A
 refresh token Google says is dead (`account.SIGN_IN_GONE`) signs the app out.
 
-## After 1.0.9 (2026-09-13, not released yet)
+## 1.0.10 (released 2026-09-13)
 
 lee: *"optimaze the app make it faster and moother dont chnage teh
 fuctionality"*, then *"can you do these"* of what was left out the first time.
@@ -260,6 +260,42 @@ face, `test_lift_and_ants`'s foreign image, and
 `test_the_page_and_the_box_draw_the_same`'s layer offset (16px).
 `test_pipeline.py::test_snap_recovers_bubble_from_sloppy_drag` still reads
 sample pages only lee's checkout has.
+
+## 1.0.11 (2026-09-13)
+
+* **Readings in the wrong box.** On the picture the AI reader gets, each box's
+  number went at its emptiest corner - for two columns in one balloon, the
+  gutter between them - and the reader filed each column's words under the
+  other's number (lee's 004, 005, 021). `ocr._tag_spot` now keeps a number
+  clearly nearer its own shape than any other (by its own height), or puts it
+  inside. And `editor._readings_that_belong_next_door` puts a swapped pair back
+  after the read, by characters per ink (6x apart as read, within 2x swapped,
+  not sfx, similar letter size); on lee's chapter it catches exactly the three
+  real swaps among 86 neighbouring pairs, and flags both boxes. Those three
+  were put right in lee's project through the running editor's region endpoint
+  (backup beside it: `project.backup-before-reading-swap-fix-2026-09-13.json`).
+* **027's second lobe set at 12pt against its neck, letters clipped.**
+  `project._one_ground` gives the balloon walk its `close_px` stand-off back
+  before filling holes, so an outline cut straight through the writing is not
+  left with slits. Over the chapter it moves five boxes, all on 027. It changes
+  what the cleaner reads too, so the cleaning fingerprint moved - and lee chose
+  to KEEP the stamp: cached plates stay until he re-cleans a page himself.
+* **Faster, same results** (each checked equal on lee's chapter): ink colours
+  measured on a crop per box (110.7s to 5.8s over the chapter, 276 boxes
+  identical); `_complete_strokes` and `glyphs_only` count labels with one
+  bincount, `balloon._surrounding_label` dilates a window (27 plates
+  identical, about 3.9s a page); `BubbleGeom._measure` works on the mask's box
+  (`test_the_bubble_is_measured_on_its_own_box`). The "This page only" coin
+  price builds from the records instead of `materialize` (2.2s to 30ms), and
+  each box's Read text / Translate button is priced at the step's model, a coin
+  at least, and charges exactly what it shows.
+* **Not done, on purpose.** The cleaner still never goes past a box's
+  doorstep: the one case that raised it, page 013, was a box drawn too short,
+  and lee said to leave it. White
+  outlines on tone and white strokes on stripes (021, 024) were traced to the
+  mask the hosted cleaner is sent, but a change there could only be judged with
+  the hosted cleaner itself, so nothing was changed. Parallel detection models,
+  reusing the Anthropic client and a reader-mask cache were measured and left.
 
 ## Driving the app window from a Claude Code session
 
