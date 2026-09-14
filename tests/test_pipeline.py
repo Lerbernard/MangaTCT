@@ -4692,8 +4692,11 @@ def test_a_split_that_swallows_its_panel_is_cleaned_conservatively():
 
     assert page.clean_stats.get("core only") == 1, \
         f"the region was not cleaned conservatively: {page.clean_stats}"
-    assert r.flagged and "only the strokes were erased" in r.flagged, \
-        "a conservative clean has to say so"
+    # ...and it no longer says so in the box's notes. It did, on every box that
+    # came this way and again at every clean; lee, of the red panel under a box
+    # repeating it: *"remoev this"*. The count above is what still records it.
+    assert not (r.flagged and "only the strokes were erased" in r.flagged), \
+        r.flagged
 
     # the page beyond the box AND its doorstep is untouched - that is the thing
     # worth protecting (inpaint.GLYPH_REACH is the doorstep; see the fence at

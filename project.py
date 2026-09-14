@@ -433,7 +433,21 @@ def find_balloons(img: np.ndarray, regions: list[TextRegion]) -> int:
     """
     from .detect.balloon import attach_balloons, give_room
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    got = attach_balloons(gray, regions, rename=False)
+    # NOT OFFERED to a box a PERSON said has no balloon. The search may give a
+    # free block the paper round it - a caption alone in a balloon needs that,
+    # when a detector called it free text - but a box somebody set to Free text
+    # or Sound effect by hand, or drew themselves, has had the question
+    # answered. It was offered anyway, on every rebuild, and on lee's page 013
+    # it found the whole panel round a small caption: the English was centred
+    # in the panel, well away from the box he had drawn, and the next save
+    # wrote the panel down as the box's outline. lee: *"what happens here"*.
+    # Such a box keeps whatever shape its record has (a turned box keeps its
+    # turn) and still gets `give_room` below.
+    asked = [r for r in regions
+             if not (_no_balloon(getattr(r, "kind", ""))
+                     and (getattr(r, "kind_by_hand", False)
+                          or getattr(r, "manual", False)))]
+    got = attach_balloons(gray, asked, rename=False)
     # ...and then hand back anything that is not this block's to have. The
     # search above is allowed to give a free block a balloon - a caption alone
     # in one needs it - but not a balloon another block is already typesetting
@@ -901,6 +915,11 @@ def region_from_record(rec: dict, img: np.ndarray) -> TextRegion:
     # editor-only key does not survive that - which is exactly the trap
     # `_commit_keep_proofread` exists to work around for the `proofread` flag.
     r.kind_by_hand = bool(rec.get("kind_by_hand", False))  # type: ignore[attr-defined]
+    # The rectangle as it was DRAWN, which "Box as-is" puts back. `region_record`
+    # writes it from the region, and nothing ever put it on the region, so the
+    # first commit of a page - a typeset, a view, an export - wrote None over
+    # every box's. Found tracing lee's page 013, where it had already gone.
+    r.draw_box = rec.get("draw_box")  # type: ignore[attr-defined]
     r.angle_by_hand = bool(rec.get("angle_by_hand", False))  # type: ignore[attr-defined]
     # THE STORED LAYOUT IS CARRIED IN, and this used to say the opposite: *a
     # block with typesetting is typeset again from scratch by whichever stage
@@ -2805,6 +2824,15 @@ class Project:
                   "know, ignoring them: %s" % ", ".join(_drop))
         self.ctx = SeriesContext(**{k: v for k, v in _ctx.items()
                                     if k in _known})
+        # Notes the cleaner no longer writes, and cleaner notes a chapter saved
+        # once per clean, come off here - the door every box comes back
+        # through. lee, of a box repeating one twice: *"remoev this"*. See
+        # `cleannotes`.
+        from .cleannotes import without_retired
+        for pg in d["pages"]:
+            for rec in pg.get("regions") or []:
+                if isinstance(rec, dict) and rec.get("flagged"):
+                    rec["flagged"] = without_retired(rec["flagged"])
         self.pages = [PageState(**p) for p in d["pages"]]
 
     # ------------------------------------------------------------------ images

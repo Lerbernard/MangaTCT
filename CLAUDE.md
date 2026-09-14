@@ -348,6 +348,44 @@ sample pages only lee's checkout has.
   `explorer.exe`, a copy with no `.env`): it used its key, a plain request was
   then refused, `/api/version` still answered, and the window drew the editor.
 
+## 1.0.13 (2026-09-14)
+
+Three of lee's screenshots from the morning after 1.0.12. Released WITHOUT the
+full suite (lee: *"skip the full suite"*); what ran instead is below.
+
+* **Clicking into a box with an outline drew the rim twice as tall** (page 024,
+  white ComicNeue on a dark balloon). The rim under the box you type into is a
+  mirror (`editInkMirror`) built at the end of `placeEditor`, and it asks
+  `editLines`, which read the editor's own document only for `editBox` - set
+  AFTER placing. So the first mirror read innerText, where `<p>` paragraphs are
+  two line breaks apart: 6 lines came back as 11 (13 for 7 in the test).
+  `editBox` is set before placing, and `editLines` also answers from the editor
+  for `#canvasEdit`. `test_the_rim_stays_on_the_letters_while_typing`.
+* **A box set to Free text by hand was handed the panel as its balloon** (page
+  013 box 7, "So this is the brush..."). `_kind_changed` did its job; then
+  `find_balloons`, run on every rebuild, offered `attach_balloons` to free text
+  and it took the panel's white paper (frame, a figure, a dotted strip). The
+  English centred in it and the next commit saved a 61-point outline. A
+  no-balloon box that is `kind_by_hand` or `manual` is no longer offered the
+  search (still gets `give_room`). Also `draw_box` ("Box as-is") was wiped by
+  every commit - `region_record` wrote it from a field `region_from_record`
+  never set. `test_a_box_you_called_free_text_gets_no_balloon` (a plain white
+  rectangle is NOT taken by the finder; the fixture needs the figure/strip).
+  In lee's project (app closed, backup `project.backup-before-draw-box-restore-2026-09-14.json`)
+  the one box that ever had a `draw_box` - 013 box 7 - got it back from the
+  2026-09-13 backup, with its polygon and bubble_bbox back to its rectangle.
+  Its text stays where it was until he re-runs Typeset on 013.
+* **The cleaner's notes.** The "only the strokes were erased - check it" note is
+  gone (lee: *"remoev this"*), a clean takes off what an earlier clean wrote
+  before writing (every note used to be appended - 43 of lee's boxes repeated
+  one), and saved repeats come off in `Project.load`. Matched by wording in
+  `cleannotes.py`, so other notes that run on after them stay. The cleaning
+  fingerprint moved twice (inpaint.py, then `region_from_record`); `ALGO` was
+  NOT bumped - no plate changes.
+* **What ran instead of the suite:** the new tests (each checked to fail on
+  1.0.12), and the balloon, box-type, cleaning, editor, website, version,
+  workflow and release tests - 234 plus the release set.
+
 ## Driving the app window from a Claude Code session
 
 * WebView2 would not start (0x80080005) from the session's own shell with a

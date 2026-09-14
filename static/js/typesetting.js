@@ -1075,6 +1075,15 @@ function editOnCanvas(id){
               lines:(L.lines||[]).slice(),
               frame:(L.frame||[]).slice()};
   $('stage').appendChild(ta);
+  // THIS IS THE BOX BEING TYPED INTO, from before anything measures it.
+  // `placeEditor` ends by building the mirror under it, and the mirror asks
+  // `editLines` for the lines - which only reads the editor's own document
+  // for `editBox`. Set after placing, the first mirror read the box's
+  // innerText instead, where the browser puts a blank line between two
+  // paragraphs: six lines came back as eleven, and the white rim of a dark
+  // balloon's text was drawn twice as tall as the letters it belonged to.
+  // lee: *"can you fix thsi , i happedns when i lcik on a text box"*.
+  editBox=ta;
 
   let t=null;
   // NO RED SQUIGGLE UNDER THE TYPESETTING - every word in here is a sound
@@ -1105,7 +1114,6 @@ function editOnCanvas(id){
   // ...and again now it is on the page, because a box laid out in runs is
   // widened to fit them and that can only be measured once it has a layout
   placeEditor(ta, r);
-  editBox=ta;
   drawText();
   tbFocus();
 
@@ -1475,8 +1483,12 @@ function editInkMirror(ta, r){
    path is kept for the moment before the editor is mounted and for any
    caller that still has only an element. */
 function editLines(el){
+  // The editor's own lines whenever it is the box being asked about - by
+  // identity OR by id, so a caller that runs before `editBox` is set cannot
+  // fall through to innerText, which doubles every line break between the
+  // editor's paragraphs. See `editOnCanvas`.
   if(typeof tbIsOpen==='function' && tbIsOpen()
-     && (!el || el===editBox)){
+     && (!el || el===editBox || el.id==='canvasEdit')){
     const ls=tbLines().slice();
     while(ls.length && !ls[ls.length-1].trim()) ls.pop();
     return ls;

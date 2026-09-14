@@ -1681,6 +1681,13 @@ Every box records the route it took, and the page counts them: filled flat, by
 the AI, locally, tone copied, core only, fell back, kept, skipped. A count for
 the chapter says six were filled flat and cannot say **which**, so both exist.
 
+A box's red notes say what the **last** clean found, once. Each clean takes off
+the notes an earlier clean left before writing its own (they used to pile up, one
+copy per clean), and a core-only clean is no longer noted on the box at all - it
+said the same thing on every box that came that way. lee: *"remoev this"*. Notes
+already saved lose that sentence and any repeats when the chapter opens
+(`cleannotes.py`).
+
 ## 7.6 Typeset
 
 Pressing **Typeset** means "lay this page out again", and it means it: every

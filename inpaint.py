@@ -1524,10 +1524,15 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False,
     # excuse it whether the first pass erased it or `_reread` found it after.
     reader_room = np.zeros(gray.shape, bool)
 
+    from .cleannotes import without_clean_notes
     for r in page.regions:
         # Stop means stop -- one check per region. See `stopping`: cleaning is
         # the slowest thing here, so this is the loop the button was failing.
         _stopping.check()
+        # What an EARLIER clean said about this box goes before this one says
+        # anything: the notes are saved with the box, and appending to them
+        # made every re-clean repeat itself. See `cleannotes`.
+        r.flagged = without_clean_notes(getattr(r, "flagged", None))
         # sound effects USED to be skipped wholesale; they are cleaned now too
         # (their typesetting sits on the art like any other text). A specific
         # SFX can still be spared with its per-region "keep original" toggle.
@@ -1877,9 +1882,10 @@ def inpaint_page(page: Page, neural=None, neural_all: bool = False,
                     d = _dilated(ink)
                     wide = d
                     rec["core"] = True
-                    r.flagged = (r.flagged or "") + \
-                        " clean: the typesetting here is hard to tell from the " \
-                        "artwork, so only the strokes were erased — check it"
+                    # It used to say so in the box's notes as well, on every
+                    # box that came this way and again at every clean. lee, of
+                    # that red panel: *"remoev this"*. `clean_stats` still
+                    # counts it as "core only". See `cleannotes`.
                 hard_mask[w][wide > 0] = 255
                 rec["how"] = "neural" if neural is not None else "telea"
                 if neural is not None:

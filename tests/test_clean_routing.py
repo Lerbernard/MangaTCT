@@ -1290,7 +1290,7 @@ def test_the_stamp_is_bumped_when_the_cleaner_changes():
                          # read out of it as writing and so what is erased.
                          + _fn("_one_ground")).encode("utf-8")).hexdigest()[:16])
     assert (got, inpaint.ALGO) == (
-        ("c203d7387cd2d2de", "3743860b24e79e87"), "2026-08-29-b"), (
+        ("80fd7e1505796e89", "fa744991fc6628b2"), "2026-08-29-b"), (
         f"the cleaning code is {got} and the stamp says {inpaint.ALGO}.\n"
         "If you changed how a page is cleaned: bump ALGO, then put both new "
         "values here. If you only moved a comment: put the new fingerprints "
