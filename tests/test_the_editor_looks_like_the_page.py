@@ -194,6 +194,15 @@ def shot_and_page():
             pg.wait_for_function(
                 "()=>{const i=document.getElementById('img');"
                 "return i&&i.complete&&i.naturalWidth>0;}", timeout=60000)
+            # ...and nothing over it. The page-loading screen covers the window
+            # until the page is ready, which can be seconds after the <img>
+            # itself has finished: measured 4.5s in the checkout on OneDrive.
+            # A screenshot taken before then is a picture of the loading screen,
+            # and every case scored near 0.02 against the export.
+            pg.wait_for_function(
+                "!(document.getElementById('pageLoading')||{classList:"
+                "{contains:()=>false}}).classList.contains('on')",
+                timeout=60000)
             # One page pixel per screen pixel, or every number below is a
             # measurement of the browser's scaler.
             pg.evaluate("zoom=1; fitZoom=1; applyZoom(); drawOverlay();")
@@ -213,8 +222,14 @@ def shot_and_page():
                     setRegions(j.regions);
                     drawOverlay();}""")
                 pg.wait_for_timeout(300)
-                pg.screenshot(path="/tmp/lookalike.png", clip=box)
-                shots[name] = cv2.imread("/tmp/lookalike.png")
+                # Straight from memory. It went through `/tmp/lookalike.png`,
+                # which on Windows is ONE file at C:\tmp for every run at once:
+                # with the suite on several workers, two of these fixtures
+                # wrote over each other's screenshots and a page compared
+                # against somebody else's picture scored 0.02.
+                shots[name] = cv2.imdecode(
+                    np.frombuffer(pg.screenshot(clip=box), np.uint8),
+                    cv2.IMREAD_COLOR)
                 pages[name] = _png(base + "/render/0")
             assert not errs, errs
     finally:

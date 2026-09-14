@@ -84,6 +84,15 @@ def _panel(fn, root=scratch("_tmp_tidy")):
             browserpool.ready(pg)
             pg.evaluate("setTab('edit'); setView('typeset'); showPage(0)")
             browserpool.settled(pg)
+            # The page-loading screen covers the whole window until the picture
+            # is in. `pg.click` waits for nothing to be over its target, but the
+            # hold test presses with raw mouse events, which do not - so on a
+            # slow disk (the checkout lives in OneDrive) the press landed on the
+            # loading screen and "holding it moved 0".
+            pg.wait_for_function(
+                "!(document.getElementById('pageLoading')||{classList:"
+                "{contains:()=>false}}).classList.contains('on')",
+                timeout=30000)
             pg.evaluate("select(1)")
             pg.wait_for_timeout(800)
             assert not errs, errs

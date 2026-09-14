@@ -610,9 +610,14 @@ def test_the_top_bar_is_reachable_from_the_add_pages_screen():
             const hit=document.elementFromPoint(
                 Math.round(r.left+r.width/2), Math.round(r.top+r.height/2));
             const pk=document.querySelector('.filecard').getBoundingClientRect();
+            // The tabs are on the row UNDER the top bar now (lee: *"now file
+            // workspae etc doen to the new line"*), so the screen starts under
+            // that row.
+            const row=(document.getElementById('navrow')
+                       || document.getElementById('top')).getBoundingClientRect();
             return {overBar: document.getElementById('top').contains(mid),
                     tabClickable: hit === tab || tab.contains(hit),
-                    above: Math.round(pk.top - t.bottom),
+                    above: Math.round(pk.top - row.bottom),
                     below: Math.round(innerHeight - pk.bottom)};})()""")
         assert got["overBar"], "the picker is drawn over the top bar"
         assert got["tabClickable"], "a tab cannot be clicked through it"

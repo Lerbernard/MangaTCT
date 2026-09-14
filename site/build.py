@@ -120,7 +120,9 @@ def chapbar():
 
 
 def chap_open(cid):
-    """A chapter, and its sub tabs when it has more than one part."""
+    """A chapter, and its sub tabs when it has more than one part. The sub tabs
+    are folder tabs standing on the panel they open; the open one is drawn by
+    its own style, not by a highlight slid under it (see `.subtabs .sb`)."""
     title, subs = next((ti, s) for ch, ti, s in CHAPTERS if ch == cid)
     html = (f'<section class="pan chap" role="tabpanel" id="c-{cid}" '
             f'aria-labelledby="ct-{cid}">')
@@ -131,7 +133,7 @@ def chap_open(cid):
                      f'<button class="sb" role="tab" aria-selected="{str(i == 0).lower()}" '
                      f'aria-controls="{sid}" id="sb-{sid}">{label}</button>'
                      for i, (sid, label) in enumerate(subs))
-                 + '<span class="ink" aria-hidden="true"></span></div></div></div>')
+                 + '</div></div></div>')
     return html
 
 
@@ -1124,7 +1126,11 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
 .ch,.sb{{appearance:none;border:0;background:transparent;color:var(--dim);font:inherit;
  font-weight:650;cursor:pointer;white-space:nowrap;position:relative;z-index:1;
  transition:color .22s ease,transform .18s cubic-bezier(.2,.8,.2,1)}}
-.ch{{padding:10px 17px;border-radius:12px;font-size:15px;display:inline-flex;gap:9px;
+/* flex:none - the chapter tabs had the sub tabs' fault: overflow:hidden (the
+   ripple) let the row squeeze every tab below its label on a phone, and all
+   five names were cut off. They keep their width and the row scrolls, which
+   it was always meant to (the open chapter is scrolled into view). */
+.ch{{flex:none;padding:10px 17px;border-radius:12px;font-size:15px;display:inline-flex;gap:9px;
  align-items:baseline;overflow:hidden}}
 .ch em{{font-style:normal;font-size:11.5px;color:var(--dim2);letter-spacing:.08em;
  transition:color .22s ease}}
@@ -1133,13 +1139,53 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
  box-shadow:0 8px 24px var(--glow);animation:pop .34s cubic-bezier(.2,.8,.2,1)}}
 @keyframes pop{{from{{transform:scale(.9)}}to{{transform:none}}}}
 .ch[aria-selected=true] em{{color:var(--on-accent)}}
-.subbar{{padding:26px 0 0}}
-.subtabs{{background:var(--panel2);border-radius:14px;padding:5px;width:fit-content;max-width:100%}}
-.sb{{padding:8px 17px;border-radius:10px;font-size:14px;overflow:hidden}}
-.sb[aria-selected=true]{{color:var(--fg)}}
-.subtabs .ink{{position:absolute;left:0;top:5px;bottom:5px;width:0;border-radius:10px;z-index:0;
- background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.28);
- transition:transform .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1)}}
+/* The sub tabs are folder tabs. lee: *"fix these one teh website to they are
+   clipping into eacother  make the like folder stckoit and one iteam   like
+   this"* - with a photo of paper folders, a tab sticking up from the top edge
+   of each sheet.
+
+   They clipped because every tab carries overflow:hidden (it keeps the press
+   ripple inside the tab), and a flex item with overflow hidden is allowed to
+   shrink to nothing. On a narrow screen the strip, held to the width of the
+   column, squeezed each tab below the width of its own label instead of
+   scrolling: the words were cut off at the tab's edge, and the dark highlight
+   slid underneath the open tab ran straight into the cut-off words beside it.
+   So a tab never shrinks below its label now - on a wide screen it does not
+   shrink at all, on a phone its label may break onto a second line but never
+   narrower than its longest word - and there is no highlight to slide and
+   measure. The open tab IS the top of its panel: the panel's ground, the
+   panel's edge line running up its sides and over its top, and nothing drawn
+   between them, so tab and panel read as one sheet. The closed tabs sit a
+   little lower and a shade apart, tucked behind it. Both are the same size
+   (the edge is a border on every tab, transparent on the closed ones), so
+   opening a tab never moves its neighbours. */
+.subbar{{padding:26px 0 0;position:relative;z-index:2;margin-bottom:-1px}}
+.subtabs{{align-items:stretch;gap:6px;padding-top:4px}}
+.subtabs .sb{{flex:none;margin:5px 0 1px;padding:9px 20px 11px;font-size:14px;overflow:hidden;
+ border:1px solid transparent;border-bottom:0;border-radius:12px 12px 0 0;transform-origin:50% 100%;
+ background:var(--panel2);background:color-mix(in srgb,var(--fg) 7%,var(--bg));
+ box-shadow:inset 0 -7px 8px -8px rgba(0,0,0,.26);
+ transition:color .22s ease,background-color .22s ease,margin .26s cubic-bezier(.2,.8,.2,1),
+ transform .18s cubic-bezier(.2,.8,.2,1)}}
+.subtabs .sb:hover{{color:var(--fg);background:color-mix(in srgb,var(--fg) 11%,var(--bg))}}
+.subtabs .sb[aria-selected=true]{{color:var(--fg);background:var(--bg2);border-color:var(--line2);
+ margin:0;box-shadow:none}}
+.subtabs .sb[aria-selected=true]:before{{content:"";position:absolute;left:12px;right:12px;top:0;
+ height:2px;border-radius:0 0 2px 2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}}
+.subtabs .sb:focus-visible{{outline-offset:-4px}}
+/* The sheet the tabs stand on. The subbar overlaps it by the one pixel of its
+   edge line, and the open tab reaches the bottom of the subbar, so the line
+   runs under every closed tab and stops where the open one joins. Every panel
+   under a sub tab strip is the same ground: only one of them is ever on screen,
+   so the alternating grounds of the bands had nothing to tell apart here -
+   except with no script, where the strip is gone, every panel shows, and the
+   bands alternate as before. */
+html:not(.nojs) .subbar~.spn{{background:var(--bg2);border-top:1px solid var(--line2)}}
+@media(max-width:560px){{
+ .subtabs{{gap:4px}}
+ .subtabs .sb{{flex:0 1 auto;min-width:min-content;white-space:normal;text-align:center;
+  padding:8px 12px 10px;font-size:13.5px;line-height:1.3}}
+}}
 .nojs .chapbar,.nojs .subbar{{display:none}}
 .chap>.band:first-of-type{{border-top:0}}
 @keyframes panIn{{from{{opacity:0;transform:translateX(calc(var(--dir,1) * 28px))}}
@@ -1179,7 +1225,7 @@ footer{{border-top:1px solid var(--line);padding:52px 0 40px;color:var(--dim);
 @keyframes shine{{from{{background-position:0 0}}to{{background-position:100% 0}}}}
 @media(prefers-reduced-motion:reduce){{
  .hero:before,.hero .wrap>*,.hero h1 em,.pan.enter,.rip,.ch[aria-selected=true]{{animation:none}}
- .drop,.subtabs .ink,.btn,.tb,.ch,.sb,.card,.rule,.clip{{transition:none}}
+ .drop,.subtabs .sb,.btn,.tb,.ch,.sb,.card,.rule,.clip{{transition:none}}
  .heroshot{{transition:none;transform:none!important}}
 }}
 </style>
@@ -1546,12 +1592,6 @@ document.documentElement.classList.remove('nojs');
     // hidden measured nothing.
     dispatchEvent(new Event('resize'));
   }}
-  function inkTo(s, tab){{
-    var ink = s.querySelector('.ink');
-    if (!ink || !tab) return;
-    ink.style.width = tab.offsetWidth + 'px';
-    ink.style.transform = 'translateX(' + tab.offsetLeft + 'px)';
-  }}
   function landOn(p){{
     // Switching while deep in a chapter lands at the top of the new one,
     // not somewhere in its middle.
@@ -1580,7 +1620,6 @@ document.documentElement.classList.remove('nojs');
         if (on) {{ woke(p); if (!quiet) {{ play(p, dir); if (lands) landOn(s.closest('.chap') || p); }} }}
       }});
       cur = i;
-      inkTo(s, tabs[i]);
       if (tabs[i].scrollIntoView && !quiet)
         tabs[i].scrollIntoView({{block: 'nearest', inline: 'nearest'}});
     }}
@@ -1596,10 +1635,6 @@ document.documentElement.classList.remove('nojs');
       if (n < 0 || n >= tabs.length) return;
       e.preventDefault(); tabs[n].focus(); show(n);
     }});
-    addEventListener('resize', function(){{ inkTo(s, tabs[cur]); }});
-    addEventListener('load', function(){{ inkTo(s, tabs[cur]); }});
-    if ('ResizeObserver' in window)
-      new ResizeObserver(function(){{ inkTo(s, tabs[cur]); }}).observe(s);
     show(cur, true);
     return {{tabs: tabs, show: show, index: function(){{ return cur; }}}};
   }}

@@ -116,6 +116,19 @@ label{display:block;font-size:11px;color:var(--dim);margin:9px 0 3px;
 #top,#work{display:flex;align-items:center;justify-content:space-between;
  gap:12px;padding:7px 14px;background:var(--panel);flex:0 0 auto}
 #top{border-bottom:1px solid var(--line)}
+/* The second row: the four tabs on the left, and on the Workspace tab the zoom,
+   the switches and Translation/Image on the right. lee: *"mak ea new line for
+   these"*, *"and kepp the other stuff on th top row"*, then *"now file workspae
+   etc doen to the new line"*. `#pageTools` keeps `.side.right` and is shown and
+   hidden by view.js as before; the row stays, because the tabs are in it.
+
+   Stacked BELOW the top bar (z-index 60) so the coin purse and the queue, which
+   drop down out of the top bar, open over this row and not under it - and
+   ABOVE the File and Home screens (50), which start under it (`--topbar`). */
+#navrow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:5px 14px;background:var(--panel);border-bottom:1px solid var(--line);
+ flex:0 0 auto;position:relative;z-index:55;min-height:43px}
+#navrow #tabs{flex:0 0 auto}
 #work{border-bottom:1px solid var(--line);background:#13161d;padding:9px 14px}
 .side{display:flex;align-items:center;gap:8px;min-width:0}
 .side.right{justify-content:flex-end;flex:0 0 auto}
@@ -1708,10 +1721,17 @@ body.laydragging .lay{cursor:grabbing}
    lee: *"make a side bar lke this for all the tool and make tool folder for
    them like photoshop where you can right clcik to slected similiar tool from
    a small windown"*. See js/toolbar.js. */
+/* `overflow-x:hidden` because `overflow-y:auto` alone makes the other axis
+   auto too, and the strip is one pixel too narrow for what Chromium counts:
+   40px border-box less its 1px border is 39, while a button and the padding on
+   both sides of it come to 4+32+4 = 40. That pixel drew a whole 12px scrollbar
+   across the bottom of the strip. Nothing is clipped - the button ends at 36px,
+   inside the padding. lee: *"what si that at teh dottpm of teh sceen"*. */
 #toolbox{flex:0 0 auto;width:40px;background:var(--panel);
   border-right:1px solid var(--line);padding:5px 4px;display:flex;
-  flex-direction:column;gap:3px;overflow-y:auto;overscroll-behavior:contain}
-#toolbox::-webkit-scrollbar{width:0}
+  flex-direction:column;gap:3px;overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain}
+#toolbox::-webkit-scrollbar{width:0;height:0}
 .tbtn{position:relative;width:32px;height:32px;padding:0;display:flex;
   align-items:center;justify-content:center;background:transparent;
   border:1px solid transparent;border-radius:7px;color:var(--dim);

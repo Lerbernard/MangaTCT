@@ -86,7 +86,7 @@ import zipfile
 #: app's Updates section offers the installer when the one running is older.
 #: (1.0.2's launcher - the own window, the mark - shipped still saying 1.0.0;
 #: from here on the number moves with the file.)
-LAUNCHER_VERSION = "1.0.4"
+LAUNCHER_VERSION = "1.0.5"
 
 #: The editor's exit code that means "start me again": Settings > Updates >
 #: Restart now, after a version was fetched. Anything else ends the session.
@@ -1102,11 +1102,6 @@ def main(argv=None) -> int:
         row=1, column=0, columnspan=2, sticky="w", pady=(6, 12))
     state = {"s": None}
 
-    def open_it():
-        if state["s"] and state["s"].port:
-            import webbrowser
-            webbrowser.open("http://127.0.0.1:%d" % state["s"].port)
-
     def open_logs():
         try:
             os.startfile(paths()["logs"])      # type: ignore[attr-defined]
@@ -1120,8 +1115,10 @@ def main(argv=None) -> int:
                 stop_editor(state["s"].proc)
         root.destroy()
 
-    b_open = ttk.Button(frame, text="Open in browser", command=open_it, state="disabled")
-    b_open.grid(row=2, column=0, sticky="w")
+    # No "Open in browser". Once the app's window has opened, the editor
+    # answers only that window, so the button would open a page saying so.
+    # lee: *"we dont need a web version running too"*. A start with no window
+    # still opens the browser by itself (`run`).
     ttk.Button(frame, text="Quit", command=quit_it).grid(row=2, column=1, sticky="e", padx=(12, 0))
     ttk.Button(frame, text="Open logs folder", command=open_logs).grid(
         row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
@@ -1138,7 +1135,6 @@ def main(argv=None) -> int:
             how = go_once()
             if how == "again":
                 root.after(0, root.deiconify)
-                root.after(0, b_open.config, {"state": "disabled"})
                 continue
             if how == "ended":
                 root.after(0, root.destroy)
@@ -1153,19 +1149,17 @@ def main(argv=None) -> int:
 
         def done():
             if s.proc and s.port:
-                line = "MangaTCT %s is running at http://127.0.0.1:%d" % (s.version, s.port)
+                line = "MangaTCT %s is running." % s.version
                 if s.fetched and s.fetched == s.version:
                     line += "\nUpdated to %s just now." % s.fetched
                 if s.fell_back:
                     line += ("\n(Started an earlier version - the newest could not "
                              "be prepared. See logs\\launcher.log.)")
                 status.set(line)
-                b_open.config(state="normal")
                 title.config(text=("%sMangaTCT %s" % (" " if mark else "", s.version)))
                 # The app has its own window now; this one would only be a
                 # second MangaTCT on the taskbar. It comes back if the app's
-                # window goes away while the editor is still running, with
-                # the browser button on it - the browser is always there.
+                # window goes away while the editor is still running.
                 if s.window is not None:
                     root.withdraw()
             else:
@@ -1186,8 +1180,8 @@ def main(argv=None) -> int:
                         log("window ended with %d while the editor runs" % s.window.returncode)
                         root.after(0, root.deiconify)
                         root.after(0, status.set,
-                                   "The MangaTCT window closed unexpectedly. The editor is "
-                                   "still running - open it in the browser, or quit.")
+                                   "The MangaTCT window closed unexpectedly. Quit, then "
+                                   "start MangaTCT again.")
             threading.Thread(target=watch_window, daemon=True).start()
 
         if not s.proc:

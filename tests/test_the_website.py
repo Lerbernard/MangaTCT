@@ -871,9 +871,13 @@ def test_the_motion_is_there_and_stops_for_whoever_asked_it_to(html):
     """lee: *"add animaation ... add better on hover animation and on click
     animationa"*. And none of it for somebody whose system asks for less."""
     style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+    # The sub tabs used to slide a highlight (`.subtabs .ink`) under the open
+    # tab; they are folder tabs now, and the open one rises into its panel.
     for k in ("@keyframes panIn", "@keyframes rip", "@keyframes heroIn", "@keyframes pop",
-              ".subtabs .ink", ".spot:after"):
+              ".subtabs .sb{", ".spot:after"):
         assert k in style, k
+    sub = style[style.index(".subtabs .sb{"):].split("}", 1)[0]
+    assert "margin .26s" in sub, "the open sub tab rises into its panel"
     calm = style[style.rindex("@media(prefers-reduced-motion:reduce)"):]
     assert "animation:none" in calm and "transition:none" in calm
     assert "var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;" in html

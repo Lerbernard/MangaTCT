@@ -824,9 +824,7 @@ function showPicker(on){
   // The overlay starts under the top bar rather than over it, so it has to be
   // told how tall the bar actually is - that changes with the window, and a
   // number written into the stylesheet would be right at one width only.
-  const top=$('top');
-  if(on && top) document.documentElement.style.setProperty(
-    '--topbar', Math.round(top.getBoundingClientRect().height)+'px');
+  if(on) syncTopbar();
   if(on) pkStep(1);
   // Close is only a way out when there is something to go back to.
   const loaded = !!(proj && proj.pages && proj.pages.length);

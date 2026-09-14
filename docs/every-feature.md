@@ -41,6 +41,7 @@ Three bars stacked, then one row.
 | Part | id | When it is there |
 |---|---|---|
 | Top bar | `#top` | Always |
+| Tab row | `#navrow` | Always (its page controls, `#pageTools`, Workspace tab only) |
 | Step bar | `#work` | Workspace tab only |
 | Main row | `#main` | Always |
 
@@ -75,7 +76,10 @@ A tab switched by code rather than by a click redirects silently instead.
 
 ## 1.2 The top bar
 
-**Left:** the wordmark (a link to `/`), then the four tabs.
+**Left:** the wordmark (a link to `/`). The four tabs are on the row under the
+top bar, on its left (`#navrow`), with the page controls on its right. lee:
+*"now file workspae etc doen to the new line"*. The File and Home screens start
+under that row, so the tabs stay usable from both.
 
 **Middle right: the coin button** (`#coinBtn`). The TCT coin and a count.
 Present on every tab. Clicking it opens the purse. The count starts as an em
@@ -97,7 +101,10 @@ fixed number. A hundred coins is plenty for Gemini and nothing at all for Opus.
 | **Download story context** | Writes `<series>.tct` |
 | **Download all as .zip** | `/api/export_zip`, saved as `translated-pages.zip` |
 
-**Right, on the Workspace tab** (`#pageTools`), in order:
+**The page controls, on the Workspace tab** (`#pageTools`). On the right of the
+tab row under the top bar, laid out from the right; the coins and the window
+buttons stay on the top row. lee: *"mak ea new line for these"*, *"and kepp the
+other stuff on th top row"*. In order:
 
 | # | Label | Does |
 |---|---|---|
@@ -779,6 +786,19 @@ short of a taskbar that hides itself, so that one can still slide up. None of
 it appears in a browser tab (`chrome.js` waits for the window to say it is
 frameless). `MANGATCT_FRAME=1` brings the system frame back. lee:
 *"integrate it with the app"*.
+
+**Only the window gets in.** The window shows the editor's local server
+(`127.0.0.1`), so that server has to run, but it answers the window and nothing
+else. Every start makes a new key and leaves it in `~/.mangatl/window-<port>.key`;
+the window opens the page with it once, is given a cookie and sent on to the
+same page without the key in its address. From then on another browser, or a
+copied link, gets one line: *MangaTCT is open in its own window.* A request whose
+Host or Origin is some other site is refused at all times, so a website open in
+a browser cannot talk to the app. `/api/version` always answers (the launcher
+waits on it). Nothing is locked until a window has used the key, so a start with
+no window - no WebView2, `--browser`, a checkout run from a terminal - is still a
+page in the browser. The launcher (1.0.5) has no **Open in browser** button any
+more. lee: *"we dont need a web version running too"*.
 
 ## 4.9a Settings ▸ Account
 
@@ -1638,6 +1658,16 @@ is the same picture the endpoint would send back, for free.
 
 A plate built while the cleaner was refusing is **not cached** - otherwise
 "press Clean again" found the smeared plate and never retried.
+
+**A page keeps its last clean when its boxes change.** The plate key carries
+every box's position and family, so turning a box from Free text to Bubble by
+hand leaves the page asking for a plate that was never made - and with the
+hosted cleaner on, only Clean may make one. The page used to fall back to the
+bare scan while the Clean step still said done. lee: *"also some of teh clena
+pages are not shwoing up"*. Every plate written is now noted against its page in
+`plate_last.json` (beside `plate_cache/`, not in it, so the pruner cannot take
+it), and a page that cannot be cleaned right now shows that last plate. It is
+shown, not adopted: Clean still cleans the page for its new boxes.
 
 ### What it costs
 

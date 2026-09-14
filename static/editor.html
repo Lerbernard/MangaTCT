@@ -43,28 +43,6 @@
   </pattern>
   <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
 </defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
-    <span id="tabs">
-      <!-- A tab like the others, not a button beside them. It opens a whole
-           screen, exactly as Workspace, Results and Settings do, and only one
-           of the four is ever showing.
-           lee: *"new project shoud be a tab like teh otheer and only one shoud
-           be accesabe at a time"*.
-
-           It is called File now, and it is a screen with a section rail down
-           the side like Settings has - New project is the only section on it
-           today, and the rail is what makes room for the next one.
-           lee: *"rename the forst button to file and wheni clcik it a tab with
-           multiple section shoud show rigt now new project shoud be the only
-           one"*. -->
-      <button id="tabNew" class="tab addpages-top" onclick="setTab('new',1)">File</button>
-      <!-- "Edit" named the tab AND the view button in the right-hand corner.
-           Workspace is the room; Image/Translation is what you are looking
-           at in it. lee: *"the second tab shoud be named workspace ro other good
-           name for it"*. -->
-      <button id="tabEdit" class="tab on" onclick="setTab('edit',1)">Workspace</button>
-      <button id="tabRes" class="tab" onclick="setTab('results',1)">Results</button>
-      <button id="tabSet" class="tab" onclick="setTab('settings',1)">Settings</button>
-    </span>
   </div>
   <!-- TCT Coins. In the top bar on its OWN, not inside #pageTools or
        #resultTools: those two swap with the tab you are on, and what is left
@@ -98,6 +76,44 @@
        buttons at the far end are the window's. Both are hidden in a browser
        tab, which has a frame of its own. See `static/js/chrome.js`. -->
   <div class="tbdrag" id="tbDrag" title=""></div>
+  <div class="side right" id="winctl" hidden>
+    <button class="wbtn" id="wbMin" title="Minimize" onclick="winCtl('min')"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button class="wbtn" id="wbMax" title="Maximize" onclick="winCtl('max')"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button class="wbtn close" id="wbClose" title="Close" onclick="winCtl('close')"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></button>
+  </div>
+</div>
+
+<!-- THE SECOND ROW. The four tabs on the left and, on the Workspace tab, the
+     page's own controls on the right; the top bar keeps the wordmark, the
+     coins, the Results buttons and the window's buttons. lee, of the zoom,
+     the switches and Translation/Image: *"mak ea new line for these"*, *"and
+     kepp the other stuff on th top row"*; then of the tabs: *"now file
+     workspae etc doen to the new line"*. The row itself is always there -
+     the tabs are how you get anywhere - and only #pageTools comes and goes.
+     The File and Home screens start under it (`--topbar`, see syncTopbar). -->
+<div id="navrow">
+  <span id="tabs">
+    <!-- A tab like the others, not a button beside them. It opens a whole
+         screen, exactly as Workspace, Results and Settings do, and only one
+         of the four is ever showing.
+         lee: *"new project shoud be a tab like teh otheer and only one shoud
+         be accesabe at a time"*.
+
+         It is called File now, and it is a screen with a section rail down
+         the side like Settings has - New project is the only section on it
+         today, and the rail is what makes room for the next one.
+         lee: *"rename the forst button to file and wheni clcik it a tab with
+         multiple section shoud show rigt now new project shoud be the only
+         one"*. -->
+    <button id="tabNew" class="tab addpages-top" onclick="setTab('new',1)">File</button>
+    <!-- "Edit" named the tab AND the view button in the right-hand corner.
+         Workspace is the room; Image/Translation is what you are looking
+         at in it. lee: *"the second tab shoud be named workspace ro other good
+         name for it"*. -->
+    <button id="tabEdit" class="tab on" onclick="setTab('edit',1)">Workspace</button>
+    <button id="tabRes" class="tab" onclick="setTab('results',1)">Results</button>
+    <button id="tabSet" class="tab" onclick="setTab('settings',1)">Settings</button>
+  </span>
   <!-- Zoom, snap, hide boxes and Original/Edit are all about a page on the
        canvas. On Results or either settings page there is no canvas, so they
        are controls for something that is not there.
@@ -173,11 +189,6 @@
       <button id="vTypeset"  class="vw"    onclick="setView('typeset')">Image</button>
     </span>
 
-  </div>
-  <div class="side right" id="winctl" hidden>
-    <button class="wbtn" id="wbMin" title="Minimize" onclick="winCtl('min')"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1"/></svg></button>
-    <button class="wbtn" id="wbMax" title="Maximize" onclick="winCtl('max')"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
-    <button class="wbtn close" id="wbClose" title="Close" onclick="winCtl('close')"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.1"/></svg></button>
   </div>
 </div>
 

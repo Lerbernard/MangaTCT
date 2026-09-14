@@ -297,6 +297,57 @@ sample pages only lee's checkout has.
   the hosted cleaner itself, so nothing was changed. Parallel detection models,
   reusing the Anthropic client and a reader-mask cache were measured and left.
 
+## 1.0.12 (2026-09-14)
+
+* **Cleaned pages came back as the scan after a box type changed.** The plate
+  stamp carries each box's family, so turning Free text into Bubble by hand
+  (lee did it on 13 pages the morning after cleaning 27) left the page asking
+  for a plate never made; with the hosted cleaner only Clean may make one, so
+  the view showed the scan and Clean still said 27/27. Every plate written is
+  now remembered per page in `plate_last.json` (beside `plate_cache/`, which
+  the pruner empties), and a page that cannot be cleaned right now shows its
+  last plate (`last_plate_path`, `_plate_in_use`). Shown, not adopted: it is
+  never cached under the new stamp, so Clean still really cleans.
+  `test_a_new_box_type_keeps_the_cleaned_page` (5 of its 8 fail on 1.0.11).
+  lee's own project got a `plate_last.json` pointing each page at that
+  morning's plate, paired by thumbnail.
+* **Only the app's window gets in.** lee: *"we dont need a web version running
+  too"*. The editor makes a key per start (`~/.mangatl/window-<port>.key`), the
+  window opens the page with it once and is given a cookie; after that anything
+  else gets "MangaTCT is open in its own window." A foreign Host or Origin is
+  refused always (a website could post to 127.0.0.1 before). Nothing locks until
+  a window has used the key, so no-WebView2 and `--browser` starts still work in
+  a browser. `/api/version` stays open for the launcher.
+  `test_only_the_app_window_is_answered`; also checked in real Chromium.
+* **Launcher 1.0.5**: no Open in browser button, and the "running" line no
+  longer shows the address. Installed launchers keep 1.0.4 until reinstalled;
+  the lock is app code and works with them (their button now opens the
+  one-line page).
+* **The tabs and the page controls are a second row** (`#navrow`) under the
+  top bar, which keeps the wordmark, coins, Results buttons and window buttons.
+  lee: *"mak ea new line for these"*, *"now file workspae etc doen to the new
+  line"*. The File and Home screens start under it (`syncTopbar`).
+  `test_the_page_tools_have_their_own_row`.
+* **Smaller:** the tool strip's stray 12px scrollbar (a 1px overflow under
+  `overflow-y:auto`); a dropped kept-open connection no longer prints a
+  traceback into the editor log; the website's sub tabs are folder tabs and no
+  longer squeeze their labels at phone width (the chapter strip had the same
+  fault); `test_side_panel_tidy`'s hold test waits for the page-loading screen
+  (it pressed the overlay on OneDrive's slow disk).
+* **`test_the_editor_looks_like_the_page` was two test faults, not the app.** It
+  shot the page before the page-loading screen had gone (4.5s after the `<img>`
+  finished, in the checkout on OneDrive), and it saved every shot to
+  `/tmp/lookalike.png` - one file at `C:\tmp` for every worker at once. It now
+  waits for the loading screen and keeps the shot in memory; it passes alone
+  and on three workers in the checkout. Before release the full suite (6
+  workers) ended 38 failed, 5257 passed; every failure was rerun: this module,
+  fixed; `test_the_page_and_the_box_draw_the_same` and
+  `test_snap_recovers_bubble_from_sloppy_drag` fail on 1.0.11 too; the rest
+  passed on their own (load: a MemoryError in the leak scan, node timeouts).
+* **Checked on the real window** (the runtime's Python 3.12, started through
+  `explorer.exe`, a copy with no `.env`): it used its key, a plain request was
+  then refused, `/api/version` still answered, and the window drew the editor.
+
 ## Driving the app window from a Claude Code session
 
 * WebView2 would not start (0x80080005) from the session's own shell with a

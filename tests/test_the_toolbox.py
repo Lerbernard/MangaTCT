@@ -259,6 +259,35 @@ def test_the_whole_strip_is_reachable_without_scrolling_past_it(ed):
     assert not errs, errs[:2]
 
 
+def test_the_strip_has_no_scrollbar_along_its_bottom(ed):
+    """lee: *"what si that at teh dottpm of teh sceen"* - a 12px scrollbar
+    under the tools. `overflow-y:auto` made the other axis auto as well, and the
+    strip is a pixel narrower than a button and its padding, so it scrolled
+    sideways by one pixel.
+
+    The bar itself cannot be measured here: the test browser is headless, and
+    headless Chromium draws no scrollbars, so it takes no room. What CAN be
+    measured is the cause - content wider than the strip, in a strip allowed to
+    scroll sideways. The same check with the rule taken off has to find it, or
+    it proves nothing."""
+    pg, _p, errs = ed
+    check = """(()=>{const el=document.getElementById('toolbox');
+        const ox=getComputedStyle(el).overflowX;
+        return {wide: el.scrollWidth-el.clientWidth, ox};})()"""
+    now = pg.evaluate(check)
+    assert not (now["wide"] > 0 and now["ox"] in ("auto", "scroll")), (
+        "the tool strip is %dpx too narrow and may scroll sideways: %r"
+        % (now["wide"], now))
+    pg.evaluate("""(()=>{const css=document.createElement('style');
+        css.id='oldrule'; css.textContent='#toolbox{overflow-x:auto!important}';
+        document.head.appendChild(css);})()""")
+    old = pg.evaluate(check)
+    pg.evaluate("document.getElementById('oldrule').remove()")
+    assert old["wide"] > 0 and old["ox"] == "auto", (
+        "without the rule the check finds nothing to catch: %r" % old)
+    assert not errs, errs[:2]
+
+
 # ------------------------------------------------------------------ the icons
 
 def test_every_tool_has_an_icon(ed):

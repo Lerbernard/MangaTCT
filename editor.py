@@ -12,18 +12,21 @@ import argparse
 import contextlib
 import functools
 import hashlib
+import hmac
 import json
 from collections import OrderedDict
 import mimetypes
 import os
 import posixpath
 import re
+import secrets
 import shutil
 import threading
 import time
 import traceback
 import urllib.parse
 import webbrowser
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
@@ -272,7 +275,13 @@ def _render_stamp(p: Project, i: int, mode: str) -> tuple:
             # nothing on a page that has not changed. Narrower than bumping the
             # render epoch, which would throw away every OTHER page in the
             # chapter every time one was cleaned.
-            _plate_mark(_plate_disk_path(p, i)))
+            #
+            # The plate IN USE, which is the page's last plate when its own is
+            # missing (`_plate_in_use`). Asking only for its own name gave a
+            # missing file's time either way, so a picture built from the scan
+            # while the last plate was ignored kept its key once the last plate
+            # was shown - and the disk cache answered with the scan.
+            _plate_mark(_plate_in_use(p, i)))
     if mode != "typeset":
         # The scan and the cleaned plate carry no text, so the typesetting
         # settings cannot change what they look like. Including them meant a
@@ -560,6 +569,88 @@ def _plate_disk_path(p: Project, i: int) -> str:
     if not os.path.exists(path):
         _adopt_pre_family_plate(p, i, d, path)
     return path
+
+
+# THE LAST PLATE EACH PAGE WAS CLEANED WITH.
+#
+# A plate's name is its stamp, and the stamp carries every box's FAMILY - which
+# is right, the cleaner fences a balloon differently from free text. But it
+# means a box turned from Free text to Bubble by hand leaves the page asking
+# for a plate that was never made. With the hosted cleaner nothing but Clean
+# may make one, so the page went back to the bare scan while the Clean step
+# went on saying 27/27, and the plate that had just been paid for sat on disk
+# under its old name. lee, after changing the types of boxes on thirteen pages:
+# *"also some of teh clena pages are not shwoing up"*. He had already said what
+# he wants from a cleaned page whose inputs have moved on: *"keep existing
+# cleaned pages until you re-clean them yourself"*.
+#
+# So every plate written is remembered against its page, and a page that cannot
+# be cleaned right now shows the last plate it had rather than none. Kept
+# OUTSIDE `plate_cache`, whose pruner deletes the oldest files by count and
+# would sooner or later take the list with it. Keyed on the page's contents
+# (`_page_fingerprint`), like everything else that names a picture, so a
+# renamed or reordered page still finds its own.
+_LAST_PLATES: dict = {"at": None, "data": {}}
+_LAST_PLATES_LOCK = threading.Lock()
+
+
+def _last_plates_file(p: Project) -> str:
+    return os.path.join(p.output_dir, "plate_last.json")
+
+
+def _last_plates(p: Project) -> dict:
+    """`{page fingerprint: plate file name}`, read once per change of the file."""
+    fp = _last_plates_file(p)
+    try:
+        st = os.stat(fp)
+    except OSError:
+        return {}
+    at = (fp, st.st_mtime_ns, st.st_size)
+    if _LAST_PLATES["at"] != at:
+        try:
+            with open(fp, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            data = {}
+        _LAST_PLATES.update(at=at, data=data if isinstance(data, dict) else {})
+    return _LAST_PLATES["data"]
+
+
+def _remember_plate(p: Project, i: int, fp: str) -> None:
+    """Note that `fp` is now page `i`'s newest plate."""
+    try:
+        with _LAST_PLATES_LOCK:
+            data = dict(_last_plates(p))
+            data[_page_fingerprint(p, i)] = os.path.basename(fp)
+            out = _last_plates_file(p)
+            tmp = out + ".part"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(data, fh, indent=0, sort_keys=True)
+            os.replace(tmp, out)
+            _LAST_PLATES["at"] = None
+    except Exception:
+        pass                        # a list that cannot be written is a miss
+
+
+def last_plate_path(p: Project, i: int) -> str:
+    """The newest plate this page was ever cleaned with, or "" if none is left."""
+    try:
+        name = _last_plates(p).get(_page_fingerprint(p, i))
+    except Exception:
+        return ""
+    if not name:
+        return ""
+    fp = os.path.join(p.output_dir, "plate_cache", os.path.basename(str(name)))
+    return fp if os.path.isfile(fp) else ""
+
+
+def _plate_in_use(p: Project, i: int) -> str:
+    """The plate file this page is drawn from: its own if it has one, the last
+    one it had if not, and its own name (missing) when there is neither."""
+    fp = _plate_disk_path(p, i)
+    if os.path.exists(fp):
+        return fp
+    return last_plate_path(p, i) or fp
 
 
 def _plates_to_carry(p: Project) -> dict:
@@ -1461,6 +1552,18 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
                 # would throw those pictures away. See `_plate_mark`.
                 _tally_clean({"reused": 1})
         if full is None and not _may_spend_the_cleaner(p):
+            # THE LAST CLEAN BEFORE THE SCAN. A page whose boxes changed since
+            # it was cleaned has no plate under its new stamp, and may not make
+            # one here - so it shows the plate it last had (see
+            # `_remember_plate`). NOT put in `_plate_cache` or written under the
+            # new name: it is not this stamp's plate, and a Clean step that
+            # found it there would take it for one and never clean the page.
+            last = last_plate_path(p, i)
+            got = imgio.imread(last) if last else None
+            if got is not None and got.shape[:2] == page.image.shape[:2]:
+                _tally_clean({"reused": 1})
+                return _finish_plate(p, i, page, got, include_paint)
+        if full is None and not _may_spend_the_cleaner(p):
             # THE BUTTON IS THE ONLY THING THAT GOES TO THE MODEL. lee: *"it
             # shoudnt rebuild everytime, it shoud ony go to the ai when i clcik
             # the button"*.
@@ -1565,6 +1668,7 @@ def clean_page(p: Project, i: int, page, include_paint: bool = True) -> None:
                 # squeezing it harder costs more than it ever saves back.
                 imgio.imwrite(fp, full, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                 _prune_cache_dir(os.path.dirname(fp), max(80, 3 * len(p.pages)))
+                _remember_plate(p, i, fp)
             except Exception:
                 pass                        # a cache that cannot write is fine
         _plate_cache[key] = full.copy()
@@ -2570,6 +2674,7 @@ def _store_plate(p: Project, i: int, full) -> None:
         os.makedirs(os.path.dirname(fp), exist_ok=True)
         imgio.imwrite(fp, full, [cv2.IMWRITE_PNG_COMPRESSION, 1])
         _prune_cache_dir(os.path.dirname(fp), max(80, 3 * len(p.pages)))
+        _remember_plate(p, i, fp)
     except Exception:
         pass                        # a cache that cannot write is fine
     _plate_cache[key] = full.copy()
@@ -2844,7 +2949,8 @@ def _worth_warming(p: Project, i: int, hosted: bool | None = None) -> bool:
         return True                     # your file, read off disk: costs nothing
     if not (_hosted_cleaning(p) if hosted is None else hosted):
         return True                     # local cleaning: ours to spend
-    return os.path.exists(_plate_disk_path(p, i))
+    # ...or the last plate it had, which is what the page will show.
+    return os.path.exists(_plate_in_use(p, i))
 
 
 _looking = 0
@@ -5672,6 +5778,73 @@ def import_translation(p: Project, text: str) -> dict:
 
 # --------------------------------------------------------------------- routing
 
+# ONLY THE APP'S OWN WINDOW. lee: *"i notice that http://127.0.0.1:8765/ is live
+# on the app when the app is runnibg we dont need a web version running too"*.
+#
+# The window IS a browser showing this server, so the server cannot go. What
+# changes is who it answers, and two things do two different jobs:
+#
+# * FROM THIS MACHINE'S OWN PAGE, NOT FROM A WEBSITE. Any website open in any
+#   browser could send requests to 127.0.0.1 - a form post asks nobody's
+#   permission - and one that points its own name at 127.0.0.1 could read the
+#   answers too. So a request whose Host is not this server, or whose Origin is
+#   some other page, is refused. Always, whoever started the editor.
+# * THE WINDOW'S KEY. `main` makes a new key at every start and leaves it in a
+#   file in the person's own folder (`app_key_file`); the window reads it and
+#   opens the page with it once (`window.url_for`). That request is answered
+#   with a cookie and sent on to the same page without the key in its address,
+#   and from then on a request without the cookie - another browser, a copied
+#   link - gets one line saying where MangaTCT is.
+#
+# Locked from the moment the window has used its key, and not before: a start
+# with no window (no WebView2 on this Windows, `--browser`, a checkout run from
+# a terminal) never uses it, and stays a page in the browser. `/api/version`
+# always answers: it is how the launcher knows the editor is up.
+APP_KEY = {"key": "", "claimed": False}
+APP_COOKIE = "mangatct_app"
+LOOPBACK = ("127.0.0.1", "::1", "localhost")
+ELSEWHERE = (
+    "<!doctype html><meta charset=utf-8><title>MangaTCT</title>"
+    "<body style=\"margin:0;height:100vh;display:grid;place-items:center;"
+    "background:#101216;color:#e6e8ec;font:15px/1.5 'Segoe UI',sans-serif\">"
+    "MangaTCT is open in its own window.</body>").encode("utf-8")
+
+
+def app_key_file(port: int) -> str:
+    """Where this start's key is left for the window. `window.app_key` reads
+    the same name - it is not imported from here, because the window process
+    must not pay for loading the editor."""
+    return os.path.join(userdata.user_dir(), "window-%d.key" % int(port))
+
+
+def make_app_key(port: int) -> str:
+    """A new key for this start, written where the window will look for it."""
+    key = secrets.token_urlsafe(32)
+    fp = app_key_file(port)
+    os.makedirs(os.path.dirname(fp), exist_ok=True)
+    tmp = fp + ".part"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(key)
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, fp)
+    APP_KEY.update(key=key, claimed=False)
+    return key
+
+
+def forget_app_key(port: int) -> None:
+    try:
+        os.remove(app_key_file(port))
+    except OSError:
+        pass
+
+
+def _same_key(given: str, key: str) -> bool:
+    return hmac.compare_digest(given.encode("utf-8"), key.encode("utf-8"))
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "mangatl"
 
@@ -5711,7 +5884,56 @@ class Handler(BaseHTTPRequestHandler):
                 n, self.close_connection = 0, True
             if n > 0:
                 self._raw = self.rfile.read(n)
+            if not self._may_ask():
+                return False            # already answered: refused, or sent on
         return ok
+
+    def _may_ask(self) -> bool:
+        """Whether this request goes on to a route. When not, it has been
+        answered here. See `APP_KEY` for the two checks and why."""
+        where = getattr(self, "server", None)
+        host_ip, port = (where.server_address[:2] if where else ("", 0))
+        if str(host_ip) not in LOOPBACK:
+            return True        # served to a network on purpose: not ours to fence
+        ours = ("127.0.0.1:%d" % port, "localhost:%d" % port, "[::1]:%d" % port)
+        host = (self.headers.get("Host") or "").strip().lower()
+        origin = (self.headers.get("Origin") or "").strip().lower()
+        if (host and host not in ours) or \
+                (origin and origin not in tuple("http://" + h for h in ours)):
+            self._send(403, b"not from this computer's MangaTCT", "text/plain")
+            return False
+        key = APP_KEY["key"]
+        if not key:
+            return True
+        u = urllib.parse.urlparse(self.path)
+        if u.path == "/api/version":
+            return True
+        q = urllib.parse.parse_qs(u.query, keep_blank_values=True)
+        given = (q.get("app_key") or [""])[0]
+        if given:
+            if not _same_key(given, key):
+                self._send(403, ELSEWHERE, "text/html; charset=utf-8")
+                return False
+            APP_KEY["claimed"] = True
+            rest = urllib.parse.urlencode(
+                [(k, v) for k, vs in q.items() if k != "app_key" for v in vs])
+            self._send(303, b"", "text/plain", extra={
+                "Location": u.path + ("?" + rest if rest else ""),
+                "Set-Cookie": "%s=%s; Path=/; HttpOnly; SameSite=Strict"
+                              % (APP_COOKIE, key)})
+            return False
+        if not APP_KEY["claimed"]:
+            return True
+        jar = SimpleCookie()
+        try:
+            jar.load(self.headers.get("Cookie") or "")
+        except Exception:
+            pass
+        got = jar.get(APP_COOKIE)
+        if got is not None and _same_key(got.value, key):
+            return True
+        self._send(403, ELSEWHERE, "text/html; charset=utf-8")
+        return False
 
     def send_response(self, code, message=None) -> None:
         self._answered = True
@@ -5719,7 +5941,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_one_request(self) -> None:
         self._answered = False
-        super().handle_one_request()
+        try:
+            super().handle_one_request()
+        except self.GONE:
+            # A kept-open connection spends most of its life waiting here for a
+            # next request, and the window drops idle ones whenever it likes.
+            # That arrived as a reset in the READ, outside `_send`'s own guard,
+            # and printed a traceback into the editor's log for a connection
+            # that had simply been put down.
+            self.close_connection = True
+            return
         if not self._answered:
             self.close_connection = True
 
@@ -8728,6 +8959,9 @@ def main(argv=None) -> int:
     print(f"open {url}")
     if not a.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    # Before the port is open: the window waits for the port, then reads this.
+    make_app_key(a.port)
+    atexit.register(forget_app_key, a.port)
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
     return 0
 

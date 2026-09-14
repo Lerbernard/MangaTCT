@@ -6,9 +6,10 @@ instead"*. So the editor is still a web page served on 127.0.0.1 and nothing
 about it changed; what changed is what shows it. This module opens a native
 window whose whole content is that page, using the WebView2 engine Windows
 already has (Edge's), so nothing new ships and the page runs exactly as it
-does in Edge. The browser is still there - `MangaTCT.exe --browser`, or the
-*Open in browser* button on the launcher - which is also what a hosted copy
-would be.
+does in Edge. The browser is still there - `MangaTCT.exe --browser`, or a Windows with no
+WebView2 - which is also what a hosted copy would be. Once this window has
+opened, though, the editor answers only it: lee, *"we dont need a web version
+running too"* (see `app_key` and `editor.APP_KEY`).
 
     python -m mangatl.window --port 8765
 
@@ -59,6 +60,7 @@ import json
 import os
 import sys
 import time
+import urllib.parse
 
 from . import userdata
 
@@ -352,8 +354,34 @@ def _begin_native_drag(win, hwnd: int, code: int) -> bool:
         return False
 
 
-def url_for(a: argparse.Namespace) -> str:
-    return "http://%s:%d/" % (a.host, a.port)
+def app_key(port: int, wait: float = 3.0) -> str:
+    """The key the editor left for this window, or "" when there is none.
+
+    lee: *"we dont need a web version running too"*. The editor answers only
+    the window that has used this start's key (see `editor.APP_KEY`). It is in
+    a file named like `editor.app_key_file` - the name is repeated rather than
+    imported, because importing the editor would load OpenCV into the window
+    process for one path. Written before the editor's port opens, so by the
+    time `wait_for_the_editor` is done it is there; `wait` only covers a disk
+    that is slow to show it."""
+    fp = os.path.join(userdata.user_dir(), "window-%d.key" % int(port))
+    end = time.monotonic() + wait
+    while True:
+        try:
+            with open(fp, encoding="utf-8") as fh:
+                key = fh.read().strip()
+            if key:
+                return key
+        except OSError:
+            pass
+        if time.monotonic() >= end:
+            return ""
+        time.sleep(0.05)
+
+
+def url_for(a: argparse.Namespace, key: str = "") -> str:
+    base = "http://%s:%d/" % (a.host, a.port)
+    return base + ("?app_key=" + urllib.parse.quote(key, safe="") if key else "")
 
 
 def _own_taskbar_entry() -> None:
@@ -731,7 +759,7 @@ def main(argv=None) -> int:
     api = Api()
     api._frameless = frameless
     win = webview.create_window(
-        a.title, url_for(a), width=width, height=height,
+        a.title, url_for(a, app_key(a.port)), width=width, height=height,
         x=g.get("x"), y=g.get("y"), maximized=g.get("maximized", False),
         min_size=MIN_SIZE, background_color=BACKGROUND,
         text_select=True, zoomable=True,

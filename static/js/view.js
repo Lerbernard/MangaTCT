@@ -539,6 +539,21 @@ function syncTabs(){
   }
 }
 
+// Where the File and Home screens start: under BOTH rows at the top, the top
+// bar and the row with the tabs. They are drawn over everything below that
+// line, so a number measured off the top bar alone put them over the tabs -
+// lee moved the tabs down a row: *"now file workspae etc doen to the new line"*.
+// Measured rather than written into the stylesheet, because the height changes
+// with the window.
+function syncTopbar(){
+  const row = $('navrow') || $('top');
+  if(!row) return;
+  document.documentElement.style.setProperty(
+    '--topbar', Math.round(row.getBoundingClientRect().bottom)+'px');
+}
+window.addEventListener('resize', ()=>{ clearTimeout(syncTopbar._t);
+  syncTopbar._t = setTimeout(syncTopbar, 100); });
+
 function setTab(t, byHand){
   // "manga" was a page of its own. It is a group inside Settings now, so the
   // old name still works and lands in the same place.
@@ -548,6 +563,7 @@ function setTab(t, byHand){
   const isHome = t==='home';
   const home = $('home');
   if(home) home.classList.toggle('on', isHome);
+  if(isHome) syncTopbar();
   if(isHome){
     tab = t;
     ['tabEdit','tabRes','tabSet','tabNew'].forEach(id=>{ const b=$(id); if(b) b.classList.remove('on'); });
