@@ -75,6 +75,27 @@ table.keys td:first-child{white-space:nowrap;width:1%}
 .note b{color:var(--ink)}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:700px){.cols{grid-template-columns:1fr}}
+/* The video spots - lee: "for th etutorial maake soe viodes ... ill upload to
+   uputube makes oosme spots to embed the into the page". Each spot keeps its
+   YouTube id in data-yt. Empty, it says the video is coming. Filled, it shows a
+   play button and only builds the YouTube player when that is pressed, so the
+   page still loads nothing from anyone else until somebody asks for a video. */
+.vid{position:relative;margin:18px 0;border:1px solid var(--line);
+ border-radius:14px;overflow:hidden;background:var(--panel2);aspect-ratio:16/9}
+.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vid .vplay{appearance:none;position:absolute;inset:0;width:100%;border:0;
+ background:var(--panel2);color:var(--ink);font:inherit;cursor:pointer;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:10px;padding:16px;text-align:center}
+.vid .vplay i{width:64px;height:64px;border-radius:50%;background:var(--accent);
+ display:flex;align-items:center;justify-content:center}
+.vid .vplay i::after{content:"";margin-left:5px;border-style:solid;
+ border-width:12px 0 12px 20px;
+ border-color:transparent transparent transparent var(--on-accent)}
+.vid .vplay b{font-size:17px}
+.vid .vplay span{font-size:13.5px;color:var(--dim)}
+.vid.soon .vplay{cursor:default}
+.vid.soon .vplay i{background:var(--line2)}
 </style>
 
 <header>
@@ -114,6 +135,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <h2>From a folder of raw pages to a translated chapter</h2>
     <p class="lede">The short version. Each of these steps has its own tab
       above with the details.</p>
+
+    <div class="vid soon" data-yt="GiXX3D6Qun0" data-title="Getting started: from raw pages to a translated chapter"><button class="vplay" type="button" disabled><i></i><b>Getting started: from raw pages to a translated chapter</b><span>Video coming soon</span></button></div>
 
     <ol class="steps">
       <li><b>Add your pages</b>
@@ -162,6 +185,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <h2>What each step does</h2>
     <p class="lede">Run them in order the first time. After that, rerun any
       one of them whenever you change something.</p>
+
+    <div class="vid soon" data-yt="KSDqlmFXiME" data-title="The seven steps, on a whole chapter"><button class="vplay" type="button" disabled><i></i><b>The seven steps, on a whole chapter</b><span>Video coming soon</span></button></div>
 
     <div class="tabs sub" role="tablist" id="steptabs">
       <button class="tb" role="tab" aria-selected="true"  aria-controls="s-find">1 Find text</button>
@@ -269,6 +294,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
       <p>Sets the English into every balloon: picks a size that fits, breaks
       the lines, centres the block, and keeps effects like outlines and
       colour. Rerunning it is instant, so tweak as much as you like.</p>
+
+      <div class="vid soon" data-yt="z_E3BPc8QK8" data-title="Styling a block: font, size, outline, curve and glow"><button class="vplay" type="button" disabled><i></i><b>Styling a block: font, size, outline, curve and glow</b><span>Video coming soon</span></button></div>
       <figure class="shot"><img src="assets/tut-typeset.jpg" loading="lazy"
         alt="A finished typeset page in English">
         <figcaption>The page from the Clean step, finished. Every line still
@@ -336,6 +363,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <h2>Every piece of text lives in a box</h2>
     <p class="lede">Find text draws them, but they are yours: move them,
       retype them, merge them, delete them. This tab is the toolbox.</p>
+
+    <div class="vid soon" data-yt="y2AO-Tzqk48" data-title="Working with boxes"><button class="vplay" type="button" disabled><i></i><b>Working with boxes</b><span>Video coming soon</span></button></div>
 
     <div class="tabs sub" role="tablist" id="boxtabs">
       <button class="tb" role="tab" aria-selected="true"  aria-controls="b-types">The three types</button>
@@ -430,6 +459,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <p class="lede">Settings has a page for everything. Here is the whole rail
       first, so you know where a thing lives, and then the ones a new chapter
       actually needs.</p>
+
+    <div class="vid soon" data-yt="Oio5jDo6Y2g" data-title="A tour of Settings"><button class="vplay" type="button" disabled><i></i><b>A tour of Settings</b><span>Video coming soon</span></button></div>
 
     <h3>Everything in the Settings rail</h3>
     <p>Two groups down the left-hand side. <b>Story</b> is what this series
@@ -603,6 +634,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
     <p class="eyebrow">Tips and fixes</p>
     <h2>The things everyone asks in the first week</h2>
 
+    <div class="vid soon" data-yt="FJ3698gQDFY" data-title="Tips and fixes"><button class="vplay" type="button" disabled><i></i><b>Tips and fixes</b><span>Video coming soon</span></button></div>
+
     <div class="cols">
       <div class="card"><h3>Stop means stop</h3>
         <p>The Stop button cancels the page being worked on, not just the
@@ -668,6 +701,8 @@ table.keys td:first-child{white-space:nowrap;width:1%}
   <section class="sect" id="t-help" role="tabpanel" hidden>
     <p class="eyebrow">Updates and help</p>
     <h2>Which version you are on, and what to do when something breaks</h2>
+
+    <div class="vid soon" data-yt="XkpZm-cEihE" data-title="Updates and getting help"><button class="vplay" type="button" disabled><i></i><b>Updates and getting help</b><span>Video coming soon</span></button></div>
 
     <h3>The pill in the header</h3>
     <p>Next to the MangaTCT wordmark, top left, is a small pill. It is the
@@ -778,6 +813,27 @@ function wire(stripId){
   });
 }
 wire('maintabs'); wire('steptabs'); wire('boxtabs'); wire('settabs');
+
+/* The video spots. Paste a video's YouTube id into its data-yt (the part
+   after watch?v= in the link) and the spot turns into a play button. The
+   player is only built when that button is pressed, from youtube-nocookie,
+   so nothing is fetched from YouTube for somebody who never presses play. */
+[].forEach.call(document.querySelectorAll('.vid'), function(v){
+  var id = (v.getAttribute('data-yt') || '').trim(), b = v.querySelector('.vplay');
+  if (!id || !b) return;
+  v.classList.remove('soon');
+  b.disabled = false;
+  b.querySelector('span').textContent = 'Play the video';
+  b.addEventListener('click', function(){
+    var f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0';
+    f.title = v.getAttribute('data-title') || 'Video';
+    f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture';
+    f.allowFullscreen = true;
+    v.innerHTML = '';
+    v.appendChild(f);
+  });
+});
 
 /* The theme button: same storage key as every other page, no CDN needed. */
 (function(){
