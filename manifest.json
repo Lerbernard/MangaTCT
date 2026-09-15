@@ -2,7 +2,7 @@
  "app": {
   "version": "1.1.0",
   "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.1.0/mangatct-app-1.1.0.zip",
-  "sha256": "4c885a64a24bf75f975df1705783a92d60708beca1d015ded4ee0db464b35c5a",
+  "sha256": "f413215db510f3a365ff6d2242c72d6ae54c2943e73c812b8af8e274c706f6da",
   "size": 6068626,
   "notes": "https://github.com/Lerbernard/MangaTCT/releases/tag/v1.1.0"
  },
@@ -106,7 +106,7 @@
  "installer": {
   "version": "1.1.0",
   "url": "https://github.com/Lerbernard/MangaTCT/releases/download/v1.1.0/MangaTCT-Setup-1.1.0.exe",
-  "sha256": "2a250b43b4280f1b982953f818baad4232e1cfb20cbc140f669102b18a29ec5e",
-  "size": 242892600
+  "sha256": "f3e9bfde9d86057214b8d48f5755dc97923e10f9564132eeb67e400f691a7ce3",
+  "size": 242912663
  }
 }
