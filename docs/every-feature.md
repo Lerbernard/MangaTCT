@@ -81,9 +81,14 @@ top bar, on its left (`#navrow`), with the page controls on its right. lee:
 *"now file workspae etc doen to the new line"*. The File and Home screens start
 under that row, so the tabs stay usable from both.
 
-**Middle right: the coin button** (`#coinBtn`). The TCT coin and a count.
-Present on every tab. Clicking it opens the purse. The count starts as an em
-rule and is filled by `/api/coins`. Two states:
+**The coin button** (`#coinBtn`), in the tab row right after the tabs - it
+was in the top bar until lee: *"move teh coins down"*. The TCT coin and a count.
+Present on every tab. Clicking it opens the purse, from the button's left edge.
+The count starts as an em rule and is filled by `/api/coins`. The Settings >
+Account page is fetched once while the app starts and drawn from that at once
+when opened, then refreshed behind it (lee: *"make it load as teh app is scting
+so there no delay"*); its coin card, table and footer are the full width of the
+page. Two states:
 
 | State | When | Look |
 |---|---|---|
@@ -305,11 +310,21 @@ A full-screen overlay with its own rail.
 | File | **New project**, **Project file** |
 | This chapter | **Save project**, **Save as…**, **Open project…** |
 | This series | **Download story context**, **Import story context…** |
+| Help | **Report a problem**, **Guide** |
 
 **New project** is a two-step wizard. *1 · Pages*: the medium, source language,
 direction and target menus, a drop zone, **Add pages from a folder…** and **Add
 pages…**, the staged list with **Clear all**. *2 · Story context*: drop or
 choose a `.tct`, then **Done** (only enabled after an import) or **Skip**.
+
+**Report a problem**: **Ask on Discord** (filled) and **Email
+mangatct@gmail.com** (plain), each shown only when the app has that address;
+then the *What gets sent* card - version, machine, chapter, models, which keys
+are present (yes/no, never a value) and the last log lines, as tall as its text
+up to 18 lines and then scrolling - with **Copy to clipboard** in its header,
+which reads **Copied** for two seconds. The section carries no license line;
+that is in `LICENSE` and on the website. **Guide** opens the tutorial on the
+website.
 
 ## 2.2 The run dialog
 
@@ -482,8 +497,9 @@ AI proposed survives an edit you did not make.
 
 ## 4.4 Story ▸ Places, terms & other
 
-Rows of **how it should be written in English** plus **a short note - what or
-where it is**, an **Add** row, and a × per row.
+Rows of **how it should be written in the translation** plus **a short note -
+what or where it is**, an **Add** row (**Name as translated**, **Note**), and a
+× per row.
 
 Stored as `source term → "Rendering (note)"`. An entry whose rendering matches
 a character's name is hidden from this list and still sent, so a person does
@@ -499,15 +515,30 @@ tells a translator nothing; "Tarel (the copper coin)" does.
 | Min pt | `min_font` | number | 12 | The floor of the automatic size sweep. Below it a box is flagged rather than shrunk |
 | Max pt | `max_font` | number | 34 | The ceiling the sweep starts from |
 | Let the typesetter substitute glyphs | `substitutes` | checkbox | **on** in the page, **off** in the typesetting config's own default | On: a character the face cannot draw may be swapped, or the block may fall through to another face, and the substitution is flagged. Off: the character is kept and the box is flagged instead |
-| Add fonts… | - | file, .ttf/.otf, multiple | - | Installs into `~/.mangatl/fonts`, outside every project, so the next chapter already has them. Each has a × |
+| Built in | - | read-only line | - | The families the app ships in `fonts/`, by name (the files are in its tooltip). Nothing to press |
+| Add fonts… | - | file, .ttf/.otf, multiple | - | Installs into `~/.mangatl/fonts`, outside every project, so the next chapter already has them. Each is listed under **Your fonts** with a × |
 
-**Box types.** One row per family - **Regular speech**, **Outside text**,
+**Your fonts leaves out copies of the built-in faces.** A file in
+`~/.mangatl/fonts` with a shipped face's name AND its bytes is that face
+(`userdata.is_builtin_copy`): it is not listed, has no ×, and the remove
+endpoint refuses it. It is not deleted and is still offered in the menus under
+its own path, because a project can name it - opening a `.tctp` installs every
+face the bundle carries into that folder, the app's own included, and points
+the project there. The same name with other bytes is a different face (and
+wins, the folder being searched first), so it stays yours. lee: *"these fonts
+shoud be bilt in not in the list of your fonts"*, *"exept for mangaka"*.
+
+**Box types.** The add row comes first, then a rule, then the list. lee:
+*"move this up and adda diveer for it"*.
+
+**The add row** takes a family, a name, a font and a color swatch. Ten
+sub-types per family maximum, on top of the undeletable default. When a family
+is full the line saying so sits under the row, above the rule.
+
+**The list:** one row per family - **Regular speech**, **Outside text**,
 **Sound effect** - setting that family's default face. Then one row per
-sub-type: a colour swatch you click to cycle, the name (editable), a font menu
+sub-type: a color swatch you click to cycle, the name (editable), a font menu
 where empty means "inherit the family's", and a ×.
-
-**The add row** takes a family, a name and a font. Ten sub-types per family
-maximum, on top of the undeletable default.
 
 Two hidden fields survive from older versions: `font` (the project default
 face, now edited through the Regular speech row) and `uppercase`, kept only so
@@ -518,7 +549,7 @@ a project that had it on keeps it. Capitals are a per-block decision now.
 | Label | Key | Type | Default | Options | What it changes |
 |---|---|---|---|---|---|
 | Source material | `medium` | menu | `manga` | manga, manhwa, manhua | The prompt's medium. **Changing it refills the next two**: manga → Japanese, right to left; manhwa → Korean, left to right; manhua → Chinese, left to right |
-| Re-cut webtoon strips when a chapter is loaded | `restitch_strips` | checkbox | **on** | | A sliced webtoon is re-joined and cut at the gutters on upload. Skipped entirely if any page already has work on it. The same switch is on the File tab |
+| Re-cut long strips when a chapter is loaded | `restitch_strips` | checkbox | **on** | | A sliced strip is re-joined and cut at the gutters on upload. Skipped entirely if any page already has work on it. The same switch is on the File tab, as **Join long strips back up and re-cut them** |
 | Page height | `strip_tall` | number, x the width | 3.5 | | How tall a page should come out, as a multiple of its width. On a 690px chapter that is about 2,400px |
 | Tell me when a page passes | `strip_tall_max` | number, x the width | 8.5 | | Not a wall. A page runs past it to reach a real gap rather than be cut through the artwork; anything that ends up past it is named for you afterwards |
 
@@ -549,6 +580,11 @@ come to in pixels on the open chapter is printed underneath the boxes.
 | Label box types | `auto_kind` | checkbox | **on** | | Each found block is labelled by family rather than all being called a bubble |
 | Text model path (optional) | `text_weights` | text | empty | | Only used by the legacy hybrid detector |
 
+**The card groups are two across** - Who reads the text, How much of the page
+it looks at, and Detector - so four cards make a 2x2 rather than a row of three
+and one left over. A group narrower than 428px would drop to one column; the
+settings column never gets that narrow. lee: *"make teh boxes 2x2"*.
+
 **One dead label.** *"Text reader (OCR)"* has no control under it. The menu was
 removed and the label was not, and the save routine still posts `ocr_engine:
 'ai'` unconditionally because the element is missing. Harmless today - the
@@ -560,7 +596,7 @@ default on every save.
 Three blocks: **API KEYS**, then **THE MODEL FOR EACH STEP**, then the safety
 switch. There are no per-control labels inside a step, only one heading over
 the row: **READ TEXT - the model that reads the page**, **TRANSLATE - the model
-that writes the English**, **PROOFREAD - the model that checks it**.
+that writes the translation**, **PROOFREAD - the model that checks it**.
 
 | Label | Key | Type | Default | What it changes |
 |---|---|---|---|---|
@@ -886,7 +922,7 @@ Switching it on greys the three AI text steps and reveals a row with:
 * **Upload filled in…** - takes `.txt`, `.json` or `.md` back.
 
 The format is one block per box: `[<page name> #<n>]  <source text>`, with the
-English typed on the following lines. An empty block leaves that box alone. Two
+translation typed on the following lines. An empty block leaves that box alone. Two
 lines stay two lines. Whatever comes in wins.
 
 It is a mode, not a lock: nothing on the server refuses those steps, and turning
@@ -1546,7 +1582,7 @@ a page cannot notice it spells a name differently from page 30.
 * **One name, two spellings.** Every capitalised word is folded and any
   canonical form with more than one surface form is listed with counts and page
   and line references. It does not guess which is right.
-* **A Japanese honorific welded to a name** - `Name-san`, `-sama`, `-chan`,
+* **An honorific left on a name** - `Name-san`, `-sama`, `-chan`,
   `-kun`, `-senpai`, `-sensei`, `-dono`. Raised **only when the chapter has
   clearly decided against keeping them**, so a chapter that keeps honorifics
   throughout is not nagged about its own house style.
@@ -1860,13 +1896,19 @@ Three modes:
 
 | Mode | What it writes |
 |---|---|
-| **Finished pages** | Cleaned art with the English typeset on. Typesets **without** clearing hand work, so exporting never quietly discards it |
-| **Cleaned pages only** | The plate: the Japanese erased, no English. The same plate the typesetting would have been drawn on, so it costs nothing extra |
+| **Finished pages** | Cleaned art with the translation typeset on. Typesets **without** clearing hand work, so exporting never quietly discards it |
+| **Cleaned pages only** | The plate: the original text erased, no translation. The same plate the typesetting would have been drawn on, so it costs nothing extra |
 | **Boxes drawn on** | The original art with the boxes, the reading-order numbers, the type colours, the faint balloons, the link colouring and a frame round each balloon group. **No cleaning, no typesetting** - it reads the stored records and copies the picture, which is why it is instant |
 
 The dialog also has **Which pages** (every page, or only this one), **Save into**
 with a **Browse…** where the machine has a dialog, and **Folder name to create
 there**, with the finished path shown live.
+
+**Browse…, Save as and Open use the app window's own dialog** (`Api.pick_dir`,
+`Api.pick_project` in `window.py`), modal to the window and in front of it. The
+server's dialog - a separate Tk process whose window belonged to nothing on
+screen - is what a browser tab gets, and what the window falls back to when it
+cannot ask. lee: *"thsi brows button donst work"*.
 
 **Only Finished pages ticks the Export step.** The other two append `-cleaned`
 or `-boxes` to the folder name so they cannot overwrite it.

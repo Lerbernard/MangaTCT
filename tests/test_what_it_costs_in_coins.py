@@ -1125,14 +1125,18 @@ def _browser(fn, p):
 def test_the_count_is_at_the_top_of_the_screen(tmp_path):
     """lee: *"also add a coin count in the ui at the top"*.
 
-    In `#top` itself, not inside the two groups that swap with the tab you are
-    on: what is left to spend is true on Settings and on Results as well.
+    Not inside the two groups that swap with the tab you are on: what is left to
+    spend is true on Settings and on Results as well. In the tab row now, under
+    the top bar - lee: *"move teh coins down"*.
     """
     p = _project(tmp_path, [2, 6])
 
     def check(pg):
         assert pg.evaluate(
-            "!!document.querySelector('#top #coinBtn')"), "not in the top bar"
+            "!!document.querySelector('#navrow #coinBtn')"), "not in the tab row"
+        assert pg.evaluate(
+            "!document.querySelector('#pageTools #coinBtn, #resultTools #coinBtn')"), \
+            "inside a group that swaps with the tab"
         assert pg.evaluate("document.getElementById('coinN').textContent") == \
             coins.show(coins.balance())
         for tab in ("settings", "results", "new", "edit"):

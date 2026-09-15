@@ -87,7 +87,8 @@ async function homeOpen(){
   // The File screen's own Open, which also knows what to do when this
   // machine cannot show a file dialog.
   if(typeof openProject === 'function'){ await openProject(); return; }
-  const pick = await api('/api/pick_project','POST',{});
+  const pick = await (typeof pickPath === 'function'
+    ? pickPath('open', '') : api('/api/pick_project','POST',{}));
   if(!pick || !pick.path) return;
   await homeOpenPath(pick.path);
 }

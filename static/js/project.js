@@ -170,31 +170,70 @@ function _diagLines(d){
   else { L.push(''); L.push('(no log file: started by hand, not by the launcher - copy the console window instead)'); }
   return L.join('\n');
 }
+/* The two ways to ask, as buttons with a mark each rather than the browser's
+   blue links. lee: *"make this look better"*. Still plain `<a>`s with the
+   same addresses: in the app's window a `target="_blank"` link goes to the
+   person's browser (OPEN_EXTERNAL_LINKS_IN_BROWSER in window.py) and a
+   mailto goes to their mail program, exactly as before - only the dress is
+   new. */
+const _HELP_ICON={
+  chat:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.6-5.2A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+  mail:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>'
+};
+/* The box is as tall as what is in it, up to DIAG_MAX_LINES and then it
+   scrolls. It was a fixed 220px: six lines and a note sat at the top of a
+   mostly empty well, and eighty lines of log sat in a slot. Measured the way
+   `growSynopsis` measures - and, like it, only while the section is on
+   screen, because a hidden textarea measures as nothing. */
+const DIAG_MAX_LINES=18;
+function fitDiag(){
+  const t=$('diagText');
+  if(!t || !t.offsetParent) return;
+  const cs=getComputedStyle(t);
+  let lh=parseFloat(cs.lineHeight);
+  if(!isFinite(lh)||!lh) lh=(parseFloat(cs.fontSize)||12)*1.6;
+  const border=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+  const pad=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+  t.style.height='auto';
+  const want=t.scrollHeight+border;
+  t.style.height=Math.min(want, Math.round(lh*DIAG_MAX_LINES+pad+border))+'px';
+}
+window.addEventListener('resize', fitDiag);
 async function openHelp(){
   const ta=$('diagText'); if(!ta) return;
-  ta.value='Gathering…';
+  ta.value='Gathering…'; fitDiag();
   try{
     const d=await api('/api/diagnostics');
     _support=d.support||_support;
-    ta.value=_diagLines(d);
+    ta.value=_diagLines(d); fitDiag();
     const e=s=>(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
     const bits=[];
-    if(_support.discord) bits.push('<a class="btn" target="_blank" rel="noopener" href="'+e(_support.discord)+'">Ask on Discord</a>');
+    if(_support.discord) bits.push('<a class="btn pri" target="_blank" rel="noopener" href="'+e(_support.discord)+'">'+_HELP_ICON.chat+'Ask on Discord</a>');
     if(_support.email){
       // mailto bodies are short by nature; the first lines are the ones
       // that matter and the clipboard carries the rest.
       const body=encodeURIComponent('What I did:\n\nWhat happened:\n\n'+ta.value.slice(0,1500));
-      bits.push('<a class="btn" href="mailto:'+e(_support.email)+'?subject='+encodeURIComponent('MangaTCT '+d.version+' problem')+'&body='+body+'">Email '+e(_support.email)+'</a>');
+      bits.push('<a class="btn" href="mailto:'+e(_support.email)+'?subject='+encodeURIComponent('MangaTCT '+d.version+' problem')+'&body='+body+'">'+_HELP_ICON.mail+'Email '+e(_support.email)+'</a>');
     }
     if(!bits.length) bits.push('<span class="muted">Copy the box and send it where you were told to.</span>');
-    $('helpLinks').innerHTML=bits.join(' &nbsp; ');
-  }catch(err){ ta.value='Could not gather the details: '+(err&&err.message||err); }
+    $('helpLinks').innerHTML=bits.join('');
+  }catch(err){ ta.value='Could not gather the details: '+(err&&err.message||err); fitDiag(); }
 }
+/* "Copied" on the button you pressed, for two seconds, rather than a small
+   grey word beside it that was easy to miss. `#diagMsg` still gets the word,
+   for a screen reader. */
 async function copyDiag(){
   const ta=$('diagText'); if(!ta) return;
   try{ await navigator.clipboard.writeText(ta.value); $('diagMsg').textContent='Copied.'; }
   catch(e){ ta.select(); document.execCommand&&document.execCommand('copy'); $('diagMsg').textContent='Copied.'; }
-  setTimeout(()=>{ if($('diagMsg')) $('diagMsg').textContent=''; },2500);
+  const say=(done)=>{
+    const b=$('diagCopy'); if(!b) return;
+    b.classList.toggle('done', done);
+    const l=b.querySelector('span'); if(l) l.textContent=done?'Copied':'Copy to clipboard';
+  };
+  say(true);
+  clearTimeout(copyDiag._t);
+  copyDiag._t=setTimeout(()=>{ if($('diagMsg')) $('diagMsg').textContent=''; say(false); },2000);
 }
 
 async function loadProject(){
@@ -794,6 +833,10 @@ let FONTS=[];
 let RECENT_FONTS=[];
 /* Paths of the faces this person uploaded - the only ones with a remove. */
 let UPLOADED_FONTS=[];
+/* Paths of the faces the app ships - named on the Fonts screen, never with a
+   remove. A copy of one in the person's folder is not in UPLOADED_FONTS; see
+   `userdata.is_builtin_copy`. */
+let BUILTIN_FONTS=[];
 /* {kind: path} - the face each kind gets when nothing has been chosen for it.
    The last link of the chain, worked out by the server, because the table it
    comes from is `typeset.DEFAULT_FONTS` and the file it names has to exist on
@@ -872,6 +915,7 @@ function takeFonts(f){
   FONTS=f.fonts||[];
   RECENT_FONTS=f.recent||[];
   UPLOADED_FONTS=f.uploaded||[];
+  BUILTIN_FONTS=f.builtin||[];
   KIND_DEFAULTS=f.defaults||{};
   FONT_CAPS=f.caps||{};
   if(+f.cap_ref>0) CAP_REF=+f.cap_ref;
@@ -879,6 +923,7 @@ function takeFonts(f){
   SERVER_STALE=!(f && Object.prototype.hasOwnProperty.call(f,'defaults'));
   if(typeof rebuildFontSelects==='function') rebuildFontSelects();
   if(typeof renderUploadedFonts==='function') renderUploadedFonts();
+  if(typeof renderBuiltinFonts==='function') renderBuiltinFonts();
   if(typeof renderCustomKinds==='function') renderCustomKinds();
 }
 /* Is this a face that can actually be typeset with - a path naming a file that
@@ -1377,7 +1422,7 @@ function renderGlossList(){
   el.innerHTML=(terms.map(n=>`
     <div class="row" style="margin-top:5px;align-items:center" data-gl="${esc(n)}">
       <input value="${esc(glossName(glossSheet[n]||n))}" style="flex:1"
-        placeholder="how it should be written in English"
+        placeholder="how it should be written in the translation"
         onchange="updGlossName('${q(esc(n))}',this.value)">
       <input value="${esc(glossNote(glossSheet[n]||n))}" style="flex:2"
         placeholder="a short note - what or where it is"
@@ -1979,6 +2024,31 @@ function renderUploadedFonts(){
     row.append(nm, x);
     box.appendChild(row);
   }
+}
+/* THE FACES THE APP SHIPS, ONE LINE, NOTHING TO PRESS.
+
+   lee, of Your fonts listing Bangers, three Comic Neues and Kalam beside his
+   own Mangaka, each with a remove: *"these fonts shoud be bilt in not in the
+   list of your fonts"*, *"exept for mangaka"*. Those five were copies of the
+   app's own files; the server leaves them out of `uploaded` now, and they are
+   named here with the rest of what ships.
+
+   By FAMILY, not by file: Comic Neue is four files and one face to anybody
+   reading the line, and four names in a row would push it onto a second. The
+   files are in the tooltip. Choosing one is done in the menus, as ever. */
+function renderBuiltinFonts(){
+  const el=$('builtinFonts');
+  if(!el) return;
+  const faces=(BUILTIN_FONTS||[]).map(fp=>
+    String(fp).split(/[\\/]/).pop().replace(/\.(ttf|otf)$/i,''));
+  const fams=[...new Set(faces.map(n=>
+    n.split('-')[0].replace(/([a-z])([A-Z])/g,'$1 $2')))];
+  el.textContent=fams.join(', ');                // file names, set not written
+  el.title=faces.join(', ');
+  // An app older than this page sends no list; a heading over nothing is
+  // furniture.
+  el.style.display=fams.length?'':'none';
+  const h=$('builtinHead'); if(h) h.style.display=fams.length?'':'none';
 }
 
 

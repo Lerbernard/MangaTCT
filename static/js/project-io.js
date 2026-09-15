@@ -33,8 +33,8 @@ async function exportDialog(){
 const EXP_SUFFIX={clean:'-cleaned', boxes:'-boxes'};
 const EXP_BLURB={
   full:'The finished pages are written as PNGs into a folder of their own.',
-  clean:'The cleaned art is written as PNGs with no English on it - the raws '+
-    'with the Japanese erased. This does not tick the Export step.',
+  clean:'The cleaned art is written as PNGs with no translation on it - the '+
+    'raws with the original text erased. This does not tick the Export step.',
   boxes:'The original pages are written as PNGs with the boxes drawn on: the '+
     'same colours per text type, the same reading-order numbers and the same '+
     'faint balloons you see here. Nothing is cleaned or typeset, so it is '+
@@ -61,11 +61,33 @@ function updateExpPath(){
   $('expPath').textContent = dir ? `Pages will be written to ${dir}${sep}${name}` : '';
 }
 
+/* A folder or a project file, from THE WINDOW'S OWN DIALOG when the page is
+   in the app's window, and from the server's otherwise (a browser tab, or a
+   window that could not ask). lee: *"thsi brows button donst work"* - the
+   server's dialog is a separate process whose window belongs to nothing on
+   screen; the window's is modal to the app and in front of it. See `Api` in
+   window.py. `null` back from the window means it could not ask. */
+async function pickPath(kind, start){
+  const w = window.pywebview && window.pywebview.api;
+  try{
+    if(w && kind==='dir' && typeof w.pick_dir==='function'){
+      const p = await w.pick_dir(start||'');
+      if(p !== null && p !== undefined) return {path: p || ''};
+    }
+    if(w && kind!=='dir' && typeof w.pick_project==='function'){
+      const p = await w.pick_project(start||'', kind==='save');
+      if(p !== null && p !== undefined) return {path: p || ''};
+    }
+  }catch(e){ /* the window could not ask; the server can */ }
+  if(kind==='dir') return api('/api/pick_dir','POST',{start});
+  return api('/api/pick_project','POST', kind==='save' ? {save:true} : {});
+}
+
 async function browseDir(){
   const b=$('expBrowse'); const label=b.textContent;
   b.textContent='Choose a folder…'; b.disabled=true;
   try{
-    const j=await api('/api/pick_dir','POST',{start:$('expDir').value});
+    const j=await pickPath('dir', $('expDir').value);
     if(j.path){ $('expDir').value=j.path; updateExpPath(); }
   } finally { b.textContent=label; b.disabled=false; }
 }
@@ -657,7 +679,7 @@ async function saveProject(){
 }
 async function saveProjectAs(){
   setTab('new'); setFileTab('save');
-  const pick=await api('/api/pick_project','POST',{save:true});
+  const pick=await pickPath('save', (proj.settings||{}).project_file||'');
   if(!pick.path){
     // Nothing chosen. Either the person changed their mind - in which case
     // saying anything would be noise - or this machine cannot show a file
@@ -675,7 +697,7 @@ async function saveProjectAs(){
 }
 async function openProject(){
   setTab('new'); setFileTab('save');
-  const pick=await api('/api/pick_project','POST',{});
+  const pick=await pickPath('open', (proj.settings||{}).project_file||'');
   if(!pick.path) return $('tctpFile') ? $('tctpFile').click() : null;
   await adoptProject(api('/api/project_open','POST',{path:pick.path}));
 }

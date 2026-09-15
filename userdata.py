@@ -27,6 +27,7 @@ import json
 import os
 import time
 import re
+from functools import lru_cache
 
 # How many "last used" faces are remembered. Five is what fits above the list
 # without pushing the list itself off the screen, and past five "recent" stops
@@ -417,8 +418,95 @@ def safe_name(name: str) -> str:
     return (stem[:60] or "font") + ext
 
 
-def uploaded_fonts() -> list:
-    """Full paths of the faces this person has added, by name."""
+def builtin_fonts_dir() -> str:
+    """Where the faces the app ships live: `fonts/` inside the package."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+
+
+@lru_cache(maxsize=1)
+def _shipped_by_name() -> tuple:
+    """`((lowercased file name, path), ...)` for every face in `fonts/`.
+
+    Worked out once per process, the way `typeset._font_dirs` is. The first
+    version listed the folder and stat'ed every file in it on every question,
+    and the question is asked about thirty times per font answer - which made
+    that answer three to four times slower than before this existed, for a
+    folder that only changes when a new version of the app is put in place.
+    """
+    d = builtin_fonts_dir()
+    try:
+        with os.scandir(d) as it:
+            found = sorted(e.name for e in it
+                           if e.name.lower().endswith((".ttf", ".otf"))
+                           and e.is_file())
+    except OSError:
+        return ()
+    return tuple((n.lower(), os.path.join(d, n)) for n in found)
+
+
+def builtin_fonts() -> list:
+    """Full paths of the typesetting faces the app ships, by name.
+
+    The top of `fonts/` only. `fonts/marks/` holds the faces special characters
+    are stamped from, which nobody sets a line in - see `fonts/LICENSES.md`.
+    """
+    return [p for _n, p in _shipped_by_name()]
+
+
+# (path, size, mtime, shipped path, shipped mtime) -> same bytes or not. A
+# font list is asked for on every save and every pick, and reading two
+# files each time to answer a question whose answer changes only when a file
+# does is the kind of cost nobody sees until the menu is slow.
+_COPY_SEEN: dict = {}
+
+
+def is_builtin_copy(path: str) -> bool:
+    """Is this file in the person's folder one of the app's own faces, copied?
+
+    lee, of a Your fonts list reading Bangers-Regular, ComicNeue-Bold,
+    ComicNeue-Italic, ComicNeue-Regular, Kalam-Regular and Mangaka, each with
+    a remove button: *"these fonts shoud be bilt in not in the list of your
+    fonts"*, then *"exept for mangaka"*.
+
+    His folder really did hold those five files, byte for byte the ones in
+    `fonts/`, written in the same second - and they are exactly the five faces
+    `typeset.DEFAULT_FONTS` names. Nothing seeds this folder. What writes into
+    it, and rewrites a project's font paths to point there, is opening a
+    `.tctp`: `bundle.write` carries every face a project names, the app's own
+    included, and `bundle._install_font` puts each one here. The list was then
+    every .ttf and .otf in the folder, so a copy of Comic Neue and a face
+    somebody bought were the same thing on screen.
+
+    A copy is the shipped face's NAME and its BYTES. Both, on purpose:
+    * the same name with other bytes is a different face - a newer Bangers,
+      say - and it WINS, because `typeset._font_dirs` looks in this folder
+      first, so it is the person's to see and to take back out;
+    * the same bytes under a name of your own is a file you chose to add
+      under that name, and it stays where you put it.
+
+    Never deleted. lee's boxes name `...\\.mangatl\\fonts\\ComicNeue-Bold.ttf`
+    and that path has to keep typesetting.
+    """
+    try:
+        shipped = dict(_shipped_by_name()).get(
+            os.path.basename(path or "").lower())
+        if not shipped:
+            return False
+        a, b = os.stat(path), os.stat(shipped)
+        if a.st_size != b.st_size:
+            return False
+        key = (os.path.normcase(os.path.abspath(path)), a.st_size,
+               a.st_mtime_ns, os.path.normcase(shipped), b.st_mtime_ns)
+        if key not in _COPY_SEEN:
+            with open(path, "rb") as fa, open(shipped, "rb") as fb:
+                _COPY_SEEN[key] = fa.read() == fb.read()
+        return _COPY_SEEN[key]
+    except OSError:
+        return False
+
+
+def _font_files() -> list:
+    """Every face in the person's folder, by name - theirs and copies alike."""
     d = fonts_dir()
     try:
         names = sorted(f for f in os.listdir(d)
@@ -426,6 +514,21 @@ def uploaded_fonts() -> list:
     except OSError:
         return []
     return [os.path.join(d, f) for f in names]
+
+
+def uploaded_fonts() -> list:
+    """Full paths of the faces this person has added, by name.
+
+    Not a copy of one the app ships - see `is_builtin_copy`."""
+    return [p for p in _font_files() if not is_builtin_copy(p)]
+
+
+def builtin_copies() -> list:
+    """The files in the person's folder that are copies of a shipped face.
+
+    Kept and still offered, under the path they have: a project that names one
+    selects that option, and a menu without it would call the face missing."""
+    return [p for p in _font_files() if is_builtin_copy(p)]
 
 
 def add_font(filename: str, data: bytes) -> str:
@@ -467,6 +570,11 @@ def remove_font(path: str) -> bool:
     if os.path.normcase(os.path.dirname(path)) != os.path.normcase(d):
         return False
     if not os.path.isfile(path):
+        return False
+    # The app's own face, copied here, is not the person's to remove: the list
+    # no longer offers it, and a path sent anyway must not pull a face out
+    # from under a project that names it. See `is_builtin_copy`.
+    if is_builtin_copy(path):
         return False
     try:
         os.remove(path)

@@ -5549,7 +5549,7 @@ def _chapter_audit(p: Project, said: list) -> list:
         leaks = [(pg, ln, m.group(0))
                  for pg, ln, _r, t in said for m in pat.finditer(t)]
         if leaks and len(leaks) <= max(3, len(said) // 20):
-            out.append("**A Japanese honorific left on a name**, in a chapter "
+            out.append("**An honorific left on a name**, in a chapter "
                        "that drops them everywhere else.")
             out.append("")
             for pg, ln, hit in leaks[:12]:
@@ -8828,6 +8828,12 @@ def fonts_answer() -> dict:
             # trips means the list can render before the recents and jump.
             "recent": userdata.recent_fonts(),
             "uploaded": userdata.uploaded_fonts(),
+            # ...and the faces the app ships, named on the Fonts screen above
+            # them. A copy of one left in the person's folder is not in
+            # `uploaded`, so it has no remove button: lee, *"these fonts shoud
+            # be bilt in not in the list of your fonts"*. See
+            # `userdata.is_builtin_copy`.
+            "builtin": userdata.builtin_fonts(),
             "defaults": shipped_kind_fonts(),
             # HOW TALL EACH FACE'S CAPITALS ARE, so the browser can draw a
             # size the same way the server does. `typeset.px_for` turns a
@@ -8865,6 +8871,18 @@ def find_fonts() -> list[dict]:
         seen.add(f)
         out.append({"name": os.path.splitext(f)[0], "path": fp,
                     "bundled": True, "comic": True, "uploaded": True})
+    # A COPY OF A SHIPPED FACE in the person's folder is offered under ITS
+    # path, as it always was, and is no longer called an upload. The path is
+    # the point: lee's project names `...\.mangatl\fonts\ComicNeue-Bold.ttf`,
+    # the menus select an option by path, and an entry pointing at the
+    # shipped file instead would leave every such row reading "not installed".
+    # `seen` then keeps the shipped folder from offering the face twice.
+    # lee: *"these fonts shoud be bilt in not in the list of your fonts"*.
+    for fp in userdata.builtin_copies():
+        f = os.path.basename(fp)
+        seen.add(f)
+        out.append({"name": os.path.splitext(f)[0], "path": fp,
+                    "bundled": True, "comic": True, "uploaded": False})
     mine = len(out)
     # The bundled fonts/ folder must be found no matter where the editor is
     # launched from, so resolve it relative to this file (…/mangatl/fonts)

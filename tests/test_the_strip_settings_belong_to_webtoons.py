@@ -58,7 +58,7 @@ def test_the_file_tab_switch_carries_no_explanation():
     """lee: *"remove the discriotion for teh tool"*. The label says what it
     does; four more lines under it is the sort of thing you read once."""
     assert "On by default. A manhwa or manhua" not in HTML
-    assert "Join webtoon strips back up and re-cut them" in HTML
+    assert "Join long strips back up and re-cut them" in HTML
 
 
 def test_the_file_tab_has_the_switch_and_it_is_on():

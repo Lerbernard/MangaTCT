@@ -37,12 +37,13 @@ LABEL = re.compile(r"^\s*\[\s*(?P<page>[^\]#]+?)\s*#\s*(?P<n>\d+)\s*\]"
 
 HEAD = """# mangatl — manual translation
 #
-# Type the English under each label. A block you leave empty is left alone,
+# Type the translation under each label. A block you leave empty is left alone,
 # so you can do a few boxes now and the rest later.
 #
 # Do not change the labels: they are how a line finds its box, and the number
 # is the one drawn on the box sheet (Export ▸ boxes). Everything after the
-# label on the same line is the Japanese, and is ignored when this comes back.
+# label on the same line is the original text, and is ignored when this comes
+# back.
 #
 # Two lines under a label are two lines of dialogue and are kept as typed.
 """

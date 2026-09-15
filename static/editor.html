@@ -44,21 +44,6 @@
   <clipPath id="aclip"><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z"/></clipPath>
 </defs><path d="M7 10 L18 10 L32 30 L46 10 L57 10 L57 46 L46.5 46 L46.5 26.5 L35.5 42 L28.5 42 L17.5 26.5 L17.5 47 L11.5 60 L7 47 Z" fill="url(#ag)"/></svg><span class="wm"><b>Manga</b><i>TCT</i></span><em class="betapill">BETA</em></a>
   </div>
-  <!-- TCT Coins. In the top bar on its OWN, not inside #pageTools or
-       #resultTools: those two swap with the tab you are on, and what is left
-       to spend is true on every tab. lee: *"also add a coin count in the ui at
-       the top"*.
-
-       Clicking it opens the purse - what each step would cost this chapter,
-       what the last runs came to, and the way to put more in. -->
-  <div class="side coinwrap">
-    <button id="coinBtn" onclick="toggleWallet(event)"
-            title="TCT Coins - click for what things cost">
-      <svg class="coinface" width="15" height="15" aria-hidden="true"><use
-            href="#tctcoin"/></svg>
-      <b id="coinN">&mdash;</b></button>
-    <div id="walletPop"></div>
-  </div>
   <!-- What you can do with a finished chapter. In the top bar rather than
        above the pages: it is the same three buttons whatever you have
        scrolled to, and on a long chapter they were off the top of the screen.
@@ -114,6 +99,22 @@
     <button id="tabRes" class="tab" onclick="setTab('results',1)">Results</button>
     <button id="tabSet" class="tab" onclick="setTab('settings',1)">Settings</button>
   </span>
+  <!-- TCT Coins. On its OWN, not inside #pageTools or #resultTools: those two
+       swap with the tab you are on, and what is left to spend is true on every
+       tab. lee: *"also add a coin count in the ui at the top"*, and later, of
+       it in the top bar: *"move teh coins down"* - so it sits in this row,
+       right after the tabs.
+
+       Clicking it opens the purse - what each step would cost this chapter,
+       what the last runs came to, and the way to put more in. -->
+  <div class="side coinwrap">
+    <button id="coinBtn" onclick="toggleWallet(event)"
+            title="TCT Coins - click for what things cost">
+      <svg class="coinface" width="15" height="15" aria-hidden="true"><use
+            href="#tctcoin"/></svg>
+      <b id="coinN">&mdash;</b></button>
+    <div id="walletPop"></div>
+  </div>
   <!-- Zoom, snap, hide boxes and Original/Edit are all about a page on the
        canvas. On Results or either settings page there is no canvas, so they
        are controls for something that is not there.
@@ -301,9 +302,15 @@
       written as PNGs into a folder of their own.</p>
 
     <label>What to write</label>
+    <!-- The two modes used to name the languages - "English typeset on",
+         "Japanese erased, no English" - and most chapters are not Japanese and
+         plenty are not going into English. lee: *"look at teh app and chnage
+         anything tah has psecifca thing like jappensee manga manhwa in te ui
+         that ujnst the name of teh detector or the labgue selcetor"*. So they
+         say what is on the page: the original text, and the translation. -->
     <select id="expMode" onchange="expModeChanged()">
-      <option value="full">Finished pages - cleaned art, English typeset on</option>
-      <option value="clean">Cleaned pages only - Japanese erased, no English</option>
+      <option value="full">Finished pages - cleaned art, translation typeset on</option>
+      <option value="clean">Cleaned pages only - original text erased, no translation</option>
       <option value="boxes">Boxes drawn on - the original art, marked up for checking</option>
     </select>
 
@@ -554,7 +561,7 @@
            title="Only ever runs on a chapter that arrived as a sliced strip">
       <input type="checkbox" id="restitch_new" checked
              onchange="stripSwitch(this.checked)"><i></i>
-      <span>Join webtoon strips back up and re-cut them</span></label>
+      <span>Join long strips back up and re-cut them</span></label>
 
     <!-- Loading a chapter is a hundred files read, uploaded and re-cut, and
          until now it said only "Loading 12/120…" in small grey text.
@@ -592,7 +599,7 @@
            way it arrives you can see it and correct it before pressing on. -->
       <label style="margin-top:2px">Title</label>
       <input id="pkStoryTitle" maxlength="120" oninput="pkContextTyped()"
-             placeholder="What this manga is called">
+             placeholder="What this series is called">
       <label>Series synopsis (guides the translation)</label>
       <textarea id="pkStorySynopsis" rows="4" oninput="pkContextTyped()"
         placeholder="Who the story is about, what is happening, and - most useful of all - each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
@@ -619,21 +626,40 @@
   </div><!-- /.pk -->
    </section>
 
+   <!-- Report a problem, dressed like the rest of the app. lee: *"make this
+        look better"*, with a picture of it: the two ways to get in touch were
+        the browser's own blue links on the dark screen, the box of details
+        was a fixed 220px whatever was in it, and Copy sat under the box on
+        its own. Now the ways to ask are buttons (filled in by `openHelp`),
+        and the details are one card whose header says what it is, that it
+        never holds a key, and carries the Copy button - what you do with the
+        box is on the box. What the box SAYS is not touched here; that is
+        `_diagLines` and its tests. `#diagMsg` stays as a spoken "Copied." for
+        a screen reader; the button itself shows it to everybody else. -->
    <section class="set-section" data-sec="help">
     <div class="pk">
      <h2 style="margin:0">Report a problem</h2>
-     <p class="muted" style="margin:8px 0 0">Send what happened together with
-       the box below - your version, machine and last log lines, never a key.
-       Read it before you send it.</p>
-     <p id="helpLinks" style="margin:12px 0 0"></p>
-     <textarea id="diagText" readonly spellcheck="false"
-               style="width:100%;min-height:220px;margin-top:12px;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto"></textarea>
-     <p style="margin:10px 0 0">
-       <button class="btn" onclick="copyDiag()">Copy to clipboard</button>
-       <span id="diagMsg" class="help"></span>
-     </p>
-     <p class="muted" style="margin:14px 0 0">Free software, GNU GPL v3. The
-       source of this version is in the app's folder and on the download page.</p>
+     <p class="sethint helplead">Say what happened and send the box below with
+       it. Read it before you send it.</p>
+     <div id="helpLinks" class="helplinks"></div>
+     <div class="diagcard">
+      <div class="diaghead">
+       <div class="diagwhat">
+        <b>What gets sent</b>
+        <span class="diagsafe"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Your version, your machine and the last log lines - never a key.</span>
+       </div>
+       <button id="diagCopy" class="diagcopy" onclick="copyDiag()"><svg class="ic-copy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><svg class="ic-ok" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>Copy to clipboard</span></button>
+      </div>
+      <textarea id="diagText" readonly spellcheck="false"
+                aria-label="What gets sent"></textarea>
+     </div>
+     <span id="diagMsg" class="vh" aria-live="polite"></span>
+     <!-- The license line that ended this section is gone. lee: *"and remove
+          this Free software, GNU GPL v3. The source of this version is in the
+          app's folder and on the download page."* This screen is for getting
+          help; the license and the source offer are still where they belong -
+          LICENSE beside the app, and the website's download and releases
+          pages. -->
     </div>
    </section>
    <section class="set-section" data-sec="save">
@@ -868,6 +894,17 @@
         <input type="checkbox" id="substitutes" onchange="saveSettings()">
         <i></i><span>Let the typesetter substitute glyphs</span></label>
 
+      <!-- THE FACES THE APP SHIPS, NAMED AND NOT REMOVABLE. lee, of a Your
+           fonts list reading Bangers, three Comic Neues, Kalam and Mangaka,
+           each with a remove button: *"these fonts shoud be bilt in not in the
+           list of your fonts"*, *"exept for mangaka"*. The five were copies of
+           the app's own files left in ~/.mangatl/fonts (see
+           `userdata.is_builtin_copy`); they are named here now, with every
+           other face the app ships, and Your fonts is what is really yours.
+           Filled by `renderBuiltinFonts`. -->
+      <h3 id="builtinHead" style="margin-top:14px">Built in</h3>
+      <p id="builtinFonts" class="help" style="margin:6px 0 0"></p>
+
       <h3 style="margin-top:14px">Your fonts</h3>
       <div class="row" style="margin-top:6px;align-items:center">
         <button class="pri" onclick="document.getElementById('fontUp').click()">Add fonts…</button>
@@ -878,7 +915,10 @@
       <div id="upFontList"></div>
 
       <h3 style="margin-top:14px">Box types</h3>
-      <div id="ckList"></div>
+      <!-- The add row FIRST, then a rule, then the list. It was under the last
+           sub-type of the last family, a screen and a half below the heading.
+           lee: *"move this up and adda diveer for it"*. `#ckLimit` stays with
+           the row it speaks for, above the rule. -->
       <div id="ckAddRow">
         <div class="row" style="margin-top:6px">
           <select id="ckFamily" style="flex:0 0 34%"
@@ -890,6 +930,8 @@
         <div id="ckSwatches" class="swatchrow"></div>
       </div>
       <p id="ckLimit" class="help" style="display:none;margin:6px 0 0"></p>
+      <div class="cksep" role="separator"></div>
+      <div id="ckList"></div>
       </section>
 
       <section class="set-section" data-sec="language">
@@ -909,8 +951,8 @@
       <div id="stripSet" style="display:none">
       <label style="display:flex;gap:6px;align-items:center;text-transform:none;margin-top:12px">
         <input id="restitch_strips" type="checkbox" style="width:auto" onchange="saveSettings()">
-        <span>Re-cut webtoon strips when a chapter is loaded</span></label>
-      <p class="muted" style="margin:4px 0 0">A webtoon is drawn as one long
+        <span>Re-cut long strips when a chapter is loaded</span></label>
+      <p class="muted" style="margin:4px 0 0">Some chapters are drawn as one long
         strip and served as tiles cut every so many pixels - through balloons,
         through faces, through the middle of the typesetting. When a chapter
         arrives looking like that it is joined back up and cut again in the
@@ -1343,7 +1385,7 @@
           <input id="ocr_base_url" type="hidden" onchange="saveSettings()">
         </div>
         <div class="stepai">
-          <label style="margin-top:10px">TRANSLATE - the model that writes the English</label>
+          <label style="margin-top:10px">TRANSLATE - the model that writes the translation</label>
           <!-- Two questions and nothing else: the COMPANY, as three filled
                plates, and the MODEL. lee: *"i just wan the ai compay and teh
                ai model"*. The select under the plates is still the value
@@ -1507,7 +1549,7 @@
              lee: *"in teh symo[psis tab add a tilee box fort the manga"*. -->
         <label>Title</label>
         <input id="title" onchange="saveSettings()" maxlength="120"
-               placeholder="What this manga is called">
+               placeholder="What this series is called">
         <label>Series synopsis (guides the translation)</label>
         <textarea id="synopsis" onchange="saveSettings()" oninput="growSynopsis()"
           placeholder="Who the story is about, what is happening, and - most useful of all - each main character's name, pronouns and way of speaking. The translator treats this as ground truth."></textarea>
@@ -1563,7 +1605,7 @@
         <h2 class="set-h">Places, terms and other</h2>
         <div id="glossList"></div>
         <div class="row" style="margin-top:6px">
-          <input id="glTerm" placeholder="Name in English" style="flex:1">
+          <input id="glTerm" placeholder="Name as translated" style="flex:1">
           <input id="glDesc" placeholder="Note"
                  style="flex:2">
           <button class="pri" onclick="addGloss()">Add</button>

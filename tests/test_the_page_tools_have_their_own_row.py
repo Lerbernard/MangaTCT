@@ -40,9 +40,12 @@ def test_the_tabs_and_the_page_controls_are_a_row_under_the_top_bar():
         pg.evaluate("setTab('edit')")
         browserpool.settled(pg)
         g = pg.evaluate(_WHERE)
+        # ...and the coins, right after the tabs (lee: *"move teh coins down"*).
         assert g["inRow"] == ["tabs", "tabNew", "tabEdit", "tabRes", "tabSet",
                               "pageTools", "zlabel", "hideboxes", "vOriginal",
-                              "vTypeset"], g["inRow"]
+                              "vTypeset", "coinBtn"], g["inRow"]
+        assert g["tabs"]["r"] <= g["coins"]["l"] <= g["tabs"]["r"] + 40, \
+            "the coins are not right after the tabs: %r" % g
         # Directly under the top bar, above the step bar, and the whole width.
         assert abs(g["row"]["t"] - g["top"]["b"]) <= 1, g
         assert g["row"]["b"] <= g["work"]["t"] + 1, g
@@ -60,9 +63,8 @@ def test_the_top_bar_keeps_the_rest():
         pg.evaluate("setTab('edit')")
         browserpool.settled(pg)
         g = pg.evaluate(_WHERE)
-        assert g["inTop"] == ["coinBtn", "resultTools", "winctl", "tbDrag"], \
-            g["inTop"]
-        assert g["coins"]["t"] < g["row"]["t"], g
+        assert g["inTop"] == ["resultTools", "winctl", "tbDrag"], g["inTop"]
+        assert g["coins"]["t"] >= g["row"]["t"], "the coins are still up top: %r" % g
         assert g["top"]["h"] < 60, "the top bar is taller than one row: %r" % g
     _serve(check)
 

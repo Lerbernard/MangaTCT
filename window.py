@@ -268,6 +268,65 @@ class Api:
         import webbrowser
         return bool(webbrowser.open(url))
 
+    # THE WINDOW'S OWN FILE DIALOGS. lee, with a crop of the Export dialog's
+    # Browse... button: *"thsi brows button donst work"*.
+    #
+    # Browse, Save as and Open used to ask the editor's server, which starts a
+    # separate Python process to show a Tk dialog (`pickdir.py`). That process
+    # belongs to nobody on screen: its dialog is not owned by this window, so
+    # Windows is free to put it anywhere in the stacking order, and a person
+    # looking at the app sees nothing happen while the button waits. Asked of
+    # the window, the dialog is the WINDOW'S - modal to it, in front of it,
+    # and on its monitor - which is what a dialog opened from a button is.
+    #
+    # `None` means "could not ask" (no window, or pywebview refused), and the
+    # page then falls back to the server's dialog, which is also what it uses
+    # in a browser tab. `""` means the person cancelled.
+    def pick_dir(self, start: str = "") -> str | None:
+        return self._dialog("dir", start)
+
+    def pick_project(self, start: str = "", save: bool = False) -> str | None:
+        return self._dialog("save" if save else "open", start)
+
+    def _dialog(self, mode: str, start: str):
+        if self._win is None:
+            return None
+        try:
+            import webview
+            fd = getattr(webview, "FileDialog", None)
+            kinds = ({"dir": fd.FOLDER, "open": fd.OPEN, "save": fd.SAVE} if fd else
+                     {"dir": webview.FOLDER_DIALOG, "open": webview.OPEN_DIALOG,
+                      "save": webview.SAVE_DIALOG})
+        except Exception:
+            # pywebview's own numbers, for a window object that is not one of
+            # its windows (the tests' stand-in).
+            kinds = {"dir": 20, "open": 10, "save": 30}
+        from .pickdir import PROJECT_EXT
+        start = str(start or "")
+        if os.path.isdir(start):
+            where = start
+        elif start and os.path.isdir(os.path.dirname(start)):
+            where = os.path.dirname(start)
+        else:
+            where = os.path.expanduser("~")
+        kw = {"directory": where}
+        if mode != "dir":
+            kw["file_types"] = ("MangaTCT project (*%s)" % PROJECT_EXT, "All files (*.*)")
+        if mode == "save" and start.lower().endswith(PROJECT_EXT):
+            kw["save_filename"] = os.path.basename(start)
+        try:
+            got = self._win.create_file_dialog(kinds[mode], **kw)
+        except Exception:
+            return None
+        if not got:
+            return ""
+        path = str(got if isinstance(got, str) else got[0])
+        if mode == "save":
+            return path if path.lower().endswith(PROJECT_EXT) else path + PROJECT_EXT
+        if mode == "dir":
+            return path if os.path.isdir(path) else ""
+        return path if os.path.isfile(path) else ""
+
     def hit(self, code: int) -> bool:
         """The mouse went down on the frame at `code` (WM_NCHITTEST): hand
         the drag to Windows. Sent to the form's own thread, because that is
@@ -813,7 +872,13 @@ def main(argv=None) -> int:
         # its handle before it can see that it has nothing to do, and that was
         # a round trip into .NET on every step of every move for the life of
         # the window.
-        win.events.moved += lambda *_: _HOOKED or keep_off_the_taskbar(win)
+        # Returns None either way. pywebview gathers every handler's answer
+        # into a SET, and `_HOOKED or ...` answered with `_HOOKED` itself - a
+        # set, which cannot go into a set - so every move after the hook was
+        # in printed "unhashable type: 'set'" and a traceback into lee's
+        # window log.
+        win.events.moved += lambda *_: (None if _HOOKED
+                                        else keep_off_the_taskbar(win))
     webview.start(gui=gui, debug=a.debug, private_mode=False,
                   storage_path=os.path.join(userdata.user_dir(), "webview"),
                   icon=_icon())

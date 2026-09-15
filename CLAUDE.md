@@ -386,6 +386,49 @@ full suite (lee: *"skip the full suite"*); what ran instead is below.
   1.0.12), and the balloon, box-type, cleaning, editor, website, version,
   workflow and release tests - 234 plus the release set.
 
+## 1.1.0 (2026-09-15) - a fresh start
+
+lee tested this build locally (`tools/run_local.ps1`) and chose to make it a
+new line: *"i want this version to be the new 1.0.1 versiona and deleet the old
+ones"*. Released as **1.1.0**, not 1.0.1: the launcher only updates to a HIGHER
+number (`check_for_update`, `choose_and_prepare`), so a 1.0.1 would never reach
+a copy already on 1.0.2+ (lee's included), and v1.0.1 was a published tag. After
+1.1.0 was published and its manifest and installer link checked, the thirteen
+old GitHub releases and their tags (v1.0.0-v1.0.13, there was no 1.0.5) were
+deleted; the `models` release, which mirrors the weights, was kept.
+
+* **Browse, Save as and Open** use the app window's own dialog
+  (`Api.pick_dir`/`pick_project`, modal to the window); the server's Tk dialog
+  is the fallback and what a browser tab gets. Checked in a real pywebview
+  window. Also `window.py`'s moved handler no longer returns `_HOOKED` (a set -
+  "unhashable type: 'set'" filled the window log).
+* **Screen copy** no longer assumes Japanese, English, manga or webtoons (lee:
+  *"look at teh app and chnage anything tah has psecifca thing like jappensee
+  manga manhwa in te ui"*); detector names, the language and format menus and the
+  format hints kept.
+* **The Translation view shows no paint.** A page opens in Translation, `setView`
+  ran before any paint canvas existed, and `ensureCanvas` made one visible.
+  Canvases are born in the state the view wants (`paintShownIn`), and `setView`
+  hides `#paintOver` too. `test_the_translation_view_shows_no_paint`.
+* **Coins in the tab row** after the tabs; **Account** fetched once after the
+  first page is up (`acctPrefetch`, idle) and drawn at once when opened, then
+  refreshed; its card, table and footer full width. The prefetch first ran beside
+  the page's own requests and made `test_box_types_on_screen` lose rows - it
+  waits for idle now. `test_the_account_page_is_ready_before_it_opens`.
+* **Report a problem** looks like the app (button links, a "What gets sent" card
+  with Copy), and the GPL line is gone from it (the licence stays in LICENSE,
+  NOTICE and the site).
+* **Settings:** card pickers two across (2x2); the faces the app ships are
+  "Built in", not Your fonts - `bundle.read` copies every font a project uses,
+  shipped ones included, into ~/.mangatl/fonts, and the list could not tell them
+  apart (`userdata.is_builtin_copy`, nothing deleted); Box types add row first,
+  with a divider. `test_the_shipped_fonts_are_built_in`.
+* **Not run: the full suite.** What ran: every change's own and neighbouring
+  tests, each new test checked to fail on 1.0.13. Overlapping runs (helpers'
+  suites plus mine, on OneDrive) produced dozens of browser failures that all
+  passed alone or failed on 1.0.13 too; the one real one was the prefetch above.
+  `tools/run_local.ps1` now stops a leftover local editor on its own port.
+
 ## Driving the app window from a Claude Code session
 
 * WebView2 would not start (0x80080005) from the session's own shell with a

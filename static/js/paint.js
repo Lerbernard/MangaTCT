@@ -475,6 +475,8 @@ function ensureOverCanvas(){
     c.id='paintOver';
     c.style.cssText='position:absolute;left:0;top:0;z-index:23;'+
                     'pointer-events:none';
+    // Born hidden outside the Image view, like `#paint` - see `paintShownIn`.
+    c.style.display=paintShownIn();
     $('stage').appendChild(c);
   }
   if(c.width!==img.naturalWidth||c.height!==img.naturalHeight){
@@ -486,12 +488,29 @@ function ensureOverCanvas(){
 /* Is this layer drawn over the text? One question, asked in six places. */
 function isOver(l){ return !!(l && l.over); }
 
+/* THE STROKES ARE THE IMAGE VIEW'S, and only the Image view's. The Translation
+   view is the artwork as it came - lee, with his Translation view showing the
+   healing he had painted on page 001: *"on the tranlation tab some of teh man
+   cenning that i did is shouing up on that tab"*.
+
+   `setView` hides the canvases when the view changes, but a page OPENS in the
+   Translation view, and on that first change there is no canvas yet to hide.
+   The page's saved layers then arrive and `ensureCanvas` made one - visible,
+   because nothing said otherwise - and every stroke was drawn over the
+   original. So a canvas is born in the state the current view wants, and
+   `setView` asks the same question of both canvases. */
+function paintShownIn(v){
+  const now = (v !== undefined) ? v : (typeof view === 'undefined' ? 'typeset' : view);
+  return now === 'typeset' ? '' : 'none';
+}
+
 function ensureCanvas(){
   let c=$('paint');
   if(!c){
     c=document.createElement('canvas');
     c.id='paint';
     c.style.cssText='position:absolute;left:0;top:0;z-index:18;pointer-events:none';
+    c.style.display=paintShownIn();
     $('stage').appendChild(c);
     c.addEventListener('mousedown',paintDown);
     c.addEventListener('mousemove',cloneHover);

@@ -134,7 +134,7 @@ def test_the_api_object_holds_nothing_pywebview_would_walk_into():
                 walk(attr, full, depth + 1)
     walk(api)
     assert set(functions) == {"state", "minimize", "toggle_maximize", "close", "hit", "focus",
-                              "open_url"}
+                              "open_url", "pick_dir", "pick_project"}
     assert not [n for n in vars(api) if not n.startswith("_")], \
         "every attribute on the Api object is private"
 

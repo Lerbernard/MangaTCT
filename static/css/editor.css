@@ -603,6 +603,12 @@ body.multipick .box{cursor:copy}
 .swatch.fixed:hover{transform:none}
 /* Box types, grouped under the three main types. */
 .ckfam{margin-top:10px}
+/* The rule between the add row and the list of box types under it, the same
+   1px line a heading in the settings column carries (`#setBody h3`). The add
+   row sat under the last sub-type of the last family, a screen and a half
+   down; it is first now, and the line says where adding ends and the list
+   begins. lee: *"move this up and adda diveer for it"*. */
+.cksep{height:0;margin:14px 0 4px;border-top:1px solid var(--line)}
 .ckfamh{margin:0 0 4px;font-size:10px;letter-spacing:.09em;
   text-transform:uppercase;color:var(--dim)}
 .ckrow{margin-top:4px;gap:8px}
@@ -1784,7 +1790,11 @@ body.laydragging .lay{cursor:grabbing}
    The count sits in the top bar between the tabs and the page tools, on its
    own group: the two groups either side of it swap with the tab you are on,
    and what is left to spend is true on every tab. */
-.coinwrap{position:relative;flex:none;margin-left:auto;margin-right:14px}
+/* ...and it has moved down, into the tab row right after the tabs. lee: *"move
+   teh coins down"*. `margin-right:auto` is what keeps the page controls on the
+   far right of that row now that there are three things in it, and the purse
+   opens from the button's LEFT edge, which is where the button is. */
+.coinwrap{position:relative;flex:none;margin-left:12px;margin-right:auto}
 #coinBtn{display:flex;align-items:center;gap:7px;padding:5px 10px;
  font-variant-numeric:tabular-nums}
 #coinBtn .coinface{flex:none;display:block}
@@ -1793,7 +1803,7 @@ body.laydragging .lay{cursor:grabbing}
 #coinBtn.low{border-color:#c8890033;color:#ffc400}
 #coinBtn.broke{border-color:#e0555540;color:#ff9b9b}
 #coinN{min-width:10px;text-align:right}
-#walletPop{display:none;position:absolute;right:0;top:calc(100% + 8px);
+#walletPop{display:none;position:absolute;left:0;right:auto;top:calc(100% + 8px);
  width:320px;max-height:70vh;overflow:auto;z-index:60;
  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
  box-shadow:0 14px 34px #000a;padding:12px;text-align:left}
@@ -1887,6 +1897,72 @@ body.laydragging .lay{cursor:grabbing}
    label - a label names a control and this names the shape of a group. */
 .sethint{margin:4px 2px 2px;color:var(--dim);font-size:12px;line-height:1.55}
 
+/* A LINK THAT IS A BUTTON. `<a class="btn">` had no rule at all, so File >
+   Help showed the browser's own blue underlined link on the dark screen. It
+   wears exactly what `button` and `button.pri` wear above - the same plate,
+   the same lift under the pointer and press on the click - so a link that
+   leaves the app looks like every other thing you press in it. */
+a.btn{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);
+ color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 11px;
+ font-size:12px;line-height:1.5;text-decoration:none;cursor:pointer;
+ transition:background .12s ease, border-color .12s ease,
+            transform .06s ease, box-shadow .12s ease}
+a.btn:hover{background:#2f3648;border-color:#4a5670;color:var(--fg);
+ box-shadow:0 1px 4px rgba(0,0,0,.35);transform:translateY(-1px)}
+a.btn:active{background:#232a37;border-color:#3c465a;transform:translateY(1px);
+ box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+a.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a.btn.pri{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:600}
+a.btn.pri:hover{background:#ffd851;border-color:#ffd851;color:#161616;
+ box-shadow:0 2px 8px rgba(255,199,0,.28)}
+a.btn.pri:active{background:#e0ab00;border-color:#e0ab00;
+ box-shadow:inset 0 2px 6px rgba(0,0,0,.3)}
+a.btn svg{flex:0 0 auto;display:block}
+
+/* FILE > HELP > REPORT A PROBLEM. lee: *"make this look better"*, with a
+   picture of the section: blue links, a 220px well of monospace with most of
+   it empty, a Copy button stranded under it and a footer running straight on.
+   It is laid out like the Account page now: the ways to ask as a row of real
+   buttons (Discord the filled one, email the plain one), and the details in a
+   card of the Account purse's make - panel, hairline, 12px corners - whose
+   header names it, says calmly that it never holds a key, and carries Copy.
+   The license line that used to end the section is gone (lee: *"and remove
+   this Free software, GNU GPL v3. The source of this version is in the app's
+   folder and on the download page."*), so the card is the last thing on it. */
+.helplead{margin:6px 0 0}
+.helplinks{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.helplinks:empty{display:none}
+.helplinks a.btn{font-size:13px;padding:8px 15px}
+.diagcard{margin-top:22px;background:var(--panel);border:1px solid var(--line);
+ border-radius:12px;overflow:hidden;transition:border-color .12s ease}
+.diagcard:focus-within{border-color:#4a5670}
+.diaghead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;
+ flex-wrap:wrap;padding:12px 14px 12px 16px;border-bottom:1px solid var(--line)}
+.diagwhat{display:flex;flex-direction:column;gap:3px;min-width:0}
+.diagwhat b{font-size:13px;font-weight:650;letter-spacing:-.005em}
+.diagsafe{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:12px}
+.diagsafe svg{flex:0 0 auto;color:var(--ok);opacity:.8}
+.diagcopy{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
+.diagcopy svg{display:block;flex:0 0 auto}
+.diagcopy .ic-ok{display:none}
+.diagcopy.done .ic-ok{display:block}
+.diagcopy.done .ic-copy{display:none}
+/* Past `button:hover`, which is more specific than a class: the pointer is
+   still on the button when it says Copied, and the green has to show then. */
+button.diagcopy.done,button.diagcopy.done:hover:not(:disabled){color:var(--ok);
+ border-color:rgba(74,222,128,.55);background:rgba(74,222,128,.09)}
+/* The details themselves: set into the card rather than a box inside a box,
+   wrapped so nothing hides off the right edge at a narrow window (only how it
+   is SHOWN - the text copied is the same), and as tall as it is (fitDiag). */
+#diagText{display:block;width:100%;min-height:0;margin:0;border:0;border-radius:0;
+ background:#12151b;color:#cdd2dc;padding:12px 16px;
+ font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;
+ overflow-wrap:anywhere;overflow:auto}
+#diagText:focus{outline:none}
+/* Said to a screen reader, not shown. */
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+ clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
 /* THE WINDOW'S OWN FRAME (chrome.js). Only under `html.framed`, which the
    page sets once the window says it has no system frame of its own. The
    three buttons are drawn to Windows' caption-button measure - 46 wide, the
@@ -1961,11 +2037,15 @@ html.maximized #winEdges{display:none}
 .homecard-proj .x:hover{border-color:var(--line);color:var(--fg)}
 .homeempty{color:var(--dim);font-size:13px}
 
-/* Settings > Account. */
+/* Settings > Account. Every part the same width - the coin card, the name
+   row, the table and the footer. The card stopped at 560px and the table and
+   footer at 720 while the name row ran the whole column, so the page read as
+   three different lengths. lee: *"mae the coins tab theg same lenght as
+   everything else"*. */
 .acctpurse{display:flex;align-items:center;justify-content:space-between;gap:16px;
-  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;max-width:560px}
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
 .accth{margin:26px 0 10px;font-size:14px;font-weight:650}
-.acctledger{border-collapse:collapse;font-size:13px;max-width:720px;width:100%}
+.acctledger{border-collapse:collapse;font-size:13px;width:100%}
 .acctledger th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;
   letter-spacing:.06em;padding:4px 10px 6px 0;border-bottom:1px solid var(--line)}
 .acctledger td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
@@ -1975,7 +2055,7 @@ html.maximized #winEdges{display:none}
 .acctname{flex:1 1 280px}
 .acctname .row{gap:8px} .acctname input{flex:1 1 auto;min-width:0}
 .acctfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:26px;
-  padding-top:14px;border-top:1px solid var(--line);max-width:720px}
+  padding-top:14px;border-top:1px solid var(--line)}
 .acctwho{display:flex;align-items:baseline;gap:10px;font-size:15px}
 .acctwho .muted{font-size:12px}
 .acctcoins{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:15px}
@@ -2019,9 +2099,20 @@ html.maximized #winEdges{display:none}
 
    `--on` is the selected border and it is drawn INSIDE with a ring rather
    than by growing the border, because a 2px border on select and 1px off
-   moves every card beside it by a pixel when you click. */
+   moves every card beside it by a pixel when you click.
+
+   TWO ACROSS. lee: *"make teh boxes 2x2"*. At the settings column's 760px a
+   210px minimum fitted three, so the four detail cards and the four detector
+   cards each read as a row of three and one card alone on a line of its own.
+   Every group of these holds an even number on screen - two readers, four
+   details, four detectors on either format - so two across makes each a
+   rectangle. The minimum is half the column less half the gap, which is why a
+   third never fits; below 428px half is under 210px, that floor takes over,
+   and the group drops to one column. The settings column stops shrinking at
+   614px, so in practice that is only ever a card group placed somewhere
+   narrower. */
 .cards{display:grid;gap:8px;margin-top:10px;
-       grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+       grid-template-columns:repeat(auto-fit,minmax(max(210px,calc(50% - 4px)),1fr))}
 .cards .card{display:flex;flex-direction:column;gap:2px;text-align:left;
              padding:11px 12px;border:1px solid var(--line,#d9dde2);
              border-radius:9px;background:var(--panel,#fff);cursor:pointer;

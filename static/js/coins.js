@@ -409,6 +409,10 @@ async function acPost(body){
   const r = await fetch(apiUrl('/api/account'), {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body)});
+  // Anything posted here changes the account - a sign-in, a sign-out, a new
+  // name - so the Account page kept from before is not this account's any
+  // more. See `acctFetch`.
+  _acctView = null;
   return await r.json().catch(() => ({error: 'The server did not answer.'}));
 }
 
@@ -487,10 +491,41 @@ function acctWhen(ms){
   catch(e){ return ''; }
 }
 
+/* THE ACCOUNT PAGE, READY BEFORE IT IS OPENED. lee: *"the account page takes
+   a while to load, make it load as teh app is scting so there no delay"*.
+
+   `/api/account` asks the account service for the balance, the name and every
+   coin that moved - seconds, not milliseconds - and the page waited for it
+   every time it opened, blank until the answer came. So it is asked once while
+   the app starts (`acctPrefetch`, from boot.js) and the answer is kept. Opening
+   the page draws that answer at once, then asks again behind it and draws the
+   new one - unless somebody is typing their name, which a redraw would wipe.
+   A post to the account clears what was kept (`acPost`), so a sign-out never
+   shows the signed-in page for a moment. One question at a time: a page
+   opened while the startup question is still out waits for that one. */
+let _acctView = null;
+let _acctAsking = null;
+function acctFetch(){
+  if(!_acctAsking){
+    _acctAsking = api('/api/account')
+      .then(v => { _acctView = v; return v; })
+      .finally(() => { _acctAsking = null; });
+  }
+  return _acctAsking;
+}
+function acctPrefetch(){ acctFetch().catch(() => {}); }
+
 async function renderAccount(){
   const box = $('acctBox'); if(!box) return;
+  if(_acctView) paintAccount(box, _acctView);
   let v;
-  try{ v = await api('/api/account'); }catch(e){ return; }
+  try{ v = await acctFetch(); }catch(e){ return; }
+  const typing = document.activeElement && document.activeElement.id === 'acctName';
+  if(typing && box.querySelector('#acctName')) return;
+  paintAccount(box, v);
+}
+
+function paintAccount(box, v){
   const w = v.account || {};
   wallet = Object.assign(wallet || {}, w);
   if(!w.configured){

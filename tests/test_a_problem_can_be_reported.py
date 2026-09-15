@@ -6,6 +6,7 @@ and what the log said - and never a key.
 """
 import json
 import os
+import re
 
 import pytest
 
@@ -80,7 +81,14 @@ def test_the_help_section_is_under_file_and_says_what_it_sends():
     assert 'id="diagText"' in sec and "readonly" in sec
     assert "never a key" in sec
     assert "Read it before you" in sec and "send it" in sec
-    assert "GNU GPL" in sec, "the source offer goes where the person is"
+    # The license line is off this screen. lee: *"and remove this Free
+    # software, GNU GPL v3. The source of this version is in the app's folder
+    # and on the download page."* The source offer still stands where it is
+    # pinned - the website's download page (test_the_download_page) and the
+    # LICENSE that ships (test_the_licence_is_stated). Comments are taken out
+    # first: the one that says why keeps his words, and those name the GPL.
+    shown = re.sub(r"<!--.*?-->", "", sec, flags=re.S)
+    assert "GNU GPL" not in shown and "source of this version" not in shown
     js = JS.joinpath("project.js").read_text(encoding="utf-8")
     for fn in ("async function openHelp()", "function copyDiag()", "function openGuide()"):
         assert fn in js, fn

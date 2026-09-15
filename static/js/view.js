@@ -453,7 +453,15 @@ async function setView(v){
   if(v!=='typeset') stopBrush();
   // The Edit tab draws the strokes itself on the paint canvas; everywhere
   // else (export, results) they are baked in server-side.
-  const pcv=$('paint'); if(pcv) pcv.style.display = v==='typeset'?'':'none';
+  // BOTH canvases - the band above the text as well as the one below it - and
+  // by the same rule a newly made canvas is born with (`paintShownIn`), so the
+  // Translation view never shows a stroke. lee: *"on the tranlation tab some
+  // of teh man cenning that i did is shouing up on that tab"*.
+  ['paint','paintOver'].forEach(id=>{
+    const c=$(id);
+    if(c) c.style.display = (typeof paintShownIn==='function')
+      ? paintShownIn(v) : (v==='typeset'?'':'none');
+  });
   syncViewChrome();
   syncTextToggle();
   if(typeof exactChrome==='function') exactChrome();
