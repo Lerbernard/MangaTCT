@@ -395,7 +395,14 @@ number (`check_for_update`, `choose_and_prepare`), so a 1.0.1 would never reach
 a copy already on 1.0.2+ (lee's included), and v1.0.1 was a published tag. After
 1.1.0 was published and its manifest and installer link checked, the thirteen
 old GitHub releases and their tags (v1.0.0-v1.0.13, there was no 1.0.5) were
-deleted; the `models` release, which mirrors the weights, was kept.
+deleted. That delete went wrong: its filter (`gh release list --json ... |
+ConvertFrom-Json | Where-Object`) passed EVERY release in Windows PowerShell
+5.1, where ConvertFrom-Json hands the whole array down the pipeline as one
+object, so v1.1.0 and the `models` release went too, with their tags. Put back
+the same day: tag v1.1.0 (325035f) pushed again so the Release workflow rebuilt
+it, and `models` re-created (not Latest) from lee's local weights, each checked
+against its sha256 in `tools/models.json` first. Before any bulk delete, print
+the exact list and check it.
 
 * **Browse, Save as and Open** use the app window's own dialog
   (`Api.pick_dir`/`pick_project`, modal to the window); the server's Tk dialog
